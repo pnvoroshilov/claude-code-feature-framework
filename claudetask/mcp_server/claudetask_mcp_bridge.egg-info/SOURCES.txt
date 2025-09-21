@@ -1,0 +1,8 @@
+claudetask_mcp_bridge.py
+setup.py
+claudetask_mcp_bridge.egg-info/PKG-INFO
+claudetask_mcp_bridge.egg-info/SOURCES.txt
+claudetask_mcp_bridge.egg-info/dependency_links.txt
+claudetask_mcp_bridge.egg-info/entry_points.txt
+claudetask_mcp_bridge.egg-info/requires.txt
+claudetask_mcp_bridge.egg-info/top_level.txt

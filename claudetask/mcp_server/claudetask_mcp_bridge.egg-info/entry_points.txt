@@ -1,0 +1,2 @@
+[console_scripts]
+claudetask-mcp-bridge = claudetask_mcp_bridge:main
