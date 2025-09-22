@@ -100,11 +100,30 @@ async def create_project_structure_docker(
     agents_dir = os.path.join(claude_dir, "agents")
     dfs.create_directory_on_host(agents_dir)
     
-    # Create agent files
-    for agent_config in get_default_agents():
-        agent_path = os.path.join(agents_dir, f"{agent_config['name']}.md")
-        if dfs.write_file_to_host(agent_path, agent_config['config']):
-            files_created.append(f".claude/agents/{agent_config['name']}.md")
+    # Copy agent files from framework-assets
+    framework_path = os.path.abspath(os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
+    ))
+    agents_source_dir = os.path.join(framework_path, "framework-assets", "agents")
+    
+    if os.path.exists(agents_source_dir):
+        for subdir in os.listdir(agents_source_dir):
+            subdir_path = os.path.join(agents_source_dir, subdir)
+            if os.path.isdir(subdir_path):
+                for agent_file in os.listdir(subdir_path):
+                    if agent_file.endswith(".md"):
+                        source_file = os.path.join(subdir_path, agent_file)
+                        dest_file = os.path.join(agents_dir, agent_file)
+                        with open(source_file, "r") as src:
+                            content = src.read()
+                            if dfs.write_file_to_host(dest_file, content):
+                                files_created.append(f".claude/agents/{agent_file}")
+    else:
+        # Fallback to default agents if framework-assets not found
+        for agent_config in get_default_agents():
+            agent_path = os.path.join(agents_dir, f"{agent_config['name']}.md")
+            if dfs.write_file_to_host(agent_path, agent_config['config']):
+                files_created.append(f".claude/agents/{agent_config['name']}.md")
     
     # Create .claudetask directory
     claudetask_dir = os.path.join(project_path, ".claudetask")

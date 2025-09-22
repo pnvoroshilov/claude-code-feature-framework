@@ -11,6 +11,7 @@ import Dashboard from './pages/Dashboard';
 import ProjectSetup from './pages/ProjectSetup';
 import ProjectManager from './pages/ProjectManager';
 import TaskBoard from './pages/TaskBoard';
+import ClaudeSessions from './pages/ClaudeSessions';
 import Settings from './pages/Settings';
 
 const theme = createTheme({
@@ -58,6 +59,7 @@ function App() {
                 <Route path="/setup" element={<ProjectSetup />} />
                 <Route path="/projects" element={<ProjectManager />} />
                 <Route path="/tasks" element={<TaskBoard />} />
+                <Route path="/sessions" element={<ClaudeSessions />} />
                 <Route path="/settings" element={<Settings />} />
               </Routes>
             </Box>

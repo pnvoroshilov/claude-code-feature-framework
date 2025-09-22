@@ -33,10 +33,11 @@ import {
   Folder as FolderIcon,
   PlayArrow as PlayArrowIcon,
   Refresh as RefreshIcon,
+  SystemUpdate as SystemUpdateIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { format } from 'date-fns';
-import { getProjects, getActiveProject, updateProject, deleteProject, activateProject, Project } from '../services/api';
+import { getProjects, getActiveProject, updateProject, deleteProject, activateProject, updateFramework, Project } from '../services/api';
 
 interface EditProjectDialogProps {
   open: boolean;
@@ -181,6 +182,34 @@ const ProjectManager: React.FC = () => {
     handleMenuClose();
   };
 
+  const [updateFrameworkLoading, setUpdateFrameworkLoading] = useState(false);
+  const [updateFrameworkResult, setUpdateFrameworkResult] = useState<{
+    success: boolean;
+    message: string;
+    updated_files?: string[];
+  } | null>(null);
+
+  const handleUpdateFramework = async (project: Project) => {
+    setUpdateFrameworkLoading(true);
+    try {
+      const result = await updateFramework(project.id);
+      setUpdateFrameworkResult({
+        success: result.success,
+        message: result.message,
+        updated_files: result.updated_files
+      });
+      setTimeout(() => setUpdateFrameworkResult(null), 5000);
+    } catch (error) {
+      setUpdateFrameworkResult({
+        success: false,
+        message: 'Failed to update framework files'
+      });
+    } finally {
+      setUpdateFrameworkLoading(false);
+    }
+    handleMenuClose();
+  };
+
   if (isLoading) {
     return (
       <Box sx={{ p: 3 }}>
@@ -201,6 +230,29 @@ const ProjectManager: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
+      {updateFrameworkResult && (
+        <Alert 
+          severity={updateFrameworkResult.success ? "success" : "error"} 
+          sx={{ mb: 2 }}
+          onClose={() => setUpdateFrameworkResult(null)}
+        >
+          {updateFrameworkResult.message}
+          {updateFrameworkResult.updated_files && updateFrameworkResult.updated_files.length > 0 && (
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="body2">Updated files:</Typography>
+              <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
+                {updateFrameworkResult.updated_files.slice(0, 5).map((file, index) => (
+                  <li key={index}><Typography variant="caption">{file}</Typography></li>
+                ))}
+                {updateFrameworkResult.updated_files.length > 5 && (
+                  <li><Typography variant="caption">...and {updateFrameworkResult.updated_files.length - 5} more</Typography></li>
+                )}
+              </ul>
+            </Box>
+          )}
+        </Alert>
+      )}
+      
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h4" component="h1">
           Project Manager
@@ -345,6 +397,12 @@ const ProjectManager: React.FC = () => {
             <ListItemText>Activate</ListItemText>
           </MenuItem>
         )}
+        <MenuItem onClick={() => handleUpdateFramework(menuAnchor.project!)}>
+          <ListItemIcon>
+            <SystemUpdateIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Update Framework</ListItemText>
+        </MenuItem>
         <MenuItem onClick={() => handleEdit(menuAnchor.project!)}>
           <ListItemIcon>
             <EditIcon fontSize="small" />

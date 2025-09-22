@@ -15,6 +15,7 @@ import {
   Settings as SettingsIcon,
   Build as SetupIcon,
   Folder as ProjectIcon,
+  Terminal as TerminalIcon,
 } from '@mui/icons-material';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -24,6 +25,7 @@ const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
   { text: 'Projects', icon: <ProjectIcon />, path: '/projects' },
   { text: 'Task Board', icon: <TaskIcon />, path: '/tasks' },
+  { text: 'Claude Sessions', icon: <TerminalIcon />, path: '/sessions' },
   { text: 'Project Setup', icon: <SetupIcon />, path: '/setup' },
   { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
 ];

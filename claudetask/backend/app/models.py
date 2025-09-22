@@ -51,6 +51,7 @@ class Project(Base):
     tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")
     settings = relationship("ProjectSettings", back_populates="project", uselist=False, cascade="all, delete-orphan")
     agents = relationship("Agent", cascade="all, delete-orphan")
+    claude_sessions = relationship("ClaudeSession", back_populates="project", cascade="all, delete-orphan")
 
 
 class Task(Base):
@@ -76,6 +77,7 @@ class Task(Base):
     # Relationships
     project = relationship("Project", back_populates="tasks")
     history = relationship("TaskHistory", back_populates="task", cascade="all, delete-orphan")
+    claude_sessions = relationship("ClaudeSession", back_populates="task", cascade="all, delete-orphan")
 
 
 class TaskHistory(Base):
@@ -92,6 +94,29 @@ class TaskHistory(Base):
     
     # Relationships
     task = relationship("Task", back_populates="history")
+
+
+class ClaudeSession(Base):
+    """Claude Code session model for task-based development"""
+    __tablename__ = "claude_sessions"
+    
+    id = Column(String, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+    status = Column(String, nullable=False, default="idle")  # idle, initializing, active, paused, completed, error
+    working_dir = Column(String, nullable=True)
+    context = Column(Text, nullable=True)
+    messages = Column(JSON, nullable=True)  # Store message history as JSON
+    session_metadata = Column(JSON, nullable=True)  # Store metadata like tools used, errors, etc
+    summary = Column(Text, nullable=True)
+    statistics = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)
+    
+    # Relationships
+    task = relationship("Task", back_populates="claude_sessions")
+    project = relationship("Project", back_populates="claude_sessions")
 
 
 class ProjectSettings(Base):

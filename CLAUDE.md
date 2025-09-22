@@ -90,6 +90,7 @@ CREATE TABLE project_settings (
 - Proper error propagation
 - Connection pooling for database
 - Request/response logging
+- Complete task workflow with merge operations
 
 ### Frontend Components
 

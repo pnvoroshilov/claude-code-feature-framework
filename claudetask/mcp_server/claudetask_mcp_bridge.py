@@ -25,6 +25,156 @@ class ClaudeTaskMCPServer:
         self.server_url = server_url.rstrip("/")
         self.server = Server("claudetask")
         
+        # Available local agents (verified to exist in /agents/development/)
+        self.available_agents = [
+            "ai-implementation-expert",
+            "api-validator",
+            "backend-architect",
+            "background-tester",
+            "context-analyzer",
+            "data-formatter",
+            "devops-engineer",
+            "docs-generator",
+            "frontend-developer",
+            "fullstack-code-reviewer",
+            "mcp-engineer",
+            "memory-sync",
+            "mobile-react-expert",
+            "python-api-expert",
+            "ux-ui-researcher",
+            "web-tester"
+        ]
+        
+        # Agent mapping for task types and statuses with intelligent specialization
+        self.agent_mappings = {
+            "Feature": {
+                "Ready": "frontend-developer",
+                "In Progress": "frontend-developer",
+                "Testing": "background-tester",
+                "Code Review": "fullstack-code-reviewer"
+            },
+            "Bug": {
+                "Ready": "backend-architect",
+                "In Progress": "backend-architect",
+                "Testing": "background-tester",
+                "Code Review": "fullstack-code-reviewer"
+            },
+            "Refactoring": {
+                "Ready": "backend-architect",
+                "In Progress": "backend-architect",
+                "Testing": "background-tester",
+                "Code Review": "fullstack-code-reviewer"
+            },
+            "Documentation": {
+                "Ready": "docs-generator",
+                "In Progress": "docs-generator",
+                "Testing": "docs-generator",
+                "Code Review": "fullstack-code-reviewer"
+            },
+            "Performance": {
+                "Ready": "devops-engineer",
+                "In Progress": "devops-engineer",
+                "Testing": "background-tester",
+                "Code Review": "fullstack-code-reviewer"
+            },
+            "Security": {
+                "Ready": "devops-engineer",
+                "In Progress": "devops-engineer",
+                "Testing": "background-tester",
+                "Code Review": "fullstack-code-reviewer"
+            },
+            "DevOps": {
+                "Ready": "devops-engineer",
+                "In Progress": "devops-engineer",
+                "Testing": "devops-engineer",
+                "Code Review": "fullstack-code-reviewer"
+            },
+            "MCP": {
+                "Ready": "mcp-engineer",
+                "In Progress": "mcp-engineer",
+                "Testing": "background-tester",
+                "Code Review": "fullstack-code-reviewer"
+            },
+            "Integration": {
+                "Ready": "mcp-engineer",
+                "In Progress": "mcp-engineer",
+                "Testing": "background-tester",
+                "Code Review": "fullstack-code-reviewer"
+            },
+            "API": {
+                "Ready": "api-validator",
+                "In Progress": "python-api-expert",
+                "Testing": "api-validator",
+                "Code Review": "fullstack-code-reviewer"
+            },
+            "Mobile": {
+                "Ready": "mobile-react-expert",
+                "In Progress": "mobile-react-expert",
+                "Testing": "background-tester",
+                "Code Review": "fullstack-code-reviewer"
+            },
+            "Testing": {
+                "Ready": "background-tester",
+                "In Progress": "background-tester",
+                "Testing": "background-tester",
+                "Code Review": "fullstack-code-reviewer"
+            },
+            "E2E": {
+                "Ready": "web-tester",
+                "In Progress": "web-tester",
+                "Testing": "web-tester",
+                "Code Review": "fullstack-code-reviewer"
+            },
+            "UX": {
+                "Ready": "ux-ui-researcher",
+                "In Progress": "ux-ui-researcher",
+                "Testing": "ux-ui-researcher",
+                "Code Review": "ux-ui-researcher"
+            },
+            "UI": {
+                "Ready": "ux-ui-researcher",
+                "In Progress": "ux-ui-researcher",
+                "Testing": "web-tester",
+                "Code Review": "ux-ui-researcher"
+            },
+            "AI": {
+                "Ready": "ai-implementation-expert",
+                "In Progress": "ai-implementation-expert",
+                "Testing": "background-tester",
+                "Code Review": "fullstack-code-reviewer"
+            },
+            "ML": {
+                "Ready": "ai-implementation-expert",
+                "In Progress": "ai-implementation-expert",
+                "Testing": "background-tester",
+                "Code Review": "fullstack-code-reviewer"
+            },
+            "Context": {
+                "Ready": "context-analyzer",
+                "In Progress": "context-analyzer",
+                "Testing": "background-tester",
+                "Code Review": "fullstack-code-reviewer"
+            },
+            "Memory": {
+                "Ready": "memory-sync",
+                "In Progress": "memory-sync",
+                "Testing": "background-tester",
+                "Code Review": "fullstack-code-reviewer"
+            },
+            "Data": {
+                "Ready": "data-formatter",
+                "In Progress": "data-formatter",
+                "Testing": "background-tester",
+                "Code Review": "fullstack-code-reviewer"
+            }
+        }
+        
+        # Status progression flow
+        self.status_flow = [
+            "Backlog", "Analysis", "Ready", "In Progress", 
+            "Testing", "Code Review", "Done"
+        ]
+        
         # Setup tool handlers
         self._setup_tools()
         
@@ -125,8 +275,14 @@ class ClaudeTaskMCPServer:
                             },
                             "agent_type": {
                                 "type": "string",
-                                "enum": ["task-analyzer", "feature-developer", "bug-fixer", "test-runner", "code-reviewer"],
-                                "description": "Type of agent to delegate to"
+                                "enum": [
+                                    "ai-implementation-expert", "api-validator", "backend-architect",
+                                    "background-tester", "context-analyzer", "data-formatter",
+                                    "devops-engineer", "docs-generator", "frontend-developer",
+                                    "fullstack-code-reviewer", "mcp-engineer", "memory-sync",
+                                    "mobile-react-expert", "python-api-expert"
+                                ],
+                                "description": "Type of agent to delegate to (all available specialized agents)"
                             },
                             "instructions": {
                                 "type": "string",
@@ -161,6 +317,91 @@ class ClaudeTaskMCPServer:
                             }
                         },
                         "required": ["task_id", "analysis"]
+                    }
+                ),
+                types.Tool(
+                    name="recommend_agent",
+                    description="Get intelligent agent recommendation based on task context",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "task_type": {
+                                "type": "string",
+                                "description": "Type of the task"
+                            },
+                            "status": {
+                                "type": "string",
+                                "description": "Current status of the task"
+                            },
+                            "title": {
+                                "type": "string",
+                                "description": "Task title for context analysis"
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Task description for context analysis"
+                            }
+                        },
+                        "required": ["task_type", "status", "title", "description"]
+                    }
+                ),
+                types.Tool(
+                    name="list_agents",
+                    description="Get information about all available specialized agents",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {},
+                        "required": []
+                    }
+                ),
+                types.Tool(
+                    name="complete_task",
+                    description="Merge task branch to main and cleanup worktree",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "task_id": {
+                                "type": "integer",
+                                "description": "Task ID to complete"
+                            },
+                            "create_pr": {
+                                "type": "boolean",
+                                "description": "Create PR instead of direct merge (default: false)"
+                            }
+                        },
+                        "required": ["task_id"]
+                    }
+                ),
+                types.Tool(
+                    name="start_claude_session",
+                    description="Start a Claude Code session for a task",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "task_id": {
+                                "type": "integer",
+                                "description": "Task ID to start session for"
+                            },
+                            "context": {
+                                "type": "string",
+                                "description": "Additional context for the session"
+                            }
+                        },
+                        "required": ["task_id"]
+                    }
+                ),
+                types.Tool(
+                    name="get_session_status",
+                    description="Get current Claude session status for a task",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "task_id": {
+                                "type": "integer",
+                                "description": "Task ID to check session for"
+                            }
+                        },
+                        "required": ["task_id"]
                     }
                 )
             ]
@@ -198,6 +439,29 @@ class ClaudeTaskMCPServer:
                         arguments["task_id"],
                         arguments["analysis"]
                     )
+                elif name == "recommend_agent":
+                    return await self._recommend_agent(
+                        arguments["task_type"],
+                        arguments["status"],
+                        arguments["title"],
+                        arguments["description"]
+                    )
+                elif name == "list_agents":
+                    return await self._list_agents()
+                elif name == "complete_task":
+                    return await self._complete_task(
+                        arguments["task_id"],
+                        arguments.get("create_pr", False)
+                    )
+                elif name == "start_claude_session":
+                    return await self._start_claude_session(
+                        arguments["task_id"],
+                        arguments.get("context", "")
+                    )
+                elif name == "get_session_status":
+                    return await self._get_session_status(
+                        arguments["task_id"]
+                    )
                 else:
                     raise ValueError(f"Unknown tool: {name}")
                     
@@ -223,7 +487,7 @@ class ClaudeTaskMCPServer:
                 
                 return [types.TextContent(
                     type="text",
-                    text=f"""Next Task Retrieved:
+                    text=f"""✅ TASK RETRIEVED - IMMEDIATE ACTION REQUIRED:
 
 ID: {task['id']}
 Title: {task['title']}
@@ -234,7 +498,10 @@ Status: {task['status']}
 Description:
 {task.get('description', 'No description provided')}
 
-You should now analyze this task using the 'analyze_task' tool."""
+⚡ EXECUTE IMMEDIATELY:
+mcp:analyze_task {task['id']}
+
+This command will start the analysis process for this task."""
                 )]
                 
             except httpx.HTTPError as e:
@@ -242,6 +509,150 @@ You should now analyze this task using the 'analyze_task' tool."""
                     type="text",
                     text=f"Failed to get next task: {str(e)}"
                 )]
+
+    def _get_agent_for_task(self, task_type: str, status: str, title: str = "", description: str = "") -> str:
+        """Get the appropriate agent for a task type and status with intelligent context analysis"""
+        # First check explicit type mappings
+        agent = self.agent_mappings.get(task_type, {}).get(status, None)
+        
+        # If no explicit mapping, use intelligent context analysis
+        if not agent:
+            agent = self._analyze_task_context(task_type, title, description, status)
+        
+        # Validate agent exists
+        if agent not in self.available_agents:
+            return "backend-architect"  # fallback to available agent
+        return agent
+    
+    def _analyze_task_context(self, task_type: str, title: str, description: str, status: str) -> str:
+        """Intelligently analyze task context to select the best agent"""
+        text = f"{title} {description}".lower()
+        
+        # AI/ML patterns
+        if any(keyword in text for keyword in ["ai", "ml", "machine learning", "neural", "model", "training", "inference"]):
+            return "ai-implementation-expert"
+        
+        # API patterns
+        if any(keyword in text for keyword in ["api", "endpoint", "rest", "graphql", "webhook", "integration"]):
+            if "python" in text or "fastapi" in text or "django" in text:
+                return "python-api-expert"
+            return "api-validator"
+        
+        # Mobile patterns
+        if any(keyword in text for keyword in ["mobile", "react native", "ios", "android", "app"]):
+            return "mobile-react-expert"
+        
+        # E2E and browser testing patterns
+        if any(keyword in text for keyword in ["e2e", "end-to-end", "playwright", "cypress", "selenium", "browser test", "visual regression"]):
+            return "web-tester"
+        
+        # UX/UI research patterns
+        if any(keyword in text for keyword in ["ux", "ui", "user experience", "user interface", "usability", "design system", "accessibility", "wcag", "user research"]):
+            return "ux-ui-researcher"
+        
+        # Testing patterns  
+        if any(keyword in text for keyword in ["test", "testing", "coverage", "unit test", "integration test"]):
+            return "background-tester"
+        
+        # Documentation patterns
+        if any(keyword in text for keyword in ["docs", "documentation", "readme", "guide", "manual"]):
+            return "docs-generator"
+        
+        # Code review patterns
+        if any(keyword in text for keyword in ["review", "refactor", "optimize", "clean"]):
+            return "fullstack-code-reviewer"
+        
+        # Context/Memory patterns
+        if any(keyword in text for keyword in ["context", "memory", "state", "session", "cache"]):
+            if "sync" in text or "synchronize" in text:
+                return "memory-sync"
+            return "context-analyzer"
+        
+        # Data patterns
+        if any(keyword in text for keyword in ["data", "format", "parse", "transform", "csv", "json", "xml"]):
+            return "data-formatter"
+        
+        # DevOps patterns
+        if any(keyword in text for keyword in ["deploy", "docker", "kubernetes", "ci/cd", "pipeline", "infrastructure"]):
+            return "devops-engineer"
+        
+        # MCP patterns
+        if any(keyword in text for keyword in ["mcp", "protocol", "server", "bridge", "tool"]):
+            return "mcp-engineer"
+        
+        # Frontend patterns
+        if any(keyword in text for keyword in ["ui", "frontend", "react", "component", "css", "html"]):
+            return "frontend-developer"
+        
+        # Default to backend for general tasks
+        return "backend-architect"
+    
+    def _validate_agent_exists(self, agent_type: str) -> bool:
+        """Validate that the requested agent actually exists locally"""
+        return agent_type in self.available_agents
+    
+    def _get_status_progression_instructions(self, task_type: str, current_status: str) -> str:
+        """Get detailed status progression instructions with agent mappings"""
+        try:
+            current_index = self.status_flow.index(current_status)
+        except ValueError:
+            current_index = 0
+            
+        next_status = self.status_flow[current_index + 1] if current_index + 1 < len(self.status_flow) else "Done"
+        recommended_agent = self._get_agent_for_task(task_type, next_status)
+        
+        instructions = f"""📋 STATUS PROGRESSION GUIDE - {task_type.upper()} TASK
+
+Current Status: {current_status}
+Next Status: {next_status}
+Recommended Agent: {recommended_agent}
+
+🔄 COMPLETE WORKFLOW:
+"""
+        
+        for i, status in enumerate(self.status_flow):
+            is_current = status == current_status
+            is_next = status == next_status
+            agent = self._get_agent_for_task(task_type, status)
+            
+            if status == "Backlog":
+                handler = "YOU (Coordinator)"
+                commands = "mcp:get_next_task"
+            elif status == "Analysis":
+                handler = "YOU (Coordinator)"
+                commands = "mcp:analyze_task <task_id>"
+            else:
+                handler = f"AGENT: {agent}"
+                commands = f"1. mcp:delegate_to_agent <task_id> {agent} '<instructions>' (registers intent)\n     2. /task \"{agent}\" \"<full task details>\" (ACTUAL delegation)"
+            
+            marker = "🔴 CURRENT" if is_current else "🟡 NEXT" if is_next else "⚪"
+            
+            instructions += f"""
+{marker} {i+1}. {status}:
+   Handler: {handler}
+   Command: {commands}
+   Updates: mcp:update_status <task_id> "{status}"
+"""
+        
+        instructions += f"""
+
+⚡ IMMEDIATE NEXT ACTIONS:
+1️⃣ UPDATE STATUS: mcp:update_status <task_id> "{next_status}"
+2️⃣ REGISTER DELEGATION: mcp:delegate_to_agent <task_id> {recommended_agent} "<instructions>"
+3️⃣ EXECUTE DELEGATION: /task "{recommended_agent}" "<full task details>"
+4️⃣ MONITOR: Track progress and advance to next status when complete
+
+🎯 AUTO-PROGRESSION COMMANDS:
+- Current → Next: mcp:update_status <task_id> "{next_status}"
+- Register Intent: mcp:delegate_to_agent <task_id> {recommended_agent} "<instructions>"
+- Actual Delegation: /task "{recommended_agent}" "<task details>"
+- Check Queue: mcp:get_task_queue
+- Get Next: mcp:get_next_task
+
+⚠️ CRITICAL: mcp:delegate_to_agent only REGISTERS intent. Use /task to ACTUALLY delegate!
+"""
+        
+        return instructions
 
     async def _analyze_task(self, task_id: int) -> list[types.TextContent]:
         """Analyze a task and create implementation plan"""
@@ -258,36 +669,54 @@ You should now analyze this task using the 'analyze_task' tool."""
                     json={"status": "Analysis", "comment": "Started task analysis"}
                 )
                 
+                # Get recommended agent for this task type
+                recommended_agent = self._get_agent_for_task(
+                    task['type'], "Ready", task.get('title', ''), task.get('description', '')
+                )
+                progression_guide = self._get_status_progression_instructions(task['type'], "Analysis")
+                
                 return [types.TextContent(
                     type="text",
-                    text=f"""Task Analysis Started:
+                    text=f"""🔍 ANALYSIS MODE ACTIVATED - TASK #{task_id}
 
 Task: {task['title']}
-Type: {task['type']}
+Type: {task['type']}  
 Priority: {task['priority']}
+Recommended Agent: {recommended_agent}
 
 Description:
 {task.get('description', 'No description provided')}
 
-COORDINATOR INSTRUCTIONS:
-As the coordinator, you should:
+⚡ EXECUTE THIS SEQUENCE NOW:
 
-1. Scan the codebase to understand the current implementation
-2. Identify files that will be affected  
-3. Assess complexity and potential risks
-4. Create a detailed implementation plan
-5. Save your analysis using 'update_task_analysis' tool
-6. Update status to 'Ready' when analysis is complete
-7. Delegate the actual implementation to the appropriate agent
+1️⃣ IMMEDIATELY scan the codebase:
+   - Use grep/find to locate relevant files
+   - Read main implementation files
+   - Identify dependencies and impacts
 
-NEVER modify code directly. Use the 'delegate_to_agent' tool for all implementation work.
+2️⃣ CREATE your analysis (include):
+   - Affected files list
+   - Implementation approach
+   - Risk assessment
+   - Estimated complexity
+   - Security considerations
+   - Performance implications
 
-Next steps:
-1. Use tools to explore the codebase
-2. Create your detailed analysis text
-3. Save analysis using: update_task_analysis with task_id {task_id} and your analysis
-4. Change status to 'Ready' using: update_status with task_id {task_id} and status 'Ready'
-5. Delegate to appropriate agent for implementation using: delegate_to_agent"""
+3️⃣ SAVE your analysis:
+   mcp:update_task_analysis {task_id} "<your comprehensive analysis>"
+
+4️⃣ UPDATE status:
+   mcp:update_status {task_id} Ready
+
+5️⃣ REGISTER delegation intent:
+   mcp:delegate_to_agent {task_id} {recommended_agent} "<implementation instructions>"
+
+6️⃣ EXECUTE actual delegation:
+   /task "{recommended_agent}" "Task #{task_id}: [full details and instructions]"
+
+{progression_guide}
+
+🚀 START NOW with step 1 - scan the codebase!"""
                 )]
                 
             except httpx.HTTPError as e:
@@ -310,9 +739,26 @@ Next steps:
                 )
                 response.raise_for_status()
                 
+                # Get task details to provide progression guidance
+                task_response = await client.get(f"{self.server_url}/api/tasks/{task_id}")
+                task_response.raise_for_status()
+                task = task_response.json()
+                
+                # Get next steps guidance
+                progression_guide = self._get_status_progression_instructions(task['type'], status)
+                
                 return [types.TextContent(
                     type="text",
-                    text=f"Task {task_id} status updated to: {status}"
+                    text=f"""✅ STATUS UPDATED SUCCESSFULLY
+
+Task #{task_id}: {task['title']}
+Type: {task['type']}
+New Status: {status}
+{f"Comment: {comment}" if comment else ""}
+
+{progression_guide}
+
+🚀 CONTINUE AUTONOMOUS WORKFLOW - Execute the next actions above!"""
                 )]
                 
             except httpx.HTTPError as e:
@@ -461,43 +907,62 @@ Completed Today: {completed_today}
         """Delegate work to specialized agent"""
         async with httpx.AsyncClient() as client:
             try:
+                # Get task details first
+                response = await client.get(f"{self.server_url}/api/tasks/{task_id}")
+                response.raise_for_status()
+                task = response.json()
+                
+                # Validate agent exists locally
+                if not self._validate_agent_exists(agent_type):
+                    return [types.TextContent(
+                        type="text",
+                        text=f"❌ AGENT NOT AVAILABLE: {agent_type}\n\nAvailable agents: {', '.join(self.available_agents)}\n\nPlease use delegate_to_agent with one of the available agents."
+                    )]
+                
+                # Get recommended agent for comparison
+                recommended_agent = self._get_agent_for_task(
+                    task['type'], task['status'], task.get('title', ''), task.get('description', '')
+                )
+                
+                validation_note = ""
+                if agent_type != recommended_agent:
+                    validation_note = f"\n⚠️  NOTE: {agent_type} selected for {task['type']} task. Recommended: {recommended_agent}\n"
+                
                 # Update task with assigned agent
                 await client.patch(
                     f"{self.server_url}/api/tasks/{task_id}",
                     json={"assigned_agent": agent_type}
                 )
                 
-                # Get task details
-                response = await client.get(f"{self.server_url}/api/tasks/{task_id}")
-                response.raise_for_status()
-                task = response.json()
+                # Get status progression guidance
+                progression_guide = self._get_status_progression_instructions(task['type'], task['status'])
                 
                 return [types.TextContent(
                     type="text",
-                    text=f"""🤖 Task Delegated to {agent_type}
+                    text=f"""⚠️ DELEGATION REGISTERED BUT NOT EXECUTED!
 
-Task: #{task_id} - {task['title']}
-Agent: {agent_type}
-Worktree: {task.get('worktree_path', 'Not created yet')}
-
-Instructions for {agent_type}:
+Task #{task_id}: {task['title']}
+Type: {task['type']} | Status: {task['status']}
+Agent Selected: {agent_type}
+{validation_note}
+📋 Instructions Recorded:
 {instructions}
 
-COORDINATOR REMINDER:
-- You have successfully delegated this task
-- Monitor progress and provide guidance as needed
-- The agent will work in the isolated worktree
-- Update task status as work progresses
-- Review completed work before merging
+🚨 CRITICAL: DELEGATION IS NOT COMPLETE YET!
 
-The {agent_type} should now:
-1. Work in the designated worktree
-2. Follow the implementation plan
-3. Make necessary code changes
-4. Run tests to verify functionality
-5. Update you on progress
+You must now USE the Task tool to actually delegate:
 
-Next: Monitor the agent's work and update task status accordingly."""
+🔥 EXECUTE THIS COMMAND NOW:
+/task "{agent_type}" "Task #{task_id}: {task['title']}\n\nType: {task['type']}\nInstructions: {instructions}\n\nWorktree: {task.get('worktree_path', 'Will be created')}\n\nPlease implement this task following the provided instructions."
+
+IMPORTANT: Delegation is NOT complete until you run the Task tool above!
+
+📋 After Task tool execution, continue with:
+1️⃣ CREATE worktree: mcp:create_worktree {task_id}
+2️⃣ UPDATE status: mcp:update_status {task_id} "In Progress"
+3️⃣ MONITOR agent progress
+
+{progression_guide}"""
                 )]
                 
             except httpx.HTTPError as e:
@@ -596,6 +1061,373 @@ The task now contains your analysis and is ready for the next phase."""
                 return [types.TextContent(
                     type="text",
                     text=f"Failed to save analysis: {str(e)}"
+                )]
+
+    async def _recommend_agent(self, task_type: str, status: str, title: str, description: str) -> list[types.TextContent]:
+        """Get intelligent agent recommendation based on task context"""
+        try:
+            # Get agent recommendation using our intelligent analysis
+            recommended_agent = self._get_agent_for_task(task_type, status, title, description)
+            
+            # Also get the basic mapping for comparison
+            basic_recommendation = self.agent_mappings.get(task_type, {}).get(status, "backend-architect")
+            
+            # Analyze why this agent was selected
+            context_analysis = self._get_recommendation_reasoning(task_type, title, description, recommended_agent)
+            
+            response_text = f"""🎯 INTELLIGENT AGENT RECOMMENDATION
+
+Task Type: {task_type}
+Status: {status}
+Title: {title}
+
+🤖 RECOMMENDED AGENT: {recommended_agent}
+
+📊 ANALYSIS:
+{context_analysis}
+
+📋 COMPARISON:
+- Context-based recommendation: {recommended_agent}
+- Basic type mapping: {basic_recommendation}
+- Match: {'✅ Yes' if recommended_agent == basic_recommendation else '⚠️ No - Context override applied'}
+
+🚀 NEXT STEPS:
+1. Use delegate_to_agent with: {recommended_agent}
+2. Or explore other agents with: mcp:list_agents
+3. Register delegation: mcp:delegate_to_agent <task_id> {recommended_agent} "<instructions>"
+4. Execute: /task "{recommended_agent}" "<task details>"
+"""
+            
+            return [types.TextContent(type="text", text=response_text)]
+            
+        except Exception as e:
+            return [types.TextContent(
+                type="text",
+                text=f"Failed to recommend agent: {str(e)}"
+            )]
+    
+    def _get_recommendation_reasoning(self, task_type: str, title: str, description: str, recommended_agent: str) -> str:
+        """Get reasoning for why a specific agent was recommended"""
+        text = f"{title} {description}".lower()
+        
+        # Create reasoning based on detected patterns
+        reasoning = []
+        
+        if "ai" in text or "ml" in text:
+            reasoning.append("🧠 AI/ML keywords detected - requires specialized ML expertise")
+        if "api" in text:
+            reasoning.append("🔌 API keywords detected - needs API design and validation skills")
+        if "test" in text:
+            reasoning.append("🧪 Testing keywords detected - requires testing expertise")
+        if "mobile" in text:
+            reasoning.append("📱 Mobile keywords detected - needs mobile development skills")
+        if "docs" in text or "documentation" in text:
+            reasoning.append("📚 Documentation keywords detected - requires technical writing skills")
+        if "review" in text or "refactor" in text:
+            reasoning.append("🔍 Code review keywords detected - needs comprehensive review skills")
+        if "context" in text or "memory" in text:
+            reasoning.append("🧩 Context/Memory keywords detected - requires state management expertise")
+        if "data" in text and ("format" in text or "parse" in text):
+            reasoning.append("📊 Data formatting keywords detected - needs data processing skills")
+        if "deploy" in text or "docker" in text:
+            reasoning.append("🚀 DevOps keywords detected - requires infrastructure expertise")
+        if "mcp" in text:
+            reasoning.append("🔗 MCP keywords detected - needs protocol integration expertise")
+        if "frontend" in text or "ui" in text:
+            reasoning.append("🎨 Frontend keywords detected - requires UI/UX development skills")
+        
+        if not reasoning:
+            reasoning.append(f"📝 Task type '{task_type}' matched to standard agent mapping")
+        
+        return "\n".join(f"  • {r}" for r in reasoning)
+
+    async def _list_agents(self) -> list[types.TextContent]:
+        """Get information about all available specialized agents"""
+        try:
+            agent_descriptions = {
+                "ai-implementation-expert": "🧠 AI/ML specialist - machine learning, neural networks, model training/inference",
+                "api-validator": "🔌 API specialist - REST/GraphQL endpoints, validation, testing",
+                "backend-architect": "🏗️ Backend specialist - server architecture, databases, core logic",
+                "background-tester": "🧪 Testing specialist - unit/integration tests, coverage, automation",
+                "context-analyzer": "🧩 Context specialist - state analysis, context management, session handling",
+                "data-formatter": "📊 Data specialist - parsing, transformation, CSV/JSON/XML processing",
+                "devops-engineer": "🚀 DevOps specialist - deployment, Docker, CI/CD, infrastructure",
+                "docs-generator": "📚 Documentation specialist - technical writing, guides, API docs",
+                "frontend-developer": "🎨 Frontend specialist - React, UI/UX, components, styling",
+                "fullstack-code-reviewer": "🔍 Code review specialist - comprehensive review, refactoring, optimization",
+                "mcp-engineer": "🔗 MCP specialist - protocol integration, server bridges, tools",
+                "memory-sync": "💾 Memory specialist - synchronization, caching, state persistence",
+                "mobile-react-expert": "📱 Mobile specialist - React Native, iOS/Android development",
+                "python-api-expert": "🐍 Python API specialist - FastAPI, Django, Python web services"
+            }
+            
+            response_text = """🤖 AVAILABLE SPECIALIZED AGENTS
+
+Here are all the agents available for task delegation:
+
+"""
+            
+            for agent in self.available_agents:
+                description = agent_descriptions.get(agent, "📝 Specialized agent")
+                response_text += f"""
+**{agent}**
+{description}
+
+"""
+            
+            response_text += """
+💡 INTELLIGENT SELECTION:
+- Use 'recommend_agent' tool for context-based recommendations
+- Agents are automatically selected based on task keywords and type
+- Override recommendations when you have specific expertise needs
+
+🎯 DELEGATION WORKFLOW:
+1. Get recommendation: mcp:recommend_agent <type> <status> "<title>" "<description>"
+2. Register intent: mcp:delegate_to_agent <task_id> <agent> "<instructions>"
+3. Execute delegation: /task "<agent>" "<full task details>"
+
+📋 TASK TYPE MAPPINGS:
+- Feature/Bug → frontend-developer, backend-architect
+- API → api-validator, python-api-expert  
+- Mobile → mobile-react-expert
+- Testing → background-tester
+- E2E Testing → web-tester
+- UX/UI Research → ux-ui-researcher
+- Documentation → docs-generator
+- Code Review → fullstack-code-reviewer
+- AI/ML → ai-implementation-expert
+- DevOps → devops-engineer
+- Context/Memory → context-analyzer, memory-sync
+- Data → data-formatter
+- MCP → mcp-engineer
+"""
+            
+            return [types.TextContent(type="text", text=response_text)]
+            
+        except Exception as e:
+            return [types.TextContent(
+                type="text",
+                text=f"Failed to list agents: {str(e)}"
+            )]
+    
+    async def _complete_task(self, task_id: int, create_pr: bool = False) -> list[types.TextContent]:
+        """Complete a task by merging to main and cleaning up worktree"""
+        async with httpx.AsyncClient() as client:
+            try:
+                # Get task details first
+                response = await client.get(f"{self.server_url}/api/tasks/{task_id}")
+                response.raise_for_status()
+                task = response.json()
+                
+                if not task:
+                    return [types.TextContent(
+                        type="text",
+                        text=f"Task {task_id} not found"
+                    )]
+                
+                # Check if task has a git branch
+                if not task.get('git_branch'):
+                    return [types.TextContent(
+                        type="text",
+                        text=f"Task {task_id} has no associated git branch"
+                    )]
+                
+                # Call the completion endpoint
+                completion_response = await client.post(
+                    f"{self.server_url}/api/tasks/{task_id}/complete",
+                    json={"create_pr": create_pr}
+                )
+                completion_response.raise_for_status()
+                result = completion_response.json()
+                
+                if result.get("success"):
+                    status_emoji = "✅" if result.get("merged") else "📝"
+                    
+                    response_text = f"""{status_emoji} TASK COMPLETION - Task #{task_id}
+
+📋 Task: {task['title']}
+🌳 Branch: {task['git_branch']}
+
+🎯 RESULTS:
+- Merged to main: {'✅ Yes' if result.get('merged') else '❌ No'}
+- Worktree removed: {'✅ Yes' if result.get('worktree_removed') else '❌ No'}  
+- Branch deleted: {'✅ Yes' if result.get('branch_deleted') else '❌ No'}
+"""
+                    
+                    if result.get('pr_url'):
+                        response_text += f"- Pull Request: {result['pr_url']}\n"
+                    
+                    if result.get('errors'):
+                        response_text += f"\n⚠️ WARNINGS:\n"
+                        for error in result['errors']:
+                            response_text += f"- {error}\n"
+                    
+                    response_text += f"""
+📊 SUMMARY:
+Task has been {'merged to main branch' if result.get('merged') else 'prepared for review via PR'}.
+{'The worktree and feature branch have been cleaned up.' if result.get('worktree_removed') else 'Manual cleanup may be required.'}
+
+✨ Task #{task_id} is now complete!"""
+                    
+                else:
+                    response_text = f"""❌ TASK COMPLETION FAILED - Task #{task_id}
+
+📋 Task: {task['title']}
+🌳 Branch: {task['git_branch']}
+
+🔴 ERRORS:
+"""
+                    for error in result.get('errors', ['Unknown error']):
+                        response_text += f"- {error}\n"
+                    
+                    response_text += """
+💡 TROUBLESHOOTING:
+1. Check for merge conflicts: git status
+2. Ensure branch is up to date: git pull origin main
+3. Verify worktree status: git worktree list
+4. Try manual merge if needed"""
+                
+                return [types.TextContent(type="text", text=response_text)]
+                
+            except httpx.HTTPStatusError as e:
+                error_detail = ""
+                if e.response.text:
+                    try:
+                        error_json = e.response.json()
+                        error_detail = error_json.get("detail", str(e))
+                    except:
+                        error_detail = e.response.text
+                else:
+                    error_detail = str(e)
+                    
+                return [types.TextContent(
+                    type="text",
+                    text=f"Failed to complete task {task_id}: {error_detail}"
+                )]
+            except Exception as e:
+                return [types.TextContent(
+                    type="text",
+                    text=f"Error completing task {task_id}: {str(e)}"
+                )]
+    
+    async def _start_claude_session(self, task_id: int, context: str = "") -> list[types.TextContent]:
+        """Start a Claude session for a task"""
+        async with httpx.AsyncClient() as client:
+            try:
+                # Start session via API
+                response = await client.post(
+                    f"{self.server_url}/api/tasks/{task_id}/session/start",
+                    json={"context": context}
+                )
+                response.raise_for_status()
+                result = response.json()
+                
+                if result.get("success"):
+                    response_text = f"""🚀 CLAUDE SESSION STARTED - Task #{task_id}
+
+📁 Working Directory: {result.get('session', {}).get('working_dir')}
+🆔 Session ID: {result.get('session', {}).get('id')}
+📊 Status: {result.get('session', {}).get('status')}
+
+💡 SESSION FEATURES:
+- Isolated workspace for this task
+- Full access to project codebase
+- MCP tools available for task management
+- Session persists across reconnections
+
+🛠️ AVAILABLE COMMANDS:
+- Update status: mcp:update_status {task_id} <status>
+- Complete task: mcp:complete_task {task_id}
+- Delegate work: mcp:delegate_to_agent {task_id} <agent> "<instructions>"
+- Check session: mcp:get_session_status {task_id}
+
+✨ Session is now active and ready for development!"""
+                else:
+                    response_text = f"""❌ FAILED TO START SESSION - Task #{task_id}
+
+Error: {result.get('error', 'Unknown error')}
+
+💡 Troubleshooting:
+1. Check if task exists and is in valid state
+2. Ensure project path is accessible
+3. Verify Claude integration is configured"""
+                
+                return [types.TextContent(type="text", text=response_text)]
+                
+            except httpx.HTTPStatusError as e:
+                return [types.TextContent(
+                    type="text",
+                    text=f"Failed to start session: HTTP {e.response.status_code}"
+                )]
+            except Exception as e:
+                return [types.TextContent(
+                    type="text",
+                    text=f"Error starting session: {str(e)}"
+                )]
+    
+    async def _get_session_status(self, task_id: int) -> list[types.TextContent]:
+        """Get Claude session status for a task"""
+        async with httpx.AsyncClient() as client:
+            try:
+                # Get session status
+                response = await client.get(
+                    f"{self.server_url}/api/tasks/{task_id}/session"
+                )
+                
+                if response.status_code == 404:
+                    return [types.TextContent(
+                        type="text",
+                        text=f"No Claude session found for task {task_id}"
+                    )]
+                
+                response.raise_for_status()
+                session = response.json()
+                
+                # Format session status
+                response_text = f"""📊 CLAUDE SESSION STATUS - Task #{task_id}
+
+🆔 Session ID: {session.get('id', 'N/A')}
+📍 Status: {session.get('status', 'unknown').upper()}
+📁 Working Directory: {session.get('working_dir', 'N/A')}
+
+📈 STATISTICS:
+- Total Messages: {len(session.get('messages', []))}
+- Session Started: {session.get('created_at', 'N/A')}
+- Last Updated: {session.get('updated_at', 'N/A')}
+"""
+                
+                # Add metadata if available
+                metadata = session.get('metadata', {})
+                if metadata:
+                    tools_used = metadata.get('tools_used_count', {})
+                    if tools_used:
+                        response_text += "\n🔧 TOOLS USED:\n"
+                        for tool, count in tools_used.items():
+                            response_text += f"- {tool}: {count} times\n"
+                
+                # Add recent messages
+                messages = session.get('messages', [])
+                if messages:
+                    response_text += f"\n💬 RECENT MESSAGES ({min(3, len(messages))} of {len(messages)}):\n"
+                    for msg in messages[-3:]:
+                        role = msg.get('role', 'unknown')
+                        content = msg.get('content', '')[:100]
+                        if len(msg.get('content', '')) > 100:
+                            content += "..."
+                        response_text += f"- [{role}]: {content}\n"
+                
+                response_text += f"""
+🎯 SESSION CONTROLS:
+- Pause: mcp:pause_session {task_id}
+- Resume: mcp:resume_session {task_id}
+- Send message: POST /api/tasks/{task_id}/session/message"""
+                
+                return [types.TextContent(type="text", text=response_text)]
+                
+            except httpx.HTTPError as e:
+                return [types.TextContent(
+                    type="text",
+                    text=f"Failed to get session status: {str(e)}"
                 )]
 
     async def run(self):

@@ -11,24 +11,32 @@ def generate_claude_md(project_name: str, project_path: str, tech_stack: List[st
     
     template = f"""# Project: {project_name}
 
-## ClaudeTask Integration ✅
-You are working with ClaudeTask framework. This project is managed through the ClaudeTask system.
+## 🚀 AUTONOMOUS CLAUDETASK COORDINATOR
 
-## IMPORTANT: Agent-Based Development
-This project uses specialized agents located in `.claude/agents/` directory. 
-ALWAYS delegate work to appropriate agents instead of implementing directly:
-- Use `Task tool` with the agent configurations from `.claude/agents/`
-- Each agent has specific expertise and responsibilities
-- Agents work in isolated git worktrees for safety
+**YOU ARE AUTONOMOUS - ALWAYS CONTINUE PROCESSING TASKS**
 
-## MCP Commands
-Always use these commands to work with tasks:
-- `mcp:get_next_task` - Get the highest priority task from backlog
-- `mcp:analyze_task <id>` - Analyze a specific task
-- `mcp:update_status <id> <status>` - Update task status
-- `mcp:create_worktree <id>` - Create isolated workspace for task
-- `mcp:verify_connection` - Check ClaudeTask connection
-- `mcp:delegate_to_agent <id> <agent> <instructions>` - Delegate to specialized agent
+⚡ **START IMMEDIATELY:** Run `mcp:get_task_queue` to begin!
+
+## MCP AUTONOMOUS WORKFLOW
+
+### Core Commands (USE THESE CONTINUOUSLY):
+1. `mcp:get_task_queue` - 🔄 Check for tasks (RUN FIRST!)
+2. `mcp:get_next_task` - 🎯 Get highest priority task
+3. `mcp:analyze_task <id>` - 🔍 Analyze (IMMEDIATELY after getting task)
+4. `mcp:update_task_analysis <id> "<text>"` - 📝 Save analysis
+5. `mcp:update_status <id> <status>` - 📋 Update status
+6. `mcp:create_worktree <id>` - 🌳 Create workspace
+7. `mcp:delegate_to_agent <id> <agent> "<instructions>"` - 🤖 Delegate
+
+### CONTINUOUS LOOP (NEVER STOP):
+```
+1. mcp:get_task_queue → Check for tasks
+2. If tasks: mcp:get_next_task → Get task
+3. mcp:analyze_task <id> → Analyze immediately
+4. mcp:update_task_analysis <id> "..." → Save
+5. mcp:delegate_to_agent <id> <agent> "..." → Delegate
+6. LOOP BACK TO STEP 1 → Continue forever!
+```
 
 ## Project Configuration
 - **Path**: {project_path}
@@ -37,22 +45,32 @@ Always use these commands to work with tasks:
 - **Build Command**: {commands.get('build', 'Not configured')}
 - **Lint Command**: {commands.get('lint', 'Not configured')}
 
-## Workflow Rules
-1. ⚠️ ALWAYS work through ClaudeTask tasks
-2. ⚠️ NEVER make changes directly in main branch
-3. ⚠️ ALWAYS use git worktrees for development
-4. ⚠️ UPDATE task status in real-time
-5. ⚠️ DELEGATE implementation to agents from `.claude/agents/`
-6. ⚠️ COMPLETE the full workflow for each task
+## AUTONOMOUS OPERATION RULES
 
-## Task Workflow
-1. **Get Task** → Retrieve from backlog via MCP
-2. **Analyze** → Understand requirements and plan
-3. **Delegate** → Assign to appropriate agent from `.claude/agents/`
-4. **Monitor** → Track agent progress in worktree
-5. **Test** → Run tests and verify
-6. **Review** → Self-review and create PR
-7. **Complete** → Merge and cleanup
+🤖 **YOU ARE SELF-DIRECTED - ACT WITHOUT WAITING**
+
+1. ✅ **START IMMEDIATELY** - Run `mcp:get_task_queue` when conversation begins
+2. ✅ **NEVER PAUSE** - Always proceed to next action
+3. ✅ **CONTINUOUS PROCESSING** - After delegation, get next task
+4. ✅ **NO DIRECT CODING** - Delegate ALL implementation
+5. ✅ **REAL-TIME UPDATES** - Update status as you work
+6. ✅ **INFINITE LOOP** - Keep processing until queue empty
+
+## TASK PROCESSING SEQUENCE
+
+**EXECUTE THIS LOOP CONTINUOUSLY:**
+
+```bash
+while true; do
+  1. mcp:get_task_queue        # Check for tasks
+  2. mcp:get_next_task         # Get task if available
+  3. mcp:analyze_task <id>     # Analyze IMMEDIATELY
+  4. mcp:update_task_analysis  # Save your analysis
+  5. mcp:update_status Ready   # Mark as ready
+  6. mcp:delegate_to_agent     # Delegate to agent
+  # LOOP BACK TO 1 - NEVER STOP!
+done
+```
 
 ## Task Statuses
 - **Backlog**: New, unanalyzed task

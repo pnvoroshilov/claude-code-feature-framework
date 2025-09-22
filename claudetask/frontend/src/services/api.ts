@@ -97,6 +97,16 @@ export const activateProject = async (id: string): Promise<Project> => {
   return response.data;
 };
 
+export const updateFramework = async (id: string): Promise<{
+  success: boolean;
+  updated_files: string[];
+  errors: string[];
+  message: string;
+}> => {
+  const response = await api.post(`/projects/${id}/update-framework`);
+  return response.data;
+};
+
 // Tasks
 export const getTasks = async (projectId: string, filters?: {
   status?: string;

@@ -30,6 +30,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   PlayArrow as StartIcon,
+  Terminal as TerminalIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { getActiveProject, getTasks, createTask, updateTaskStatus, deleteTask, Task } from '../services/api';
@@ -104,6 +105,29 @@ const TaskBoard: React.FC = () => {
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
     setTaskDetailsOpen(true);
+  };
+
+  const handleLaunchClaudeSession = async (taskId: number) => {
+    try {
+      const response = await fetch(`http://localhost:3333/api/sessions/launch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ task_id: taskId }),
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        // Show success message or redirect to sessions page
+        alert(`Claude session launched for task #${taskId}. Check your terminal.`);
+      } else {
+        alert('Failed to launch Claude session');
+      }
+    } catch (error) {
+      console.error('Error launching Claude session:', error);
+      alert('Error launching Claude session');
+    }
   };
 
   const getTasksByStatus = (status: string) => {
@@ -229,6 +253,19 @@ const TaskBoard: React.FC = () => {
                         />
                         <ListItemSecondaryAction>
                           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                            {(column.status === 'Ready' || column.status === 'In Progress') && (
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleLaunchClaudeSession(task.id);
+                                }}
+                                title="Launch Claude Session"
+                                color="primary"
+                              >
+                                <TerminalIcon />
+                              </IconButton>
+                            )}
                             {column.status === 'Backlog' && (
                               <IconButton
                                 size="small"
