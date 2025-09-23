@@ -33,6 +33,7 @@ from .services.mcp_service import mcp_service
 from .services.project_service import ProjectService
 from .services.git_workflow_service import GitWorkflowService
 from .services.claude_session_service import ClaudeSessionService, SessionStatus
+from .services.real_claude_service import real_claude_service
 
 logger = logging.getLogger(__name__)
 
@@ -1357,8 +1358,6 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 @app.get("/api/sessions/embedded/active")
 async def get_active_embedded_sessions():
     """Get all active embedded Claude sessions"""
-    from .services.real_claude_service import real_claude_service
-    
     return {
         "sessions": real_claude_service.get_active_sessions()
     }
