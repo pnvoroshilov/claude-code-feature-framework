@@ -578,15 +578,15 @@ Analysis:
             return """📍 NEXT STEPS (Status: Analysis):
 1. Complete the analysis of this task
 2. Save analysis: mcp:update_task_analysis <task_id> "<analysis>"
-3. Update status: mcp:update_status <task_id> "Ready"
-4. Task will be ready for development"""
+3. ⚠️ MANDATORY: Update to In Progress: mcp:update_status <task_id> "In Progress"
+   (NEVER update to Ready - go directly to In Progress)
+4. Task will then be ready for development"""
         
         elif status == "Ready":
-            return """📍 NEXT STEPS (Status: Ready):
-1. Update to 'In Progress': mcp:update_status <task_id> "In Progress"
-   (This will automatically create a worktree)
-2. Delegate to agent: mcp:delegate_to_agent <task_id> <agent> "<instructions>"
-3. Monitor agent progress"""
+            return """⚠️ DEPRECATED STATUS - Should not be in Ready
+1. Immediately update to 'In Progress': mcp:update_status <task_id> "In Progress"
+2. Tasks should go: Analysis → In Progress (not Ready)
+3. After updating status, delegate to appropriate agent"""
         
         elif status == "In Progress":
             return """📍 NEXT STEPS (Status: In Progress):
@@ -596,26 +596,29 @@ Analysis:
         
         elif status == "Testing":
             return """📍 NEXT STEPS (Status: Testing):
-⚠️ MANUAL TESTING PHASE - NO AUTOMATION
+🔴 FULL STOP - MANUAL TESTING ONLY
 1. Prepare test environment (ensure app is running)
 2. Provide URLs/endpoints for user to test manually
 3. Document what needs to be tested
-4. Wait for user to complete manual testing
-5. When testing complete: mcp:update_status <task_id> "Code Review"
-Note: DO NOT run automated tests or delegate to testing agents"""
+4. ⚠️ NO AUTO PROGRESSION - Wait for user
+5. ONLY user can update status after manual testing
+Note: NEVER automatically move to Code Review"""
         
         elif status == "Code Review":
             return """📍 NEXT STEPS (Status: Code Review):
-1. Complete code review
-2. Create PR: mcp:complete_task <task_id> true
-3. Update status: mcp:update_status <task_id> "PR" """
+1. Complete code review with appropriate agent
+2. After review complete → Update to Pull Request: mcp:update_status <task_id> "PR"
+3. Then create PR ONLY (no merge): mcp:complete_task <task_id> true
+⚠️ DO NOT merge to main, DO NOT run tests"""
         
         elif status == "PR":
-            return """📍 NEXT STEPS (Status: PR):
-1. Awaiting manual review by user
-2. User will test and review the Pull Request
-3. User will click 'Done' button to merge
-4. Task will automatically move to 'Done' status"""
+            return """📍 NEXT STEPS (Status: Pull Request):
+🔴 FULL STOP - NO AUTO ACTIONS
+1. PR has been created (not merged)
+2. Awaiting user to handle merge
+3. NO automatic actions allowed
+4. User will manually merge and update status
+⚠️ DO NOT attempt any automatic actions"""
         
         elif status == "Done":
             return """✅ TASK COMPLETE

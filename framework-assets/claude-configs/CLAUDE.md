@@ -418,22 +418,42 @@ SPLIT INTO:
 
 ### Status Flow with Agent Delegation:
 - **Backlog** → Get task → Delegate to analyst → **Analysis**
-- **Analysis** → Agent completes analysis → **Ready**  
-- **Ready** → Delegate to implementer → **In Progress**
-- **In Progress** → Agent completes work → **Testing**
-- **Testing** → ⚠️ PREPARE TEST ENVIRONMENT ONLY (NO AUTOMATED TESTING) → **Code Review**
-- **Code Review** → Delegate to reviewer → **Done**
+- **Analysis** → ⚠️ ALWAYS move to **In Progress** after analysis complete
+- **In Progress** → When development complete → **Testing**
+- **Testing** → ⚠️ NO AUTO PROGRESSION (Manual testing only) → Wait for user
+- **Code Review** → After review complete → **Pull Request** (PR created, no merge)
+- **Pull Request** → ⚠️ NO AUTO ACTIONS → Wait for user
 
-#### 🚨 IMPORTANT: Testing Status Special Handling
-When a task enters **Testing** status:
-1. ❌ **DO NOT** run automated tests
-2. ❌ **DO NOT** delegate to testing agents  
-3. ✅ **ONLY** prepare the testing environment:
-   - Ensure the application is running
-   - Provide access URLs/endpoints
-   - Document test scenarios if needed
-   - Notify user the environment is ready for manual testing
-4. ✅ Wait for user to manually test and update status
+#### 🔴 CRITICAL STATUS TRANSITION RULES:
+
+##### After Analysis → ALWAYS In Progress:
+- ✅ **MANDATORY**: After analysis agent completes → Update status to "In Progress"
+- ❌ **NEVER** skip to Ready or other statuses
+- ❌ **NEVER** stay in Analysis status after analysis is done
+
+##### After Development → Testing:
+- ✅ When implementation is complete → Update to "Testing"  
+- ⚠️ **Testing Status = MANUAL ONLY**:
+  - NO automated tests
+  - NO delegation to testing agents
+  - ONLY prepare test environment
+  - Wait for user to manually test
+
+##### Testing Status → NO AUTO PROGRESSION:
+- ❌ **NEVER** automatically move from Testing to Code Review
+- ✅ **ONLY** user can update status after manual testing
+- ✅ Prepare environment and wait
+
+##### Code Review → Pull Request:
+- ✅ After code review complete → Update to "Pull Request"
+- ✅ **CREATE PR ONLY** (no merge, no testing)
+- ❌ **DO NOT** merge to main
+- ❌ **DO NOT** run tests
+
+##### Pull Request Status → NO AUTO ACTIONS:
+- ⚠️ **FULL STOP** - No automatic actions
+- ✅ Wait for user to handle PR merge
+- ❌ **DO NOT** attempt to merge or update
 
 ### Status Update Rules:
 1. ✅ Update status ONLY after agent completion
