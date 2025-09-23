@@ -161,4 +161,36 @@ export const getNextTask = async (): Promise<Task | null> => {
   return response.data;
 };
 
+// Claude Sessions
+export interface ClaudeSession {
+  session_id: string;
+  task_id?: number;
+  status: 'active' | 'inactive';
+  created_at: string;
+}
+
+export const getActiveSessions = async (): Promise<ClaudeSession[]> => {
+  const response = await api.get('/sessions/embedded/active');
+  // Ensure we return an array
+  return Array.isArray(response.data) ? response.data : (response.data?.sessions || []);
+};
+
+export const createClaudeSession = async (taskId: number): Promise<{ success: boolean; session_id: string; error?: string }> => {
+  const response = await api.post('/sessions/launch/embedded', {
+    task_id: taskId,
+    context_file: ''
+  });
+  return response.data;
+};
+
+export const sendCommandToSession = async (sessionId: string, command: string): Promise<void> => {
+  await api.post(`/sessions/embedded/${sessionId}/input`, {
+    content: command + '\r'
+  });
+};
+
+export const stopClaudeSession = async (sessionId: string): Promise<void> => {
+  await api.post(`/sessions/embedded/${sessionId}/stop`);
+};
+
 export default api;
