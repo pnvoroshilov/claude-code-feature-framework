@@ -1084,11 +1084,14 @@ async def stop_embedded_session(session_id: str, db: AsyncSession = Depends(get_
         from .services.real_claude_service import real_claude_service
         from .models import ClaudeSession
         
+        logger.info(f"Stopping embedded session: {session_id}")
+        
         # Try to stop the session
         try:
             success = await real_claude_service.stop_session(session_id)
+            logger.info(f"Stop session result: {success}")
         except Exception as e:
-            logger.error(f"Error stopping embedded session: {e}")
+            logger.error(f"Error stopping embedded session: {e}", exc_info=True)
             success = False
         
         # Update database regardless of stop success

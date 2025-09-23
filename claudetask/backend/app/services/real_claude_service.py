@@ -213,23 +213,58 @@ class RealClaudeSession:
     async def stop(self) -> bool:
         """Stop the session"""
         try:
+            logger.info(f"Stopping session {self.session_id} for task {self.task_id}")
+            
+            # Signal the read thread to stop
             self.stop_reading.set()
             
+            # Clear reconnect timeout if any
+            if hasattr(self, 'reconnect_timeout'):
+                if self.reconnect_timeout:
+                    self.reconnect_timeout.cancel()
+            
+            # Terminate the child process
             if self.child and self.child.isalive():
-                self.child.terminate()
-                self.child.wait()
+                logger.info(f"Terminating Claude process PID: {self.child.pid}")
+                try:
+                    # Try graceful termination first
+                    self.child.sendcontrol('c')  # Send Ctrl+C
+                    await asyncio.sleep(0.5)
+                    
+                    if self.child.isalive():
+                        self.child.terminate(force=True)
+                        self.child.wait()
+                except Exception as term_error:
+                    logger.error(f"Error terminating process: {term_error}")
+                    # Force kill if terminate fails
+                    try:
+                        import signal
+                        import os
+                        os.kill(self.child.pid, signal.SIGKILL)
+                    except:
+                        pass
             
             self.is_running = False
             
             # Wait for read thread to finish
             if self.read_thread and self.read_thread.is_alive():
-                self.read_thread.join(timeout=5)
+                self.read_thread.join(timeout=2)
+                if self.read_thread.is_alive():
+                    logger.warning(f"Read thread didn't stop cleanly for session {self.session_id}")
             
-            logger.info(f"Session {self.session_id} stopped")
+            # Close all WebSocket connections
+            for client in self.websocket_clients[:]:
+                try:
+                    await client.close()
+                except:
+                    pass
+            self.websocket_clients.clear()
+            
+            logger.info(f"Session {self.session_id} stopped successfully")
             return True
             
         except Exception as e:
-            logger.error(f"Error stopping session: {e}")
+            logger.error(f"Error stopping session: {e}", exc_info=True)
             return False
 
 

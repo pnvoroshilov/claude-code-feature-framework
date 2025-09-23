@@ -38,6 +38,7 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const sessionCheckDoneRef = useRef(false);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const userStoppedRef = useRef(false);
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -241,41 +242,61 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
 
     ws.onclose = () => {
       setIsConnecting(false);
-      terminal.current?.writeln('\r\nConnection closed. Session remains active.');
-      // Don't set isActive to false to keep the UI in "connected" state
-      // Session is still running on backend
       
-      // Try to reconnect after a delay
-      if (isActive && sessionId) {
-        reconnectTimeoutRef.current = setTimeout(() => {
-          console.log('Attempting to reconnect...');
-          connectWebSocket(sessionId, true);
-        }, 3000);
+      // Check if user explicitly stopped the session
+      if (userStoppedRef.current) {
+        terminal.current?.writeln('\r\nSession stopped.');
+        setIsActive(false);
+        userStoppedRef.current = false;
+      } else {
+        terminal.current?.writeln('\r\nConnection closed. Session remains active.');
+        // Try to reconnect after a delay only if not user-stopped
+        if (isActive && sessionId) {
+          reconnectTimeoutRef.current = setTimeout(() => {
+            console.log('Attempting to reconnect...');
+            connectWebSocket(sessionId, true);
+          }, 3000);
+        }
       }
     };
   };
 
   const stopSession = async () => {
+    console.log(`Stopping session ${sessionId}`);
+    
+    // Mark as user-stopped to prevent reconnection
+    userStoppedRef.current = true;
+    
     // Clear reconnect timeout
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
     }
     
+    // Close WebSocket first
     if (wsRef.current) {
       wsRef.current.close();
+      wsRef.current = null;
     }
+    
+    // Then stop the backend session
     if (sessionId) {
       try {
-        await fetch(`http://localhost:3333/api/sessions/embedded/${sessionId}/stop`, {
+        terminal.current?.writeln('\r\nStopping session...');
+        const response = await fetch(`http://localhost:3333/api/sessions/embedded/${sessionId}/stop`, {
           method: 'POST',
         });
+        const result = await response.json();
+        console.log('Stop session result:', result);
       } catch (error) {
         console.error('Stop error:', error);
+        terminal.current?.writeln('\r\nError stopping session');
       }
     }
+    
     setIsActive(false);
     setSessionId(null);
-    terminal.current?.writeln('\r\nSession stopped');
+    sessionCheckDoneRef.current = false; // Allow checking for session again
   };
 
   const clearTerminal = () => {
