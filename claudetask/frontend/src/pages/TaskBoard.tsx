@@ -24,6 +24,9 @@ import {
   CircularProgress,
   Alert,
   Fab,
+  Menu,
+  Tooltip,
+  Snackbar,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -31,6 +34,15 @@ import {
   Delete as DeleteIcon,
   PlayArrow as StartIcon,
   Terminal as TerminalIcon,
+  MoreVert as MoreIcon,
+  ArrowForward as NextIcon,
+  ArrowBack as BackIcon,
+  CheckCircle as CompleteIcon,
+  BugReport as BugIcon,
+  Block as BlockIcon,
+  Code as CodeIcon,
+  Assignment as AssignmentIcon,
+  Send as PRIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { getActiveProject, getTasks, createTask, updateTaskStatus, deleteTask, Task } from '../services/api';
@@ -51,6 +63,11 @@ const TaskBoard: React.FC = () => {
   const [taskDetailsOpen, setTaskDetailsOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [sessionActive, setSessionActive] = useState(false);
+  const [statusMenuAnchor, setStatusMenuAnchor] = useState<null | HTMLElement>(null);
+  const [selectedTaskForStatus, setSelectedTaskForStatus] = useState<Task | null>(null);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ task: Task; newStatus: string; message: string } | null>(null);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' }>({ open: false, message: '', severity: 'info' });
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -101,7 +118,102 @@ const TaskBoard: React.FC = () => {
   };
 
   const handleStatusChange = (taskId: number, newStatus: string) => {
-    updateStatusMutation.mutate({ taskId, status: newStatus });
+    updateStatusMutation.mutate({ taskId, status: newStatus }, {
+      onSuccess: () => {
+        setSnackbar({ open: true, message: `Task moved to ${newStatus}`, severity: 'success' });
+      },
+      onError: () => {
+        setSnackbar({ open: true, message: 'Failed to update task status', severity: 'error' });
+      }
+    });
+  };
+
+  // Define valid status transitions
+  const getValidTransitions = (currentStatus: string): Array<{ status: string; label: string; icon: JSX.Element; description: string; requiresConfirmation?: boolean }> => {
+    switch (currentStatus) {
+      case 'Backlog':
+        return [
+          { status: 'Analysis', label: 'Start Analysis', icon: <StartIcon />, description: 'Begin task analysis phase' }
+        ];
+      case 'Analysis':
+        return [
+          { status: 'In Progress', label: 'Start Development', icon: <CodeIcon />, description: 'Move to active development' },
+          { status: 'Backlog', label: 'Back to Backlog', icon: <BackIcon />, description: 'Return to backlog for re-prioritization' }
+        ];
+      case 'In Progress':
+        return [
+          { status: 'Testing', label: 'Ready for Testing', icon: <BugIcon />, description: 'Code complete, ready for testing' },
+          { status: 'Blocked', label: 'Mark as Blocked', icon: <BlockIcon />, description: 'Task is blocked by dependencies' },
+          { status: 'Analysis', label: 'Back to Analysis', icon: <BackIcon />, description: 'Needs more analysis' }
+        ];
+      case 'Testing':
+        return [
+          { status: 'Code Review', label: 'Ready for Review', icon: <AssignmentIcon />, description: 'Testing complete, ready for code review' },
+          { status: 'In Progress', label: 'Back to Development', icon: <BackIcon />, description: 'Issues found, back to development' },
+          { status: 'Blocked', label: 'Mark as Blocked', icon: <BlockIcon />, description: 'Testing blocked by issues' }
+        ];
+      case 'Code Review':
+        return [
+          { status: 'PR', label: 'Create Pull Request', icon: <PRIcon />, description: 'Code approved, ready for PR' },
+          { status: 'In Progress', label: 'Rework Required', icon: <BackIcon />, description: 'Code changes requested' }
+        ];
+      case 'PR':
+        return [
+          { status: 'Done', label: 'Mark Complete', icon: <CompleteIcon />, description: 'PR merged, task complete', requiresConfirmation: true },
+          { status: 'Code Review', label: 'Back to Review', icon: <BackIcon />, description: 'PR changes requested' }
+        ];
+      case 'Blocked':
+        return [
+          { status: 'Analysis', label: 'Resume Analysis', icon: <StartIcon />, description: 'Blocker resolved, resume analysis' },
+          { status: 'In Progress', label: 'Resume Development', icon: <CodeIcon />, description: 'Blocker resolved, resume development' },
+          { status: 'Testing', label: 'Resume Testing', icon: <BugIcon />, description: 'Blocker resolved, resume testing' }
+        ];
+      default:
+        return [];
+    }
+  };
+
+  const handleStatusMenuOpen = (event: React.MouseEvent<HTMLElement>, task: Task) => {
+    event.stopPropagation();
+    setStatusMenuAnchor(event.currentTarget);
+    setSelectedTaskForStatus(task);
+  };
+
+  const handleStatusMenuClose = () => {
+    setStatusMenuAnchor(null);
+    setSelectedTaskForStatus(null);
+  };
+
+  const handleStatusTransition = (task: Task, newStatus: string, requiresConfirmation?: boolean, description?: string) => {
+    if (requiresConfirmation) {
+      setConfirmAction({ task, newStatus, message: description || `Are you sure you want to move this task to ${newStatus}?` });
+      setConfirmDialogOpen(true);
+    } else {
+      handleStatusChange(task.id, newStatus);
+    }
+    handleStatusMenuClose();
+  };
+
+  const handleConfirmStatusChange = () => {
+    if (confirmAction) {
+      handleStatusChange(confirmAction.task.id, confirmAction.newStatus);
+    }
+    setConfirmDialogOpen(false);
+    setConfirmAction(null);
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'Backlog': return <AssignmentIcon />;
+      case 'Analysis': return <StartIcon />;
+      case 'In Progress': return <CodeIcon />;
+      case 'Testing': return <BugIcon />;
+      case 'Code Review': return <AssignmentIcon />;
+      case 'PR': return <PRIcon />;
+      case 'Done': return <CompleteIcon />;
+      case 'Blocked': return <BlockIcon />;
+      default: return <AssignmentIcon />;
+    }
   };
 
   const handleTaskClick = (task: Task) => {
@@ -170,10 +282,21 @@ const TaskBoard: React.FC = () => {
               <Card sx={{ minHeight: '500px' }}>
                 <CardContent>
                   <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                    <Typography variant="h6" sx={{ color: column.color }}>
-                      {column.title}
-                    </Typography>
-                    <Chip label={columnTasks.length} size="small" />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {getStatusIcon(column.status)}
+                      <Typography variant="h6" sx={{ color: column.color }}>
+                        {column.title}
+                      </Typography>
+                    </Box>
+                    <Chip 
+                      label={columnTasks.length} 
+                      size="small" 
+                      sx={{ 
+                        bgcolor: column.color,
+                        color: 'white',
+                        fontWeight: 'bold'
+                      }} 
+                    />
                   </Box>
                   
                   <List dense>
@@ -199,7 +322,7 @@ const TaskBoard: React.FC = () => {
                               <Typography variant="subtitle2" noWrap>
                                 #{task.id} - {task.title}
                               </Typography>
-                              <Box sx={{ mt: 1, display: 'flex', gap: 0.5 }}>
+                              <Box sx={{ mt: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                                 <Chip
                                   label={task.priority}
                                   size="small"
@@ -210,6 +333,16 @@ const TaskBoard: React.FC = () => {
                                   size="small"
                                   variant="outlined"
                                 />
+                                {getValidTransitions(task.status).length > 0 && (
+                                  <Chip
+                                    label={`${getValidTransitions(task.status).length} action${getValidTransitions(task.status).length > 1 ? 's' : ''}`}
+                                    size="small"
+                                    sx={{ 
+                                      bgcolor: 'action.hover',
+                                      fontSize: '0.7rem'
+                                    }}
+                                  />
+                                )}
                               </Box>
                               {task.assigned_agent && (
                                 <Chip
@@ -233,28 +366,33 @@ const TaskBoard: React.FC = () => {
                         />
                         <ListItemSecondaryAction>
                           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                            {column.status === 'Backlog' && (
+                            {getValidTransitions(task.status).length > 0 && (
+                              <Tooltip title="Change Status">
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => handleStatusMenuOpen(e, task)}
+                                  disabled={updateStatusMutation.isLoading}
+                                >
+                                  {updateStatusMutation.isLoading && updateStatusMutation.variables?.taskId === task.id ? (
+                                    <CircularProgress size={16} />
+                                  ) : (
+                                    <MoreIcon />
+                                  )}
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            <Tooltip title="Delete Task">
                               <IconButton
                                 size="small"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleStatusChange(task.id, 'Analysis');
+                                  deleteTaskMutation.mutate(task.id);
                                 }}
-                                title="Start Analysis"
+                                disabled={deleteTaskMutation.isLoading}
                               >
-                                <StartIcon />
+                                <DeleteIcon />
                               </IconButton>
-                            )}
-                            <IconButton
-                              size="small"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteTaskMutation.mutate(task.id);
-                              }}
-                              title="Delete Task"
-                            >
-                              <DeleteIcon />
-                            </IconButton>
+                            </Tooltip>
                           </Box>
                         </ListItemSecondaryAction>
                       </ListItem>
@@ -327,6 +465,94 @@ const TaskBoard: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Status Transition Menu */}
+      <Menu
+        anchorEl={statusMenuAnchor}
+        open={Boolean(statusMenuAnchor)}
+        onClose={handleStatusMenuClose}
+        PaperProps={{
+          sx: {
+            maxHeight: 300,
+            width: '280px',
+          }
+        }}
+      >
+        {selectedTaskForStatus && getValidTransitions(selectedTaskForStatus.status).map((transition) => (
+          <MenuItem
+            key={transition.status}
+            onClick={() => handleStatusTransition(
+              selectedTaskForStatus, 
+              transition.status, 
+              transition.requiresConfirmation,
+              transition.description
+            )}
+            sx={{ py: 1.5 }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
+              <Box sx={{ color: 'primary.main' }}>
+                {transition.icon}
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {transition.label}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {transition.description}
+                </Typography>
+              </Box>
+            </Box>
+          </MenuItem>
+        ))}
+      </Menu>
+
+      {/* Confirmation Dialog */}
+      <Dialog
+        open={confirmDialogOpen}
+        onClose={() => setConfirmDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Confirm Status Change
+        </DialogTitle>
+        <DialogContent>
+          <Typography>
+            {confirmAction?.message}
+          </Typography>
+          {confirmAction?.newStatus === 'Done' && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              This will mark the task as complete. Make sure the PR has been merged and all work is finished.
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDialogOpen(false)}>Cancel</Button>
+          <Button 
+            onClick={handleConfirmStatusChange} 
+            variant="contained"
+            disabled={updateStatusMutation.isLoading}
+          >
+            {updateStatusMutation.isLoading ? <CircularProgress size={20} /> : 'Confirm'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
 
       {/* Task Details Dialog */}
       <Dialog 
