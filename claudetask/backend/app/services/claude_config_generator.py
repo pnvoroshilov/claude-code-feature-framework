@@ -1,11 +1,65 @@
 """Generate CLAUDE.md and agent configurations"""
 
+import os
 from typing import List, Dict, Any
 
 
 def generate_claude_md(project_name: str, project_path: str, tech_stack: List[str]) -> str:
     """Generate customized CLAUDE.md for a project"""
     
+    # Try to read the template from framework-assets
+    template_path = None
+    
+    # First, try to find framework-assets in the current project structure
+    current_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    framework_assets_path = os.path.join(current_dir, "framework-assets", "claude-configs", "CLAUDE.md")
+    
+    if os.path.exists(framework_assets_path):
+        template_path = framework_assets_path
+    else:
+        # Fallback: try relative to project path
+        fallback_path = os.path.join(project_path, "framework-assets", "claude-configs", "CLAUDE.md")
+        if os.path.exists(fallback_path):
+            template_path = fallback_path
+    
+    if template_path and os.path.exists(template_path):
+        try:
+            with open(template_path, "r", encoding="utf-8") as f:
+                template_content = f.read()
+            
+            # Replace project-specific placeholders
+            template_content = template_content.replace("{{PROJECT_NAME}}", project_name)
+            template_content = template_content.replace("{{PROJECT_PATH}}", project_path)
+            
+            # Detect commands and add to template
+            commands = detect_commands(tech_stack)
+            
+            # Add project configuration section if it doesn't exist
+            if "## Project Configuration" not in template_content:
+                config_section = f"""
+
+## Project Configuration
+- **Project Name**: {project_name}
+- **Path**: {project_path}
+- **Technologies**: {', '.join(tech_stack) if tech_stack else 'Not detected'}
+- **Test Command**: {commands.get('test', 'Not configured')}
+- **Build Command**: {commands.get('build', 'Not configured')}
+- **Lint Command**: {commands.get('lint', 'Not configured')}
+"""
+                # Insert before "## Important Notes" if it exists, otherwise at the end
+                if "## Important Notes" in template_content:
+                    template_content = template_content.replace("## Important Notes", config_section + "\n## Important Notes")
+                else:
+                    template_content += config_section
+            
+            return template_content
+            
+        except Exception as e:
+            print(f"Warning: Could not read template file {template_path}: {e}")
+            # Fall back to generated template
+            pass
+    
+    # Fallback to generated template if file doesn't exist or can't be read
     # Detect commands based on tech stack
     commands = detect_commands(tech_stack)
     
