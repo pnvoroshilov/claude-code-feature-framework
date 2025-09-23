@@ -2,7 +2,6 @@
 allowed-tools: [Bash, Read, Write, Edit, MultiEdit, Glob, Grep, WebSearch, WebFetch, Task]
 argument-hint: [task-id]
 description: Start working on a task from the ClaudeTask board. If no task ID is provided, picks the next available task from Backlog/Analysis/Ready status.
-model: opus-4-1
 ---
 
 # Start Feature Development
