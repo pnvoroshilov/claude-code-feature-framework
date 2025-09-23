@@ -52,49 +52,49 @@ class ClaudeTaskMCPServer:
             "Feature": {
                 "Ready": "frontend-developer",
                 "In Progress": "frontend-developer",
-                "Testing": "background-tester",
+                "Testing": None,  # Manual testing only
                 "Code Review": "fullstack-code-reviewer"
             },
             "Bug": {
                 "Ready": "backend-architect",
                 "In Progress": "backend-architect",
-                "Testing": "background-tester",
+                "Testing": None,  # Manual testing only
                 "Code Review": "fullstack-code-reviewer"
             },
             "Refactoring": {
                 "Ready": "backend-architect",
                 "In Progress": "backend-architect",
-                "Testing": "background-tester",
+                "Testing": None,  # Manual testing only
                 "Code Review": "fullstack-code-reviewer"
             },
             "Documentation": {
                 "Ready": "docs-generator",
                 "In Progress": "docs-generator",
-                "Testing": "docs-generator",
+                "Testing": None,  # Manual review only
                 "Code Review": "fullstack-code-reviewer"
             },
             "Performance": {
                 "Ready": "devops-engineer",
                 "In Progress": "devops-engineer",
-                "Testing": "background-tester",
+                "Testing": None,  # Manual testing only
                 "Code Review": "fullstack-code-reviewer"
             },
             "Security": {
                 "Ready": "devops-engineer",
                 "In Progress": "devops-engineer",
-                "Testing": "background-tester",
+                "Testing": None,  # Manual testing only
                 "Code Review": "fullstack-code-reviewer"
             },
             "DevOps": {
                 "Ready": "devops-engineer",
                 "In Progress": "devops-engineer",
-                "Testing": "devops-engineer",
+                "Testing": None,  # Manual testing only
                 "Code Review": "fullstack-code-reviewer"
             },
             "MCP": {
                 "Ready": "mcp-engineer",
                 "In Progress": "mcp-engineer",
-                "Testing": "background-tester",
+                "Testing": None,  # Manual testing only
                 "Code Review": "fullstack-code-reviewer"
             },
             "Integration": {
@@ -596,9 +596,13 @@ Analysis:
         
         elif status == "Testing":
             return """📍 NEXT STEPS (Status: Testing):
-1. Verify all tests pass
-2. Move to review: mcp:update_status <task_id> "Code Review"
-3. Or back to development if issues found"""
+⚠️ MANUAL TESTING PHASE - NO AUTOMATION
+1. Prepare test environment (ensure app is running)
+2. Provide URLs/endpoints for user to test manually
+3. Document what needs to be tested
+4. Wait for user to complete manual testing
+5. When testing complete: mcp:update_status <task_id> "Code Review"
+Note: DO NOT run automated tests or delegate to testing agents"""
         
         elif status == "Code Review":
             return """📍 NEXT STEPS (Status: Code Review):
@@ -627,8 +631,12 @@ This task has been merged to main branch and is complete."""
             return f"""📍 CURRENT STATUS: {status}
 Use mcp:update_status to progress the task through the workflow."""
 
-    def _get_agent_for_task(self, task_type: str, status: str, title: str = "", description: str = "") -> str:
+    def _get_agent_for_task(self, task_type: str, status: str, title: str = "", description: str = "") -> Optional[str]:
         """Get the appropriate agent for a task type and status with intelligent context analysis"""
+        # Special handling for Testing status - no automation
+        if status == "Testing":
+            return None  # No agent delegation for manual testing
+        
         # First check explicit type mappings
         agent = self.agent_mappings.get(task_type, {}).get(status, None)
         
@@ -1277,6 +1285,37 @@ The task now contains your analysis and is ready for the next phase."""
     async def _recommend_agent(self, task_type: str, status: str, title: str, description: str) -> list[types.TextContent]:
         """Get intelligent agent recommendation based on task context"""
         try:
+            # Special handling for Testing status
+            if status == "Testing":
+                response_text = """⚠️ TESTING STATUS - MANUAL TESTING ONLY
+
+Status: Testing
+Action: NO AGENT DELEGATION
+
+📋 MANUAL TESTING REQUIREMENTS:
+1. Prepare test environment (ensure app is running)
+2. Provide URLs/endpoints for user testing
+3. Document test scenarios
+4. Wait for user to complete manual testing
+
+❌ DO NOT:
+- Delegate to testing agents
+- Run automated tests
+- Use background-tester or web-tester
+
+✅ DO:
+- Ensure environment is ready
+- Provide access information
+- Wait for manual testing completion
+
+🚀 NEXT STEPS:
+1. Prepare testing environment
+2. Notify user that environment is ready
+3. Wait for user to test manually
+4. After testing: mcp:update_status <task_id> "Code Review"
+"""
+                return [types.TextContent(type="text", text=response_text)]
+            
             # Get agent recommendation using our intelligent analysis
             recommended_agent = self._get_agent_for_task(task_type, status, title, description)
             

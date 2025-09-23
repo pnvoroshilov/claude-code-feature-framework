@@ -35,7 +35,9 @@ Your ONLY role is to:
 LOOP FOREVER:
 1. mcp:get_task_queue → Check for available tasks
 2. If tasks found → Get next task details
-3. Immediately delegate → Never analyze yourself
+3. Check task status:
+   - If status = "Testing" → ONLY prepare test environment (NO delegation)
+   - Other statuses → Immediately delegate to appropriate agent
 4. Monitor completion → Update task status
 5. Repeat loop → Never stop monitoring
 ```
@@ -79,8 +81,21 @@ Existing docs: [current documentation state]
 Technical details: [implementation specifics to cover]"
 ```
 
-#### Testing → `quality-engineer`, `web-tester`
+#### Testing Status → ⚠️ NO DELEGATION - PREPARE ENVIRONMENT ONLY
 ```
+When task.status == "Testing":
+1. DO NOT delegate to any testing agent
+2. ONLY ensure test environment is ready:
+   - Check if application is running
+   - Provide URLs/endpoints for manual testing
+   - Document what needs to be tested
+3. Notify user: "Testing environment ready for manual testing"
+4. Wait for user to test and update status
+```
+
+#### Test Creation Tasks → `quality-engineer`, `web-tester`
+```
+ONLY when explicitly requested (not for Testing status):
 Task tool with testing specialist:
 "Implement comprehensive testing for this feature.
 Feature details: [what was implemented]
@@ -406,8 +421,19 @@ SPLIT INTO:
 - **Analysis** → Agent completes analysis → **Ready**  
 - **Ready** → Delegate to implementer → **In Progress**
 - **In Progress** → Agent completes work → **Testing**
-- **Testing** → Delegate to tester → **Code Review**
+- **Testing** → ⚠️ PREPARE TEST ENVIRONMENT ONLY (NO AUTOMATED TESTING) → **Code Review**
 - **Code Review** → Delegate to reviewer → **Done**
+
+#### 🚨 IMPORTANT: Testing Status Special Handling
+When a task enters **Testing** status:
+1. ❌ **DO NOT** run automated tests
+2. ❌ **DO NOT** delegate to testing agents  
+3. ✅ **ONLY** prepare the testing environment:
+   - Ensure the application is running
+   - Provide access URLs/endpoints
+   - Document test scenarios if needed
+   - Notify user the environment is ready for manual testing
+4. ✅ Wait for user to manually test and update status
 
 ### Status Update Rules:
 1. ✅ Update status ONLY after agent completion

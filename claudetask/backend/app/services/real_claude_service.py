@@ -12,10 +12,11 @@ from app.models import ClaudeSession
 logger = logging.getLogger(__name__)
 
 class RealClaudeSession:
-    def __init__(self, session_id: str, task_id: int, working_dir: str, db_session: Optional[AsyncSession] = None):
+    def __init__(self, session_id: str, task_id: int, working_dir: str, root_project_dir: str = None, db_session: Optional[AsyncSession] = None):
         self.session_id = session_id
         self.task_id = task_id
-        self.working_dir = working_dir
+        self.working_dir = working_dir  # This is the worktree path
+        self.root_project_dir = root_project_dir or working_dir  # Root project directory for Claude
         self.child: Optional[pexpect.spawn] = None
         self.is_running = False
         self.websocket_clients: List[Any] = []
@@ -38,9 +39,10 @@ class RealClaudeSession:
             self.main_loop = asyncio.get_running_loop()
             
             # Start Claude with pexpect in dangerous mode
+            # Always start in root project directory to have access to .claude config
             self.child = pexpect.spawn(
                 'claude --dangerously-skip-permissions',
-                cwd=self.working_dir,
+                cwd=self.root_project_dir,  # Use root directory for .claude access
                 timeout=None,
                 encoding='utf-8',
                 codec_errors='ignore'
@@ -182,13 +184,22 @@ class RealClaudeSession:
         try:
             # Wait 2 seconds for Claude to fully initialize
             await asyncio.sleep(2)
+            
+            # First, provide context about the worktree location
+            if self.working_dir != self.root_project_dir:
+                context_message = f"You are working on Task #{self.task_id}. The worktree for this task is located at: {self.working_dir}\n"
+                context_message += f"Please work with files in the worktree: {self.working_dir}\n"
+                context_message += "All your file operations should be relative to this worktree path.\n"
+                await self.send_input(context_message)
+                await asyncio.sleep(0.5)
+            
             # Send the /start-feature command with task ID
             task_command = f"/start-feature {self.task_id}"
             await self.send_input(task_command)
             # Wait a moment and send Enter
             await asyncio.sleep(0.5)
             await self.send_input("\r")
-            logger.info(f"Sent /start-feature command for Task #{self.task_id}")
+            logger.info(f"Sent /start-feature command for Task #{self.task_id} with worktree context")
         except Exception as e:
             logger.error(f"Failed to send task initialization command: {e}")
 
@@ -335,10 +346,25 @@ class RealClaudeService:
     def __init__(self):
         self.sessions: Dict[str, RealClaudeSession] = {}
 
-    async def create_session(self, task_id: int, project_path: str, session_id: str, db_session: Optional[AsyncSession] = None) -> Dict[str, Any]:
+    async def create_session(self, task_id: int, project_path: str, session_id: str, root_project_path: str = None, db_session: Optional[AsyncSession] = None) -> Dict[str, Any]:
         """Create a new Claude session"""
         try:
-            session = RealClaudeSession(session_id, task_id, project_path, db_session)
+            # Determine root project path (where .claude directory is)
+            if not root_project_path:
+                # Try to find the root project directory by looking for .git
+                import os
+                current_path = project_path
+                while current_path != '/':
+                    if os.path.exists(os.path.join(current_path, '.git')):
+                        root_project_path = current_path
+                        break
+                    current_path = os.path.dirname(current_path)
+                
+                # If no .git found, use project_path as fallback
+                if not root_project_path:
+                    root_project_path = project_path
+            
+            session = RealClaudeSession(session_id, task_id, project_path, root_project_path, db_session)
             
             # Load history from DB if available
             if db_session:

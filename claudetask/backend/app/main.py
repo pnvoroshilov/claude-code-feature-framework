@@ -1049,10 +1049,12 @@ async def launch_embedded_claude_session(request: dict, db: AsyncSession = Depen
     session_id = f"claude-task-{task_id}-{uuid.uuid4().hex[:8]}"
     
     # Start embedded process
+    # Pass both the worktree path and the root project path
     result = await real_claude_service.create_session(
         task_id=task_id,
-        project_path=working_dir,
+        project_path=working_dir,  # This is the worktree path
         session_id=session_id,
+        root_project_path=project.path,  # Root project directory with .claude
         db_session=db
     )
     
