@@ -434,7 +434,7 @@ const TaskBoard: React.FC = () => {
                 Claude Terminal
               </Typography>
               <Box sx={{ mt: 2 }}>
-                <ClaudeTerminal
+                <RealTerminal
                   taskId={selectedTask?.id || 0}
                 />
               </Box>
