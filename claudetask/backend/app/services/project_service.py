@@ -422,28 +422,36 @@ class ProjectService:
                 if not name.startswith("claudetask"):
                     preserved_servers[name] = config
         
-        # Create new config using local Python server
-        # Get the absolute path to the MCP server
-        mcp_server_dir = os.path.abspath(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))),
-            "claudetask",
-            "mcp_server"
+        # Load MCP template from framework assets
+        framework_path = os.path.abspath(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
         ))
-        python_executable = os.path.join(mcp_server_dir, "venv", "bin", "python")
-        bridge_script = os.path.join(mcp_server_dir, "claudetask_mcp_bridge.py")
+        mcp_template_path = os.path.join(framework_path, "framework-assets", "mcp-configs", "mcp-template.json")
+        
+        # Read template
+        try:
+            with open(mcp_template_path, "r") as f:
+                template_config = json.load(f)
+        except Exception as e:
+            print(f"Failed to read MCP template: {e}")
+            return False
+        
+        # Update template with project-specific values
+        mcp_server_dir = os.path.join(framework_path, "claudetask", "mcp_server")
+        native_server_script = os.path.join(mcp_server_dir, "native_stdio_server.py")
+        venv_python = os.path.join(mcp_server_dir, "venv", "bin", "python")
+        
+        claudetask_config = template_config["mcpServers"]["claudetask"]
+        claudetask_config["command"] = venv_python
+        claudetask_config["args"] = [native_server_script]
+        claudetask_config["env"]["CLAUDETASK_PROJECT_ID"] = project_id
+        claudetask_config["env"]["CLAUDETASK_PROJECT_PATH"] = project_path
+        claudetask_config["env"]["CLAUDETASK_BACKEND_URL"] = "http://localhost:3333"
         
         new_config = {
             "mcpServers": {
                 **preserved_servers,
-                "claudetask": {
-                    "command": python_executable,
-                    "args": [
-                        bridge_script,
-                        "--project-id", project_id,
-                        "--project-path", project_path,
-                        "--server", "http://localhost:3333"
-                    ]
-                }
+                "claudetask": claudetask_config
             }
         }
         

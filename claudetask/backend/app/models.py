@@ -26,7 +26,6 @@ class TaskStatus(str, enum.Enum):
     """Task status enumeration"""
     BACKLOG = "Backlog"
     ANALYSIS = "Analysis"
-    READY = "Ready"
     IN_PROGRESS = "In Progress"
     TESTING = "Testing"
     CODE_REVIEW = "Code Review"

@@ -66,7 +66,7 @@ while true; do
   2. mcp:get_next_task         # Get task if available
   3. mcp:analyze_task <id>     # Analyze IMMEDIATELY
   4. mcp:update_task_analysis  # Save your analysis
-  5. mcp:update_status Ready   # Mark as ready
+  5. mcp:update_status "In Progress" # Start development
   6. mcp:delegate_to_agent     # Delegate to agent
   # LOOP BACK TO 1 - NEVER STOP!
 done
@@ -75,7 +75,6 @@ done
 ## Task Statuses
 - **Backlog**: New, unanalyzed task
 - **Analysis**: Being analyzed
-- **Ready**: Analyzed, ready for development
 - **In Progress**: Active development
 - **Testing**: Running tests
 - **Code Review**: Reviewing code

@@ -195,6 +195,20 @@ class ClaudeTaskMCPServer:
                     }
                 ),
                 types.Tool(
+                    name="get_task",
+                    description="Get details of a specific task",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "task_id": {
+                                "type": "integer",
+                                "description": "ID of the task to get"
+                            }
+                        },
+                        "required": ["task_id"]
+                    }
+                ),
+                types.Tool(
                     name="analyze_task",
                     description="Analyze a specific task and create implementation plan",
                     inputSchema={
@@ -412,6 +426,8 @@ class ClaudeTaskMCPServer:
             try:
                 if name == "get_next_task":
                     return await self._get_next_task()
+                elif name == "get_task":
+                    return await self._get_task(arguments["task_id"])
                 elif name == "analyze_task":
                     return await self._analyze_task(arguments["task_id"])
                 elif name == "update_status":
@@ -509,6 +525,104 @@ This command will start the analysis process for this task."""
                     type="text",
                     text=f"Failed to get next task: {str(e)}"
                 )]
+    
+    async def _get_task(self, task_id: int) -> list[types.TextContent]:
+        """Get details of a specific task"""
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get(f"{self.server_url}/api/tasks/{task_id}")
+                response.raise_for_status()
+                
+                task = response.json()
+                
+                # Determine next steps based on current status
+                next_steps = self._get_next_steps_for_status(task['status'], task['type'])
+                
+                return [types.TextContent(
+                    type="text",
+                    text=f"""📋 TASK DETAILS - Task #{task_id}
+
+Title: {task['title']}
+Type: {task['type']}
+Priority: {task['priority']}
+Status: {task['status']}
+
+Description:
+{task.get('description', 'No description provided')}
+
+Analysis:
+{task.get('analysis', 'Not analyzed yet')}
+
+{next_steps}"""
+                )]
+                
+            except httpx.HTTPError as e:
+                return [types.TextContent(
+                    type="text",
+                    text=f"Failed to get task {task_id}: {str(e)}"
+                )]
+    
+    def _get_next_steps_for_status(self, status: str, task_type: str) -> str:
+        """Get next steps instructions based on current task status"""
+        if status == "Backlog":
+            return """📍 NEXT STEPS (Status: Backlog):
+1. Analyze the task: mcp:analyze_task <task_id>
+2. The analysis will automatically move status to 'Analysis'
+3. Complete your analysis and save it
+4. Move to 'Ready' when analysis is complete"""
+        
+        elif status == "Analysis":
+            return """📍 NEXT STEPS (Status: Analysis):
+1. Complete the analysis of this task
+2. Save analysis: mcp:update_task_analysis <task_id> "<analysis>"
+3. Update status: mcp:update_status <task_id> "Ready"
+4. Task will be ready for development"""
+        
+        elif status == "Ready":
+            return """📍 NEXT STEPS (Status: Ready):
+1. Update to 'In Progress': mcp:update_status <task_id> "In Progress"
+   (This will automatically create a worktree)
+2. Delegate to agent: mcp:delegate_to_agent <task_id> <agent> "<instructions>"
+3. Monitor agent progress"""
+        
+        elif status == "In Progress":
+            return """📍 NEXT STEPS (Status: In Progress):
+1. Monitor development progress
+2. When complete, move to: mcp:update_status <task_id> "Testing"
+3. Or if blocked: mcp:update_status <task_id> "Blocked" """
+        
+        elif status == "Testing":
+            return """📍 NEXT STEPS (Status: Testing):
+1. Verify all tests pass
+2. Move to review: mcp:update_status <task_id> "Code Review"
+3. Or back to development if issues found"""
+        
+        elif status == "Code Review":
+            return """📍 NEXT STEPS (Status: Code Review):
+1. Complete code review
+2. Create PR: mcp:complete_task <task_id> true
+3. Update status: mcp:update_status <task_id> "PR" """
+        
+        elif status == "PR":
+            return """📍 NEXT STEPS (Status: PR):
+1. Awaiting manual review by user
+2. User will test and review the Pull Request
+3. User will click 'Done' button to merge
+4. Task will automatically move to 'Done' status"""
+        
+        elif status == "Done":
+            return """✅ TASK COMPLETE
+This task has been merged to main branch and is complete."""
+        
+        elif status == "Blocked":
+            return """⚠️ TASK BLOCKED
+1. Resolve the blocking issue
+2. Update status back to previous state when unblocked
+3. Document resolution in task comments"""
+        
+        else:
+            return f"""📍 CURRENT STATUS: {status}
+Use mcp:update_status to progress the task through the workflow."""
 
     def _get_agent_for_task(self, task_type: str, status: str, title: str = "", description: str = "") -> str:
         """Get the appropriate agent for a task type and status with intelligent context analysis"""

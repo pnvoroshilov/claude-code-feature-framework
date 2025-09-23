@@ -136,13 +136,24 @@ export default function ClaudeSessions() {
 
   useEffect(() => {
     fetchSessions();
+    
+    // Listen for session status changes
+    const handleSessionChange = () => {
+      fetchSessions();
+    };
+    window.addEventListener('session-status-changed', handleSessionChange);
+    
     // Refresh every 5 seconds for active sessions
     const interval = setInterval(() => {
       if (sessions.some(s => s.status === 'active' || s.status === 'initializing')) {
         fetchSessions();
       }
     }, 5000);
-    return () => clearInterval(interval);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('session-status-changed', handleSessionChange);
+    };
   }, []);
 
   const handleLaunchSession = async (taskId: number) => {

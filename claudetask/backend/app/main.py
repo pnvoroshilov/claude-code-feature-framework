@@ -300,8 +300,55 @@ async def update_task_status(
     if status_update.status == TaskStatus.ANALYSIS and old_status != TaskStatus.ANALYSIS:
         logger.info(f"Task {task_id} needs analysis - status changed to Analysis")
     
-    # Initialize response data
-    response_data = {"status": status_update.status.value, "comment": status_update.comment}
+    # Initialize response data with instructions for next steps
+    response_data = {
+        "status": status_update.status.value, 
+        "comment": status_update.comment,
+        "next_steps": []
+    }
+    
+    # Add status-specific instructions
+    if status_update.status == TaskStatus.ANALYSIS:
+        response_data["next_steps"] = [
+            "Analyze task requirements and technical approach",
+            "Use mcp:analyze_task to perform detailed analysis",
+            "Save analysis with mcp:update_task_analysis",
+            "Update status to 'In Progress' when ready to start development"
+        ]
+    elif status_update.status == TaskStatus.IN_PROGRESS:
+        response_data["next_steps"] = [
+            "Implement the feature/fix in the worktree",
+            "Write tests for your changes",
+            "Update documentation if needed",
+            "Move to 'Testing' when implementation is complete"
+        ]
+    elif status_update.status == TaskStatus.TESTING:
+        response_data["next_steps"] = [
+            "Run all test suites",
+            "Verify functionality works as expected",
+            "Fix any failing tests",
+            "Move to 'Code Review' when tests pass"
+        ]
+    elif status_update.status == TaskStatus.CODE_REVIEW:
+        response_data["next_steps"] = [
+            "Review code for quality and standards",
+            "Check for potential issues",
+            "Ensure tests cover edge cases",
+            "Move to 'Done' when review is complete"
+        ]
+    elif status_update.status == TaskStatus.DONE:
+        response_data["next_steps"] = [
+            "Task completed successfully",
+            "Changes will be merged to main branch",
+            "Worktree will be cleaned up",
+            "You can start working on the next task"
+        ]
+    elif status_update.status == TaskStatus.BLOCKED:
+        response_data["next_steps"] = [
+            "Document what is blocking the task",
+            "Seek help or clarification",
+            "Move back to appropriate status when unblocked"
+        ]
     
     # Auto-create worktree when task moves to In Progress
     if status_update.status == TaskStatus.IN_PROGRESS and old_status != TaskStatus.IN_PROGRESS:
@@ -794,7 +841,7 @@ async def get_task_queue(db: AsyncSession = Depends(get_db)):
     pending_result = await db.execute(
         select(Task)
         .where(Task.project_id == project.id)
-        .where(Task.status.in_([TaskStatus.BACKLOG, TaskStatus.ANALYSIS, TaskStatus.READY]))
+        .where(Task.status.in_([TaskStatus.BACKLOG, TaskStatus.ANALYSIS]))
     )
     pending_tasks = pending_result.scalars().all()
     
@@ -990,7 +1037,8 @@ async def launch_embedded_claude_session(request: dict, db: AsyncSession = Depen
     result = await real_claude_service.create_session(
         task_id=task_id,
         project_path=working_dir,
-        session_id=session_id
+        session_id=session_id,
+        db_session=db
     )
     
     if result["success"]:
@@ -1103,44 +1151,48 @@ async def stop_embedded_session(session_id: str, background_tasks: BackgroundTas
         
         logger.info(f"Stopping embedded session: {session_id}")
         
-        # Try to stop the session with a timeout
-        success = False
+        # Update database immediately to mark as stopping
         try:
-            # Use asyncio timeout to prevent hanging
-            success = await asyncio.wait_for(
-                real_claude_service.stop_session(session_id),
-                timeout=5.0  # 5 second timeout for the entire stop operation
+            result = await db.execute(
+                select(ClaudeSession).where(ClaudeSession.session_id == session_id)
             )
-            logger.info(f"Stop session result: {success}")
-        except asyncio.TimeoutError:
-            logger.error(f"Timeout stopping embedded session {session_id}, marking as stopped")
-            success = True  # Consider it stopped to prevent hanging
-        except Exception as e:
-            logger.error(f"Error stopping embedded session: {e}", exc_info=True)
-            success = True  # Consider it stopped to prevent hanging
+            db_session = result.scalar_one_or_none()
+            
+            if db_session:
+                db_session.status = "inactive"
+                db_session.completed_at = datetime.utcnow()
+                await db.commit()
+                logger.info(f"Database updated: session {session_id} marked as inactive")
+        except Exception as db_error:
+            logger.error(f"Database error when stopping session: {db_error}")
         
-        # Update database regardless of stop success - do this in background to not block
-        async def update_db():
+        # Stop the actual session in the background to not block
+        async def stop_session_background():
             try:
-                async with AsyncSession(db.get_bind()) as session:
-                    result = await session.execute(
-                        select(ClaudeSession).where(ClaudeSession.session_id == session_id)
-                    )
-                    db_session = result.scalar_one_or_none()
-                    
-                    if db_session:
-                        db_session.status = "inactive"
-                        await session.commit()
-            except Exception as db_error:
-                logger.error(f"Database error when stopping session: {db_error}")
+                # Very short timeout to not block
+                await asyncio.wait_for(
+                    real_claude_service.stop_session(session_id),
+                    timeout=0.5  # 0.5 second timeout
+                )
+                logger.info(f"Session {session_id} stopped successfully")
+            except asyncio.TimeoutError:
+                logger.warning(f"Session {session_id} stop timed out, forcing cleanup")
+                # Force remove from sessions dict
+                if session_id in real_claude_service.sessions:
+                    del real_claude_service.sessions[session_id]
+            except Exception as e:
+                logger.error(f"Error stopping session {session_id}: {e}")
+                # Force remove from sessions dict anyway
+                if session_id in real_claude_service.sessions:
+                    del real_claude_service.sessions[session_id]
         
-        # Add database update to background tasks
-        background_tasks.add_task(update_db)
+        # Add to background tasks
+        background_tasks.add_task(stop_session_background)
         
-        return {"success": success, "status": "inactive"}
+        return {"success": True, "status": "inactive"}
     except Exception as e:
         logger.error(f"Failed to stop embedded session {session_id}: {e}")
-        return {"success": True, "error": str(e), "status": "inactive"}  # Return success to prevent UI hanging
+        return {"success": True, "error": str(e), "status": "inactive"}
 
 
 @app.get("/api/sessions/embedded/status")

@@ -294,6 +294,9 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
         });
         const result = await response.json();
         console.log('Stop session result:', result);
+        
+        // Trigger a refresh event for the Sessions page
+        window.dispatchEvent(new Event('session-status-changed'));
       } catch (error) {
         console.error('Stop error:', error);
         terminal.current?.writeln('\r\nError stopping session');

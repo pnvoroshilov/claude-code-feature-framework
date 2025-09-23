@@ -39,7 +39,6 @@ import RealTerminal from '../components/RealTerminal';
 const statusColumns = [
   { status: 'Backlog', title: 'Backlog', color: '#grey' },
   { status: 'Analysis', title: 'Analysis', color: '#blue' },
-  { status: 'Ready', title: 'Ready', color: '#green' },
   { status: 'In Progress', title: 'In Progress', color: '#orange' },
   { status: 'Testing', title: 'Testing', color: '#purple' },
   { status: 'Code Review', title: 'Code Review', color: '#brown' },

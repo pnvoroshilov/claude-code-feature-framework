@@ -5,11 +5,14 @@ import json
 import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update
+from app.models import ClaudeSession
 
 logger = logging.getLogger(__name__)
 
 class RealClaudeSession:
-    def __init__(self, session_id: str, task_id: int, working_dir: str):
+    def __init__(self, session_id: str, task_id: int, working_dir: str, db_session: Optional[AsyncSession] = None):
         self.session_id = session_id
         self.task_id = task_id
         self.working_dir = working_dir
@@ -22,6 +25,9 @@ class RealClaudeSession:
         self.claude_initialized = False
         self.output_history: List[Dict[str, Any]] = []
         self.max_history_size = 1000  # Keep last 1000 messages
+        self.db_session = db_session
+        self.last_db_save_time = datetime.now()
+        self.db_save_interval = 10  # Save to DB every 10 seconds
 
     async def start(self) -> bool:
         """Start Claude process"""
@@ -130,6 +136,12 @@ class RealClaudeSession:
         # Keep history size manageable
         if len(self.output_history) > self.max_history_size:
             self.output_history = self.output_history[-self.max_history_size:]
+        
+        # Check if it's time to save to DB
+        now = datetime.now()
+        if (now - self.last_db_save_time).seconds >= self.db_save_interval:
+            self._schedule_db_save()
+            self.last_db_save_time = now
     
     def get_history(self) -> List[Dict[str, Any]]:
         """Get session history"""
@@ -260,22 +272,77 @@ class RealClaudeSession:
                     pass
             self.websocket_clients.clear()
             
+            # Final save to DB before stopping
+            await self._save_to_db()
+            
             logger.info(f"Session {self.session_id} stopped successfully")
             return True
             
         except Exception as e:
             logger.error(f"Error stopping session: {e}", exc_info=True)
             return False
+    
+    async def load_history_from_db(self):
+        """Load history from database if exists"""
+        try:
+            from app.database import get_db
+            async for db in get_db():
+                result = await db.execute(
+                    select(ClaudeSession).where(ClaudeSession.id == self.session_id)
+                )
+                session = result.scalar_one_or_none()
+                
+                if session and session.messages:
+                    self.output_history = session.messages if isinstance(session.messages, list) else []
+                    logger.info(f"Loaded {len(self.output_history)} messages from DB for session {self.session_id}")
+                break
+        except Exception as e:
+            logger.error(f"Failed to load session history from DB: {e}")
+    
+    def _schedule_db_save(self):
+        """Schedule saving history to database"""
+        if self.main_loop and not self.main_loop.is_closed():
+            asyncio.run_coroutine_threadsafe(
+                self._save_to_db(),
+                self.main_loop
+            )
+    
+    async def _save_to_db(self):
+        """Save current history to database"""
+        if not self.db_session:
+            return
+            
+        try:
+            from app.database import get_db
+            async for db in get_db():
+                # Update the session with current history
+                result = await db.execute(
+                    select(ClaudeSession).where(ClaudeSession.id == self.session_id)
+                )
+                session = result.scalar_one_or_none()
+                
+                if session:
+                    session.messages = self.output_history
+                    session.updated_at = datetime.now()
+                    await db.commit()
+                    logger.debug(f"Saved {len(self.output_history)} messages to DB for session {self.session_id}")
+                break
+        except Exception as e:
+            logger.error(f"Failed to save session history to DB: {e}")
 
 
 class RealClaudeService:
     def __init__(self):
         self.sessions: Dict[str, RealClaudeSession] = {}
 
-    async def create_session(self, task_id: int, project_path: str, session_id: str) -> Dict[str, Any]:
+    async def create_session(self, task_id: int, project_path: str, session_id: str, db_session: Optional[AsyncSession] = None) -> Dict[str, Any]:
         """Create a new Claude session"""
         try:
-            session = RealClaudeSession(session_id, task_id, project_path)
+            session = RealClaudeSession(session_id, task_id, project_path, db_session)
+            
+            # Load history from DB if available
+            if db_session:
+                await session.load_history_from_db()
             
             if await session.start():
                 self.sessions[session_id] = session

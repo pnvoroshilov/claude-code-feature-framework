@@ -26,7 +26,7 @@ export interface Task {
   description?: string;
   type: 'Feature' | 'Bug';
   priority: 'High' | 'Medium' | 'Low';
-  status: 'Backlog' | 'Analysis' | 'Ready' | 'In Progress' | 'Testing' | 'Code Review' | 'PR' | 'Done' | 'Blocked';
+  status: 'Backlog' | 'Analysis' | 'In Progress' | 'Testing' | 'Code Review' | 'PR' | 'Done' | 'Blocked';
   analysis?: string;
   git_branch?: string;
   worktree_path?: string;

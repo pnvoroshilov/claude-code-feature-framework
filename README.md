@@ -73,15 +73,69 @@ A comprehensive task management framework designed specifically for Claude Code 
 4. **Testing & Review**: Automated testing and code review process
 5. **Merge**: Completed tasks are merged back to main branch
 
-### MCP Commands
+## 🔗 MCP Integration
 
-Once a project is initialized, Claude Code can use these MCP commands:
+ClaudeTask supports Claude Code integration through MCP (Model Context Protocol).
 
-- `mcp:get_next_task` - Get the highest priority task from backlog
-- `mcp:analyze_task <id>` - Analyze a specific task
+### Quick Setup for Other Projects
+
+1. **Auto-initialize in your project:**
+```bash
+# From your project directory
+python3 "/path/to/framework/claudetask/scripts/init_project.py"
+```
+
+2. **Manual setup** - Add to your project's `.mcp.json`:
+```json
+{
+  "mcpServers": {
+    "claudetask": {
+      "command": "python3",
+      "args": [
+        "/path/to/framework/claudetask/mcp_server/native_stdio_server.py"
+      ],
+      "env": {
+        "CLAUDETASK_PROJECT_ID": "ff9cc152-3f38-49ab-bec0-0e7cbf84594a",
+        "CLAUDETASK_PROJECT_PATH": "/path/to/your/project",
+        "CLAUDETASK_BACKEND_URL": "http://localhost:3333"
+      }
+    }
+  }
+}
+```
+
+3. **Restart Claude Code** in your project
+
+### Prerequisites
+
+Ensure these services are running:
+- **Backend**: `cd claudetask/backend && python -m uvicorn app.main:app --host 0.0.0.0 --port 3333`
+- **Frontend**: `cd claudetask/frontend && REACT_APP_API_URL=http://localhost:3333/api PORT=3334 npm start`
+
+### Available MCP Tools
+
+- `mcp:get_task_queue` - View all tasks in queue
+- `mcp:get_next_task` - Get highest priority task
+- `mcp:get_task <id>` - Get specific task details with next steps
+- `mcp:analyze_task <id>` - Analyze task and create plan
+- `mcp:update_task_analysis <id> "<analysis>"` - Save analysis
 - `mcp:update_status <id> <status>` - Update task status
-- `mcp:create_worktree <id>` - Create isolated workspace for task
-- `mcp:verify_connection` - Check ClaudeTask connection
+- `mcp:create_worktree <id>` - Create git worktree
+- `mcp:delegate_to_agent <id> <agent> "<instructions>"` - Delegate to agent
+- `mcp:complete_task <id>` - Complete and merge task
+
+### Usage in Claude Code
+
+```bash
+# Start task workflow
+mcp:get_task_queue
+mcp:get_next_task
+mcp:get_task 4
+
+# Follow the next steps provided by MCP responses
+mcp:update_status 4 "In Progress"
+mcp:delegate_to_agent 4 "frontend-developer" "Implement the feature"
+```
 
 ## 🛠️ Development
 

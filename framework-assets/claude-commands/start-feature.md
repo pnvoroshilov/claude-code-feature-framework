@@ -1,95 +1,69 @@
 ---
 allowed-tools: [Bash, Read, Write, Edit, MultiEdit, Glob, Grep, WebSearch, WebFetch, Task]
 argument-hint: [task-id]
-description: Start working on a task from the ClaudeTask board. If no task ID is provided, picks the next available task from Backlog/Analysis/Ready status.
+description: Start working on a task from the ClaudeTask board. Gets task status and follows MCP instructions.
 ---
 
 # Start Feature Development
 
-## Task Selection
+I'll start by getting the current task status and following the instructions provided by MCP.
 
-First, I'll check the ClaudeTask board to find the appropriate task to work on.
+## Getting Task Information
 
-!curl -s http://localhost:3333/api/tasks | python -m json.tool | head -50
+First, let me determine which task to work on:
+- If a task ID was provided: I'll get that specific task
+- If no task ID: I'll get the next available task from the queue
 
-$TASK_ID="$1"
+### Available MCP Commands:
+- `mcp:get_task_queue` - View all tasks in the queue
+- `mcp:get_next_task` - Get the highest priority task ready for work
+- `mcp:get_task <id>` - Get details of a specific task
+- `mcp:update_status <id> <status>` - Update task status and receive next steps
 
-## Determine Task
+## Workflow
 
-If a task ID was provided ($TASK_ID), I'll work on that specific task. Otherwise, I'll pick the next available task based on priority:
-1. First check Backlog status
-2. Then Analysis status  
-3. Then Ready status
-4. Finally, any In Progress tasks that might need attention
-
-## Workflow Steps
-
-Once I have a task, I'll:
-
-### 1. Analyze the Task
-- Fetch task details including description, requirements, and current status
-- Review any existing analysis or notes
-- Understand the scope and technical requirements
-
-### 2. Update Task Status
-- Move the task to "Analysis" if it's in Backlog
-- Add detailed analysis notes explaining the implementation approach
-- Estimate the effort required
-
-### 3. Prepare for Development
-- If the task is ready for development, move it to "In Progress"
-- This will automatically trigger worktree creation via the backend
-- Set up the development environment in the worktree
-
-### 4. Implement the Feature
-- Write the code following best practices
-- Add appropriate tests
-- Update documentation as needed
-- Follow the existing code style and conventions
-
-### 5. Testing & Review
-- Run tests to ensure everything works
-- Move task to "Testing" status
-- Perform code review checks
-- Move to "Code Review" status when ready
-
-### 6. Complete the Task
-- Once approved, merge changes to main
-- Clean up the worktree
-- Move task to "Done" status
-
-## API Calls
-
+### Step 1: Get Task
 ```bash
-# Get all tasks
-TASKS=$(curl -s http://localhost:3333/api/tasks)
+# If task ID provided:
+mcp:get_task <task_id>
 
-# Get specific task if ID provided
-if [ ! -z "$TASK_ID" ]; then
-    TASK=$(curl -s "http://localhost:3333/api/tasks/$TASK_ID")
-    echo "Working on Task #$TASK_ID"
-else
-    # Get next task from backlog
-    NEXT_TASK=$(curl -s http://localhost:3333/api/mcp/next-task)
-    if [ ! -z "$NEXT_TASK" ] && [ "$NEXT_TASK" != "null" ]; then
-        TASK_ID=$(echo "$NEXT_TASK" | python -c "import sys, json; print(json.load(sys.stdin).get('id', ''))")
-        echo "Picked Task #$TASK_ID from backlog"
-    else
-        echo "No tasks in backlog. Checking other statuses..."
-    fi
-fi
+# If no task ID:
+mcp:get_next_task
 ```
 
-## Task Processing
+### Step 2: Check Current Status
+The MCP response will include:
+- Task details (title, description, type, priority)
+- Current status
+- Analysis (if available)
+- **Next steps** - Instructions on what to do based on current status
 
-Now I'll process the selected task through the complete workflow:
+### Step 3: Follow MCP Instructions
+Based on the task's current status, MCP will provide specific next steps:
 
-1. **Analyze**: Understand requirements and create implementation plan
-2. **Develop**: Implement the feature in the task's worktree
-3. **Test**: Ensure quality with comprehensive testing
-4. **Review**: Perform thorough code review
-5. **Complete**: Merge to main and close the task
+- **Backlog** → Instructions to analyze the task
+- **Analysis** → Instructions to complete analysis and move to development
+- **In Progress** → Instructions to implement, test, and review
+- **Testing** → Instructions to run tests and verify
+- **Code Review** → Instructions to review and prepare for merge
+- **Blocked** → Instructions to resolve blockers
 
-The task will be handled according to its type (Feature/Bug) and priority (High/Medium/Low).
+### Step 4: Update Status
+When moving to a new phase:
+```bash
+mcp:update_status <task_id> "<new_status>"
+```
 
-Let me begin by examining the current task board and selecting the appropriate task to work on...
+The response will include:
+- Confirmation of status change
+- **Next steps** for the new status
+- Any automated actions taken (like worktree creation)
+
+## Key Principles
+
+1. **Always follow MCP instructions** - Each status update returns specific next steps
+2. **Status drives workflow** - The current status determines what actions to take
+3. **Automated assistance** - MCP handles worktree creation, branch management, etc.
+4. **Clear progression** - Move through statuses systematically
+
+Let me start by getting the task information...

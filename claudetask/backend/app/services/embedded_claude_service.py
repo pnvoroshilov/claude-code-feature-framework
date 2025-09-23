@@ -85,29 +85,24 @@ class EmbeddedClaudeProcess:
             if self.child and self.is_running:
                 self.is_running = False
                 
-                # Stop the reader thread first with a short timeout
+                # Stop the reader thread first with a very short timeout
                 self.stop_reading.set()
                 if self.read_thread and self.read_thread.is_alive():
-                    self.read_thread.join(timeout=1)  # Reduced timeout
+                    self.read_thread.join(timeout=0.1)  # Very short timeout
                     
                     # If thread is still alive, that's ok - we're shutting down anyway
                     if self.read_thread.is_alive():
-                        logger.warning(f"Reader thread for session {self.session_id} did not stop in time")
+                        logger.debug(f"Reader thread for session {self.session_id} still running, continuing")
                 
-                # Try to terminate the child process gracefully first
+                # Try to terminate the child process immediately
                 if self.child and self.child.isalive():
                     try:
-                        # Send quit command to Claude
-                        self.child.sendcontrol('c')  # Send Ctrl+C
-                        self.child.send('/quit\n')  # Try to quit gracefully
-                        # Give it a moment to quit
-                        await asyncio.sleep(0.5)
-                    except:
-                        pass  # Ignore errors here, we'll force close anyway
-                    
-                    # Now force close if still alive
-                    if self.child.isalive():
+                        # Send interrupt signal
+                        self.child.sendcontrol('c')
+                        # Don't wait, just force close immediately
                         self.child.close(force=True)
+                    except:
+                        pass  # Ignore errors
                 
                 self.child = None
                 
@@ -347,13 +342,13 @@ class EmbeddedClaudeService:
         if session_id in self.sessions:
             process = self.sessions[session_id]
             try:
-                # Use asyncio timeout to prevent hanging
-                result = await asyncio.wait_for(process.stop(), timeout=3.0)
+                # Use very short timeout to prevent hanging
+                result = await asyncio.wait_for(process.stop(), timeout=0.2)
             except asyncio.TimeoutError:
-                logger.error(f"Timeout stopping session {session_id}, forcing cleanup")
+                logger.debug(f"Session {session_id} stop timed out, forcing cleanup")
                 result = True  # Consider it stopped
             except Exception as e:
-                logger.error(f"Error stopping session {session_id}: {e}")
+                logger.debug(f"Error stopping session {session_id}: {e}")
                 result = True  # Consider it stopped anyway
             
             # Always remove from sessions dict

@@ -20,7 +20,6 @@ class TaskPriority(str, Enum):
 class TaskStatus(str, Enum):
     BACKLOG = "Backlog"
     ANALYSIS = "Analysis"
-    READY = "Ready"
     IN_PROGRESS = "In Progress"
     TESTING = "Testing"
     CODE_REVIEW = "Code Review"

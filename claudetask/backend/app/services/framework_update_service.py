@@ -42,16 +42,32 @@ class FrameworkUpdateService:
                     if not name.startswith("claudetask"):
                         preserved_servers[name] = config
             
-            # Create new config with stdio MCP server
-            stdio_server_path = os.path.join(framework_path, "claudetask", "mcp_server", "stdio_server.py")
+            # Load MCP template from framework assets and update with project values
+            mcp_template_path = os.path.join(framework_path, "framework-assets", "mcp-configs", "mcp-template.json")
+            
+            # Read template
+            try:
+                with open(mcp_template_path, "r") as f:
+                    template_config = json.load(f)
+            except Exception as e:
+                print(f"Failed to read MCP template: {e}")
+                return {"success": False, "message": f"Failed to read MCP template: {e}"}
+            
+            # Update template with project-specific values
+            mcp_server_dir = os.path.join(framework_path, "claudetask", "mcp_server")
+            native_server_script = os.path.join(mcp_server_dir, "native_stdio_server.py")
+            venv_python = os.path.join(mcp_server_dir, "venv", "bin", "python")
+            
+            claudetask_config = template_config["mcpServers"]["claudetask"]
+            claudetask_config["command"] = venv_python
+            claudetask_config["args"] = [native_server_script]
+            # Keep existing env values but update PROJECT_PATH
+            claudetask_config["env"]["CLAUDETASK_PROJECT_PATH"] = project_path
             
             new_config = {
                 "mcpServers": {
                     **preserved_servers,
-                    "claudetask": {
-                        "command": "python3",
-                        "args": [stdio_server_path]
-                    }
+                    "claudetask": claudetask_config
                 }
             }
             

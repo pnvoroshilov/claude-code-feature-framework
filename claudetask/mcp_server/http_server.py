@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 # Import the MCP bridge functionality
-from .claudetask_mcp_bridge import ClaudeTaskMCPServer
+from claudetask_mcp_bridge import ClaudeTaskMCPServer
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -72,6 +72,58 @@ async def list_tools():
     return {
         "tools": [
             {
+                "name": "get_task_queue",
+                "description": "View all tasks in the queue",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
+            {
+                "name": "get_next_task",
+                "description": "Get the highest priority task ready for work",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            },
+            {
+                "name": "get_task",
+                "description": "Get details of a specific task",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "task_id": {"type": "integer"}
+                    },
+                    "required": ["task_id"]
+                }
+            },
+            {
+                "name": "analyze_task",
+                "description": "Analyze a specific task and create implementation plan",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "task_id": {"type": "integer"}
+                    },
+                    "required": ["task_id"]
+                }
+            },
+            {
+                "name": "update_task_analysis",
+                "description": "Save analysis results back to the task",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "task_id": {"type": "integer"},
+                        "analysis": {"type": "string"}
+                    },
+                    "required": ["task_id", "analysis"]
+                }
+            },
+            {
                 "name": "complete_task",
                 "description": "Complete a task and merge its branch",
                 "input_schema": {
@@ -85,7 +137,7 @@ async def list_tools():
             },
             {
                 "name": "update_status",
-                "description": "Update task status",
+                "description": "Update task status and receive next steps",
                 "input_schema": {
                     "type": "object",
                     "properties": {
@@ -154,6 +206,11 @@ async def call_tool(tool_name: str, arguments: Dict[str, Any]):
     try:
         # Map tool names to methods
         tool_methods = {
+            "get_task_queue": mcp_bridge._get_task_queue,
+            "get_next_task": mcp_bridge._get_next_task,
+            "get_task": mcp_bridge._get_task,
+            "analyze_task": mcp_bridge._analyze_task,
+            "update_task_analysis": mcp_bridge._update_task_analysis,
             "complete_task": mcp_bridge._complete_task,
             "update_status": mcp_bridge._update_status,
             "create_worktree": mcp_bridge._create_worktree,
@@ -168,7 +225,17 @@ async def call_tool(tool_name: str, arguments: Dict[str, Any]):
         method = tool_methods[tool_name]
         
         # Call the method with appropriate arguments
-        if tool_name == "complete_task":
+        if tool_name == "get_task_queue":
+            result = await method()
+        elif tool_name == "get_next_task":
+            result = await method()
+        elif tool_name == "get_task":
+            result = await method(arguments.get("task_id"))
+        elif tool_name == "analyze_task":
+            result = await method(arguments.get("task_id"))
+        elif tool_name == "update_task_analysis":
+            result = await method(arguments.get("task_id"), arguments.get("analysis"))
+        elif tool_name == "complete_task":
             result = await method(arguments.get("task_id"), arguments.get("create_pr", False))
         elif tool_name == "update_status":
             result = await method(arguments.get("task_id"), arguments.get("status"))
