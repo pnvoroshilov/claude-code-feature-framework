@@ -43,6 +43,7 @@ const statusColumns = [
   { status: 'In Progress', title: 'In Progress', color: '#orange' },
   { status: 'Testing', title: 'Testing', color: '#purple' },
   { status: 'Code Review', title: 'Code Review', color: '#brown' },
+  { status: 'PR', title: 'Pull Request', color: '#1976d2' },
   { status: 'Done', title: 'Done', color: '#darkgreen' },
 ];
 
@@ -442,6 +443,55 @@ const TaskBoard: React.FC = () => {
           )}
         </DialogContent>
         <DialogActions>
+          {selectedTask?.status === 'PR' && (
+            <Button
+              variant="contained"
+              color="success"
+              onClick={async () => {
+                // Send /merge command to Claude session via WebSocket
+                try {
+                  // Get active sessions to find session for this task
+                  const sessionsResponse = await fetch(`${API_URL}/sessions/embedded/active`);
+                  const sessions = await sessionsResponse.json();
+                  const session = sessions.find((s: any) => s.task_id === selectedTask.id);
+                  
+                  if (session) {
+                    // Connect to WebSocket and send /merge command
+                    const ws = new WebSocket(`ws://localhost:3333/api/sessions/embedded/${session.session_id}/ws`);
+                    
+                    ws.onopen = () => {
+                      // Send /merge command with task ID
+                      ws.send(JSON.stringify({
+                        type: 'input',
+                        content: `/merge ${selectedTask.id}\r`
+                      }));
+                      
+                      // Close WebSocket after sending
+                      setTimeout(() => {
+                        ws.close();
+                        // Close dialog and refresh
+                        setTaskDetailsOpen(false);
+                        window.location.reload();
+                      }, 1000);
+                    };
+                    
+                    ws.onerror = (error) => {
+                      console.error('WebSocket error:', error);
+                      alert('Failed to send /merge command. Please check if Claude session is active.');
+                    };
+                  } else {
+                    alert('No active Claude session found for this task. Please start a session first.');
+                  }
+                } catch (error) {
+                  console.error('Failed to send merge command:', error);
+                  alert('Failed to send merge command. Please try again.');
+                }
+              }}
+              sx={{ mr: 'auto' }}
+            >
+              Complete Task (Merge PR)
+            </Button>
+          )}
           <Button onClick={() => setTaskDetailsOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>

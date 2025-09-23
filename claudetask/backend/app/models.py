@@ -30,6 +30,7 @@ class TaskStatus(str, enum.Enum):
     IN_PROGRESS = "In Progress"
     TESTING = "Testing"
     CODE_REVIEW = "Code Review"
+    PR = "PR"  # Pull Request created, awaiting manual review
     DONE = "Done"
     BLOCKED = "Blocked"
 

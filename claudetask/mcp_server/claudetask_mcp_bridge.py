@@ -172,7 +172,7 @@ class ClaudeTaskMCPServer:
         # Status progression flow
         self.status_flow = [
             "Backlog", "Analysis", "Ready", "In Progress", 
-            "Testing", "Code Review", "Done"
+            "Testing", "Code Review", "PR", "Done"
         ]
         
         # Setup tool handlers
@@ -220,7 +220,7 @@ class ClaudeTaskMCPServer:
                             },
                             "status": {
                                 "type": "string",
-                                "enum": ["Backlog", "Analysis", "Ready", "In Progress", "Testing", "Code Review", "Done", "Blocked"],
+                                "enum": ["Backlog", "Analysis", "Ready", "In Progress", "Testing", "Code Review", "PR", "Done", "Blocked"],
                                 "description": "New status for the task"
                             },
                             "comment": {
@@ -621,6 +621,9 @@ Recommended Agent: {recommended_agent}
             elif status == "Analysis":
                 handler = "YOU (Coordinator)"
                 commands = "mcp:analyze_task <task_id>"
+            elif status == "PR":
+                handler = "USER (Manual)"
+                commands = "Manual review and testing, then click 'Done' button (sends /merge command)"
             else:
                 handler = f"AGENT: {agent}"
                 commands = f"1. mcp:delegate_to_agent <task_id> {agent} '<instructions>' (registers intent)\n     2. /task \"{agent}\" \"<full task details>\" (ACTUAL delegation)"
@@ -780,6 +783,39 @@ Description:
 - Path: {worktree.get('path')}
 """
                 
+                # Special instructions for Code Review status
+                pr_instructions = ""
+                if status == "Code Review":
+                    pr_instructions = f"""
+
+📝 CODE REVIEW COMPLETED - CREATE PR NOW:
+
+After code review is complete, create a Pull Request:
+1. Use mcp:complete_task {task_id} true (creates PR)
+2. Then update status: mcp:update_status {task_id} PR
+3. Task will enter PR status for manual review
+4. User will test and review PR manually
+5. User will click 'Done' button which sends /merge command
+"""
+                
+                # Special instructions for PR status
+                if status == "PR":
+                    pr_instructions = f"""
+
+🔍 PULL REQUEST CREATED - AWAITING MANUAL REVIEW:
+
+Task is now in PR status. Required actions:
+1. USER: Manually review the Pull Request
+2. USER: Test the implementation 
+3. USER: Approve/request changes on GitHub
+4. USER: Click 'Done' button in UI (will send /merge command)
+5. SYSTEM: /merge command will:
+   - Merge PR to main branch
+   - Clean up worktree
+   - Update status to Done
+   - Stop Claude session
+"""
+                
                 return [types.TextContent(
                     type="text",
                     text=f"""✅ STATUS UPDATED SUCCESSFULLY
@@ -789,6 +825,7 @@ Type: {task['type']}
 New Status: {status}
 {f"Comment: {comment}" if comment else ""}
 {worktree_info}
+{pr_instructions}
 {progression_guide}
 
 🚀 CONTINUE AUTONOMOUS WORKFLOW - Execute the next actions above!"""
