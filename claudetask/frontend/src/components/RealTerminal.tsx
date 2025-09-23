@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import { Box, IconButton, Paper } from '@mui/material';
+import { Box, IconButton, Paper, CircularProgress } from '@mui/material';
 import { PlayArrow, Stop, Clear } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import '@xterm/xterm/css/xterm.css';
@@ -35,6 +35,9 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
   const wsRef = useRef<WebSocket | null>(null);
   const [isActive, setIsActive] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const sessionCheckDoneRef = useRef(false);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -83,19 +86,70 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
         }
       });
 
-      terminal.current.writeln('Terminal ready. Click start to begin.');
+      terminal.current.writeln('Terminal ready. Checking for active session...');
+      
+      // Auto-check for active session and launch if needed
+      checkActiveSession();
     } catch (error) {
       console.error('Failed to initialize terminal:', error);
     }
 
     return () => {
       try {
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+        }
+        // Don't close WebSocket on unmount to keep session alive
+        // wsRef.current?.close();
         terminal.current?.dispose();
       } catch (error) {
         console.warn('Error disposing terminal:', error);
       }
     };
   }, []);
+
+  const checkActiveSession = useCallback(async () => {
+    if (sessionCheckDoneRef.current) return;
+    sessionCheckDoneRef.current = true;
+    
+    try {
+      console.log(`Checking for active Claude sessions for task ${taskId}...`);
+      terminal.current?.writeln('\r\nChecking for active session...');
+      
+      // Get all active sessions
+      const response = await fetch('http://localhost:3333/api/sessions/embedded/active');
+      
+      if (response.ok) {
+        const sessions = await response.json();
+        console.log('Active sessions:', sessions);
+        
+        // Find session for this task
+        const existingSession = sessions.find((s: any) => s.task_id === taskId);
+        
+        if (existingSession) {
+          console.log(`Found existing session ${existingSession.session_id} for task ${taskId}`);
+          terminal.current?.writeln(`\r\nReconnecting to session ${existingSession.session_id}...`);
+          setSessionId(existingSession.session_id);
+          setIsActive(true);
+          connectWebSocket(existingSession.session_id, true);
+        } else {
+          console.log(`No active session found for task ${taskId}, auto-launching...`);
+          terminal.current?.writeln('\r\nNo active session found. Starting new session...');
+          // Auto-launch new session
+          await startSession();
+        }
+      } else {
+        console.log('Failed to check active sessions, auto-launching new session');
+        // If check fails, try to start a new session
+        await startSession();
+      }
+    } catch (error) {
+      console.error('Error checking active session:', error);
+      terminal.current?.writeln('\r\nError checking session. Starting new session...');
+      // On error, try to start a new session
+      await startSession();
+    }
+  }, [taskId]);
 
   const startSession = async () => {
     try {
@@ -123,20 +177,54 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
     }
   };
 
-  const connectWebSocket = (sessionId: string) => {
+  const connectWebSocket = (sessionId: string, isReconnect: boolean = false) => {
+    // Close existing connection if any
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+    
+    setIsConnecting(true);
     const ws = new WebSocket(`ws://localhost:3333/api/sessions/embedded/${sessionId}/ws`);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      terminal.current?.writeln('Connected to Claude');
+      setIsConnecting(false);
+      terminal.current?.writeln('\r\nConnected to Claude');
+      
+      // Send initial ping
       ws.send(JSON.stringify({ type: 'ping' }));
+      
+      // If reconnecting, request history
+      if (isReconnect) {
+        console.log('Requesting session history on reconnect');
+        ws.send(JSON.stringify({ type: 'get_history' }));
+      }
     };
 
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        if (message.type !== 'pong' && message.content) {
-          // Write everything directly to terminal
+        
+        // Handle history replay
+        if (message.type === 'history') {
+          console.log(`Replaying ${message.content?.length || 0} history messages`);
+          terminal.current?.clear();
+          terminal.current?.writeln('=== Session History ===');
+          
+          // Replay all history messages
+          if (Array.isArray(message.content)) {
+            message.content.forEach((historyMsg: any) => {
+              if (historyMsg.content) {
+                terminal.current?.write(historyMsg.content);
+              }
+            });
+          }
+          terminal.current?.writeln('\r\n=== Live Session ===');
+        } else if (message.type === 'output' && message.content) {
+          // Write regular output
+          terminal.current?.write(message.content);
+        } else if (message.type !== 'pong' && message.content) {
+          // Write any other content
           terminal.current?.write(message.content);
         }
       } catch (error) {
@@ -146,17 +234,33 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
     };
 
     ws.onerror = (error) => {
+      setIsConnecting(false);
       terminal.current?.writeln('\r\nWebSocket error');
       console.error('WebSocket error:', error);
     };
 
     ws.onclose = () => {
-      terminal.current?.writeln('\r\nConnection closed');
-      setIsActive(false);
+      setIsConnecting(false);
+      terminal.current?.writeln('\r\nConnection closed. Session remains active.');
+      // Don't set isActive to false to keep the UI in "connected" state
+      // Session is still running on backend
+      
+      // Try to reconnect after a delay
+      if (isActive && sessionId) {
+        reconnectTimeoutRef.current = setTimeout(() => {
+          console.log('Attempting to reconnect...');
+          connectWebSocket(sessionId, true);
+        }, 3000);
+      }
     };
   };
 
   const stopSession = async () => {
+    // Clear reconnect timeout
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+    
     if (wsRef.current) {
       wsRef.current.close();
     }
@@ -171,7 +275,7 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
     }
     setIsActive(false);
     setSessionId(null);
-    terminal.current?.writeln('Session stopped');
+    terminal.current?.writeln('\r\nSession stopped');
   };
 
   const clearTerminal = () => {
@@ -186,7 +290,8 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
     <TerminalContainer>
       <TerminalHeader>
         <Box sx={{ color: '#fff', fontSize: '14px' }}>
-          Claude Terminal - Task {taskId}
+          Claude Terminal - Task {taskId} {sessionId && `(${sessionId.slice(0, 8)}...)`}
+          {isConnecting && <CircularProgress size={16} sx={{ ml: 1, color: '#fff' }} />}
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <IconButton size="small" onClick={clearTerminal} sx={{ color: '#fff' }}>
