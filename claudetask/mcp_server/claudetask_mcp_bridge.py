@@ -705,14 +705,28 @@ Description:
 3️⃣ SAVE your analysis:
    mcp:update_task_analysis {task_id} "<your comprehensive analysis>"
 
-4️⃣ UPDATE status:
+4️⃣ UPDATE status to Ready:
    mcp:update_status {task_id} Ready
 
-5️⃣ REGISTER delegation intent:
-   mcp:delegate_to_agent {task_id} {recommended_agent} "<implementation instructions>"
+5️⃣ UPDATE status to In Progress (creates worktree):
+   mcp:update_status {task_id} "In Progress"
+   
+   ⚠️ This will automatically create:
+   - Worktree: ./worktrees/task-{task_id}
+   - Branch: feature/task-{task_id}
 
-6️⃣ EXECUTE actual delegation:
-   /task "{recommended_agent}" "Task #{task_id}: [full details and instructions]"
+6️⃣ DELEGATE with worktree instructions:
+   mcp:delegate_to_agent {task_id} {recommended_agent} "Work in worktree ./worktrees/task-{task_id}"
+
+7️⃣ EXECUTE actual delegation with CRITICAL worktree instruction:
+   /task "{recommended_agent}" "Task #{task_id}: {task['title']}
+   
+   🌳 CRITICAL: Work in worktree directory!
+   FIRST COMMAND: cd ./worktrees/task-{task_id}
+   
+   ALL changes must be made in the worktree, NOT in main directory!
+   
+   [Include your implementation instructions here]"
 
 {progression_guide}
 
@@ -956,6 +970,29 @@ Completed Today: {completed_today}
                 # Get status progression guidance
                 progression_guide = self._get_status_progression_instructions(task['type'], task['status'])
                 
+                # Get worktree path if it exists
+                worktree_path = task.get('worktree_path', '')
+                if not worktree_path and task['status'] == 'In Progress':
+                    # Worktree should exist for In Progress tasks
+                    worktree_path = f"./worktrees/task-{task_id}"
+                
+                worktree_instruction = ""
+                if worktree_path:
+                    worktree_instruction = f"""
+
+🌳 WORKTREE WORKSPACE:
+Path: {worktree_path}
+
+⚠️ CRITICAL INSTRUCTION FOR AGENT:
+ALL WORK MUST BE DONE IN THE WORKTREE DIRECTORY!
+cd {worktree_path}
+
+The agent MUST:
+1. Change to worktree directory: cd {worktree_path}
+2. Perform ALL file operations in this isolated workspace
+3. Commit changes in the feature branch
+4. NEVER modify files in the main project directory"""
+                
                 return [types.TextContent(
                     type="text",
                     text=f"""⚠️ DELEGATION REGISTERED BUT NOT EXECUTED!
@@ -966,20 +1003,21 @@ Agent Selected: {agent_type}
 {validation_note}
 📋 Instructions Recorded:
 {instructions}
+{worktree_instruction}
 
 🚨 CRITICAL: DELEGATION IS NOT COMPLETE YET!
 
 You must now USE the Task tool to actually delegate:
 
 🔥 EXECUTE THIS COMMAND NOW:
-/task "{agent_type}" "Task #{task_id}: {task['title']}\n\nType: {task['type']}\nInstructions: {instructions}\n\nWorktree: {task.get('worktree_path', 'Will be created')}\n\nPlease implement this task following the provided instructions."
+/task "{agent_type}" "Task #{task_id}: {task['title']}\n\nType: {task['type']}\nInstructions: {instructions}\n\n🌳 WORKSPACE: {worktree_path if worktree_path else 'Will be created'}\n\n⚠️ CRITICAL: You MUST work in the worktree directory!\nFirst command: cd {worktree_path if worktree_path else f'./worktrees/task-{task_id}'}\n\nALL file changes must be made in this worktree, NOT in the main project directory!\n\nPlease implement this task following the provided instructions."
 
 IMPORTANT: Delegation is NOT complete until you run the Task tool above!
 
 📋 After Task tool execution, continue with:
-1️⃣ CREATE worktree: mcp:create_worktree {task_id}
-2️⃣ UPDATE status: mcp:update_status {task_id} "In Progress"
-3️⃣ MONITOR agent progress
+1️⃣ UPDATE status: mcp:update_status {task_id} "In Progress" (if not already)
+2️⃣ MONITOR agent progress
+3️⃣ ENSURE agent is working in worktree: {worktree_path if worktree_path else f'./worktrees/task-{task_id}'}
 
 {progression_guide}"""
                 )]
