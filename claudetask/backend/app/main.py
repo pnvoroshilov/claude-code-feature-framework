@@ -299,6 +299,9 @@ async def update_task_status(
     if status_update.status == TaskStatus.ANALYSIS and old_status != TaskStatus.ANALYSIS:
         logger.info(f"Task {task_id} needs analysis - status changed to Analysis")
     
+    # Initialize response data
+    response_data = {"status": status_update.status.value, "comment": status_update.comment}
+    
     # Auto-create worktree when task moves to In Progress
     if status_update.status == TaskStatus.IN_PROGRESS and old_status != TaskStatus.IN_PROGRESS:
         logger.info(f"Task {task_id} started - creating worktree")
@@ -323,8 +326,21 @@ async def update_task_status(
                 task.git_branch = worktree_result["branch_name"]
                 task.worktree_path = worktree_result["worktree_path"]
                 logger.info(f"Worktree created for task {task_id}: {worktree_result['branch_name']}")
+                # Add worktree info to response
+                response_data["worktree"] = {
+                    "created": True,
+                    "branch": worktree_result["branch_name"],
+                    "path": worktree_result["worktree_path"]
+                }
             else:
                 logger.error(f"Failed to create worktree for task {task_id}: {worktree_result.get('error')}")
+                # Check if worktree already exists
+                if "already exists" in str(worktree_result.get("error", "")):
+                    response_data["worktree"] = {
+                        "exists": True,
+                        "branch": task.git_branch,
+                        "path": task.worktree_path
+                    }
     
     # If status changed to Done, trigger automatic merge and cleanup
     if status_update.status == TaskStatus.DONE and old_status != TaskStatus.DONE:
@@ -362,7 +378,7 @@ async def update_task_status(
     
     await db.commit()
     await db.refresh(task)
-    return task
+    return response_data
 
 
 @app.delete("/api/tasks/{task_id}")

@@ -738,6 +738,7 @@ Description:
                     json=data
                 )
                 response.raise_for_status()
+                result = response.json()
                 
                 # Get task details to provide progression guidance
                 task_response = await client.get(f"{self.server_url}/api/tasks/{task_id}")
@@ -747,6 +748,24 @@ Description:
                 # Get next steps guidance
                 progression_guide = self._get_status_progression_instructions(task['type'], status)
                 
+                # Check if worktree was created (happens automatically when changing to In Progress)
+                worktree_info = ""
+                if status == "In Progress" and result.get("worktree"):
+                    worktree = result["worktree"]
+                    if worktree.get("created"):
+                        worktree_info = f"""
+🌳 WORKTREE AUTOMATICALLY CREATED:
+- Branch: {worktree.get('branch')}
+- Path: {worktree.get('path')}
+- Ready for development!
+"""
+                    elif worktree.get("exists"):
+                        worktree_info = f"""
+🌳 WORKTREE ALREADY EXISTS:
+- Branch: {worktree.get('branch')}
+- Path: {worktree.get('path')}
+"""
+                
                 return [types.TextContent(
                     type="text",
                     text=f"""✅ STATUS UPDATED SUCCESSFULLY
@@ -755,7 +774,7 @@ Task #{task_id}: {task['title']}
 Type: {task['type']}
 New Status: {status}
 {f"Comment: {comment}" if comment else ""}
-
+{worktree_info}
 {progression_guide}
 
 🚀 CONTINUE AUTONOMOUS WORKFLOW - Execute the next actions above!"""
