@@ -43,6 +43,9 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
   useEffect(() => {
     if (!terminalRef.current) return;
 
+    // Reset session check flag when taskId changes
+    sessionCheckDoneRef.current = false;
+
     try {
       // Create terminal with minimal config for maximum compatibility
       terminal.current = new Terminal({
@@ -107,7 +110,7 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
         console.warn('Error disposing terminal:', error);
       }
     };
-  }, []);
+  }, [taskId]);
 
   const checkActiveSession = useCallback(async () => {
     if (sessionCheckDoneRef.current) return;
@@ -124,8 +127,11 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
         const sessions = await response.json();
         console.log('Active sessions:', sessions);
         
+        // Ensure sessions is an array
+        const sessionsList = Array.isArray(sessions) ? sessions : (sessions?.sessions || []);
+        
         // Find session for this task
-        const existingSession = sessions.find((s: any) => s.task_id === taskId);
+        const existingSession = sessionsList.find((s: any) => s.task_id === taskId);
         
         if (existingSession) {
           console.log(`Found existing session ${existingSession.session_id} for task ${taskId}`);
