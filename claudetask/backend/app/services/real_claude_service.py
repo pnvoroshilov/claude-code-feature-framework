@@ -170,13 +170,13 @@ class RealClaudeSession:
         try:
             # Wait 2 seconds for Claude to fully initialize
             await asyncio.sleep(2)
-            # Send the command and press Enter automatically
-            task_command = f"Начни работу с Task №{self.task_id}"
+            # Send the /start-feature command with task ID
+            task_command = f"/start-feature {self.task_id}"
             await self.send_input(task_command)
             # Wait a moment and send Enter
             await asyncio.sleep(0.5)
             await self.send_input("\r")
-            logger.info(f"Sent task initialization command for Task #{self.task_id} with Enter")
+            logger.info(f"Sent /start-feature command for Task #{self.task_id}")
         except Exception as e:
             logger.error(f"Failed to send task initialization command: {e}")
 

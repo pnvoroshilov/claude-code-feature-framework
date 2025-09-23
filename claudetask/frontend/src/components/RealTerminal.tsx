@@ -136,6 +136,7 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
         } else {
           console.log(`No active session found for task ${taskId}, auto-launching...`);
           terminal.current?.writeln('\r\nNo active session found. Starting new session...');
+          terminal.current?.writeln(`Will auto-run: /start-feature ${taskId}`);
           // Auto-launch new session
           await startSession();
         }
@@ -155,7 +156,8 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
   const startSession = async () => {
     try {
       terminal.current?.clear();
-      terminal.current?.writeln('Starting session...');
+      terminal.current?.writeln(`Starting Claude session for Task #${taskId}...`);
+      terminal.current?.writeln(`Will auto-run: /start-feature ${taskId}`);
 
       const response = await fetch('http://localhost:3333/api/sessions/launch/embedded', {
         method: 'POST',
