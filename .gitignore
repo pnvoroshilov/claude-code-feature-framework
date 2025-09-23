@@ -95,3 +95,6 @@ coverage/
 .claudetask/
 .mcp.json
 CLAUDE.md.backup
+
+# Git worktrees
+worktrees/
