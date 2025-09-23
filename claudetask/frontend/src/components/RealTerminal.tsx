@@ -134,22 +134,20 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
           setIsActive(true);
           connectWebSocket(existingSession.session_id, true);
         } else {
-          console.log(`No active session found for task ${taskId}, auto-launching...`);
-          terminal.current?.writeln('\r\nNo active session found. Starting new session...');
-          terminal.current?.writeln(`Will auto-run: /start-feature ${taskId}`);
-          // Auto-launch new session
-          await startSession();
+          console.log(`No active session found for task ${taskId}`);
+          terminal.current?.writeln('\r\nNo active session found.');
+          terminal.current?.writeln(`Click the play button to start a new session.`);
+          // Don't auto-launch - wait for user to click play button
         }
       } else {
-        console.log('Failed to check active sessions, auto-launching new session');
-        // If check fails, try to start a new session
-        await startSession();
+        console.log('Failed to check active sessions');
+        terminal.current?.writeln('\r\nCould not check for active sessions.');
+        terminal.current?.writeln(`Click the play button to start a new session.`);
       }
     } catch (error) {
       console.error('Error checking active session:', error);
-      terminal.current?.writeln('\r\nError checking session. Starting new session...');
-      // On error, try to start a new session
-      await startSession();
+      terminal.current?.writeln('\r\nError checking session.');
+      terminal.current?.writeln(`Click the play button to start a new session.`);
     }
   }, [taskId]);
 

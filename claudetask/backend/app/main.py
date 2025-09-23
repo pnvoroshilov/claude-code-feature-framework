@@ -1,6 +1,6 @@
 """Main FastAPI application"""
 
-from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +9,7 @@ from typing import List, Optional
 import os
 import logging
 import json
+import asyncio
 from datetime import datetime
 from pathlib import Path
 
@@ -1094,7 +1095,7 @@ async def stream_embedded_session_messages(session_id: str):
 
 
 @app.post("/api/sessions/embedded/{session_id}/stop")
-async def stop_embedded_session(session_id: str, db: AsyncSession = Depends(get_db)):
+async def stop_embedded_session(session_id: str, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     """Stop an embedded Claude session"""
     try:
         from .services.real_claude_service import real_claude_service
@@ -1102,31 +1103,44 @@ async def stop_embedded_session(session_id: str, db: AsyncSession = Depends(get_
         
         logger.info(f"Stopping embedded session: {session_id}")
         
-        # Try to stop the session
+        # Try to stop the session with a timeout
+        success = False
         try:
-            success = await real_claude_service.stop_session(session_id)
+            # Use asyncio timeout to prevent hanging
+            success = await asyncio.wait_for(
+                real_claude_service.stop_session(session_id),
+                timeout=5.0  # 5 second timeout for the entire stop operation
+            )
             logger.info(f"Stop session result: {success}")
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout stopping embedded session {session_id}, marking as stopped")
+            success = True  # Consider it stopped to prevent hanging
         except Exception as e:
             logger.error(f"Error stopping embedded session: {e}", exc_info=True)
-            success = False
+            success = True  # Consider it stopped to prevent hanging
         
-        # Update database regardless of stop success
-        try:
-            result = await db.execute(
-                select(ClaudeSession).where(ClaudeSession.session_id == session_id)
-            )
-            session = result.scalar_one_or_none()
-            
-            if session:
-                session.status = "inactive"
-                await db.commit()
-        except Exception as db_error:
-            logger.error(f"Database error when stopping session: {db_error}")
+        # Update database regardless of stop success - do this in background to not block
+        async def update_db():
+            try:
+                async with AsyncSession(db.get_bind()) as session:
+                    result = await session.execute(
+                        select(ClaudeSession).where(ClaudeSession.session_id == session_id)
+                    )
+                    db_session = result.scalar_one_or_none()
+                    
+                    if db_session:
+                        db_session.status = "inactive"
+                        await session.commit()
+            except Exception as db_error:
+                logger.error(f"Database error when stopping session: {db_error}")
+        
+        # Add database update to background tasks
+        background_tasks.add_task(update_db)
         
         return {"success": success, "status": "inactive"}
     except Exception as e:
         logger.error(f"Failed to stop embedded session {session_id}: {e}")
-        return {"success": False, "error": str(e), "status": "inactive"}
+        return {"success": True, "error": str(e), "status": "inactive"}  # Return success to prevent UI hanging
 
 
 @app.get("/api/sessions/embedded/status")

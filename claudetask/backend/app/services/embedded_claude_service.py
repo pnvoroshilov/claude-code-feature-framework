@@ -85,28 +85,53 @@ class EmbeddedClaudeProcess:
             if self.child and self.is_running:
                 self.is_running = False
                 
-                # Stop the reader thread
+                # Stop the reader thread first with a short timeout
                 self.stop_reading.set()
-                if self.read_thread:
-                    self.read_thread.join(timeout=2)
+                if self.read_thread and self.read_thread.is_alive():
+                    self.read_thread.join(timeout=1)  # Reduced timeout
+                    
+                    # If thread is still alive, that's ok - we're shutting down anyway
+                    if self.read_thread.is_alive():
+                        logger.warning(f"Reader thread for session {self.session_id} did not stop in time")
                 
-                # Close the pexpect child
-                if self.child.isalive():
-                    self.child.close(force=True)
+                # Try to terminate the child process gracefully first
+                if self.child and self.child.isalive():
+                    try:
+                        # Send quit command to Claude
+                        self.child.sendcontrol('c')  # Send Ctrl+C
+                        self.child.send('/quit\n')  # Try to quit gracefully
+                        # Give it a moment to quit
+                        await asyncio.sleep(0.5)
+                    except:
+                        pass  # Ignore errors here, we'll force close anyway
+                    
+                    # Now force close if still alive
+                    if self.child.isalive():
+                        self.child.close(force=True)
                 
                 self.child = None
                 
-                await self.message_queue.put({
-                    "type": "system",
-                    "content": "Claude process stopped",
-                    "timestamp": datetime.now().isoformat()
-                })
+                # Try to put final message, but don't block on it
+                try:
+                    await asyncio.wait_for(
+                        self.message_queue.put({
+                            "type": "system",
+                            "content": "Claude process stopped",
+                            "timestamp": datetime.now().isoformat()
+                        }),
+                        timeout=0.5
+                    )
+                except asyncio.TimeoutError:
+                    logger.warning(f"Could not send stop message for session {self.session_id}")
             
             return True
             
         except Exception as e:
             logger.error(f"Error stopping Claude process: {e}")
-            return False
+            # Even on error, mark as stopped and cleanup
+            self.is_running = False
+            self.child = None
+            return True  # Return True anyway to prevent hanging
     
     async def send_input(self, user_input: str) -> bool:
         """Send input to Claude process via pexpect"""
@@ -321,8 +346,20 @@ class EmbeddedClaudeService:
         """Stop an embedded Claude session"""
         if session_id in self.sessions:
             process = self.sessions[session_id]
-            result = await process.stop()
-            del self.sessions[session_id]
+            try:
+                # Use asyncio timeout to prevent hanging
+                result = await asyncio.wait_for(process.stop(), timeout=3.0)
+            except asyncio.TimeoutError:
+                logger.error(f"Timeout stopping session {session_id}, forcing cleanup")
+                result = True  # Consider it stopped
+            except Exception as e:
+                logger.error(f"Error stopping session {session_id}: {e}")
+                result = True  # Consider it stopped anyway
+            
+            # Always remove from sessions dict
+            if session_id in self.sessions:
+                del self.sessions[session_id]
+            
             return result
         return False
     
