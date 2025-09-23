@@ -25,12 +25,13 @@ class ClaudeTaskMCPServer:
         self.server_url = server_url.rstrip("/")
         self.server = Server("claudetask")
         
-        # Available local agents (verified to exist in /agents/development/)
+        # Available local agents (verified to exist in framework-assets/claude-agents/)
         self.available_agents = [
             "ai-implementation-expert",
             "api-validator",
             "backend-architect",
             "background-tester",
+            "business-analyst",
             "context-analyzer",
             "data-formatter",
             "devops-engineer",
@@ -41,6 +42,7 @@ class ClaudeTaskMCPServer:
             "memory-sync",
             "mobile-react-expert",
             "python-api-expert",
+            "systems-analyst",
             "ux-ui-researcher",
             "web-tester"
         ]
@@ -291,10 +293,11 @@ class ClaudeTaskMCPServer:
                                 "type": "string",
                                 "enum": [
                                     "ai-implementation-expert", "api-validator", "backend-architect",
-                                    "background-tester", "context-analyzer", "data-formatter",
-                                    "devops-engineer", "docs-generator", "frontend-developer",
-                                    "fullstack-code-reviewer", "mcp-engineer", "memory-sync",
-                                    "mobile-react-expert", "python-api-expert"
+                                    "background-tester", "business-analyst", "context-analyzer", 
+                                    "data-formatter", "devops-engineer", "docs-generator", 
+                                    "frontend-developer", "fullstack-code-reviewer", "mcp-engineer", 
+                                    "memory-sync", "mobile-react-expert", "python-api-expert",
+                                    "systems-analyst", "ux-ui-researcher", "web-tester"
                                 ],
                                 "description": "Type of agent to delegate to (all available specialized agents)"
                             },
