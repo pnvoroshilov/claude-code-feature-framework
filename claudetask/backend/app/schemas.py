@@ -197,6 +197,15 @@ class TaskQueueResponse(BaseModel):
     completed_today: int
     
     
+# MCP Task Status Update Response
+class MCPTaskStatusUpdateResponse(BaseModel):
+    task: TaskInDB
+    status: str
+    comment: Optional[str] = None
+    next_steps: List[str] = []
+    worktree: Optional[Dict[str, Any]] = None
+
+
 # Connection verification
 class ConnectionStatus(BaseModel):
     connected: bool

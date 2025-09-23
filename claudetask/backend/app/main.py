@@ -27,7 +27,7 @@ from .schemas import (
     InitializeProjectRequest, InitializeProjectResponse,
     ConnectionStatus, TaskQueueResponse,
     AgentCreate, AgentInDB, AgentUpdate,
-    ProjectSettingsUpdate, ProjectSettingsInDB
+    ProjectSettingsUpdate, ProjectSettingsInDB, MCPTaskStatusUpdateResponse
 )
 from .services.mcp_service import mcp_service
 from .services.project_service import ProjectService
@@ -272,161 +272,175 @@ async def update_task(
     return task
 
 
-@app.patch("/api/tasks/{task_id}/status", response_model=TaskInDB)
+@app.patch("/api/tasks/{task_id}/status", response_model=MCPTaskStatusUpdateResponse)
 async def update_task_status(
     task_id: int,
     status_update: TaskStatusUpdate,
     db: AsyncSession = Depends(get_db)
 ):
     """Update task status"""
-    result = await db.execute(select(Task).where(Task.id == task_id))
-    task = result.scalar_one_or_none()
-    if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
-    
-    old_status = task.status
-    task.status = status_update.status
-    
-    # Add to history
-    history = TaskHistory(
-        task_id=task_id,
-        old_status=old_status,
-        new_status=status_update.status,
-        comment=status_update.comment or f"Status changed to {status_update.status.value}"
-    )
-    db.add(history)
-    
-    # If status changed to Analysis, log it for potential notifications
-    if status_update.status == TaskStatus.ANALYSIS and old_status != TaskStatus.ANALYSIS:
-        logger.info(f"Task {task_id} needs analysis - status changed to Analysis")
-    
-    # Initialize response data with instructions for next steps
-    response_data = {
-        "status": status_update.status.value, 
-        "comment": status_update.comment,
-        "next_steps": []
-    }
-    
-    # Add status-specific instructions
-    if status_update.status == TaskStatus.ANALYSIS:
-        response_data["next_steps"] = [
-            "Analyze task requirements and technical approach",
-            "Use mcp:analyze_task to perform detailed analysis",
-            "Save analysis with mcp:update_task_analysis",
-            "Update status to 'In Progress' when ready to start development"
-        ]
-    elif status_update.status == TaskStatus.IN_PROGRESS:
-        response_data["next_steps"] = [
-            "Implement the feature/fix in the worktree",
-            "Write tests for your changes",
-            "Update documentation if needed",
-            "Move to 'Testing' when implementation is complete"
-        ]
-    elif status_update.status == TaskStatus.TESTING:
-        response_data["next_steps"] = [
-            "Run all test suites",
-            "Verify functionality works as expected",
-            "Fix any failing tests",
-            "Move to 'Code Review' when tests pass"
-        ]
-    elif status_update.status == TaskStatus.CODE_REVIEW:
-        response_data["next_steps"] = [
-            "Review code for quality and standards",
-            "Check for potential issues",
-            "Ensure tests cover edge cases",
-            "Move to 'Done' when review is complete"
-        ]
-    elif status_update.status == TaskStatus.DONE:
-        response_data["next_steps"] = [
-            "Task completed successfully",
-            "Changes will be merged to main branch",
-            "Worktree will be cleaned up",
-            "You can start working on the next task"
-        ]
-    elif status_update.status == TaskStatus.BLOCKED:
-        response_data["next_steps"] = [
-            "Document what is blocking the task",
-            "Seek help or clarification",
-            "Move back to appropriate status when unblocked"
-        ]
-    
-    # Auto-create worktree when task moves to In Progress
-    if status_update.status == TaskStatus.IN_PROGRESS and old_status != TaskStatus.IN_PROGRESS:
-        logger.info(f"Task {task_id} started - creating worktree")
+    try:
+        logger.info(f"Updating task {task_id} status to {status_update.status}")
+        result = await db.execute(select(Task).where(Task.id == task_id))
+        task = result.scalar_one_or_none()
+        if not task:
+            raise HTTPException(status_code=404, detail="Task not found")
         
-        # Get project for context
-        project_result = await db.execute(
-            select(Project).where(Project.id == task.project_id)
+        old_status = task.status
+        task.status = status_update.status
+        
+        # Add to history
+        history = TaskHistory(
+            task_id=task_id,
+            old_status=old_status,
+            new_status=status_update.status,
+            comment=status_update.comment or f"Status changed to {status_update.status.value}"
         )
-        project = project_result.scalar_one_or_none()
+        db.add(history)
         
-        if project:
-            # Create worktree for the task
-            from .services.worktree_service import WorktreeService
+        # If status changed to Analysis, log it for potential notifications
+        if status_update.status == TaskStatus.ANALYSIS and old_status != TaskStatus.ANALYSIS:
+            logger.info(f"Task {task_id} needs analysis - status changed to Analysis")
+        
+        # Initialize response data with instructions for next steps
+        response_data = {
+            "status": status_update.status.value, 
+            "comment": status_update.comment,
+            "next_steps": []
+        }
+        
+        # Add status-specific instructions
+        if status_update.status == TaskStatus.ANALYSIS:
+            response_data["next_steps"] = [
+                "Analyze task requirements and technical approach",
+                "Use mcp:analyze_task to perform detailed analysis",
+                "Save analysis with mcp:update_task_analysis",
+                "Update status to 'In Progress' when ready to start development"
+            ]
+        elif status_update.status == TaskStatus.IN_PROGRESS:
+            response_data["next_steps"] = [
+                "Implement the feature/fix in the worktree",
+                "Write tests for your changes",
+                "Update documentation if needed",
+                "Move to 'Testing' when implementation is complete"
+            ]
+        elif status_update.status == TaskStatus.TESTING:
+            response_data["next_steps"] = [
+                "Run all test suites",
+                "Verify functionality works as expected",
+                "Fix any failing tests",
+                "Move to 'Code Review' when tests pass"
+            ]
+        elif status_update.status == TaskStatus.CODE_REVIEW:
+            response_data["next_steps"] = [
+                "Review code for quality and standards",
+                "Check for potential issues",
+                "Ensure tests cover edge cases",
+                "Move to 'Done' when review is complete"
+            ]
+        elif status_update.status == TaskStatus.DONE:
+            response_data["next_steps"] = [
+                "Task completed successfully",
+                "Changes will be merged to main branch",
+                "Worktree will be cleaned up",
+                "You can start working on the next task"
+            ]
+        elif status_update.status == TaskStatus.BLOCKED:
+            response_data["next_steps"] = [
+                "Document what is blocking the task",
+                "Seek help or clarification",
+                "Move back to appropriate status when unblocked"
+            ]
+        
+        # Auto-create worktree when task moves to In Progress
+        if status_update.status == TaskStatus.IN_PROGRESS and old_status != TaskStatus.IN_PROGRESS:
+            logger.info(f"Task {task_id} started - creating worktree")
             
-            worktree_result = await WorktreeService.create_worktree(
-                task_id=task_id,
-                project_path=project.path
-            )
-            
-            if worktree_result["success"]:
-                # Update task with worktree information
-                task.git_branch = worktree_result["branch_name"]
-                task.worktree_path = worktree_result["worktree_path"]
-                logger.info(f"Worktree created for task {task_id}: {worktree_result['branch_name']}")
-                # Add worktree info to response
-                response_data["worktree"] = {
-                    "created": True,
-                    "branch": worktree_result["branch_name"],
-                    "path": worktree_result["worktree_path"]
-                }
-            else:
-                logger.error(f"Failed to create worktree for task {task_id}: {worktree_result.get('error')}")
-                # Check if worktree already exists
-                if "already exists" in str(worktree_result.get("error", "")):
-                    response_data["worktree"] = {
-                        "exists": True,
-                        "branch": task.git_branch,
-                        "path": task.worktree_path
-                    }
-    
-    # If status changed to Done, trigger automatic merge and cleanup
-    if status_update.status == TaskStatus.DONE and old_status != TaskStatus.DONE:
-        if task.git_branch:
-            logger.info(f"Task {task_id} marked as Done - triggering automatic merge and cleanup")
-            
-            # Get project for path
+            # Get project for context
             project_result = await db.execute(
                 select(Project).where(Project.id == task.project_id)
             )
             project = project_result.scalar_one_or_none()
             
             if project:
-                # Trigger merge and cleanup in background
-                merge_result = await GitWorkflowService.merge_and_cleanup(
-                    project_path=project.path,
+                # Create worktree for the task
+                from .services.worktree_service import WorktreeService
+                
+                worktree_result = await WorktreeService.create_worktree(
                     task_id=task_id,
-                    branch_name=task.git_branch,
-                    worktree_path=task.worktree_path,
-                    create_pr=False  # Direct merge when marking as Done
+                    project_path=project.path
                 )
                 
-                if merge_result["success"]:
-                    # Clear worktree path if it was removed
-                    if merge_result["worktree_removed"]:
-                        task.worktree_path = None
-                    
-                    # Clear git branch if it was deleted  
-                    if merge_result["branch_deleted"]:
-                        task.git_branch = None
-                    
-                    logger.info(f"Task {task_id} successfully merged and cleaned up")
+                if worktree_result["success"]:
+                    # Update task with worktree information
+                    task.git_branch = worktree_result["branch_name"]
+                    task.worktree_path = worktree_result["worktree_path"]
+                    logger.info(f"Worktree created for task {task_id}: {worktree_result['branch_name']}")
+                    # Add worktree info to response
+                    response_data["worktree"] = {
+                        "created": True,
+                        "branch": worktree_result["branch_name"],
+                        "path": worktree_result["worktree_path"]
+                    }
                 else:
-                    logger.error(f"Failed to merge task {task_id}: {merge_result.get('errors')}")
-    
-    await db.commit()
-    await db.refresh(task)
-    return response_data
+                    logger.error(f"Failed to create worktree for task {task_id}: {worktree_result.get('error')}")
+                    # Check if worktree already exists
+                    if "already exists" in str(worktree_result.get("error", "")):
+                        response_data["worktree"] = {
+                            "exists": True,
+                            "branch": task.git_branch,
+                            "path": task.worktree_path
+                        }
+        
+        # If status changed to Done, trigger automatic merge and cleanup
+        if status_update.status == TaskStatus.DONE and old_status != TaskStatus.DONE:
+            if task.git_branch:
+                logger.info(f"Task {task_id} marked as Done - triggering automatic merge and cleanup")
+                
+                # Get project for path
+                project_result = await db.execute(
+                    select(Project).where(Project.id == task.project_id)
+                )
+                project = project_result.scalar_one_or_none()
+                
+                if project:
+                    # Trigger merge and cleanup in background
+                    merge_result = await GitWorkflowService.merge_and_cleanup(
+                        project_path=project.path,
+                        task_id=task_id,
+                        branch_name=task.git_branch,
+                        worktree_path=task.worktree_path,
+                        create_pr=False  # Direct merge when marking as Done
+                    )
+                    
+                    if merge_result["success"]:
+                        # Clear worktree path if it was removed
+                        if merge_result["worktree_removed"]:
+                            task.worktree_path = None
+                        
+                        # Clear git branch if it was deleted  
+                        if merge_result["branch_deleted"]:
+                            task.git_branch = None
+                        
+                        logger.info(f"Task {task_id} successfully merged and cleaned up")
+                    else:
+                        logger.error(f"Failed to merge task {task_id}: {merge_result.get('errors')}")
+        
+        await db.commit()
+        await db.refresh(task)
+        
+        # Create response with task and instructions
+        return MCPTaskStatusUpdateResponse(
+            task=task,
+            status=status_update.status.value,
+            comment=status_update.comment,
+            next_steps=response_data["next_steps"],
+            worktree=response_data.get("worktree")
+        )
+    except Exception as e:
+        logger.error(f"Error updating task {task_id} status to {status_update.status}: {str(e)}")
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update task status: {str(e)}")
 
 
 @app.delete("/api/tasks/{task_id}")
