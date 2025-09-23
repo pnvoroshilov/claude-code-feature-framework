@@ -56,6 +56,7 @@ export interface InitializeProjectRequest {
   project_path: string;
   project_name: string;
   github_repo?: string;
+  force_reinitialize?: boolean;
 }
 
 export interface InitializeProjectResponse {

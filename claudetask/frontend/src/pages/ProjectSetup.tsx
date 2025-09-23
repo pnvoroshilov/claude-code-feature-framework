@@ -16,14 +16,20 @@ import {
   ListItemIcon,
   ListItemText,
   Chip,
+  InputAdornment,
+  IconButton,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import {
   Folder as FolderIcon,
   CheckCircle as CheckIcon,
   Warning as WarningIcon,
+  FolderOpen as FolderOpenIcon,
 } from '@mui/icons-material';
 import { useMutation, useQueryClient } from 'react-query';
 import { initializeProject, InitializeProjectRequest } from '../services/api';
+import DirectoryBrowser from '../components/DirectoryBrowser';
 
 const steps = ['Project Configuration', 'Initialize', 'Setup Complete'];
 
@@ -33,10 +39,79 @@ const ProjectSetup: React.FC = () => {
     project_path: '',
     project_name: '',
     github_repo: '',
+    force_reinitialize: false,
   });
   const [initResult, setInitResult] = useState<any>(null);
+  const [browserOpen, setBrowserOpen] = useState(false);
 
   const queryClient = useQueryClient();
+
+  // Auto-populate project name from path
+  const handlePathChange = (path: string) => {
+    // Remove trailing slash if present
+    const cleanPath = path.endsWith('/') ? path.slice(0, -1) : path;
+    setProjectData({ 
+      ...projectData, 
+      project_path: cleanPath,
+      // Auto-populate project name from folder name if name is empty
+      project_name: projectData.project_name || cleanPath.split('/').filter(Boolean).pop() || ''
+    });
+  };
+
+  // Handle folder selection from browser
+  const handleFolderSelect = async () => {
+    // Check if File System Access API is supported
+    if ('showDirectoryPicker' in window) {
+      try {
+        // Use native File System Access API
+        const dirHandle = await (window as any).showDirectoryPicker({
+          startIn: 'desktop',
+          mode: 'read'
+        });
+        
+        // Get the folder name
+        const folderName = dirHandle.name;
+        
+        // Unfortunately we still can't get the full path due to security
+        // But we can at least get the folder name
+        alert(`Selected folder: "${folderName}"\n\nNote: Due to browser security, the full path cannot be obtained. Please enter the full path manually or use the Browse button for server-side folder selection.`);
+        
+        setProjectData({
+          ...projectData,
+          project_name: folderName
+        });
+      } catch (err) {
+        console.log('User cancelled or error:', err);
+        // Fallback to custom browser
+        setBrowserOpen(true);
+      }
+    } else {
+      // Fallback to custom browser for older browsers
+      setBrowserOpen(true);
+    }
+  };
+  
+  const handlePathSelected = (path: string) => {
+    handlePathChange(path);
+    setBrowserOpen(false);
+  };
+
+  // Handle server-side folder picker
+  const handleServerFolderPick = async () => {
+    try {
+      const response = await fetch('http://localhost:3333/api/pick-folder');
+      const data = await response.json();
+      
+      if (data.success && data.path) {
+        handlePathChange(data.path);
+      } else if (data.message) {
+        alert(data.message);
+      }
+    } catch (error) {
+      console.error('Error picking folder:', error);
+      alert('Failed to open folder picker. Please enter path manually.');
+    }
+  };
 
   const initializeMutation = useMutation(initializeProject, {
     onSuccess: (result) => {
@@ -60,7 +135,7 @@ const ProjectSetup: React.FC = () => {
 
   const handleReset = () => {
     setActiveStep(0);
-    setProjectData({ project_path: '', project_name: '', github_repo: '' });
+    setProjectData({ project_path: '', project_name: '', github_repo: '', force_reinitialize: false });
     setInitResult(null);
   };
 
@@ -78,14 +153,46 @@ const ProjectSetup: React.FC = () => {
                 configuration files and set up MCP integration.
               </Typography>
               
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Path Examples:</strong>
+                </Typography>
+                <Typography variant="body2" component="div">
+                  • macOS: <code>/Users/username/projects/my-app</code><br/>
+                  • Linux: <code>/home/username/projects/my-app</code><br/>
+                  • Windows: <code>C:\Users\username\projects\my-app</code>
+                </Typography>
+              </Alert>
+              
               <TextField
                 fullWidth
                 label="Project Path"
                 placeholder="/path/to/your/project"
                 value={projectData.project_path}
-                onChange={(e) => setProjectData({ ...projectData, project_path: e.target.value })}
+                onChange={(e) => handlePathChange(e.target.value)}
                 sx={{ mb: 2 }}
-                helperText="Absolute path to your project directory"
+                helperText="Enter the absolute path to your project directory, or use the Browse button to select a folder."
+                autoFocus
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <FolderOpenIcon color="action" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={handleServerFolderPick}
+                        startIcon={<FolderOpenIcon />}
+                        title="Open system folder picker"
+                      >
+                        Browse
+                      </Button>
+                    </InputAdornment>
+                  ),
+                }}
               />
               
               <TextField
@@ -104,8 +211,19 @@ const ProjectSetup: React.FC = () => {
                 placeholder="https://github.com/user/repo"
                 value={projectData.github_repo}
                 onChange={(e) => setProjectData({ ...projectData, github_repo: e.target.value })}
-                sx={{ mb: 3 }}
+                sx={{ mb: 2 }}
                 helperText="Link to your GitHub repository"
+              />
+              
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={projectData.force_reinitialize || false}
+                    onChange={(e) => setProjectData({ ...projectData, force_reinitialize: e.target.checked })}
+                  />
+                }
+                label="Force reinitialize (remove existing configuration)"
+                sx={{ mb: 2 }}
               />
 
               <Alert severity="info" sx={{ mb: 2 }}>
@@ -266,6 +384,13 @@ const ProjectSetup: React.FC = () => {
       </Stepper>
 
       {renderStepContent()}
+      
+      <DirectoryBrowser
+        open={browserOpen}
+        onClose={() => setBrowserOpen(false)}
+        onSelectPath={handlePathSelected}
+        initialPath={projectData.project_path}
+      />
     </Box>
   );
 };

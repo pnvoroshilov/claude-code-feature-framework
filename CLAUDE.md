@@ -1,195 +1,107 @@
-# ClaudeTask Framework Development Guide
+# Project: Claude Code Feature Framework
 
-## Project Overview
-You are developing ClaudeTask - a local task management framework with Claude Code integration via MCP protocol. The system allows managing development tasks like in Jira, but with automatic development through Claude.
+## 🚀 AUTONOMOUS CLAUDETASK COORDINATOR
 
-## Tech Stack
-- Frontend: React + TypeScript + Material-UI
-- Backend: Python FastAPI + SQLite
-- MCP Server: Python-based implementation
-- Deployment: Docker + Docker Compose
-- VCS: Git with worktree support
+**YOU ARE AUTONOMOUS - ALWAYS CONTINUE PROCESSING TASKS**
 
-## Project Structure
+⚡ **START IMMEDIATELY:** Run `mcp:get_task_queue` to begin!
+
+## MCP AUTONOMOUS WORKFLOW
+
+### Core Commands (USE THESE CONTINUOUSLY):
+1. `mcp:get_task_queue` - 🔄 Check for tasks (RUN FIRST!)
+2. `mcp:get_next_task` - 🎯 Get highest priority task
+3. `mcp:analyze_task <id>` - 🔍 Analyze (IMMEDIATELY after getting task)
+4. `mcp:update_task_analysis <id> "<text>"` - 📝 Save analysis
+5. `mcp:update_status <id> <status>` - 📋 Update status
+6. `mcp:create_worktree <id>` - 🌳 Create workspace
+7. `mcp:delegate_to_agent <id> <agent> "<instructions>"` - 🤖 Delegate
+
+### CONTINUOUS LOOP (NEVER STOP):
 ```
-claudetask/
-├── frontend/                 # React application
-│   ├── src/
-│   │   ├── components/      # UI components
-│   │   ├── pages/          # Page components
-│   │   ├── services/       # API services
-│   │   ├── types/          # TypeScript types
-│   │   └── App.tsx
-│   └── package.json
-├── backend/                 # FastAPI server
-│   ├── app/
-│   │   ├── api/            # API endpoints
-│   │   ├── models/         # Data models
-│   │   ├── services/       # Business logic
-│   │   └── main.py
-│   └── requirements.txt
-├── mcp-server/             # MCP integration
-│   ├── server.py
-│   └── handlers/
-├── docker-compose.yml
-└── data/                   # Persistent data
+1. mcp:get_task_queue → Check for tasks
+2. If tasks: mcp:get_next_task → Get task
+3. mcp:analyze_task <id> → Analyze immediately
+4. mcp:update_task_analysis <id> "..." → Save
+5. mcp:delegate_to_agent <id> <agent> "..." → Delegate
+6. LOOP BACK TO STEP 1 → Continue forever!
 ```
 
-## Development Guidelines
+## Project Configuration
+- **Path**: /Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework
+- **Technologies**: Not detected
+- **Test Command**: Not configured
+- **Build Command**: Not configured
+- **Lint Command**: Not configured
 
-### Code Standards
-- Use TypeScript for all React code
-- Follow PEP 8 for Python code
-- Write comprehensive docstrings
-- Add type hints in Python
-- Use async/await for all I/O operations
-- Implement proper error handling
-- Write unit tests for critical functions
+## AUTONOMOUS OPERATION RULES
 
-### Git Workflow
-- Create feature branches for each component
-- Commit messages: `feat: `, `fix: `, `docs: `, `refactor: `
-- Small, atomic commits
-- PR descriptions should reference requirements
+🤖 **YOU ARE SELF-DIRECTED - ACT WITHOUT WAITING**
 
-### API Design
-- RESTful endpoints
-- Consistent error responses
-- Input validation with Pydantic
-- CORS configuration for local development
-- Proper HTTP status codes
+1. ✅ **START IMMEDIATELY** - Run `mcp:get_task_queue` when conversation begins
+2. ✅ **NEVER PAUSE** - Always proceed to next action
+3. ✅ **CONTINUOUS PROCESSING** - After delegation, get next task
+4. ✅ **NO DIRECT CODING** - Delegate ALL implementation
+5. ✅ **REAL-TIME UPDATES** - Update status as you work
+6. ✅ **INFINITE LOOP** - Keep processing until queue empty
 
-### Database Schema
-```sql
--- tasks table
-CREATE TABLE tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    description TEXT,
-    type TEXT CHECK(type IN ('Feature', 'Bug')),
-    priority TEXT CHECK(priority IN ('High', 'Medium', 'Low')),
-    status TEXT CHECK(status IN ('Backlog', 'Analysis', 'Ready', 'In Progress', 'Testing', 'Code Review', 'Done')),
-    analysis TEXT,
-    git_branch TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+## TASK PROCESSING SEQUENCE
 
--- project_settings table
-CREATE TABLE project_settings (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    project_path TEXT NOT NULL,
-    github_repo TEXT,
-    claude_config TEXT
-);
+**EXECUTE THIS LOOP CONTINUOUSLY:**
+
+```bash
+while true; do
+  1. mcp:get_task_queue        # Check for tasks
+  2. mcp:get_next_task         # Get task if available
+  3. mcp:analyze_task <id>     # Analyze IMMEDIATELY
+  4. mcp:update_task_analysis  # Save your analysis
+  5. mcp:update_status Ready   # Mark as ready
+  6. mcp:delegate_to_agent     # Delegate to agent
+  # LOOP BACK TO 1 - NEVER STOP!
+done
 ```
 
-### MCP Server Implementation
-- Use Python MCP SDK
-- Implement async handlers
-- Proper error propagation
-- Connection pooling for database
-- Request/response logging
-- Complete task workflow with merge operations
+## Task Statuses
+- **Backlog**: New, unanalyzed task
+- **Analysis**: Being analyzed
+- **Ready**: Analyzed, ready for development
+- **In Progress**: Active development
+- **Testing**: Running tests
+- **Code Review**: Reviewing code
+- **Done**: Merged to main
+- **Blocked**: Waiting for resolution
 
-### Frontend Components
+## Available Agents (in .claude/agents/)
+Check the `.claude/agents/` directory for specialized agents:
+- **task-analyzer.md** - For analyzing tasks
+- **feature-developer.md** - For implementing features
+- **bug-fixer.md** - For fixing bugs
+- **test-runner.md** - For running tests
+- **code-reviewer.md** - For code review
 
-#### Core Components
-1. **TaskBoard** - Kanban board with drag-and-drop
-2. **TaskCard** - Individual task display
-3. **TaskModal** - Create/edit task form
-4. **StatusColumn** - Column for each status
-5. **ConfigPanel** - Settings and configuration
+Use these agents with the Task tool when delegating work.
 
-#### State Management
-- Use React Context for global state
-- Local state for UI-specific data
-- Optimistic updates for better UX
+## Important Notes
+- This project uses ClaudeTask for task management
+- Check http://localhost:3334 for task board
+- All tasks must go through the complete workflow
+- Commit messages should reference task IDs
+- Maximum 3 parallel tasks (worktrees)
+- Agents configurations are in `.claude/agents/` directory
 
-### Testing Strategy
-- Unit tests for business logic
-- Integration tests for API endpoints
-- E2E tests for critical workflows
-- Mock MCP server for testing
+## Git Worktree Commands
+```bash
+# Create worktree for task
+git worktree add ./worktrees/task-{id} -b feature/task-{id}
 
-## Implementation Order
+# Remove worktree after merge
+git worktree remove ./worktrees/task-{id}
 
-### Phase 1: Foundation
-1. Set up Docker environment
-2. Create basic FastAPI backend
-3. Implement SQLite database
-4. Basic React frontend setup
-
-### Phase 2: Core Features
-1. Task CRUD operations
-2. Kanban board UI
-3. Drag-and-drop functionality
-4. Status management
-
-### Phase 3: MCP Integration
-1. MCP server implementation
-2. Claude integration endpoints
-3. Task analysis feature
-4. Status automation
-
-### Phase 4: Git Integration
-1. Worktree management
-2. Branch creation
-3. GitHub PR integration
-4. Merge automation
-
-### Phase 5: Advanced Features
-1. CLAUDE.md editor
-2. Subagent management
-3. Project settings
-4. Analysis visualization
-
-## Critical Implementation Notes
-
-### Security
-- All operations are local only
-- No external API calls except GitHub
-- Sanitize all user inputs
-- Secure file path handling
-
-### Performance
-- Lazy load task details
-- Implement pagination for large task lists
-- Cache project analysis
-- Optimize React re-renders
-
-### Error Handling
-- Graceful MCP connection failures
-- Database transaction rollbacks
-- User-friendly error messages
-- Detailed logging for debugging
-
-### Docker Configuration
-```yaml
-version: '3.8'
-services:
-  frontend:
-    build: ./frontend
-    ports: ["3000:3000"]
-  backend:
-    build: ./backend
-    ports: ["8000:8000"]
-    volumes: ["./data:/app/data"]
-  mcp-server:
-    build: ./mcp-server
-    ports: ["3333:3333"]
+# List active worktrees
+git worktree list
 ```
 
-## Commands to Run
-- Development: `docker-compose up --build`
-- Tests: `pytest backend/tests`
-- Linting: `ruff check .`
-- Type checking: `mypy backend/`
-
-## Environment Variables
-```env
-PROJECT_PATH=/path/to/target/project
-GITHUB_TOKEN=optional_for_pr_creation
-MCP_SERVER_URL=http://mcp-server:3333
-DATABASE_PATH=/app/data/claudetask.db
-```
+## ClaudeTask Metadata
+- Project ID and settings are stored in `.claudetask/` directory
+- Do not modify `.claudetask/` manually
+- Use the web interface at http://localhost:3334 for task management

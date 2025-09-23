@@ -24,9 +24,13 @@ class ProjectService:
         db: AsyncSession,
         project_path: str,
         project_name: str,
-        github_repo: Optional[str] = None
+        github_repo: Optional[str] = None,
+        force_reinitialize: bool = False
     ) -> InitializeProjectResponse:
         """Initialize a new project"""
+        
+        # Remove trailing slash from project path if present
+        project_path = project_path.rstrip('/')
         
         # When running in Docker, use DockerFileService to check paths on host
         if os.getenv("RUNNING_IN_DOCKER"):
@@ -36,7 +40,12 @@ class ProjectService:
             # Check if already initialized
             claudetask_dir = os.path.join(project_path, ".claudetask")
             if DockerFileService.check_path_exists_on_host(claudetask_dir):
-                raise ValueError("Project already initialized with ClaudeTask")
+                if not force_reinitialize:
+                    raise ValueError("Project already initialized with ClaudeTask. Use force_reinitialize=true to reinitialize.")
+                else:
+                    # Clean up existing initialization
+                    if os.path.exists(claudetask_dir):
+                        shutil.rmtree(claudetask_dir)
         else:
             # Normal validation for non-Docker
             if not os.path.exists(project_path):
@@ -47,7 +56,11 @@ class ProjectService:
             
             claudetask_dir = os.path.join(project_path, ".claudetask")
             if os.path.exists(claudetask_dir):
-                raise ValueError("Project already initialized with ClaudeTask")
+                if not force_reinitialize:
+                    raise ValueError("Project already initialized with ClaudeTask. Use force_reinitialize=true to reinitialize.")
+                else:
+                    # Clean up existing initialization
+                    shutil.rmtree(claudetask_dir)
         
         # Generate project ID
         project_id = str(uuid.uuid4())
@@ -66,26 +79,31 @@ class ProjectService:
         existing_project = existing_project_result.scalar_one_or_none()
         
         if existing_project:
-            # Project already exists, make it active and return early
-            existing_project.is_active = True
-            existing_project.name = project_name  # Update name in case it changed
-            existing_project.github_repo = github_repo
-            existing_project.tech_stack = tech_stack
-            
-            # Set other projects as inactive
-            result = await db.execute(select(Project).where(Project.id != existing_project.id))
-            other_projects = result.scalars().all()
-            for p in other_projects:
-                p.is_active = False
-            
-            await db.commit()
-            
-            return InitializeProjectResponse(
-                project_id=existing_project.id,
-                mcp_configured=True,  # Assume already configured
-                files_created=[],  # No new files created
-                claude_restart_required=False
-            )
+            if not force_reinitialize:
+                # Project already exists, make it active and return early
+                existing_project.is_active = True
+                existing_project.name = project_name  # Update name in case it changed
+                existing_project.github_repo = github_repo
+                existing_project.tech_stack = tech_stack
+                
+                # Set other projects as inactive
+                result = await db.execute(select(Project).where(Project.id != existing_project.id))
+                other_projects = result.scalars().all()
+                for p in other_projects:
+                    p.is_active = False
+                
+                await db.commit()
+                
+                return InitializeProjectResponse(
+                    project_id=existing_project.id,
+                    mcp_configured=True,  # Assume already configured
+                    files_created=[],  # No new files created
+                    claude_restart_required=False
+                )
+            else:
+                # Delete existing project from database for reinitialiation
+                await db.delete(existing_project)
+                await db.commit()
         
         # Create project in database
         project = Project(

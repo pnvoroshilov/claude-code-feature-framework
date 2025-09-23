@@ -101,10 +101,14 @@ class ClaudeSession(Base):
     __tablename__ = "claude_sessions"
     
     id = Column(String, primary_key=True, index=True)
+    session_id = Column(String, nullable=True, index=True)  # Added session_id field
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
     project_id = Column(String, ForeignKey("projects.id"), nullable=False)
     status = Column(String, nullable=False, default="idle")  # idle, initializing, active, paused, completed, error
+    mode = Column(String, nullable=False, default="terminal")  # terminal, embedded, websocket
     working_dir = Column(String, nullable=True)
+    context_file = Column(String, nullable=True)  # Path to context file
+    launch_command = Column(String, nullable=True)  # Command used to launch
     context = Column(Text, nullable=True)
     messages = Column(JSON, nullable=True)  # Store message history as JSON
     session_metadata = Column(JSON, nullable=True)  # Store metadata like tools used, errors, etc

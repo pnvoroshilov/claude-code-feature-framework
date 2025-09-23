@@ -180,6 +180,7 @@ class InitializeProjectRequest(BaseModel):
     project_path: str
     project_name: str
     github_repo: Optional[str] = None
+    force_reinitialize: bool = False
 
 
 class InitializeProjectResponse(BaseModel):

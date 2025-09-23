@@ -1,13 +1,22 @@
 """Main FastAPI application"""
 
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List, Optional
 import os
 import logging
+import json
+from datetime import datetime
+from pathlib import Path
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 from .database import get_db, init_db
 from .models import Project, Task, TaskHistory, ProjectSettings, Agent, TaskStatus, TaskPriority
@@ -67,7 +76,8 @@ async def initialize_project(
             db=db,
             project_path=request.project_path,
             project_name=request.project_name,
-            github_repo=request.github_repo
+            github_repo=request.github_repo,
+            force_reinitialize=request.force_reinitialize
         )
         return result
     except ValueError as e:
@@ -698,84 +708,6 @@ async def get_project_sessions(project_id: str, db: AsyncSession = Depends(get_d
     return sessions
 
 
-@app.post("/api/sessions/launch")
-async def launch_claude_session(request: dict, db: AsyncSession = Depends(get_db)):
-    """Launch a new Claude session for a task"""
-    task_id = request.get("task_id")
-    
-    # Get task details
-    result = await db.execute(select(Task).where(Task.id == task_id))
-    task = result.scalar_one_or_none()
-    
-    if not task:
-        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
-    
-    # Get project
-    project_result = await db.execute(select(Project).where(Project.id == task.project_id))
-    project = project_result.scalar_one_or_none()
-    
-    if not project:
-        raise HTTPException(status_code=404, detail=f"Project not found")
-    
-    # Prepare task context
-    task_context = {
-        "title": task.title,
-        "description": task.description,
-        "type": task.type.value if task.type else "Feature",
-        "priority": task.priority.value if task.priority else "Medium",
-        "status": task.status.value if task.status else "In Progress",
-        "analysis": task.analysis,
-        "git_branch": task.git_branch
-    }
-    
-    # Launch Claude session
-    from .services.claude_launcher_service import ClaudeLauncherService
-    
-    launch_result = await ClaudeLauncherService.launch_claude_session(
-        task_id=task_id,
-        project_path=project.path,
-        worktree_path=task.worktree_path,
-        task_context=task_context
-    )
-    
-    if launch_result["success"]:
-        # Create or update session record
-        from .models import ClaudeSession
-        
-        # Check if session already exists
-        existing_result = await db.execute(
-            select(ClaudeSession).where(ClaudeSession.task_id == task_id)
-        )
-        existing_session = existing_result.scalar_one_or_none()
-        
-        if existing_session:
-            existing_session.status = "active"
-            existing_session.working_dir = launch_result.get("working_dir")
-            existing_session.session_metadata = {
-                "launch_command": launch_result.get("launch_command"),
-                "context_file": launch_result.get("context_file")
-            }
-        else:
-            db_session = ClaudeSession(
-                id=launch_result.get("session_id", f"session-{task_id}-{datetime.utcnow().timestamp()}"),
-                task_id=task_id,
-                project_id=task.project_id,
-                status="active",
-                working_dir=launch_result.get("working_dir"),
-                context=json.dumps(task_context),
-                messages=[],
-                session_metadata={
-                    "launch_command": launch_result.get("launch_command"),
-                    "context_file": launch_result.get("context_file")
-                }
-            )
-            db.add(db_session)
-        
-        await db.commit()
-        return launch_result
-    else:
-        raise HTTPException(status_code=500, detail=launch_result.get("error"))
-
 
 @app.post("/api/sessions/{task_id}/pause")
 async def pause_session(task_id: int, db: AsyncSession = Depends(get_db)):
@@ -1019,6 +951,381 @@ async def update_project_settings(
     await db.commit()
     await db.refresh(settings)
     return settings
+
+
+# Embedded Claude Mode endpoints
+@app.post("/api/sessions/launch/embedded")
+async def launch_embedded_claude_session(request: dict, db: AsyncSession = Depends(get_db)):
+    """Launch a new embedded Claude session for a task"""
+    task_id = request.get("task_id")
+    
+    # Get task details
+    result = await db.execute(select(Task).where(Task.id == task_id))
+    task = result.scalar_one_or_none()
+    
+    if not task:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+    
+    # Get project
+    project_result = await db.execute(select(Project).where(Project.id == task.project_id))
+    project = project_result.scalar_one_or_none()
+    
+    if not project:
+        raise HTTPException(status_code=404, detail=f"Project not found")
+    
+    # Prepare task context
+    task_context = {
+        "title": task.title,
+        "description": task.description,
+        "type": task.type.value if task.type else "Feature",
+        "priority": task.priority.value if task.priority else "Medium",
+        "status": task.status.value if task.status else "In Progress",
+        "analysis": task.analysis,
+        "git_branch": task.git_branch
+    }
+    
+    # Determine working directory
+    working_dir = task.worktree_path or project.path
+    
+    # Create simple session configuration
+    import uuid
+    session_id = f"claude-task-{task_id}-{uuid.uuid4().hex[:8]}"
+    
+    # Optional: create context file for reference (but Claude won't auto-load it)
+    context_file = None
+    
+    # Start embedded process
+    from .services.real_claude_service import real_claude_service
+    
+    result = await real_claude_service.create_session(
+        task_id=task_id,
+        project_path=working_dir,
+        session_id=session_id
+    )
+    
+    if result["success"]:
+        # Create or update session record
+        from .models import ClaudeSession
+        
+        # Check if session already exists
+        existing_result = await db.execute(
+            select(ClaudeSession).where(ClaudeSession.task_id == task_id)
+        )
+        existing_session = existing_result.scalar_one_or_none()
+        
+        if existing_session:
+            # Update existing session
+            existing_session.session_id = session_id
+            existing_session.status = "active"
+            existing_session.working_dir = working_dir
+            existing_session.context_file = context_file
+            existing_session.mode = "embedded"
+        else:
+            # Create new session
+            db_session = ClaudeSession(
+                id=f"embedded-{session_id}",
+                session_id=session_id,
+                task_id=task_id,
+                project_id=task.project_id,
+                status="active",
+                mode="embedded",
+                working_dir=working_dir,
+                context_file=context_file
+            )
+            db.add(db_session)
+        
+        await db.commit()
+        
+        return {
+            "success": True,
+            "session_id": session_id,
+            "working_dir": working_dir,
+            "context_file": context_file,
+            "mode": "embedded",
+            "message": "Embedded Claude session started successfully"
+        }
+    else:
+        raise HTTPException(status_code=500, detail="Failed to start embedded Claude session")
+
+
+@app.post("/api/sessions/embedded/{session_id}/input")
+async def send_input_to_embedded_session(session_id: str, request: dict):
+    """Send input to an embedded Claude session"""
+    user_input = request.get("input", "")
+    
+    from .services.real_claude_service import real_claude_service
+    
+    success = await real_claude_service.send_input(session_id, user_input)
+    
+    if success:
+        return {"success": True, "message": "Input sent successfully"}
+    else:
+        raise HTTPException(status_code=404, detail="Session not found or not running")
+
+
+@app.post("/api/sessions/embedded/{session_id}/key")
+async def send_key_to_embedded_session(session_id: str, request: dict):
+    """Send special key to an embedded Claude session (arrow keys, enter, escape, etc.)"""
+    key = request.get("key", "")
+    
+    from .services.real_claude_service import real_claude_service
+    
+    success = await real_claude_service.send_input(session_id, key)
+    
+    if success:
+        return {"success": True, "message": f"Key {key} sent successfully"}
+    else:
+        raise HTTPException(status_code=404, detail="Session not found or not running")
+
+
+@app.get("/api/sessions/embedded/{session_id}/stream")
+async def stream_embedded_session_messages(session_id: str):
+    """Stream messages from an embedded Claude session"""
+    from .services.real_claude_service import real_claude_service
+    
+    # Check if session exists
+    session = real_claude_service.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    async def generate_messages():
+        async for message in session.stream_messages():
+            # Convert message object to dict
+            message_dict = message.__dict__ if hasattr(message, '__dict__') else message
+            # Skip heartbeat messages for the stream
+            if isinstance(message_dict, dict) and message_dict.get("type") != "heartbeat":
+                yield f"data: {json.dumps(message_dict)}\n\n"
+    
+    return StreamingResponse(
+        generate_messages(),
+        media_type="text/plain",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Content-Type": "text/event-stream",
+        }
+    )
+
+
+@app.post("/api/sessions/embedded/{session_id}/stop")
+async def stop_embedded_session(session_id: str, db: AsyncSession = Depends(get_db)):
+    """Stop an embedded Claude session"""
+    try:
+        from .services.real_claude_service import real_claude_service
+        from .models import ClaudeSession
+        
+        # Try to stop the session
+        try:
+            success = await real_claude_service.stop_session(session_id)
+        except Exception as e:
+            logger.error(f"Error stopping embedded session: {e}")
+            success = False
+        
+        # Update database regardless of stop success
+        try:
+            result = await db.execute(
+                select(ClaudeSession).where(ClaudeSession.session_id == session_id)
+            )
+            session = result.scalar_one_or_none()
+            
+            if session:
+                session.status = "inactive"
+                await db.commit()
+        except Exception as db_error:
+            logger.error(f"Database error when stopping session: {db_error}")
+        
+        return {"success": success, "status": "inactive"}
+    except Exception as e:
+        logger.error(f"Failed to stop embedded session {session_id}: {e}")
+        return {"success": False, "error": str(e), "status": "inactive"}
+
+
+@app.get("/api/sessions/embedded/status")
+async def get_embedded_sessions_status():
+    """Get status of all embedded sessions"""
+    from .services.real_claude_service import real_claude_service
+    
+    running_sessions = real_claude_service.get_active_sessions()
+    
+    return {
+        "running_sessions": running_sessions,
+        "total_running": len(running_sessions)
+    }
+
+
+
+
+@app.get("/api/pick-folder")
+async def pick_folder_native():
+    """Open native folder picker dialog on server"""
+    try:
+        from .services.folder_picker_service import folder_picker
+        
+        # Open native folder picker
+        selected_path = folder_picker.pick_folder_sync()
+        
+        if selected_path:
+            folder_name = Path(selected_path).name
+            return {
+                "success": True,
+                "path": selected_path,
+                "name": folder_name
+            }
+        else:
+            return {
+                "success": False,
+                "message": "No folder selected"
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Failed to open folder picker. Please enter path manually."
+        }
+
+
+@app.post("/api/browse-directory")
+async def browse_directory(request: dict):
+    """Browse directory and return subdirectories"""
+    try:
+        path = request.get("path", "")
+        
+        # If no path provided, use home directory
+        if not path:
+            path = str(Path.home())
+        
+        path_obj = Path(path)
+        
+        # Check if path exists and is a directory
+        if not path_obj.exists():
+            return {"error": "Path does not exist", "path": path}
+        
+        if not path_obj.is_dir():
+            return {"error": "Path is not a directory", "path": path}
+        
+        # Get subdirectories
+        directories = []
+        try:
+            for item in path_obj.iterdir():
+                if item.is_dir() and not item.name.startswith('.'):
+                    directories.append({
+                        "name": item.name,
+                        "path": str(item.absolute()),
+                        "is_git": (item / ".git").exists()
+                    })
+        except PermissionError:
+            return {"error": "Permission denied", "path": path}
+        
+        # Sort directories by name
+        directories.sort(key=lambda x: x["name"].lower())
+        
+        return {
+            "current_path": str(path_obj.absolute()),
+            "parent_path": str(path_obj.parent.absolute()) if path_obj != path_obj.parent else None,
+            "directories": directories[:50],  # Limit to 50 directories
+            "home_path": str(Path.home())
+        }
+    except Exception as e:
+        return {"error": str(e), "path": path}
+
+
+@app.websocket("/api/sessions/embedded/{session_id}/ws")
+async def websocket_endpoint(websocket: WebSocket, session_id: str):
+    """WebSocket endpoint for real-time Claude terminal streaming"""
+    from .services.real_claude_service import real_claude_service
+    
+    await websocket.accept()
+    logger.info(f"WebSocket connected for session {session_id}")
+    
+    # Get the session
+    session = real_claude_service.get_session(session_id)
+    if not session:
+        await websocket.send_json({
+            "type": "error",
+            "content": "Session not found"
+        })
+        await websocket.close()
+        return
+    
+    # Add WebSocket to session for real-time updates
+    session.add_websocket_client(websocket)
+    
+    try:
+        while True:
+            # Receive commands from WebSocket
+            data = await websocket.receive_json()
+            command_type = data.get("type")
+            
+            if command_type == "input":
+                # Send input to Claude
+                user_input = data.get("content", "")
+                await session.send_input(user_input)
+                
+            elif command_type == "key":
+                # Send special key
+                key = data.get("key", "")
+                await session.send_input(key)
+                
+            elif command_type == "ping":
+                # Respond to ping
+                await websocket.send_json({
+                    "type": "pong",
+                    "timestamp": datetime.now().isoformat()
+                })
+                
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected for session {session_id}")
+        session.remove_websocket_client(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error for session {session_id}: {e}")
+        session.remove_websocket_client(websocket)
+        try:
+            await websocket.close()
+        except:
+            pass
+
+
+@app.get("/api/sessions/embedded/active")
+async def get_active_embedded_sessions():
+    """Get all active embedded Claude sessions"""
+    from .services.real_claude_service import real_claude_service
+    
+    return {
+        "sessions": real_claude_service.get_active_sessions()
+    }
+
+
+@app.get("/api/sessions/embedded/{session_id}/info")
+async def get_embedded_session_info(session_id: str):
+    """Get information about a specific embedded session"""
+    from .services.real_claude_service import real_claude_service
+    
+    session = real_claude_service.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    return {
+        "session_id": session.session_id,
+        "task_id": session.task_id,
+        "is_running": session.is_running,
+        "working_dir": session.working_dir,
+        "clients": len(session.websocket_clients)
+    }
+
+
+@app.get("/api/sessions/embedded/{session_id}/history")
+async def get_embedded_session_history(session_id: str, limit: Optional[int] = None):
+    """Get message history for an embedded session"""
+    from .services.real_claude_service import real_claude_service
+    
+    session = real_claude_service.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    return {
+        "session_id": session_id,
+        "messages": []
+    }
 
 
 if __name__ == "__main__":

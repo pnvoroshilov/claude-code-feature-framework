@@ -34,6 +34,7 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { getActiveProject, getTasks, createTask, updateTaskStatus, deleteTask, Task } from '../services/api';
+import RealTerminal from '../components/RealTerminal';
 
 const statusColumns = [
   { status: 'Backlog', title: 'Backlog', color: '#grey' },
@@ -49,6 +50,7 @@ const TaskBoard: React.FC = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [taskDetailsOpen, setTaskDetailsOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [sessionActive, setSessionActive] = useState(false);
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
@@ -107,28 +109,6 @@ const TaskBoard: React.FC = () => {
     setTaskDetailsOpen(true);
   };
 
-  const handleLaunchClaudeSession = async (taskId: number) => {
-    try {
-      const response = await fetch(`http://localhost:3333/api/sessions/launch`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ task_id: taskId }),
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        // Show success message or redirect to sessions page
-        alert(`Claude session launched for task #${taskId}. Check your terminal.`);
-      } else {
-        alert('Failed to launch Claude session');
-      }
-    } catch (error) {
-      console.error('Error launching Claude session:', error);
-      alert('Error launching Claude session');
-    }
-  };
 
   const getTasksByStatus = (status: string) => {
     return tasks?.filter(task => task.status === status) || [];
@@ -253,19 +233,6 @@ const TaskBoard: React.FC = () => {
                         />
                         <ListItemSecondaryAction>
                           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                            {(column.status === 'Ready' || column.status === 'In Progress') && (
-                              <IconButton
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleLaunchClaudeSession(task.id);
-                                }}
-                                title="Launch Claude Session"
-                                color="primary"
-                              >
-                                <TerminalIcon />
-                              </IconButton>
-                            )}
                             {column.status === 'Backlog' && (
                               <IconButton
                                 size="small"
@@ -365,8 +332,9 @@ const TaskBoard: React.FC = () => {
       <Dialog 
         open={taskDetailsOpen} 
         onClose={() => setTaskDetailsOpen(false)} 
-        maxWidth="md" 
+        maxWidth="xl" 
         fullWidth
+        sx={{ '& .MuiDialog-paper': { height: '90vh' } }}
       >
         <DialogTitle>
           <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -459,6 +427,16 @@ const TaskBoard: React.FC = () => {
                     <Typography variant="body1">{new Date(selectedTask.completed_at).toLocaleString()}</Typography>
                   </Box>
                 )}
+              </Box>
+
+              {/* Claude Terminal Section */}
+              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', mt: 4 }}>
+                Claude Terminal
+              </Typography>
+              <Box sx={{ mt: 2 }}>
+                <RealTerminal
+                  taskId={selectedTask?.id || 0}
+                />
               </Box>
             </Box>
           )}
