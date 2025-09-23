@@ -19,6 +19,7 @@ class RealClaudeSession:
         self.stop_reading = threading.Event()
         self.read_thread: Optional[threading.Thread] = None
         self.main_loop: Optional[asyncio.AbstractEventLoop] = None
+        self.claude_initialized = False
 
     async def start(self) -> bool:
         """Start Claude process"""
@@ -28,9 +29,9 @@ class RealClaudeSession:
             # Store the current event loop
             self.main_loop = asyncio.get_running_loop()
             
-            # Start Claude with pexpect
+            # Start Claude with pexpect in dangerous mode
             self.child = pexpect.spawn(
-                'claude',
+                'claude --dangerously-skip-permissions',
                 cwd=self.working_dir,
                 timeout=None,
                 encoding='utf-8',
@@ -83,6 +84,12 @@ class RealClaudeSession:
         """Send content to all connected WebSocket clients"""
         if not self.websocket_clients or not self.main_loop:
             return
+        
+        # Check if this is initial Claude output and we haven't sent the task command yet
+        if not self.claude_initialized and ("Claude" in content or "Welcome" in content or ">" in content):
+            self.claude_initialized = True
+            # Schedule sending the task initialization command
+            self._schedule_task_initialization()
             
         message = {
             "type": "output",
@@ -111,6 +118,30 @@ class RealClaudeSession:
         for client in disconnected_clients:
             if client in self.websocket_clients:
                 self.websocket_clients.remove(client)
+    
+    def _schedule_task_initialization(self):
+        """Schedule sending the task initialization command"""
+        if self.main_loop and not self.main_loop.is_closed():
+            # Wait a bit to let Claude fully initialize, then send command
+            asyncio.run_coroutine_threadsafe(
+                self._send_task_command_delayed(),
+                self.main_loop
+            )
+    
+    async def _send_task_command_delayed(self):
+        """Send task initialization command after a delay"""
+        try:
+            # Wait 2 seconds for Claude to fully initialize
+            await asyncio.sleep(2)
+            # Send the command and press Enter automatically
+            task_command = f"Начни работу с Task №{self.task_id}"
+            await self.send_input(task_command)
+            # Wait a moment and send Enter
+            await asyncio.sleep(0.5)
+            await self.send_input("\r")
+            logger.info(f"Sent task initialization command for Task #{self.task_id} with Enter")
+        except Exception as e:
+            logger.error(f"Failed to send task initialization command: {e}")
 
     async def send_input(self, data: str) -> bool:
         """Send input to Claude"""
