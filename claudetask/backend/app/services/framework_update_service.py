@@ -107,20 +107,17 @@ class FrameworkUpdateService:
             updated_files.append("CLAUDE.md")
             
             # 3. Update agent files in .claude/agents/
-            agents_source_dir = os.path.join(framework_path, "framework-assets", "agents")
+            agents_source_dir = os.path.join(framework_path, "framework-assets", "claude-agents")
             if os.path.exists(agents_source_dir):
                 agents_dest_dir = os.path.join(project_path, ".claude", "agents")
                 os.makedirs(agents_dest_dir, exist_ok=True)
                 
-                for subdir in os.listdir(agents_source_dir):
-                    subdir_path = os.path.join(agents_source_dir, subdir)
-                    if os.path.isdir(subdir_path):
-                        for agent_file in os.listdir(subdir_path):
-                            if agent_file.endswith(".md"):
-                                source_file = os.path.join(subdir_path, agent_file)
-                                dest_file = os.path.join(agents_dest_dir, agent_file)
-                                shutil.copy2(source_file, dest_file)
-                                updated_files.append(f".claude/agents/{agent_file}")
+                for agent_file in os.listdir(agents_source_dir):
+                    if agent_file.endswith(".md"):
+                        source_file = os.path.join(agents_source_dir, agent_file)
+                        dest_file = os.path.join(agents_dest_dir, agent_file)
+                        shutil.copy2(source_file, dest_file)
+                        updated_files.append(f".claude/agents/{agent_file}")
             
             # 4. Copy claude-commands to .claude/commands/
             commands_source_dir = os.path.join(framework_path, "framework-assets", "claude-commands")

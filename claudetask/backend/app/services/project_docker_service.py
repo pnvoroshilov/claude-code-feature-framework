@@ -104,20 +104,17 @@ async def create_project_structure_docker(
     framework_path = os.path.abspath(os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
     ))
-    agents_source_dir = os.path.join(framework_path, "framework-assets", "agents")
+    agents_source_dir = os.path.join(framework_path, "framework-assets", "claude-agents")
     
     if os.path.exists(agents_source_dir):
-        for subdir in os.listdir(agents_source_dir):
-            subdir_path = os.path.join(agents_source_dir, subdir)
-            if os.path.isdir(subdir_path):
-                for agent_file in os.listdir(subdir_path):
-                    if agent_file.endswith(".md"):
-                        source_file = os.path.join(subdir_path, agent_file)
-                        dest_file = os.path.join(agents_dir, agent_file)
-                        with open(source_file, "r") as src:
-                            content = src.read()
-                            if dfs.write_file_to_host(dest_file, content):
-                                files_created.append(f".claude/agents/{agent_file}")
+        for agent_file in os.listdir(agents_source_dir):
+            if agent_file.endswith(".md"):
+                source_file = os.path.join(agents_source_dir, agent_file)
+                dest_file = os.path.join(agents_dir, agent_file)
+                with open(source_file, "r") as src:
+                    content = src.read()
+                    if dfs.write_file_to_host(dest_file, content):
+                        files_created.append(f".claude/agents/{agent_file}")
     else:
         # Fallback to default agents if framework-assets not found
         for agent_config in get_default_agents():
