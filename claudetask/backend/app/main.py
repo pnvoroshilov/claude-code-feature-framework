@@ -299,9 +299,9 @@ async def update_task_status(
     if status_update.status == TaskStatus.ANALYSIS and old_status != TaskStatus.ANALYSIS:
         logger.info(f"Task {task_id} needs analysis - status changed to Analysis")
     
-    # Auto-start Claude session when task moves to In Progress
+    # Auto-create worktree when task moves to In Progress
     if status_update.status == TaskStatus.IN_PROGRESS and old_status != TaskStatus.IN_PROGRESS:
-        logger.info(f"Task {task_id} started - launching Claude session")
+        logger.info(f"Task {task_id} started - creating worktree")
         
         # Get project for context
         project_result = await db.execute(
@@ -310,58 +310,21 @@ async def update_task_status(
         project = project_result.scalar_one_or_none()
         
         if project:
-            # Prepare task context
-            task_context = {
-                "title": task.title,
-                "description": task.description,
-                "type": task.type.value if task.type else "Feature",
-                "priority": task.priority.value if task.priority else "Medium",
-                "status": task.status.value if task.status else "In Progress",
-                "analysis": task.analysis,
-                "git_branch": task.git_branch
-            }
+            # Create worktree for the task
+            from .services.worktree_service import WorktreeService
             
-            # Launch Claude session
-            from .services.claude_launcher_service import ClaudeLauncherService
-            
-            launch_result = await ClaudeLauncherService.launch_claude_session(
+            worktree_result = await WorktreeService.create_worktree(
                 task_id=task_id,
-                project_path=project.path,
-                worktree_path=task.worktree_path,
-                task_context=task_context
+                project_path=project.path
             )
             
-            if launch_result["success"]:
-                # Also create internal session tracking
-                session_result = await claude_service.create_session(
-                    task_id=task_id,
-                    project_path=project.path,
-                    worktree_path=task.worktree_path,
-                    initial_context=f"Task: {task.title}\n\n{task.description}"
-                )
-                
-                if session_result["success"]:
-                    from .models import ClaudeSession
-                    
-                    session_data = session_result["session"]
-                    db_session = ClaudeSession(
-                        id=session_data["id"],
-                        task_id=task_id,
-                        project_id=task.project_id,
-                        status="active",
-                        working_dir=launch_result.get("working_dir"),
-                        context=json.dumps(task_context),
-                        messages=[],
-                        session_metadata={
-                            "launch_method": launch_result.get("launch_method"),
-                            "context_file": launch_result.get("context_file")
-                        }
-                    )
-                    db.add(db_session)
-                    
-                logger.info(f"Claude session launched for task {task_id} via {launch_result.get('launch_method')}")
+            if worktree_result["success"]:
+                # Update task with worktree information
+                task.git_branch = worktree_result["branch_name"]
+                task.worktree_path = worktree_result["worktree_path"]
+                logger.info(f"Worktree created for task {task_id}: {worktree_result['branch_name']}")
             else:
-                logger.error(f"Failed to launch Claude session: {launch_result.get('error')}")
+                logger.error(f"Failed to create worktree for task {task_id}: {worktree_result.get('error')}")
     
     # If status changed to Done, trigger automatic merge and cleanup
     if status_update.status == TaskStatus.DONE and old_status != TaskStatus.DONE:
@@ -956,7 +919,7 @@ async def update_project_settings(
 # Embedded Claude Mode endpoints
 @app.post("/api/sessions/launch/embedded")
 async def launch_embedded_claude_session(request: dict, db: AsyncSession = Depends(get_db)):
-    """Launch a new embedded Claude session for a task"""
+    """Launch or reconnect to embedded Claude session for a task"""
     task_id = request.get("task_id")
     
     # Get task details
@@ -966,6 +929,32 @@ async def launch_embedded_claude_session(request: dict, db: AsyncSession = Depen
     if not task:
         raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
     
+    # Check for existing active session first
+    from .services.real_claude_service import real_claude_service
+    
+    # Log all active sessions for debugging
+    logger.info(f"Checking for existing sessions. Total active: {len(real_claude_service.sessions)}")
+    for sid, sess in real_claude_service.sessions.items():
+        logger.info(f"  Session {sid}: task_id={sess.task_id}, is_running={sess.is_running}")
+    
+    # Look for existing session in service
+    for session_id, session in real_claude_service.sessions.items():
+        if session.task_id == task_id and session.is_running:
+            logger.info(f"Found existing active session for task {task_id}: {session_id}")
+            return {
+                "success": True,
+                "session_id": session_id,
+                "working_dir": session.working_dir,
+                "mode": "embedded",
+                "message": "Reconnected to existing Claude session",
+                "info": {
+                    "pid": session.child.pid if session.child else None,
+                    "working_dir": session.working_dir
+                }
+            }
+    
+    logger.info(f"No existing session found for task {task_id}, creating new one")
+    
     # Get project
     project_result = await db.execute(select(Project).where(Project.id == task.project_id))
     project = project_result.scalar_one_or_none()
@@ -973,30 +962,14 @@ async def launch_embedded_claude_session(request: dict, db: AsyncSession = Depen
     if not project:
         raise HTTPException(status_code=404, detail=f"Project not found")
     
-    # Prepare task context
-    task_context = {
-        "title": task.title,
-        "description": task.description,
-        "type": task.type.value if task.type else "Feature",
-        "priority": task.priority.value if task.priority else "Medium",
-        "status": task.status.value if task.status else "In Progress",
-        "analysis": task.analysis,
-        "git_branch": task.git_branch
-    }
-    
     # Determine working directory
     working_dir = task.worktree_path or project.path
     
-    # Create simple session configuration
+    # Create new session configuration
     import uuid
     session_id = f"claude-task-{task_id}-{uuid.uuid4().hex[:8]}"
     
-    # Optional: create context file for reference (but Claude won't auto-load it)
-    context_file = None
-    
     # Start embedded process
-    from .services.real_claude_service import real_claude_service
-    
     result = await real_claude_service.create_session(
         task_id=task_id,
         project_path=working_dir,
@@ -1007,7 +980,7 @@ async def launch_embedded_claude_session(request: dict, db: AsyncSession = Depen
         # Create or update session record
         from .models import ClaudeSession
         
-        # Check if session already exists
+        # Check if session already exists in DB
         existing_result = await db.execute(
             select(ClaudeSession).where(ClaudeSession.task_id == task_id)
         )
@@ -1018,7 +991,6 @@ async def launch_embedded_claude_session(request: dict, db: AsyncSession = Depen
             existing_session.session_id = session_id
             existing_session.status = "active"
             existing_session.working_dir = working_dir
-            existing_session.context_file = context_file
             existing_session.mode = "embedded"
         else:
             # Create new session
@@ -1029,8 +1001,7 @@ async def launch_embedded_claude_session(request: dict, db: AsyncSession = Depen
                 project_id=task.project_id,
                 status="active",
                 mode="embedded",
-                working_dir=working_dir,
-                context_file=context_file
+                working_dir=working_dir
             )
             db.add(db_session)
         
@@ -1040,7 +1011,6 @@ async def launch_embedded_claude_session(request: dict, db: AsyncSession = Depen
             "success": True,
             "session_id": session_id,
             "working_dir": working_dir,
-            "context_file": context_file,
             "mode": "embedded",
             "message": "Embedded Claude session started successfully"
         }

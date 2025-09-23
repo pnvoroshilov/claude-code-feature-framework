@@ -169,8 +169,8 @@ interface ClaudeTerminalProps {
 }
 
 interface ClaudeMessage {
-  type: 'system' | 'user' | 'claude' | 'error' | 'tool' | 'status' | 'pong' | 'ping';
-  content: string;
+  type: 'system' | 'user' | 'claude' | 'error' | 'tool' | 'status' | 'pong' | 'ping' | 'output' | 'history';
+  content: string | any[];
   timestamp: string;
   subtype?: string;
   session_id?: string;
@@ -216,30 +216,8 @@ const ClaudeTerminal: React.FC<ClaudeTerminalProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const connectWebSocket = (sessionId: string) => {
+  // Define connection functions with useCallback to prevent recreating on each render
+  const connectWebSocket = useCallback((sessionId: string) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       return;
     }
@@ -258,14 +236,24 @@ const ClaudeTerminal: React.FC<ClaudeTerminalProps> = ({
 
     ws.onmessage = (event) => {
       try {
-        const message = JSON.parse(event.data) as ClaudeMessage;
+        const message = JSON.parse(event.data);
         console.log('WebSocket message received:', message);
         
         if (message.type && message.type !== 'pong') {
-          setMessages(prev => [...prev, message]);
+          // Handle history message specially
+          if (message.type === 'history') {
+            console.log('Received session history, restoring messages...');
+            const historyMessages = message.content as any[];
+            if (Array.isArray(historyMessages)) {
+              setMessages(historyMessages);
+              console.log(`Restored ${historyMessages.length} messages from history`);
+            }
+          } else {
+            setMessages(prev => [...prev, message as ClaudeMessage]);
+          }
           
           // Update metrics based on message type
-          if (message.type === 'claude') {
+          if (message.type === 'claude' || message.type === 'output') {
             setMetrics(prev => ({ ...prev, messages_received: prev.messages_received + 1 }));
             setIsTyping(false);
           } else if (message.type === 'tool') {
@@ -296,9 +284,9 @@ const ClaudeTerminal: React.FC<ClaudeTerminalProps> = ({
         }, 2000);
       }
     };
-  };
+  }, [isActive]);
 
-  const connectSSE = (sessionId: string) => {
+  const connectSSE = useCallback((sessionId: string) => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
     }
@@ -322,7 +310,120 @@ const ClaudeTerminal: React.FC<ClaudeTerminalProps> = ({
     eventSourceRef.current.onerror = (error) => {
       console.error('SSE error:', error);
     };
-  };
+  }, []);
+
+  // Auto-launch session on mount
+  useEffect(() => {
+    const autoStartSession = async () => {
+      if (!taskId) {
+        console.log('No taskId, skipping auto-start');
+        return;
+      }
+      if (isActive || sessionId) {
+        console.log('Session already active, skipping auto-start');
+        return;
+      }
+      
+      console.log('Auto-starting session for task:', taskId);
+      
+      try {
+        setIsLoading(true);
+        
+        const response = await fetch(`http://localhost:3333/api/sessions/launch/embedded`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ task_id: taskId }),
+        });
+        
+        const data = await response.json();
+        console.log('Auto-start session response:', data);
+        
+        if (data.success) {
+          setSessionId(data.session_id);
+          setIsActive(true);
+          setMetrics({
+            messages_sent: 0,
+            messages_received: 0,
+            tools_executed: 0,
+            errors_count: 0,
+            session_duration: 0,
+          });
+          
+          // Check if this is a reconnection or new session
+          const isReconnection = data.message === 'Reconnected to existing Claude session';
+          
+          if (isReconnection) {
+            console.log('Auto-reconnected to existing session:', data.session_id);
+            setMessages([{
+              type: 'system',
+              content: `Reconnected to existing session: ${data.session_id}`,
+              timestamp: new Date().toISOString()
+            }]);
+          } else {
+            console.log('Auto-started new session:', data.session_id);
+            if (data.info) {
+              setMessages([{
+                type: 'system',
+                content: `Session started: PID ${data.info.pid}, Working Directory: ${data.info.working_dir}`,
+                timestamp: new Date().toISOString()
+              }]);
+            }
+          }
+          
+          // Connect WebSocket for both new and reconnected sessions
+          if (useWebSocket) {
+            connectWebSocket(data.session_id);
+          } else {
+            connectSSE(data.session_id);
+          }
+        } else {
+          console.error('Failed to auto-start session:', data);
+          setMessages([{
+            type: 'error',
+            content: `Failed to start session: ${data.error || 'Unknown error'}`,
+            timestamp: new Date().toISOString()
+          }]);
+        }
+      } catch (error) {
+        console.error('Error auto-starting session:', error);
+        setMessages([{
+          type: 'error',
+          content: `Error starting session: ${error}`,
+          timestamp: new Date().toISOString()
+        }]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    // Run auto-start immediately when component mounts
+    autoStartSession();
+  }, [taskId]); // Only depend on taskId to avoid infinite loops
+  
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const startSession = async () => {
     try {
@@ -932,7 +1033,7 @@ const ClaudeTerminal: React.FC<ClaudeTerminalProps> = ({
                       lineHeight: 1.6
                     }}
                   >
-                    {msg.content}
+                    {typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)}
                   </Typography>
                 </Box>
               </Box>

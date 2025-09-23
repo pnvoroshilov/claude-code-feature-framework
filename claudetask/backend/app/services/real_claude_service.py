@@ -20,6 +20,8 @@ class RealClaudeSession:
         self.read_thread: Optional[threading.Thread] = None
         self.main_loop: Optional[asyncio.AbstractEventLoop] = None
         self.claude_initialized = False
+        self.output_history: List[Dict[str, Any]] = []
+        self.max_history_size = 1000  # Keep last 1000 messages
 
     async def start(self) -> bool:
         """Start Claude process"""
@@ -82,42 +84,77 @@ class RealClaudeSession:
 
     def _send_to_clients(self, content: str):
         """Send content to all connected WebSocket clients"""
-        if not self.websocket_clients or not self.main_loop:
-            return
-        
-        # Check if this is initial Claude output and we haven't sent the task command yet
-        if not self.claude_initialized and ("Claude" in content or "Welcome" in content or ">" in content):
-            self.claude_initialized = True
-            # Schedule sending the task initialization command
-            self._schedule_task_initialization()
-            
+        # Create message
         message = {
             "type": "output",
             "content": content,
             "timestamp": datetime.now().isoformat()
         }
         
-        # Send to all clients
-        disconnected_clients = []
-        for client in self.websocket_clients:
-            try:
-                # Schedule the coroutine in the main event loop
-                if self.main_loop and not self.main_loop.is_closed():
-                    asyncio.run_coroutine_threadsafe(
-                        client.send_json(message),
-                        self.main_loop
-                    )
-                else:
-                    logger.warning("Main event loop is not available")
-                    disconnected_clients.append(client)
-            except Exception as e:
-                logger.warning(f"Failed to send to client: {e}")
-                disconnected_clients.append(client)
+        # Store in history
+        self._store_in_history(message)
         
-        # Remove disconnected clients
-        for client in disconnected_clients:
-            if client in self.websocket_clients:
-                self.websocket_clients.remove(client)
+        # Check if this is initial Claude output and we haven't sent the task command yet
+        if not self.claude_initialized and ("Claude" in content or "Welcome" in content or ">" in content):
+            self.claude_initialized = True
+            # Schedule sending the task initialization command
+            self._schedule_task_initialization()
+        
+        # Send to all connected clients
+        if self.websocket_clients and self.main_loop:
+            disconnected_clients = []
+            for client in self.websocket_clients:
+                try:
+                    # Schedule the coroutine in the main event loop
+                    if self.main_loop and not self.main_loop.is_closed():
+                        asyncio.run_coroutine_threadsafe(
+                            client.send_json(message),
+                            self.main_loop
+                        )
+                    else:
+                        logger.warning("Main event loop is not available")
+                        disconnected_clients.append(client)
+                except Exception as e:
+                    logger.warning(f"Failed to send to client: {e}")
+                    disconnected_clients.append(client)
+            
+            # Remove disconnected clients
+            for client in disconnected_clients:
+                if client in self.websocket_clients:
+                    self.websocket_clients.remove(client)
+    
+    def _store_in_history(self, message: Dict[str, Any]):
+        """Store message in session history"""
+        self.output_history.append(message)
+        
+        # Keep history size manageable
+        if len(self.output_history) > self.max_history_size:
+            self.output_history = self.output_history[-self.max_history_size:]
+    
+    def get_history(self) -> List[Dict[str, Any]]:
+        """Get session history"""
+        return self.output_history.copy()
+    
+    def send_history_to_client(self, client):
+        """Send full history to a reconnecting client"""
+        if not self.main_loop or not self.output_history:
+            return
+            
+        try:
+            # Send a special "history" message
+            history_message = {
+                "type": "history",
+                "content": self.output_history,
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            if self.main_loop and not self.main_loop.is_closed():
+                asyncio.run_coroutine_threadsafe(
+                    client.send_json(history_message),
+                    self.main_loop
+                )
+        except Exception as e:
+            logger.warning(f"Failed to send history to client: {e}")
     
     def _schedule_task_initialization(self):
         """Schedule sending the task initialization command"""
@@ -158,9 +195,14 @@ class RealClaudeSession:
             return False
 
     def add_websocket_client(self, websocket):
-        """Add WebSocket client"""
+        """Add WebSocket client and send history"""
         self.websocket_clients.append(websocket)
         logger.info(f"Added WebSocket client, total: {len(self.websocket_clients)}")
+        
+        # Send history to the new client
+        if self.output_history:
+            self.send_history_to_client(websocket)
+            logger.info(f"Sent {len(self.output_history)} history messages to new client")
 
     def remove_websocket_client(self, websocket):
         """Remove WebSocket client"""
