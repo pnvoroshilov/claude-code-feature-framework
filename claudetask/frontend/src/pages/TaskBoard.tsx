@@ -451,7 +451,7 @@ const TaskBoard: React.FC = () => {
                 // Send /merge command to Claude session via WebSocket
                 try {
                   // Get active sessions to find session for this task
-                  const sessionsResponse = await fetch(`${API_URL}/sessions/embedded/active`);
+                  const sessionsResponse = await fetch(`http://localhost:3333/api/sessions/embedded/active`);
                   const sessions = await sessionsResponse.json();
                   const session = sessions.find((s: any) => s.task_id === selectedTask.id);
                   
