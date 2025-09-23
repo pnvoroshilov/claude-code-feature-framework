@@ -6,6 +6,7 @@ import shutil
 import uuid
 from pathlib import Path
 from typing import List, Optional, Dict, Any
+from datetime import datetime
 from git import Repo
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -359,6 +360,22 @@ class ProjectService:
                 with open(agent_path, "w") as f:
                     f.write(agent_config['config'])
                 files_created.append(f".claude/agents/{agent_config['name']}.md")
+        
+        # Create commands directory in .claude
+        commands_dir = os.path.join(claude_dir, "commands")
+        os.makedirs(commands_dir, exist_ok=True)
+        
+        # Copy command files from framework-assets
+        commands_source_dir = os.path.join(framework_path, "framework-assets", "claude-commands")
+        if os.path.exists(commands_source_dir):
+            for command_file in os.listdir(commands_source_dir):
+                if command_file.endswith(".md") and command_file != "README.md":
+                    source_file = os.path.join(commands_source_dir, command_file)
+                    dest_file = os.path.join(commands_dir, command_file)
+                    with open(source_file, "r") as src:
+                        with open(dest_file, "w") as dst:
+                            dst.write(src.read())
+                    files_created.append(f".claude/commands/{command_file}")
         
         # Create .claudetask directory for internal metadata
         claudetask_dir = os.path.join(project_path, ".claudetask")
