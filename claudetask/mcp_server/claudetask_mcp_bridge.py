@@ -447,6 +447,27 @@ class ClaudeTaskMCPServer:
                         },
                         "required": ["task_id", "status", "summary"]
                     }
+                ),
+                types.Tool(
+                    name="set_testing_urls",
+                    description="Save testing environment URLs for a task (e.g., frontend, backend URLs)",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "task_id": {
+                                "type": "integer",
+                                "description": "ID of the task"
+                            },
+                            "urls": {
+                                "type": "object",
+                                "description": "Dictionary of environment names to their URLs (e.g., {\"frontend\": \"http://localhost:3001\", \"backend\": \"http://localhost:3333\"})",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "required": ["task_id", "urls"]
+                    }
                 )
             ]
 
@@ -514,6 +535,11 @@ class ClaudeTaskMCPServer:
                         arguments["status"],
                         arguments["summary"],
                         arguments.get("details")
+                    )
+                elif name == "set_testing_urls":
+                    return await self._set_testing_urls(
+                        arguments["task_id"],
+                        arguments["urls"]
                     )
                 else:
                     raise ValueError(f"Unknown tool: {name}")
@@ -2015,6 +2041,49 @@ Total stage results recorded: {stage_results_count}
             formatted.insert(0, f"... (showing last 5 of {len(stage_results)} results)")
         
         return "\n".join(formatted)
+
+    async def _set_testing_urls(self, task_id: int, urls: Dict[str, str]) -> list[types.TextContent]:
+        """Set testing environment URLs for a task"""
+        async with httpx.AsyncClient() as client:
+            try:
+                # Send to backend API
+                response = await client.patch(
+                    f"{self.server_url}/api/tasks/{task_id}/testing-urls",
+                    json={"testing_urls": urls}
+                )
+                response.raise_for_status()
+                task = response.json()
+                
+                # Format URLs for display
+                urls_display = "\n".join([f"- {env}: {url}" for env, url in urls.items()])
+                
+                return [types.TextContent(
+                    type="text",
+                    text=f"""✅ TESTING URLS UPDATED SUCCESSFULLY
+
+Task #{task_id}: {task['title']}
+Status: {task['status']}
+
+🔗 TESTING ENVIRONMENT URLS:
+{urls_display}
+
+🎯 NEXT STEPS:
+- Testing URLs have been saved to the task
+- URLs will be displayed in the task details dialog
+- Share these URLs with testers when task reaches Testing status
+- URLs are preserved and accessible via task details"""
+                )]
+                
+            except httpx.HTTPError as e:
+                return [types.TextContent(
+                    type="text",
+                    text=f"Failed to update testing URLs: {str(e)}"
+                )]
+            except Exception as e:
+                return [types.TextContent(
+                    type="text",
+                    text=f"Error updating testing URLs: {str(e)}"
+                )]
 
     async def run(self):
         """Run the MCP server"""

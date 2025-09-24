@@ -28,7 +28,7 @@ from .schemas import (
     ConnectionStatus, TaskQueueResponse,
     AgentCreate, AgentInDB, AgentUpdate,
     ProjectSettingsUpdate, ProjectSettingsInDB, MCPTaskStatusUpdateResponse,
-    StageResultAppend
+    StageResultAppend, TestingUrlsUpdate
 )
 from .services.mcp_service import mcp_service
 from .services.project_service import ProjectService
@@ -314,6 +314,30 @@ async def append_stage_result(
     await db.refresh(task)
     
     logger.info(f"Appended stage result to task {task_id}: {stage_result.status} - {stage_result.summary}")
+    
+    return task
+
+
+@app.patch("/api/tasks/{task_id}/testing-urls", response_model=TaskInDB)
+async def update_testing_urls(
+    task_id: int,
+    urls_update: TestingUrlsUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    """Update testing URLs for a task"""
+    result = await db.execute(select(Task).where(Task.id == task_id))
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Update the testing URLs
+    task.testing_urls = urls_update.testing_urls
+    task.updated_at = datetime.utcnow()
+    
+    await db.commit()
+    await db.refresh(task)
+    
+    logger.info(f"Updated testing URLs for task {task_id}: {urls_update.testing_urls}")
     
     return task
 

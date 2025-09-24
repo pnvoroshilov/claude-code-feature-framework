@@ -34,6 +34,7 @@ export interface Task {
     summary: string;
     details?: string;
   }>;
+  testing_urls?: Record<string, string>;
   git_branch?: string;
   worktree_path?: string;
   assigned_agent?: string;
