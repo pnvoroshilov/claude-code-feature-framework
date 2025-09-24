@@ -148,6 +148,139 @@ class WorktreeService:
             }
     
     @staticmethod
+    async def sync_worktree_with_main(worktree_path: str, project_path: str) -> Dict[str, Any]:
+        """Sync worktree with latest changes from main branch.
+        
+        This method updates the worktree with the latest changes from main branch
+        while preserving local changes. It performs a merge from origin/main.
+        
+        Args:
+            worktree_path: Path to the worktree directory
+            project_path: Path to the main project repository
+            
+        Returns:
+            Dict containing success status and message
+        """
+        try:
+            # Check if worktree exists first
+            if not os.path.exists(worktree_path):
+                logger.error(f"Worktree path does not exist: {worktree_path}")
+                return {
+                    "success": False,
+                    "error": f"Worktree path does not exist: {worktree_path}"
+                }
+                
+            logger.info(f"Syncing worktree {worktree_path} with latest main branch")
+            
+            # First, ensure main branch is up to date
+            # Check if we have a remote origin
+            remotes_result = subprocess.run(
+                ["git", "remote"],
+                cwd=project_path,
+                capture_output=True,
+                text=True
+            )
+            has_origin = "origin" in remotes_result.stdout
+            
+            if has_origin:
+                # Fetch latest changes from origin in main repo
+                fetch_result = subprocess.run(
+                    ["git", "fetch", "origin"],
+                    cwd=project_path,
+                    capture_output=True,
+                    text=True
+                )
+                
+                if fetch_result.returncode != 0:
+                    logger.warning(f"Failed to fetch from origin: {fetch_result.stderr}")
+                else:
+                    logger.info("Successfully fetched latest changes from origin")
+                    
+                    # Save current branch in main repo
+                    current_branch_result = subprocess.run(
+                        ["git", "branch", "--show-current"],
+                        cwd=project_path,
+                        capture_output=True,
+                        text=True
+                    )
+                    current_branch = current_branch_result.stdout.strip()
+                    
+                    # Switch to main branch in main repo
+                    checkout_result = subprocess.run(
+                        ["git", "checkout", "main"],
+                        cwd=project_path,
+                        capture_output=True,
+                        text=True
+                    )
+                    
+                    if checkout_result.returncode == 0:
+                        # Pull latest changes to main
+                        pull_result = subprocess.run(
+                            ["git", "pull", "origin", "main"],
+                            cwd=project_path,
+                            capture_output=True,
+                            text=True
+                        )
+                        
+                        if pull_result.returncode != 0:
+                            logger.warning(f"Failed to pull latest main: {pull_result.stderr}")
+                        else:
+                            logger.info("Successfully updated main branch with latest changes")
+                        
+                        # Switch back to original branch if it wasn't main
+                        if current_branch and current_branch != "main":
+                            subprocess.run(
+                                ["git", "checkout", current_branch],
+                                cwd=project_path,
+                                capture_output=True,
+                                text=True
+                            )
+                
+                # Now merge main into the worktree branch
+                # Merge main branch into worktree
+                merge_result = subprocess.run(
+                    ["git", "merge", "origin/main", "--no-edit", "-m", "Sync with latest main branch"],
+                    cwd=worktree_path,
+                    capture_output=True,
+                    text=True
+                )
+                
+                if merge_result.returncode == 0:
+                    logger.info(f"Successfully synced worktree with main branch")
+                    return {
+                        "success": True,
+                        "message": "Worktree synced with latest main branch"
+                    }
+                else:
+                    # Check if there are merge conflicts
+                    if "CONFLICT" in merge_result.stdout or "CONFLICT" in merge_result.stderr:
+                        logger.warning(f"Merge conflicts detected in worktree: {merge_result.stderr}")
+                        return {
+                            "success": False,
+                            "error": "Merge conflicts detected. Manual resolution required.",
+                            "conflicts": True
+                        }
+                    else:
+                        logger.error(f"Failed to merge main into worktree: {merge_result.stderr}")
+                        return {
+                            "success": False,
+                            "error": f"Failed to merge: {merge_result.stderr}"
+                        }
+            else:
+                logger.info("No remote origin found - skipping sync")
+                return {
+                    "success": True,
+                    "message": "No remote origin - using local main branch"
+                }
+                
+        except Exception as e:
+            logger.error(f"Error syncing worktree with main: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    @staticmethod
     async def remove_worktree(task_id: int, project_path: str, worktree_path: Optional[str] = None) -> Dict[str, Any]:
         """Remove git worktree for task"""
         try:
