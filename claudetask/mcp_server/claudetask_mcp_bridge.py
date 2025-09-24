@@ -25,6 +25,10 @@ class ClaudeTaskMCPServer:
         self.server_url = server_url.rstrip("/")
         self.server = Server("claudetask")
         
+        # Initialize logger
+        import logging
+        self.logger = logging.getLogger(__name__)
+        
         # Available local agents (verified to exist in framework-assets/claude-agents/)
         self.available_agents = [
             "ai-implementation-expert",
