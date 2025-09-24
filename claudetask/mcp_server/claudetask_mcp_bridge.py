@@ -420,6 +420,33 @@ class ClaudeTaskMCPServer:
                         },
                         "required": ["task_id"]
                     }
+                ),
+                types.Tool(
+                    name="append_stage_result",
+                    description="Append a new stage result to task's cumulative results",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "task_id": {
+                                "type": "integer",
+                                "description": "ID of the task to append stage result to"
+                            },
+                            "status": {
+                                "type": "string",
+                                "enum": ["Analysis", "In Progress", "Testing", "Code Review", "PR", "Done"],
+                                "description": "Current status/stage of the task"
+                            },
+                            "summary": {
+                                "type": "string",
+                                "description": "Summary of what was accomplished in this stage"
+                            },
+                            "details": {
+                                "type": "string",
+                                "description": "Optional detailed information about this stage"
+                            }
+                        },
+                        "required": ["task_id", "status", "summary"]
+                    }
                 )
             ]
 
@@ -480,6 +507,13 @@ class ClaudeTaskMCPServer:
                 elif name == "get_session_status":
                     return await self._get_session_status(
                         arguments["task_id"]
+                    )
+                elif name == "append_stage_result":
+                    return await self._append_stage_result(
+                        arguments["task_id"],
+                        arguments["status"],
+                        arguments["summary"],
+                        arguments.get("details")
                     )
                 else:
                     raise ValueError(f"Unknown tool: {name}")
@@ -1689,6 +1723,84 @@ Error: {result.get('error', 'Unknown error')}
                     type="text",
                     text=f"Failed to get session status: {str(e)}"
                 )]
+
+    async def _append_stage_result(self, task_id: int, status: str, summary: str, details: Optional[str] = None) -> list[types.TextContent]:
+        """Append a new stage result to task's cumulative results"""
+        async with httpx.AsyncClient() as client:
+            try:
+                # Prepare the stage result data
+                stage_result_data = {
+                    "status": status,
+                    "summary": summary
+                }
+                if details:
+                    stage_result_data["details"] = details
+                
+                # Send to backend API
+                response = await client.post(
+                    f"{self.server_url}/api/tasks/{task_id}/stage-result",
+                    json=stage_result_data
+                )
+                response.raise_for_status()
+                result = response.json()
+                
+                # Get updated task details
+                task_response = await client.get(f"{self.server_url}/api/tasks/{task_id}")
+                task_response.raise_for_status()
+                task = task_response.json()
+                
+                # Count total stage results
+                stage_results_count = len(task.get('stage_results', []))
+                
+                return [types.TextContent(
+                    type="text",
+                    text=f"""✅ STAGE RESULT APPENDED SUCCESSFULLY
+
+Task #{task_id}: {task['title']}
+Status: {status}
+Summary: {summary}
+{f'Details: {details}' if details else ''}
+
+📊 CUMULATIVE RESULTS:
+Total stage results recorded: {stage_results_count}
+
+💡 STAGE RESULTS HISTORY:
+{self._format_stage_results(task.get('stage_results', []))}
+
+🎯 NEXT STEPS:
+- Stage result has been permanently saved
+- Continue with task workflow
+- Use mcp:get_task {task_id} to see all cumulative results
+- Results are preserved across status changes"""
+                )]
+                
+            except httpx.HTTPError as e:
+                return [types.TextContent(
+                    type="text",
+                    text=f"Failed to append stage result: {str(e)}"
+                )]
+            except Exception as e:
+                return [types.TextContent(
+                    type="text",
+                    text=f"Error appending stage result: {str(e)}"
+                )]
+    
+    def _format_stage_results(self, stage_results: list) -> str:
+        """Format stage results for display"""
+        if not stage_results:
+            return "No stage results recorded yet"
+        
+        formatted = []
+        for i, result in enumerate(stage_results[-5:], 1):  # Show last 5 results
+            timestamp = result.get('timestamp', 'Unknown time')
+            status = result.get('status', 'Unknown status')
+            summary = result.get('summary', 'No summary')
+            formatted.append(f"{i}. [{timestamp}] {status}: {summary}")
+        
+        if len(stage_results) > 5:
+            formatted.insert(0, f"... (showing last 5 of {len(stage_results)} results)")
+        
+        return "\n".join(formatted)
 
     async def run(self):
         """Run the MCP server"""

@@ -28,6 +28,12 @@ export interface Task {
   priority: 'High' | 'Medium' | 'Low';
   status: 'Backlog' | 'Analysis' | 'In Progress' | 'Testing' | 'Code Review' | 'PR' | 'Done' | 'Blocked';
   analysis?: string;
+  stage_results?: Array<{
+    timestamp: string;
+    status: string;
+    summary: string;
+    details?: string;
+  }>;
   git_branch?: string;
   worktree_path?: string;
   assigned_agent?: string;

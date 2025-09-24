@@ -905,6 +905,60 @@ const TaskBoard: React.FC = () => {
                 )
               )}
 
+              {!isEditMode && selectedTask.stage_results && selectedTask.stage_results.length > 0 && (
+                <>
+                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', mt: 3 }}>
+                    Stage Results
+                  </Typography>
+                  <Box sx={{ 
+                    bgcolor: '#f9fafb', 
+                    p: 2, 
+                    borderRadius: 1, 
+                    border: '1px solid #e0e0e0',
+                    mb: 3,
+                    maxHeight: '300px',
+                    overflowY: 'auto'
+                  }}>
+                    {selectedTask.stage_results.map((result, index) => (
+                      <Box 
+                        key={index} 
+                        sx={{ 
+                          mb: index < selectedTask.stage_results!.length - 1 ? 2 : 0,
+                          pb: index < selectedTask.stage_results!.length - 1 ? 2 : 0,
+                          borderBottom: index < selectedTask.stage_results!.length - 1 ? '1px solid #e0e0e0' : 'none'
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                          <Chip 
+                            label={result.status} 
+                            size="small" 
+                            sx={{ 
+                              bgcolor: result.status === 'Done' ? '#4caf50' : 
+                                      result.status === 'In Progress' ? '#ff9800' : 
+                                      result.status === 'Testing' ? '#9c27b0' : 
+                                      result.status === 'Analysis' ? '#2196f3' : '#757575',
+                              color: 'white',
+                              fontWeight: 'bold'
+                            }} 
+                          />
+                          <Typography variant="caption" color="text.secondary">
+                            {new Date(result.timestamp).toLocaleString()}
+                          </Typography>
+                        </Box>
+                        <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                          {result.summary}
+                        </Typography>
+                        {result.details && (
+                          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                            {result.details}
+                          </Typography>
+                        )}
+                      </Box>
+                    ))}
+                  </Box>
+                </>
+              )}
+
               {!isEditMode && (
                 <>
                   <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', mt: 3 }}>
