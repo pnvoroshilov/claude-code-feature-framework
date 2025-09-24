@@ -67,11 +67,7 @@ class Task(Base):
     status = Column(Enum(TaskStatus), default=TaskStatus.BACKLOG)
     analysis = Column(Text, nullable=True)
     stage_results = Column(JSON, default=list)  # Cumulative stage results
-<<<<<<< HEAD
     testing_urls = Column(JSON, nullable=True)  # Testing environment URLs
-=======
-    testing_urls = Column(JSON, nullable=True)  # Store testing environment URLs
->>>>>>> feature/task-22
     git_branch = Column(String, nullable=True)
     worktree_path = Column(String, nullable=True)
     assigned_agent = Column(String, nullable=True)
