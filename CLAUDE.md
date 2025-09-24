@@ -104,11 +104,23 @@ Technical details: [implementation specifics to cover]"
 When task.status == "Testing":
 1. DO NOT delegate to any testing agent
 2. ONLY ensure test environment is ready:
-   - Check if application is running
+   - CRITICAL: Find available ports (DO NOT reuse occupied ports)
+   - Check occupied ports: lsof -i :PORT_NUMBER
+   - Find free port for backend (e.g., 4000-5000 range if 3333 is taken)
+   - Find free port for frontend (e.g., 3001-4000 range if 3000 is taken)
+   - Start backend: python -m uvicorn app.main:app --port FREE_BACKEND_PORT
+   - Start frontend: PORT=FREE_FRONTEND_PORT npm start
    - Provide URLs/endpoints for manual testing
    - Document what needs to be tested
-3. Notify user: "Testing environment ready for manual testing"
-4. Wait for user to test and update status
+3. Port selection rules:
+   - NEVER use port already in use (check with lsof -i :PORT)
+   - Backend: Try 4000, 4001, 4002... until free port found
+   - Frontend: Try 3001, 3002, 3003... until free port found
+   - Always verify port is free before starting service
+4. Notify user: "Testing environment ready at:
+   - Backend: http://localhost:FREE_BACKEND_PORT
+   - Frontend: http://localhost:FREE_FRONTEND_PORT"
+5. Wait for user to test and update status
 ```
 
 #### Test Creation Tasks → `quality-engineer`, `web-tester`

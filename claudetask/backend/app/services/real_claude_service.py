@@ -3,8 +3,12 @@ import threading
 import pexpect
 import json
 import logging
+import concurrent.futures
+import signal
+import os
 from typing import Dict, List, Optional, Any
 from datetime import datetime
+from contextlib import asynccontextmanager
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from app.models import ClaudeSession
@@ -20,11 +24,13 @@ class RealClaudeSession:
         self.child: Optional[pexpect.spawn] = None
         self.is_running = False
         self.websocket_clients: List[Any] = []
+        self.clients_lock = threading.RLock()  # Thread-safe client management
         self.stop_reading = threading.Event()
         self.read_thread: Optional[threading.Thread] = None
         self.main_loop: Optional[asyncio.AbstractEventLoop] = None
         self.claude_initialized = False
         self.output_history: List[Dict[str, Any]] = []
+        self.history_lock = threading.RLock()  # Thread-safe history management
         self.max_history_size = 1000  # Keep last 1000 messages
         self.db_session = db_session
         self.last_db_save_time = datetime.now()
@@ -33,10 +39,12 @@ class RealClaudeSession:
     async def start(self) -> bool:
         """Start Claude process"""
         try:
-            logger.info(f"Starting Claude process for session {self.session_id}")
+            logger.info(f"Starting Claude process for session {self.session_id}, task {self.task_id}")
+            logger.debug(f"Working dir: {self.working_dir}, Root dir: {self.root_project_dir}")
             
             # Store the current event loop
             self.main_loop = asyncio.get_running_loop()
+            logger.debug(f"Event loop for session {self.session_id}: {id(self.main_loop)}")
             
             # Start Claude with pexpect in dangerous mode
             # Always start in root project directory to have access to .claude config
@@ -67,6 +75,7 @@ class RealClaudeSession:
 
     def _read_output_thread(self):
         """Read all output from Claude and send to clients"""
+        logger.debug(f"Starting output reader thread for session {self.session_id}")
         try:
             while not self.stop_reading.is_set() and self.child and self.child.isalive():
                 try:
@@ -86,7 +95,7 @@ class RealClaudeSession:
                     break
                     
         except Exception as e:
-            logger.error(f"Fatal error in read thread: {e}")
+            logger.error(f"Fatal error in read thread for session {self.session_id}: {e}", exc_info=True)
         finally:
             logger.info(f"Output reader thread exiting for session {self.session_id}")
 
@@ -108,36 +117,44 @@ class RealClaudeSession:
             # Schedule sending the task initialization command
             self._schedule_task_initialization()
         
-        # Send to all connected clients
-        if self.websocket_clients and self.main_loop:
-            disconnected_clients = []
-            for client in self.websocket_clients:
-                try:
-                    # Schedule the coroutine in the main event loop
-                    if self.main_loop and not self.main_loop.is_closed():
-                        asyncio.run_coroutine_threadsafe(
+        # Send to all connected clients with thread safety
+        if self.main_loop and not self.main_loop.is_closed():
+            # Get a copy of clients list safely
+            with self.clients_lock:
+                clients_copy = self.websocket_clients.copy()
+            
+            if clients_copy:
+                disconnected_clients = []
+                for client in clients_copy:
+                    try:
+                        # Schedule the coroutine in the main event loop with timeout
+                        future = asyncio.run_coroutine_threadsafe(
                             client.send_json(message),
                             self.main_loop
                         )
-                    else:
-                        logger.warning("Main event loop is not available")
+                        # Don't wait indefinitely
+                        future.result(timeout=1.0)
+                    except (concurrent.futures.TimeoutError, RuntimeError, Exception) as e:
+                        logger.warning(f"Failed to send to client: {e}")
                         disconnected_clients.append(client)
-                except Exception as e:
-                    logger.warning(f"Failed to send to client: {e}")
-                    disconnected_clients.append(client)
-            
-            # Remove disconnected clients
-            for client in disconnected_clients:
-                if client in self.websocket_clients:
-                    self.websocket_clients.remove(client)
+                
+                # Remove disconnected clients safely
+                if disconnected_clients:
+                    with self.clients_lock:
+                        for client in disconnected_clients:
+                            if client in self.websocket_clients:
+                                self.websocket_clients.remove(client)
+        else:
+            logger.warning(f"Event loop not available for session {self.session_id}")
     
     def _store_in_history(self, message: Dict[str, Any]):
         """Store message in session history"""
-        self.output_history.append(message)
-        
-        # Keep history size manageable
-        if len(self.output_history) > self.max_history_size:
-            self.output_history = self.output_history[-self.max_history_size:]
+        with self.history_lock:
+            self.output_history.append(message)
+            
+            # Keep history size manageable
+            if len(self.output_history) > self.max_history_size:
+                self.output_history = self.output_history[-self.max_history_size:]
         
         # Check if it's time to save to DB
         now = datetime.now()
@@ -147,12 +164,18 @@ class RealClaudeSession:
     
     def get_history(self) -> List[Dict[str, Any]]:
         """Get session history"""
-        return self.output_history.copy()
+        with self.history_lock:
+            return self.output_history.copy()
     
     def send_history_to_client(self, client):
         """Send full history to a reconnecting client"""
-        if not self.main_loop or not self.output_history:
+        if not self.main_loop or self.main_loop.is_closed():
             return
+        
+        with self.history_lock:
+            if not self.output_history:
+                return
+            history_copy = self.output_history.copy()
             
         try:
             # Send a special "history" message
@@ -219,64 +242,100 @@ class RealClaudeSession:
 
     def add_websocket_client(self, websocket):
         """Add WebSocket client and send history"""
-        self.websocket_clients.append(websocket)
-        logger.info(f"Added WebSocket client, total: {len(self.websocket_clients)}")
+        with self.clients_lock:
+            self.websocket_clients.append(websocket)
+            client_count = len(self.websocket_clients)
+        logger.info(f"Added WebSocket client, total: {client_count}")
         
         # Send history to the new client
-        if self.output_history:
+        with self.history_lock:
+            history_count = len(self.output_history)
+        if history_count > 0:
             self.send_history_to_client(websocket)
-            logger.info(f"Sent {len(self.output_history)} history messages to new client")
+            logger.info(f"Sent {history_count} history messages to new client")
 
     def remove_websocket_client(self, websocket):
         """Remove WebSocket client"""
-        if websocket in self.websocket_clients:
-            self.websocket_clients.remove(websocket)
-            logger.info(f"Removed WebSocket client, total: {len(self.websocket_clients)}")
+        with self.clients_lock:
+            if websocket in self.websocket_clients:
+                self.websocket_clients.remove(websocket)
+                client_count = len(self.websocket_clients)
+                logger.info(f"Removed WebSocket client, total: {client_count}")
 
     async def stop(self) -> bool:
-        """Stop the session"""
+        """Stop the session with robust cleanup"""
         try:
             logger.info(f"Stopping session {self.session_id} for task {self.task_id}")
             
-            # Signal the read thread to stop
+            # Signal the read thread to stop first
             self.stop_reading.set()
+            self.is_running = False
             
             # Clear reconnect timeout if any
             if hasattr(self, 'reconnect_timeout'):
                 if self.reconnect_timeout:
                     self.reconnect_timeout.cancel()
             
-            # Terminate the child process
+            # Terminate the child process with proper timeout handling
             if self.child and self.child.isalive():
-                logger.info(f"Terminating Claude process PID: {self.child.pid}")
+                pid = self.child.pid
+                logger.info(f"Terminating Claude process PID: {pid}")
+                
                 try:
                     # Try graceful termination first
                     self.child.sendcontrol('c')  # Send Ctrl+C
-                    await asyncio.sleep(0.5)
                     
-                    if self.child.isalive():
-                        self.child.terminate(force=True)
-                        self.child.wait()
-                except Exception as term_error:
-                    logger.error(f"Error terminating process: {term_error}")
-                    # Force kill if terminate fails
+                    # Wait with timeout for process to exit
                     try:
-                        import signal
-                        import os
-                        os.kill(self.child.pid, signal.SIGKILL)
+                        await asyncio.wait_for(
+                            asyncio.to_thread(lambda: self.child.expect([pexpect.EOF], timeout=1)),
+                            timeout=2.0
+                        )
+                        logger.info(f"Process {pid} terminated gracefully")
+                    except (asyncio.TimeoutError, pexpect.TIMEOUT):
+                        # If graceful termination failed, force terminate
+                        logger.warning(f"Graceful termination failed, forcing termination of PID {pid}")
+                        self.child.terminate(force=True)
+                        
+                        # Wait for forced termination
+                        try:
+                            await asyncio.wait_for(
+                                asyncio.to_thread(self.child.wait),
+                                timeout=1.0
+                            )
+                        except asyncio.TimeoutError:
+                            # Last resort: SIGKILL
+                            logger.warning(f"Force termination failed, sending SIGKILL to PID {pid}")
+                            try:
+                                os.kill(pid, signal.SIGKILL)
+                            except ProcessLookupError:
+                                pass  # Process already dead
+                            except Exception as e:
+                                logger.error(f"Failed to kill process {pid}: {e}")
+                        
+                except Exception as e:
+                    logger.error(f"Error during process termination: {e}")
+                    # Try direct kill as fallback
+                    try:
+                        if pid:
+                            os.kill(pid, signal.SIGKILL)
                     except:
                         pass
+                finally:
+                    self.child = None
             
-            self.is_running = False
-            
-            # Wait for read thread to finish
+            # Wait for read thread to finish with timeout
             if self.read_thread and self.read_thread.is_alive():
                 self.read_thread.join(timeout=2)
                 if self.read_thread.is_alive():
                     logger.warning(f"Read thread didn't stop cleanly for session {self.session_id}")
             
-            # Close all WebSocket connections
-            for client in self.websocket_clients[:]:
+            # Close all WebSocket connections safely
+            with self.clients_lock:
+                clients_to_close = self.websocket_clients.copy()
+                self.websocket_clients.clear()
+            
+            for client in clients_to_close:
                 try:
                     await client.close()
                 except:
@@ -345,9 +404,18 @@ class RealClaudeSession:
 class RealClaudeService:
     def __init__(self):
         self.sessions: Dict[str, RealClaudeSession] = {}
+        self.sessions_lock = threading.Lock()  # Thread-safe session management
 
     async def create_session(self, task_id: int, project_path: str, session_id: str, root_project_path: str = None, db_session: Optional[AsyncSession] = None) -> Dict[str, Any]:
         """Create a new Claude session"""
+        logger.info(f"Creating new session {session_id} for task {task_id}")
+        
+        # Check if session already exists
+        with self.sessions_lock:
+            if session_id in self.sessions:
+                logger.warning(f"Session {session_id} already exists, stopping old one first")
+                await self.stop_session(session_id)
+        
         try:
             # Determine root project path (where .claude directory is)
             if not root_project_path:
@@ -371,7 +439,8 @@ class RealClaudeService:
                 await session.load_history_from_db()
             
             if await session.start():
-                self.sessions[session_id] = session
+                with self.sessions_lock:
+                    self.sessions[session_id] = session
                 return {
                     "success": True,
                     "session_id": session_id,
@@ -389,7 +458,8 @@ class RealClaudeService:
 
     def get_session(self, session_id: str) -> Optional[RealClaudeSession]:
         """Get session by ID"""
-        return self.sessions.get(session_id)
+        with self.sessions_lock:
+            return self.sessions.get(session_id)
 
     async def send_input(self, session_id: str, data: str) -> bool:
         """Send input to session"""
@@ -400,16 +470,23 @@ class RealClaudeService:
 
     async def stop_session(self, session_id: str) -> bool:
         """Stop a session"""
-        session = self.sessions.get(session_id)
+        with self.sessions_lock:
+            session = self.sessions.get(session_id)
+        
         if session:
             success = await session.stop()
             if success:
-                del self.sessions[session_id]
+                with self.sessions_lock:
+                    if session_id in self.sessions:
+                        del self.sessions[session_id]
             return success
         return False
 
     def get_active_sessions(self) -> List[Dict[str, Any]]:
         """Get all active sessions"""
+        with self.sessions_lock:
+            sessions_copy = list(self.sessions.items())
+        
         return [
             {
                 "session_id": session_id,
@@ -418,7 +495,7 @@ class RealClaudeService:
                 "working_dir": session.working_dir,
                 "clients": len(session.websocket_clients)
             }
-            for session_id, session in self.sessions.items()
+            for session_id, session in sessions_copy
         ]
 
 
