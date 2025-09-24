@@ -576,11 +576,18 @@ Analysis:
         
         elif status == "Analysis":
             return """📍 NEXT STEPS (Status: Analysis):
-1. Complete the analysis of this task
-2. Save analysis: mcp:update_task_analysis <task_id> "<analysis>"
-3. ⚠️ MANDATORY: Update to In Progress: mcp:update_status <task_id> "In Progress"
-   (NEVER update to Ready - go directly to In Progress)
-4. Task will then be ready for development"""
+⚠️ MANDATORY DUAL DELEGATION - ALWAYS DELEGATE TO BOTH:
+
+1. FIRST delegate to Business Analyst:
+   mcp:delegate_to_agent <task_id> business-analyst "Analyze business requirements"
+   
+2. THEN delegate to Systems Analyst:
+   mcp:delegate_to_agent <task_id> systems-analyst "Analyze technical requirements"
+   
+3. Save combined analysis: mcp:update_task_analysis <task_id> "<combined_analysis>"
+
+4. ⚠️ MANDATORY: Update to In Progress: mcp:update_status <task_id> "In Progress"
+   (NEVER update to Ready - go directly to In Progress)"""
         
         elif status == "Ready":
             return """⚠️ DEPRECATED STATUS - Should not be in Ready

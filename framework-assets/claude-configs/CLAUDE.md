@@ -45,13 +45,31 @@ LOOP FOREVER:
 ### 2. Mandatory Agent Delegation
 **FOR EVERY TASK TYPE - DELEGATE IMMEDIATELY:**
 
-#### Analysis Tasks → `requirements-analyst` or `context-analyzer`
+#### Analysis Status Tasks → `business-analyst` AND `systems-analyst`
 ```
-Task tool with requirements-analyst:
-"Analyze task requirements and create implementation plan.
+⚠️ WHEN TASK ENTERS "ANALYSIS" STATUS - ALWAYS DELEGATE TO BOTH:
+
+1. FIRST - Business Analyst:
+Task tool with business-analyst:
+"Analyze business requirements and user needs for this task.
 Task details: [full task info from MCP]
+Create business requirements document including:
+- User stories and acceptance criteria
+- Business value and objectives
+- Stakeholder requirements
+- Process workflows"
+
+2. THEN - Systems Analyst:
+Task tool with systems-analyst:
+"Analyze technical requirements and system design for this task.
+Task details: [full task info from MCP]
+Business analysis: [results from business-analyst]
 Current codebase context: [relevant file paths]
-Provide detailed analysis and next steps."
+Create technical specification including:
+- System architecture impact
+- Integration points
+- Technical implementation approach
+- Data flow and dependencies"
 ```
 
 #### Feature Development → `frontend-developer`, `backend-architect`, `fullstack-code-reviewer`
@@ -105,11 +123,27 @@ Existing tests: [current test structure]"
 
 #### Code Review → `fullstack-code-reviewer`, `security-engineer`
 ```
+⚠️ CRITICAL: REVIEW ONLY TASK-SPECIFIC CHANGES
+
 Task tool with reviewer:
-"Review code changes and ensure quality.
-Changes made: [what was implemented]
-Quality standards: [project standards]
-Security considerations: [any security aspects]"
+"Review ONLY the code changes made in this specific task.
+
+🔴 STRICT SCOPE:
+- Review ONLY files modified in the task's worktree
+- Use 'git diff main..HEAD' to see ONLY task changes
+- DO NOT review unrelated files or existing code
+- Focus ONLY on changes introduced by this task
+
+Review checklist:
+- Code quality of NEW/MODIFIED code only
+- Ensure changes meet requirements
+- Check for bugs in TASK CHANGES only
+- Security issues in NEW code only
+- Performance impact of CHANGES only
+
+Task worktree: [worktree path]
+Changes to review: [list of modified files]
+Original requirements: [task requirements]"
 ```
 
 ## 🛠️ MCP Command Usage
