@@ -39,9 +39,12 @@ import {
   Code as CodeIcon,
   Assignment as AssignmentIcon,
   Send as PRIcon,
+  Edit as EditIcon,
+  Save as SaveIcon,
+  Cancel as CancelIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { getActiveProject, getTasks, createTask, updateTaskStatus, deleteTask, Task, getActiveSessions, createClaudeSession, sendCommandToSession } from '../services/api';
+import { getActiveProject, getTasks, createTask, updateTask, updateTaskStatus, deleteTask, Task, getActiveSessions, createClaudeSession, sendCommandToSession } from '../services/api';
 import RealTerminal from '../components/RealTerminal';
 
 const statusColumns = [
@@ -69,6 +72,13 @@ const TaskBoard: React.FC = () => {
     type: 'Feature' as 'Feature' | 'Bug',
     priority: 'Medium' as 'High' | 'Medium' | 'Low',
   });
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editedTask, setEditedTask] = useState<{
+    title: string;
+    description: string;
+    analysis: string;
+  }>({ title: '', description: '', analysis: '' });
+  const [saveLoading, setSaveLoading] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -106,10 +116,46 @@ const TaskBoard: React.FC = () => {
     },
   });
 
-  const handleCreateTask = () => {
-    if (newTask.title.trim()) {
-      createTaskMutation.mutate(newTask);
+  const updateTaskMutation = useMutation(
+    ({ taskId, data }: { taskId: number; data: Partial<Task> }) => updateTask(taskId, data),
+    {
+      onSuccess: (updatedTask) => {
+        queryClient.invalidateQueries(['tasks', project?.id]);
+        // Update selected task if it's the same task
+        if (selectedTask && selectedTask.id === updatedTask.id) {
+          setSelectedTask(updatedTask);
+        }
+      },
     }
+  );
+
+  const handleCreateTask = () => {
+    const titleTrimmed = newTask.title.trim();
+    const descriptionTrimmed = newTask.description.trim();
+
+    if (!titleTrimmed) {
+      setSnackbar({ open: true, message: 'Title is required', severity: 'error' });
+      return;
+    }
+
+    // Input validation with length limits
+    if (titleTrimmed.length > 200) {
+      setSnackbar({ open: true, message: 'Title must be 200 characters or less', severity: 'error' });
+      return;
+    }
+
+    if (descriptionTrimmed.length > 1000) {
+      setSnackbar({ open: true, message: 'Description must be 1000 characters or less', severity: 'error' });
+      return;
+    }
+
+    const taskData = {
+      ...newTask,
+      title: titleTrimmed,
+      ...(descriptionTrimmed && { description: descriptionTrimmed })
+    };
+    
+    createTaskMutation.mutate(taskData);
   };
 
   const handleStatusChange = async (taskId: number, newStatus: string) => {
@@ -122,11 +168,13 @@ const TaskBoard: React.FC = () => {
           try {
             // Check for active Claude sessions
             const sessions = await getActiveSessions();
-            let targetSession = sessions.find(s => s.task_id === taskId);
+            // Ensure sessions is an array (extra safety check)
+            const sessionsArray = Array.isArray(sessions) ? sessions : [];
+            let targetSession = sessionsArray.find(s => s.task_id === taskId);
             
-            if (!targetSession && sessions.length > 0) {
+            if (!targetSession && sessionsArray.length > 0) {
               // If no session for this task but there are active sessions, use the first one
-              targetSession = sessions[0];
+              targetSession = sessionsArray[0];
             }
             
             if (targetSession) {
@@ -276,6 +324,76 @@ const TaskBoard: React.FC = () => {
     setConfirmAction(null);
   };
 
+  const handleEditClick = () => {
+    if (selectedTask) {
+      setEditedTask({
+        title: selectedTask.title,
+        description: selectedTask.description || '',
+        analysis: selectedTask.analysis || ''
+      });
+      setIsEditMode(true);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditMode(false);
+    if (selectedTask) {
+      setEditedTask({
+        title: selectedTask.title,
+        description: selectedTask.description || '',
+        analysis: selectedTask.analysis || ''
+      });
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedTask || !editedTask.title.trim()) {
+      setSnackbar({ open: true, message: 'Title is required', severity: 'error' });
+      return;
+    }
+
+    // Input validation with length limits
+    const titleTrimmed = editedTask.title.trim();
+    const descriptionTrimmed = editedTask.description.trim();
+    const analysisTrimmed = editedTask.analysis.trim();
+
+    if (titleTrimmed.length > 200) {
+      setSnackbar({ open: true, message: 'Title must be 200 characters or less', severity: 'error' });
+      return;
+    }
+
+    if (descriptionTrimmed.length > 1000) {
+      setSnackbar({ open: true, message: 'Description must be 1000 characters or less', severity: 'error' });
+      return;
+    }
+
+    if (analysisTrimmed.length > 5000) {
+      setSnackbar({ open: true, message: 'Analysis must be 5000 characters or less', severity: 'error' });
+      return;
+    }
+
+    setSaveLoading(true);
+    try {
+      const updateData = {
+        title: titleTrimmed,
+        ...(descriptionTrimmed && { description: descriptionTrimmed }),
+        ...(analysisTrimmed && { analysis: analysisTrimmed })
+      };
+      
+      await updateTaskMutation.mutateAsync({
+        taskId: selectedTask.id,
+        data: updateData
+      });
+      setIsEditMode(false);
+      setSnackbar({ open: true, message: 'Task updated successfully', severity: 'success' });
+    } catch (error) {
+      console.error('Failed to update task:', error);
+      setSnackbar({ open: true, message: 'Failed to update task', severity: 'error' });
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'Backlog': return <AssignmentIcon />;
@@ -293,6 +411,13 @@ const TaskBoard: React.FC = () => {
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
     setTaskDetailsOpen(true);
+    // Reset edit mode when opening a new task
+    setIsEditMode(false);
+    setEditedTask({
+      title: task.title,
+      description: task.description || '',
+      analysis: task.analysis || ''
+    });
   };
 
 
@@ -639,42 +764,126 @@ const TaskBoard: React.FC = () => {
         <DialogTitle>
           <Box display="flex" justifyContent="space-between" alignItems="center">
             <Typography variant="h6">
-              #{selectedTask?.id} - {selectedTask?.title}
+              #{selectedTask?.id} - {isEditMode ? 'Editing Task' : selectedTask?.title}
             </Typography>
-            <Box display="flex" gap={1}>
-              <Chip
-                label={selectedTask?.priority}
-                size="small"
-                color={getPriorityColor(selectedTask?.priority || '') as any}
-              />
-              <Chip
-                label={selectedTask?.type}
-                size="small"
-                variant="outlined"
-              />
-              <Chip
-                label={selectedTask?.status}
-                size="small"
-                sx={{ bgcolor: '#e3f2fd' }}
-              />
+            <Box display="flex" gap={1} alignItems="center">
+              {!isEditMode ? (
+                <>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<EditIcon />}
+                    onClick={handleEditClick}
+                    sx={{ mr: 1 }}
+                  >
+                    Edit
+                  </Button>
+                  <Chip
+                    label={selectedTask?.priority}
+                    size="small"
+                    color={getPriorityColor(selectedTask?.priority || '') as any}
+                  />
+                  <Chip
+                    label={selectedTask?.type}
+                    size="small"
+                    variant="outlined"
+                  />
+                  <Chip
+                    label={selectedTask?.status}
+                    size="small"
+                    sx={{ bgcolor: '#e3f2fd' }}
+                  />
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={saveLoading ? <CircularProgress size={16} /> : <SaveIcon />}
+                    onClick={handleSaveEdit}
+                    disabled={saveLoading || !editedTask.title.trim()}
+                    sx={{ mr: 1 }}
+                  >
+                    {saveLoading ? 'Saving...' : 'Save'}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<CancelIcon />}
+                    onClick={handleCancelEdit}
+                    disabled={saveLoading}
+                  >
+                    Cancel
+                  </Button>
+                </>
+              )}
             </Box>
           </Box>
         </DialogTitle>
         <DialogContent>
           {selectedTask && (
             <Box>
+              {isEditMode && (
+                <>
+                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
+                    Title
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    variant="outlined"
+                    value={editedTask.title}
+                    onChange={(e) => setEditedTask({ ...editedTask, title: e.target.value })}
+                    placeholder="Enter task title"
+                    required
+                    error={!editedTask.title.trim()}
+                    helperText={!editedTask.title.trim() ? 'Title is required' : ''}
+                    sx={{ mb: 3 }}
+                  />
+                </>
+              )}
+              
               <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
                 Description
               </Typography>
-              <Typography variant="body1" paragraph sx={{ whiteSpace: 'pre-wrap' }}>
-                {selectedTask.description || 'No description provided'}
-              </Typography>
+              {isEditMode ? (
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={4}
+                  variant="outlined"
+                  value={editedTask.description}
+                  onChange={(e) => setEditedTask({ ...editedTask, description: e.target.value })}
+                  placeholder="Enter task description"
+                  sx={{ mb: 3 }}
+                />
+              ) : (
+                <Typography variant="body1" paragraph sx={{ whiteSpace: 'pre-wrap', mb: 3 }}>
+                  {selectedTask.description || 'No description provided'}
+                </Typography>
+              )}
 
-              {selectedTask.analysis && (
-                <>
-                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', mt: 3 }}>
-                    Analysis
-                  </Typography>
+              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
+                Analysis
+              </Typography>
+              {isEditMode ? (
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={6}
+                  variant="outlined"
+                  value={editedTask.analysis}
+                  onChange={(e) => setEditedTask({ ...editedTask, analysis: e.target.value })}
+                  placeholder="Enter task analysis"
+                  sx={{ 
+                    mb: 3,
+                    '& .MuiInputBase-input': {
+                      fontFamily: 'monospace',
+                      fontSize: '0.875rem'
+                    }
+                  }}
+                />
+              ) : (
+                selectedTask.analysis ? (
                   <Typography 
                     variant="body2" 
                     paragraph 
@@ -683,18 +892,25 @@ const TaskBoard: React.FC = () => {
                       bgcolor: '#f5f5f5',
                       p: 2,
                       borderRadius: 1,
-                      fontFamily: 'monospace'
+                      fontFamily: 'monospace',
+                      mb: 3
                     }}
                   >
                     {selectedTask.analysis}
                   </Typography>
-                </>
+                ) : (
+                  <Typography variant="body1" paragraph sx={{ fontStyle: 'italic', color: 'text.secondary', mb: 3 }}>
+                    No analysis provided
+                  </Typography>
+                )
               )}
 
-              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', mt: 3 }}>
-                Details
-              </Typography>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 1 }}>
+              {!isEditMode && (
+                <>
+                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', mt: 3 }}>
+                    Details
+                  </Typography>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 1 }}>
                 <Box>
                   <Typography variant="body2" color="text.secondary">Created</Typography>
                   <Typography variant="body1">{new Date(selectedTask.created_at).toLocaleString()}</Typography>
@@ -727,14 +943,14 @@ const TaskBoard: React.FC = () => {
                     <Typography variant="body1">{new Date(selectedTask.completed_at).toLocaleString()}</Typography>
                   </Box>
                 )}
-              </Box>
+                  </Box>
 
-              {/* Status Transitions Section */}
-              {selectedTask && getValidTransitions(selectedTask.status).length > 0 && (
-                <>
-                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', mt: 4 }}>
-                    Available Actions
-                  </Typography>
+                  {/* Status Transitions Section */}
+                  {selectedTask && getValidTransitions(selectedTask.status).length > 0 && (
+                    <>
+                      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', mt: 4 }}>
+                        Available Actions
+                      </Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
                     {getValidTransitions(selectedTask.status).map((transition) => (
                       <Button
@@ -766,19 +982,21 @@ const TaskBoard: React.FC = () => {
                   </Box>
                   <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                     Current status: <strong>{selectedTask.status}</strong>
+                      </Typography>
+                    </>
+                  )}
+
+                  {/* Claude Terminal Section */}
+                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', mt: 4 }}>
+                    Claude Terminal
                   </Typography>
+                  <Box sx={{ mt: 2 }}>
+                    <RealTerminal
+                      taskId={selectedTask?.id || 0}
+                    />
+                  </Box>
                 </>
               )}
-
-              {/* Claude Terminal Section */}
-              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', mt: 4 }}>
-                Claude Terminal
-              </Typography>
-              <Box sx={{ mt: 2 }}>
-                <RealTerminal
-                  taskId={selectedTask?.id || 0}
-                />
-              </Box>
             </Box>
           )}
         </DialogContent>
@@ -792,7 +1010,18 @@ const TaskBoard: React.FC = () => {
                 try {
                   // Get active sessions to find session for this task
                   const sessionsResponse = await fetch(`http://localhost:3333/api/sessions/embedded/active`);
+                  
+                  if (!sessionsResponse.ok) {
+                    throw new Error(`HTTP error! status: ${sessionsResponse.status}`);
+                  }
+                  
                   const sessions = await sessionsResponse.json();
+                  
+                  // Ensure sessions is an array
+                  if (!Array.isArray(sessions)) {
+                    throw new Error('Sessions response is not an array');
+                  }
+                  
                   const session = sessions.find((s: any) => s.task_id === selectedTask.id);
                   
                   if (session) {
@@ -817,14 +1046,27 @@ const TaskBoard: React.FC = () => {
                     
                     ws.onerror = (error) => {
                       console.error('WebSocket error:', error);
-                      alert('Failed to send /merge command. Please check if Claude session is active.');
+                      setSnackbar({ 
+                        open: true, 
+                        message: 'Failed to send /merge command. Please check if Claude session is active.', 
+                        severity: 'error' 
+                      });
                     };
                   } else {
-                    alert('No active Claude session found for this task. Please start a session first.');
+                    setSnackbar({ 
+                      open: true, 
+                      message: 'No active Claude session found for this task. Please start a session first.', 
+                      severity: 'warning' 
+                    });
                   }
                 } catch (error) {
                   console.error('Failed to send merge command:', error);
-                  alert('Failed to send merge command. Please try again.');
+                  const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                  setSnackbar({ 
+                    open: true, 
+                    message: `Failed to send merge command: ${errorMessage}`, 
+                    severity: 'error' 
+                  });
                 }
               }}
               sx={{ mr: 'auto' }}
