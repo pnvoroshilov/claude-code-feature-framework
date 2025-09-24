@@ -36,8 +36,10 @@ LOOP FOREVER:
 1. mcp:get_task_queue → Check for available tasks
 2. If tasks found → Get next task details
 3. Check task status:
+   - If status = "Analysis" → Delegate to analyst agents
+   - If status = "In Progress" (just changed) → ONLY setup test environment, then STOP
    - If status = "Testing" → ONLY prepare test environment (NO delegation)
-   - Other statuses → Immediately delegate to appropriate agent
+   - Other statuses → Handle as appropriate
 4. Monitor completion → Update task status
 5. Repeat loop → Never stop monitoring
 ```
@@ -70,15 +72,24 @@ Create technical specification including:
 - Integration points
 - Technical implementation approach
 - Data flow and dependencies"
+
+3. AFTER BOTH COMPLETE - Save Results:
+mcp__claudetask__append_stage_result --task_id={id} --status="Analysis" \
+  --summary="Business and technical analysis completed" \
+  --details="Business requirements: [key points from business-analyst]
+Technical approach: [key points from systems-analyst]
+Ready to proceed with implementation"
 ```
 
-#### Feature Development → `frontend-developer`, `backend-architect`, `fullstack-code-reviewer`
+#### Feature Development → ⚠️ NO AUTO DELEGATION AFTER IN PROGRESS
 ```
-Task tool with appropriate specialist:
-"Implement this feature based on analysis.
-Task: [complete task details]
-Analysis: [previous analysis from task]
-Requirements: [specific implementation needs]"
+⛔ IMPORTANT: When task moves to "In Progress" status:
+1. DO NOT delegate to implementation agents
+2. ONLY setup test environment (see Status Management section)
+3. Wait for user's manual development
+
+Feature development delegation ONLY when explicitly requested by user,
+NOT automatically after status changes.
 ```
 
 #### Bug Fixes → `root-cause-analyst`, `performance-engineer`
@@ -117,10 +128,16 @@ When task.status == "Testing":
    - Backend: Try 4000, 4001, 4002... until free port found
    - Frontend: Try 3001, 3002, 3003... until free port found
    - Always verify port is free before starting service
-4. Notify user: "Testing environment ready at:
+4. Save testing environment info:
+   mcp__claudetask__append_stage_result --task_id={id} --status="Testing" \
+     --summary="Testing environment prepared" \
+     --details="Backend: http://localhost:FREE_BACKEND_PORT
+Frontend: http://localhost:FREE_FRONTEND_PORT
+Ready for manual testing"
+5. Notify user: "Testing environment ready at:
    - Backend: http://localhost:FREE_BACKEND_PORT
    - Frontend: http://localhost:FREE_FRONTEND_PORT"
-5. Wait for user to test and update status
+6. Wait for user to test and update status
 ```
 
 #### Test Creation Tasks → `quality-engineer`, `web-tester`
@@ -137,7 +154,7 @@ Existing tests: [current test structure]"
 ```
 ⚠️ CRITICAL: REVIEW ONLY TASK-SPECIFIC CHANGES
 
-Task tool with reviewer:
+1. Task tool with reviewer:
 "Review ONLY the code changes made in this specific task.
 
 🔴 STRICT SCOPE:
@@ -156,6 +173,14 @@ Review checklist:
 Task worktree: [worktree path]
 Changes to review: [list of modified files]
 Original requirements: [task requirements]"
+
+2. After review completes - Save results:
+mcp__claudetask__append_stage_result --task_id={id} --status="Code Review" \
+  --summary="Code review completed" \
+  --details="Review findings: [summary of review results]
+Issues found: [any issues discovered]
+Recommendations: [suggested improvements]
+Ready for PR: [Yes/No]"
 ```
 
 ## 🛠️ MCP Command Usage
@@ -469,7 +494,7 @@ SPLIT INTO:
 ### Status Flow with Agent Delegation:
 - **Backlog** → Get task → Delegate to analyst → **Analysis**
 - **Analysis** → ⚠️ ALWAYS move to **In Progress** after analysis complete
-- **In Progress** → When development complete → **Testing**
+- **In Progress** → ⚠️ ONLY setup test environment → **STOP** (wait for user development)
 - **Testing** → ⚠️ NO AUTO PROGRESSION (Manual testing only) → Wait for user
 - **Code Review** → After review complete → **Pull Request** (PR created, no merge)
 - **Pull Request** → ⚠️ NO AUTO ACTIONS → Wait for user
@@ -480,6 +505,47 @@ SPLIT INTO:
 - ✅ **MANDATORY**: After analysis agent completes → Update status to "In Progress"
 - ❌ **NEVER** skip to Ready or other statuses
 - ❌ **NEVER** stay in Analysis status after analysis is done
+
+##### 🚀 After Moving to In Progress → Setup Test Environment ONLY:
+**CRITICAL: When task status changes to "In Progress", IMMEDIATELY do the following:**
+```
+1. ✅ Start test servers in worktree:
+   - cd worktrees/task-{id}
+   - Find available ports (check with lsof -i :PORT)
+   - Start backend: python -m uvicorn app.main:app --port FREE_PORT
+   - Start frontend: PORT=FREE_PORT npm start
+   
+2. ✅ Save testing URLs using MCP:
+   mcp__claudetask__set_testing_urls --task_id={id} --urls='{
+     "frontend": "http://localhost:3001",
+     "backend": "http://localhost:4000"
+   }'
+   
+3. ✅ Save environment setup results:
+   mcp__claudetask__append_stage_result --task_id={id} --status="In Progress" \
+     --summary="Test environment configured and ready" \
+     --details="Frontend: http://localhost:3001
+Backend: http://localhost:4000
+Worktree: worktrees/task-{id}
+Environment ready for manual development"
+
+4. ✅ Report environment ready to user:
+   "Test environment is ready at:
+    - Frontend: http://localhost:3001
+    - Backend: http://localhost:4000
+    Task worktree: worktrees/task-{id}"
+   
+5. ⛔ STOP - DO NOT PROCEED FURTHER
+   - NO delegation to implementation agents
+   - NO coding or development
+   - NO automated testing
+   - Wait for user's manual actions
+```
+
+**⚠️ IMPORTANT: After setting up test environment, YOUR WORK IS COMPLETE. The user will manually:**
+- Develop the feature
+- Test the implementation
+- Update task status when ready
 
 ##### After Development → Testing:
 - ✅ When implementation is complete → Update to "Testing"  
@@ -508,8 +574,9 @@ SPLIT INTO:
 ### Status Update Rules:
 1. ✅ Update status ONLY after agent completion
 2. ✅ Include agent results in status updates
-3. ✅ Move to next phase based on agent output
-4. ✅ Handle any blockers reported by agents
+3. ✅ **ALWAYS save stage results** using `mcp__claudetask__append_stage_result`
+4. ✅ Move to next phase based on agent output
+5. ✅ Handle any blockers reported by agents
 
 ## 🚨 Error Handling
 
@@ -559,9 +626,13 @@ CONTINUOUS OPERATION:
 while true:
   1. Check task queue
   2. Get next task if available
-  3. Delegate immediately to appropriate agent
-  4. Monitor agent progress
-  5. Update task status based on agent results
+  3. Check task status:
+     - If "Analysis" → Delegate to analyst agents
+     - If "In Progress" (just changed) → Setup test environment ONLY, then STOP
+     - If "Testing" → Prepare test environment ONLY (no delegation)
+     - Other statuses → Handle appropriately
+  4. Monitor agent progress (if agent was delegated)
+  5. Update task status based on results
   6. Continue to next task
   # NEVER BREAK THE LOOP
 ```
@@ -622,9 +693,10 @@ Work in isolated environment and provide completion status."
 
 ### Essential Commands (Use Continuously):
 ```bash
-mcp:get_task_queue    # Primary monitoring command
-mcp:get_task <id>     # Get full task context
-Task tool             # Delegate ALL technical work
+mcp:get_task_queue         # Primary monitoring command
+mcp:get_task <id>          # Get full task context
+mcp:append_stage_result    # Save results after each phase
+Task tool                  # Delegate ALL technical work
 ```
 
 ### Never Use Directly:
