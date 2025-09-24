@@ -959,6 +959,52 @@ const TaskBoard: React.FC = () => {
                 </>
               )}
 
+              {!isEditMode && selectedTask.status === 'Testing' && selectedTask.testing_urls && Object.keys(selectedTask.testing_urls).length > 0 && (
+                <>
+                  <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', mt: 3 }}>
+                    Testing Environment URLs
+                  </Typography>
+                  <Box sx={{ 
+                    bgcolor: '#f3e5f5', 
+                    p: 2, 
+                    borderRadius: 1, 
+                    border: '1px solid #e1bee7',
+                    mb: 3
+                  }}>
+                    {Object.entries(selectedTask.testing_urls).map(([env, url]) => (
+                      <Box key={env} sx={{ mb: 1, '&:last-child': { mb: 0 } }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold', textTransform: 'capitalize' }}>
+                            {env}:
+                          </Typography>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            sx={{ ml: 1 }}
+                          >
+                            Open
+                          </Button>
+                        </Box>
+                        <Typography 
+                          variant="body2" 
+                          color="text.secondary" 
+                          sx={{ 
+                            fontFamily: 'monospace', 
+                            fontSize: '0.75rem',
+                            wordBreak: 'break-all'
+                          }}
+                        >
+                          {url}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                </>
+              )}
+
               {!isEditMode && (
                 <>
                   <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', mt: 3 }}>

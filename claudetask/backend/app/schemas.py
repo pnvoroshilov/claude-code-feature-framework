@@ -101,12 +101,17 @@ class StageResultAppend(BaseModel):
     details: Optional[str] = Field(None, description="Optional detailed information about this stage")
 
 
+class TestingUrlsUpdate(BaseModel):
+    testing_urls: Dict[str, str] = Field(..., description="Dictionary of environment names to their URLs")
+
+
 class TaskInDB(TaskBase):
     id: int
     project_id: str
     status: TaskStatus
     analysis: Optional[str] = None
     stage_results: Optional[List[Dict[str, Any]]] = None
+    testing_urls: Optional[Dict[str, str]] = None
     git_branch: Optional[str] = None
     worktree_path: Optional[str] = None
     assigned_agent: Optional[str] = None
