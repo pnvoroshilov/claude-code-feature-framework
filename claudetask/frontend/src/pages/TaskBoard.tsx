@@ -1015,11 +1015,14 @@ const TaskBoard: React.FC = () => {
                     throw new Error(`HTTP error! status: ${sessionsResponse.status}`);
                   }
                   
-                  const sessions = await sessionsResponse.json();
+                  const sessionsData = await sessionsResponse.json();
+                  
+                  // Extract sessions array from response object
+                  const sessions = sessionsData.sessions || [];
                   
                   // Ensure sessions is an array
                   if (!Array.isArray(sessions)) {
-                    throw new Error('Sessions response is not an array');
+                    throw new Error('Sessions response does not contain a valid sessions array');
                   }
                   
                   const session = sessions.find((s: any) => s.task_id === selectedTask.id);

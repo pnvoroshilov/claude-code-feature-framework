@@ -299,6 +299,39 @@ async def update_task_status(
         )
         db.add(history)
         
+        # Sync worktree with main if task has a worktree and is transitioning to a new work phase
+        sync_statuses = [TaskStatus.IN_PROGRESS, TaskStatus.TESTING, TaskStatus.CODE_REVIEW]
+        if (status_update.status in sync_statuses and 
+            old_status != status_update.status and 
+            task.worktree_path and 
+            os.path.exists(task.worktree_path)):
+            
+            logger.info(f"Syncing worktree for task {task_id} before starting {status_update.status.value} phase")
+            
+            # Get project for context
+            project_result = await db.execute(
+                select(Project).where(Project.id == task.project_id)
+            )
+            project = project_result.scalar_one_or_none()
+            
+            if project:
+                from .services.worktree_service import WorktreeService
+                
+                sync_result = await WorktreeService.sync_worktree_with_main(
+                    worktree_path=task.worktree_path,
+                    project_path=project.path
+                )
+                
+                if sync_result["success"]:
+                    logger.info(f"Successfully synced worktree for task {task_id}")
+                    # Add sync info to history comment
+                    history.comment += f" (Worktree synced with latest main)"
+                else:
+                    logger.warning(f"Failed to sync worktree for task {task_id}: {sync_result.get('error')}")
+                    if sync_result.get("conflicts"):
+                        # Add warning about conflicts
+                        history.comment += f" (WARNING: Merge conflicts detected - manual resolution required)"
+        
         # If status changed to Analysis, log it for potential notifications
         if status_update.status == TaskStatus.ANALYSIS and old_status != TaskStatus.ANALYSIS:
             logger.info(f"Task {task_id} needs analysis - status changed to Analysis")

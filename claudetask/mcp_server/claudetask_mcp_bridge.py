@@ -877,10 +877,152 @@ Description:
                     text=f"Failed to analyze task: {str(e)}"
                 )]
 
+    async def _sync_worktree(self, task_id: int) -> Dict[str, Any]:
+        """Sync worktree with latest main branch changes"""
+        import subprocess
+        import os
+        
+        try:
+            # Get task details  
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{self.server_url}/api/tasks/{task_id}")
+                response.raise_for_status()
+                task = response.json()
+            
+            if not task.get("worktree_path"):
+                return {"success": False, "error": "Task has no worktree"}
+                
+            worktree_path = task["worktree_path"]
+            
+            if not os.path.exists(worktree_path):
+                return {"success": False, "error": f"Worktree does not exist: {worktree_path}"}
+            
+            self.logger.info(f"Syncing worktree {worktree_path} with latest main branch")
+            
+            # First, ensure main branch is up to date
+            # Check if we have a remote origin
+            remotes_result = subprocess.run(
+                ["git", "remote"],
+                cwd=self.project_path,
+                capture_output=True,
+                text=True
+            )
+            has_origin = "origin" in remotes_result.stdout
+            
+            if has_origin:
+                # Fetch latest changes from origin in main repo
+                fetch_result = subprocess.run(
+                    ["git", "fetch", "origin"],
+                    cwd=self.project_path,
+                    capture_output=True,
+                    text=True
+                )
+                
+                if fetch_result.returncode != 0:
+                    self.logger.warning(f"Failed to fetch from origin: {fetch_result.stderr}")
+                else:
+                    self.logger.info("Successfully fetched latest changes from origin")
+                    
+                    # Save current branch in main repo
+                    current_branch_result = subprocess.run(
+                        ["git", "branch", "--show-current"],
+                        cwd=self.project_path,
+                        capture_output=True,
+                        text=True
+                    )
+                    current_branch = current_branch_result.stdout.strip()
+                    
+                    # Switch to main branch in main repo
+                    checkout_result = subprocess.run(
+                        ["git", "checkout", "main"],
+                        cwd=self.project_path,
+                        capture_output=True,
+                        text=True
+                    )
+                    
+                    if checkout_result.returncode == 0:
+                        # Pull latest changes to main
+                        pull_result = subprocess.run(
+                            ["git", "pull", "origin", "main"],
+                            cwd=self.project_path,
+                            capture_output=True,
+                            text=True
+                        )
+                        
+                        if pull_result.returncode != 0:
+                            self.logger.warning(f"Failed to pull latest main: {pull_result.stderr}")
+                        else:
+                            self.logger.info("Successfully updated main branch with latest changes")
+                        
+                        # Switch back to original branch if it wasn't main
+                        if current_branch and current_branch != "main":
+                            subprocess.run(
+                                ["git", "checkout", current_branch],
+                                cwd=self.project_path,
+                                capture_output=True,
+                                text=True
+                            )
+                
+                # Now merge main into the worktree branch
+                merge_result = subprocess.run(
+                    ["git", "merge", "origin/main", "--no-edit", "-m", "Sync with latest main branch"],
+                    cwd=worktree_path,
+                    capture_output=True,
+                    text=True
+                )
+                
+                if merge_result.returncode == 0:
+                    self.logger.info(f"Successfully synced worktree with main branch")
+                    return {"success": True, "message": "Worktree synced with latest main branch"}
+                else:
+                    # Check if there are merge conflicts
+                    if "CONFLICT" in merge_result.stdout or "CONFLICT" in merge_result.stderr:
+                        self.logger.warning(f"Merge conflicts detected in worktree: {merge_result.stderr}")
+                        return {
+                            "success": False, 
+                            "error": "Merge conflicts detected. Manual resolution required.",
+                            "conflicts": True
+                        }
+                    else:
+                        self.logger.error(f"Failed to merge main into worktree: {merge_result.stderr}")
+                        return {"success": False, "error": f"Failed to merge: {merge_result.stderr}"}
+            else:
+                self.logger.info("No remote origin found - skipping sync")
+                return {"success": True, "message": "No remote origin - using local main branch"}
+                
+        except Exception as e:
+            self.logger.error(f"Error syncing worktree: {e}")
+            return {"success": False, "error": str(e)}
+    
     async def _update_status(self, task_id: int, status: str, comment: Optional[str] = None) -> list[types.TextContent]:
         """Update task status"""
         async with httpx.AsyncClient() as client:
             try:
+                # Sync worktree with main before transitioning to new work phases
+                sync_message = ""
+                sync_statuses = ["In Progress", "Testing", "Code Review"]
+                if status in sync_statuses:
+                    # Get current task status before update
+                    task_response = await client.get(f"{self.server_url}/api/tasks/{task_id}")
+                    task_response.raise_for_status()
+                    current_task = task_response.json()
+                    
+                    # Only sync if transitioning to a new phase (not staying in same status)
+                    if current_task.get("status") != status and current_task.get("worktree_path"):
+                        sync_result = await self._sync_worktree(task_id)
+                        if sync_result["success"]:
+                            sync_message = "\n🔄 Worktree synced with latest main branch changes"
+                            if comment:
+                                comment += " (Worktree synced with main)"
+                            else:
+                                comment = "Worktree synced with main"
+                        elif sync_result.get("conflicts"):
+                            sync_message = "\n⚠️ WARNING: Merge conflicts detected - manual resolution required"
+                            if comment:
+                                comment += " (MERGE CONFLICTS - manual resolution required)"
+                            else:
+                                comment = "MERGE CONFLICTS - manual resolution required"
+                
                 data = {"status": status}
                 if comment:
                     data["comment"] = comment
@@ -959,6 +1101,7 @@ Task #{task_id}: {task['title']}
 Type: {task['type']}
 New Status: {status}
 {f"Comment: {comment}" if comment else ""}
+{sync_message}
 {worktree_info}
 {pr_instructions}
 {progression_guide}
@@ -983,6 +1126,77 @@ New Status: {status}
                 response = await client.get(f"{self.server_url}/api/tasks/{task_id}")
                 response.raise_for_status()
                 task = response.json()
+            
+            # First, sync main branch with latest updates
+            self.logger.info(f"Syncing main branch with latest updates for task {task_id}")
+            
+            # Check if we have a remote origin
+            remotes_result = subprocess.run(
+                ["git", "remote"],
+                cwd=self.project_path,
+                capture_output=True,
+                text=True
+            )
+            has_origin = "origin" in remotes_result.stdout
+            
+            if has_origin:
+                # Fetch latest changes from origin
+                fetch_result = subprocess.run(
+                    ["git", "fetch", "origin"],
+                    cwd=self.project_path,
+                    capture_output=True,
+                    text=True
+                )
+                
+                if fetch_result.returncode != 0:
+                    self.logger.warning(f"Failed to fetch from origin: {fetch_result.stderr}")
+                else:
+                    self.logger.info("Successfully fetched latest changes from origin")
+                    
+                    # Update main branch with latest changes
+                    # Save current branch to restore later
+                    current_branch_result = subprocess.run(
+                        ["git", "branch", "--show-current"],
+                        cwd=self.project_path,
+                        capture_output=True,
+                        text=True
+                    )
+                    current_branch = current_branch_result.stdout.strip()
+                    
+                    # Switch to main branch
+                    checkout_result = subprocess.run(
+                        ["git", "checkout", "main"],
+                        cwd=self.project_path,
+                        capture_output=True,
+                        text=True
+                    )
+                    
+                    if checkout_result.returncode == 0:
+                        # Pull latest changes
+                        pull_result = subprocess.run(
+                            ["git", "pull", "origin", "main"],
+                            cwd=self.project_path,
+                            capture_output=True,
+                            text=True
+                        )
+                        
+                        if pull_result.returncode != 0:
+                            self.logger.warning(f"Failed to pull latest main: {pull_result.stderr}")
+                        else:
+                            self.logger.info("Successfully updated main branch with latest changes")
+                        
+                        # Switch back to original branch if it wasn't main
+                        if current_branch and current_branch != "main":
+                            subprocess.run(
+                                ["git", "checkout", current_branch],
+                                cwd=self.project_path,
+                                capture_output=True,
+                                text=True
+                            )
+                    else:
+                        self.logger.warning(f"Failed to checkout main branch: {checkout_result.stderr}")
+            else:
+                self.logger.info("No remote origin found - using local main branch")
             
             # Create branch name
             branch_name = f"feature/task-{task_id}"
