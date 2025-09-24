@@ -16,6 +16,77 @@ class WorktreeService:
     async def create_worktree(task_id: int, project_path: str) -> Dict[str, Any]:
         """Create git worktree for task"""
         try:
+            # First, sync main branch with latest updates
+            logger.info(f"Syncing main branch with latest updates for task {task_id}")
+            
+            # Check if we have a remote origin
+            remotes_result = subprocess.run(
+                ["git", "remote"],
+                cwd=project_path,
+                capture_output=True,
+                text=True
+            )
+            has_origin = "origin" in remotes_result.stdout
+            
+            if has_origin:
+                # Fetch latest changes from origin
+                fetch_result = subprocess.run(
+                    ["git", "fetch", "origin"],
+                    cwd=project_path,
+                    capture_output=True,
+                    text=True
+                )
+                
+                if fetch_result.returncode != 0:
+                    logger.warning(f"Failed to fetch from origin: {fetch_result.stderr}")
+                else:
+                    logger.info("Successfully fetched latest changes from origin")
+                    
+                    # Update main branch with latest changes
+                    # Save current branch to restore later
+                    current_branch_result = subprocess.run(
+                        ["git", "branch", "--show-current"],
+                        cwd=project_path,
+                        capture_output=True,
+                        text=True
+                    )
+                    current_branch = current_branch_result.stdout.strip()
+                    
+                    # Switch to main branch
+                    checkout_result = subprocess.run(
+                        ["git", "checkout", "main"],
+                        cwd=project_path,
+                        capture_output=True,
+                        text=True
+                    )
+                    
+                    if checkout_result.returncode == 0:
+                        # Pull latest changes
+                        pull_result = subprocess.run(
+                            ["git", "pull", "origin", "main"],
+                            cwd=project_path,
+                            capture_output=True,
+                            text=True
+                        )
+                        
+                        if pull_result.returncode != 0:
+                            logger.warning(f"Failed to pull latest main: {pull_result.stderr}")
+                        else:
+                            logger.info("Successfully updated main branch with latest changes")
+                        
+                        # Switch back to original branch if it wasn't main
+                        if current_branch and current_branch != "main":
+                            subprocess.run(
+                                ["git", "checkout", current_branch],
+                                cwd=project_path,
+                                capture_output=True,
+                                text=True
+                            )
+                    else:
+                        logger.warning(f"Failed to checkout main branch: {checkout_result.stderr}")
+            else:
+                logger.info("No remote origin found - using local main branch")
+            
             # Create branch name
             branch_name = f"feature/task-{task_id}"
             worktree_path = os.path.join(project_path, "worktrees", f"task-{task_id}")
