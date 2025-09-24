@@ -70,6 +70,9 @@ A comprehensive task management framework designed specifically for Claude Code 
 1. **Create Tasks**: Use the web interface to create and prioritize tasks
 2. **Claude Analysis**: Claude automatically analyzes tasks and creates implementation plans
 3. **Automated Development**: Claude works in isolated git worktrees to implement features
+   - Worktrees automatically sync with the latest main branch before creation
+   - Each task gets the most recent code updates from origin/main
+   - Works gracefully with both remote and local-only repositories
 4. **Testing & Review**: Automated testing and code review process
 5. **Merge**: Completed tasks are merged back to main branch
 

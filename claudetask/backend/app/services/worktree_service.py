@@ -14,7 +14,20 @@ class WorktreeService:
     
     @staticmethod
     async def create_worktree(task_id: int, project_path: str) -> Dict[str, Any]:
-        """Create git worktree for task"""
+        """Create git worktree for task.
+        
+        This method performs the following steps:
+        1. Syncs main branch with latest updates from origin (if available)
+        2. Creates a new worktree from the updated main branch
+        3. Returns worktree creation status and details
+        
+        Args:
+            task_id: ID of the task for which to create worktree
+            project_path: Path to the main project repository
+            
+        Returns:
+            Dict containing success status, branch name, worktree path, and message
+        """
         try:
             # First, sync main branch with latest updates
             logger.info(f"Syncing main branch with latest updates for task {task_id}")
