@@ -27,7 +27,8 @@ from .schemas import (
     InitializeProjectRequest, InitializeProjectResponse,
     ConnectionStatus, TaskQueueResponse,
     AgentCreate, AgentInDB, AgentUpdate,
-    ProjectSettingsUpdate, ProjectSettingsInDB, MCPTaskStatusUpdateResponse
+    ProjectSettingsUpdate, ProjectSettingsInDB, MCPTaskStatusUpdateResponse,
+    StageResultAppend
 )
 from .services.mcp_service import mcp_service
 from .services.project_service import ProjectService
@@ -270,6 +271,50 @@ async def update_task(
     
     await db.commit()
     await db.refresh(task)
+    return task
+
+
+@app.post("/api/tasks/{task_id}/stage-result", response_model=TaskInDB)
+async def append_stage_result(
+    task_id: int,
+    stage_result: StageResultAppend,
+    db: AsyncSession = Depends(get_db)
+):
+    """Append a new stage result to task's cumulative results"""
+    from datetime import datetime
+    import json
+    
+    result = await db.execute(select(Task).where(Task.id == task_id))
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    # Create new stage result entry
+    new_stage_result = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "status": stage_result.status,
+        "summary": stage_result.summary
+    }
+    
+    # Add details if provided
+    if stage_result.details:
+        new_stage_result['details'] = stage_result.details
+    
+    # Get existing stage results or initialize empty list
+    current_stage_results = task.stage_results or []
+    
+    # Append the new result
+    current_stage_results.append(new_stage_result)
+    
+    # Update the task
+    task.stage_results = current_stage_results
+    task.updated_at = datetime.utcnow()
+    
+    await db.commit()
+    await db.refresh(task)
+    
+    logger.info(f"Appended stage result to task {task_id}: {stage_result.status} - {stage_result.summary}")
+    
     return task
 
 

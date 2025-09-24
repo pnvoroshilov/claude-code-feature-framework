@@ -95,11 +95,18 @@ class TaskAnalysis(BaseModel):
     implementation_plan: str
 
 
+class StageResultAppend(BaseModel):
+    status: str = Field(..., description="Current status/stage of the task")
+    summary: str = Field(..., description="Summary of what was accomplished in this stage")
+    details: Optional[str] = Field(None, description="Optional detailed information about this stage")
+
+
 class TaskInDB(TaskBase):
     id: int
     project_id: str
     status: TaskStatus
     analysis: Optional[str] = None
+    stage_results: Optional[List[Dict[str, Any]]] = None
     git_branch: Optional[str] = None
     worktree_path: Optional[str] = None
     assigned_agent: Optional[str] = None
