@@ -58,16 +58,22 @@ class FrameworkUpdateService:
             native_server_script = os.path.join(mcp_server_dir, "native_stdio_server.py")
             venv_python = os.path.join(mcp_server_dir, "venv", "bin", "python")
             
-            claudetask_config = template_config["mcpServers"]["claudetask"]
-            claudetask_config["command"] = venv_python
-            claudetask_config["args"] = [native_server_script]
-            # Keep existing env values but update PROJECT_PATH
-            claudetask_config["env"]["CLAUDETASK_PROJECT_PATH"] = project_path
+            # Get all MCP servers from template
+            template_servers = template_config.get("mcpServers", {})
             
+            # Update claudetask config specifically
+            if "claudetask" in template_servers:
+                claudetask_config = template_servers["claudetask"]
+                claudetask_config["command"] = venv_python
+                claudetask_config["args"] = [native_server_script]
+                # Keep existing env values but update PROJECT_PATH
+                claudetask_config["env"]["CLAUDETASK_PROJECT_PATH"] = project_path
+            
+            # Merge: preserved servers + all template servers (including playwright and any others)
             new_config = {
                 "mcpServers": {
-                    **preserved_servers,
-                    "claudetask": claudetask_config
+                    **preserved_servers,  # User's custom servers (non-claudetask)
+                    **template_servers    # All servers from template (claudetask, playwright, etc.)
                 }
             }
             
