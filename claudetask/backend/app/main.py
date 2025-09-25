@@ -35,6 +35,7 @@ from .services.project_service import ProjectService
 from .services.git_workflow_service import GitWorkflowService
 from .services.claude_session_service import ClaudeSessionService, SessionStatus
 from .services.real_claude_service import real_claude_service
+from .services.websocket_manager import task_websocket_manager
 
 logger = logging.getLogger(__name__)
 
@@ -228,6 +229,22 @@ async def create_task(
     db.add(task)
     await db.commit()
     await db.refresh(task)
+    
+    # Broadcast task creation event
+    await task_websocket_manager.broadcast_task_update(
+        project_id=project_id,
+        event_type="task_created",
+        task_data={
+            "id": task.id,
+            "title": task.title,
+            "description": task.description,
+            "type": task.type.value if task.type else None,
+            "priority": task.priority.value if task.priority else None,
+            "status": task.status.value if task.status else None,
+            "created_at": task.created_at.isoformat() if task.created_at else None
+        }
+    )
+    
     return task
 
 
@@ -271,6 +288,23 @@ async def update_task(
     
     await db.commit()
     await db.refresh(task)
+    
+    # Broadcast task update event
+    await task_websocket_manager.broadcast_task_update(
+        project_id=task.project_id,
+        event_type="task_updated",
+        task_data={
+            "id": task.id,
+            "title": task.title,
+            "description": task.description,
+            "type": task.type.value if task.type else None,
+            "priority": task.priority.value if task.priority else None,
+            "status": task.status.value if task.status else None,
+            "analysis": task.analysis,
+            "updated_at": task.updated_at.isoformat() if task.updated_at else None
+        }
+    )
+    
     return task
 
 
@@ -532,6 +566,19 @@ async def update_task_status(
         await db.commit()
         await db.refresh(task)
         
+        # Broadcast status change
+        await task_websocket_manager.broadcast_task_update(
+            project_id=task.project_id,
+            event_type="task_status_changed",
+            task_data={
+                "id": task.id,
+                "title": task.title,
+                "status": task.status.value if task.status else None,
+                "old_status": old_status.value if old_status else None,
+                "updated_at": task.updated_at.isoformat() if task.updated_at else None
+            }
+        )
+        
         # Create response with task and instructions
         return MCPTaskStatusUpdateResponse(
             task=task,
@@ -554,8 +601,22 @@ async def delete_task(task_id: int, db: AsyncSession = Depends(get_db)):
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     
+    project_id = task.project_id
+    task_data = {
+        "id": task.id,
+        "title": task.title
+    }
+    
     await db.delete(task)
     await db.commit()
+    
+    # Broadcast task deletion event
+    await task_websocket_manager.broadcast_task_update(
+        project_id=project_id,
+        event_type="task_deleted",
+        task_data=task_data
+    )
+    
     return {"message": "Task deleted successfully"}
 
 
@@ -1497,6 +1558,57 @@ async def get_embedded_session_history(session_id: str, limit: Optional[int] = N
     return {
         "session_id": session_id,
         "messages": []
+    }
+
+
+@app.websocket("/api/projects/{project_id}/tasks/ws")
+async def task_websocket_endpoint(websocket: WebSocket, project_id: str, db: AsyncSession = Depends(get_db)):
+    """WebSocket endpoint for real-time task updates"""
+    # Verify project exists
+    result = await db.execute(select(Project).where(Project.id == project_id))
+    project = result.scalar_one_or_none()
+    
+    if not project:
+        await websocket.close(code=1008, reason="Project not found")
+        return
+    
+    # Connect the WebSocket
+    await task_websocket_manager.connect(websocket, project_id)
+    
+    try:
+        while True:
+            # Receive and handle messages from client
+            data = await websocket.receive_json()
+            message_type = data.get("type")
+            
+            if message_type == "ping":
+                await task_websocket_manager.handle_ping(websocket)
+            elif message_type == "subscribe":
+                # Already subscribed to project tasks
+                await websocket.send_json({
+                    "type": "subscribed",
+                    "project_id": project_id,
+                    "timestamp": datetime.utcnow().isoformat()
+                })
+            else:
+                logger.warning(f"Unknown WebSocket message type: {message_type}")
+                
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected for project {project_id}")
+    except Exception as e:
+        logger.error(f"WebSocket error for project {project_id}: {e}")
+    finally:
+        await task_websocket_manager.disconnect(websocket)
+
+
+@app.get("/api/projects/{project_id}/tasks/ws/status")
+async def get_websocket_status(project_id: str):
+    """Get WebSocket connection status for a project"""
+    return {
+        "project_id": project_id,
+        "connected_clients": task_websocket_manager.get_connection_count(project_id),
+        "total_connections": task_websocket_manager.get_connection_count(),
+        "connected_projects": task_websocket_manager.get_connected_projects()
     }
 
 
