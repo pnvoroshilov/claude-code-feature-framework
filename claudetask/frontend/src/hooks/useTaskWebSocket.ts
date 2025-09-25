@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { useQueryClient } from 'react-query';
+import { getBackendConfig } from '../services/api';
 
 export interface TaskWebSocketMessage {
   type: 'connection' | 'task_update' | 'error' | 'pong' | 'subscribed';
@@ -63,8 +64,10 @@ export function useTaskWebSocket({
     setConnectionStatus('connecting');
 
     try {
-      // Use the backend URL - adjust if needed
-      const wsUrl = `ws://localhost:4002/api/projects/${projectId}/tasks/ws`;
+      // Use the backend configuration from centralized config
+      const backendConfig = getBackendConfig();
+      const wsProtocol = backendConfig.protocol === 'https' ? 'wss' : 'ws';
+      const wsUrl = `${wsProtocol}://${backendConfig.host}:${backendConfig.port}/api/projects/${projectId}/tasks/ws`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 

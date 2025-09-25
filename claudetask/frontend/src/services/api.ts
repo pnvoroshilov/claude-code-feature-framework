@@ -1,6 +1,19 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3333/api';
+// Extract backend configuration
+const BACKEND_HOST = process.env.REACT_APP_BACKEND_HOST || 'localhost';
+const BACKEND_PORT = process.env.REACT_APP_BACKEND_PORT || '3333';
+const BACKEND_PROTOCOL = process.env.REACT_APP_BACKEND_PROTOCOL || 'http';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || `${BACKEND_PROTOCOL}://${BACKEND_HOST}:${BACKEND_PORT}/api`;
+
+// Export for use in other modules
+export const getBackendConfig = () => ({
+  host: BACKEND_HOST,
+  port: BACKEND_PORT,
+  protocol: BACKEND_PROTOCOL,
+  baseUrl: API_BASE_URL
+});
 
 const api = axios.create({
   baseURL: API_BASE_URL,
