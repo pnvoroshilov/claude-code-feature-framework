@@ -39,6 +39,7 @@ LOOP FOREVER:
    - If status = "Analysis" → Delegate to analyst agents
    - If status = "In Progress" (just changed) → ONLY setup test environment, then STOP
    - If status = "Testing" → ONLY prepare test environment (NO delegation)
+   - If status = "Done" → Clean up test environments (terminate processes, free ports)
    - Other statuses → Handle as appropriate
 4. Monitor completion → Update task status
 5. Repeat loop → Never stop monitoring
@@ -570,6 +571,44 @@ Environment ready for manual development"
 - ⚠️ **FULL STOP** - No automatic actions
 - ✅ Wait for user to handle PR merge
 - ❌ **DO NOT** attempt to merge or update
+
+##### 🧹 Task Completion → CLEANUP TEST ENVIRONMENTS:
+**CRITICAL: When task is marked as "Done" or merged:**
+```
+1. ✅ Find all test processes for this task:
+   - Check for processes on task-specific ports
+   - lsof -i :3001 # Frontend port used for task
+   - lsof -i :4000 # Backend port used for task
+   - ps aux | grep "task-{id}" # Any task-specific processes
+   
+2. ✅ Terminate all test servers:
+   - kill {frontend_pid} # Stop frontend dev server
+   - kill {backend_pid} # Stop backend API server
+   - kill any other task-specific processes
+   
+3. ✅ Release occupied ports:
+   - Verify ports are freed: lsof -i :PORT
+   - Ensure no lingering processes
+   
+4. ✅ Save cleanup results:
+   mcp__claudetask__append_stage_result --task_id={id} --status="Done" \
+     --summary="Task completed and test environment cleaned up" \
+     --details="Released ports: [list of ports]
+Terminated processes: [list of PIDs]
+Resources freed successfully"
+   
+5. ✅ Report cleanup completion:
+   "Task #{id} completed:
+    - Test servers terminated
+    - Ports released: 3001, 4000
+    - Resources cleaned up"
+```
+
+**⚠️ IMPORTANT: Always clean up test environments to:**
+- Free system resources
+- Release ports for other tasks
+- Prevent zombie processes
+- Maintain clean development environment
 
 ### Status Update Rules:
 1. ✅ Update status ONLY after agent completion
