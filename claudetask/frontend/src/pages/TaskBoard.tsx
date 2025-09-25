@@ -46,6 +46,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { getActiveProject, getTasks, createTask, updateTask, updateTaskStatus, deleteTask, Task, getActiveSessions, createClaudeSession, sendCommandToSession } from '../services/api';
 import RealTerminal from '../components/RealTerminal';
+import { useTaskWebSocket } from '../hooks/useTaskWebSocket';
 
 const statusColumns = [
   { status: 'Backlog', title: 'Backlog', color: '#grey' },
@@ -89,6 +90,39 @@ const TaskBoard: React.FC = () => {
     () => project ? getTasks(project.id) : Promise.resolve([]),
     { enabled: !!project }
   );
+
+  // WebSocket for real-time updates
+  const { isConnected, connectionStatus } = useTaskWebSocket({
+    projectId: project?.id || '',
+    enabled: !!project,
+    onMessage: (message) => {
+      // Show snackbar for certain events
+      if (message.type === 'task_update') {
+        const eventMessages: Record<string, string> = {
+          'task_created': 'New task created',
+          'task_updated': 'Task updated',
+          'task_deleted': 'Task deleted',
+          'task_status_changed': 'Task status changed'
+        };
+        
+        const msg = eventMessages[message.event || ''] || 'Task updated';
+        setSnackbar({
+          open: true,
+          message: `${msg}: ${message.task?.title || 'Unknown'}`,
+          severity: 'info'
+        });
+      }
+    },
+    onConnect: () => {
+      console.log('WebSocket connected to task updates');
+    },
+    onDisconnect: () => {
+      console.log('WebSocket disconnected from task updates');
+    },
+    onError: (error) => {
+      console.error('WebSocket error:', error);
+    }
+  });
 
   const createTaskMutation = useMutation(
     (taskData: typeof newTask) => project ? createTask(project.id, taskData) : Promise.reject('No project'),
@@ -461,9 +495,25 @@ const TaskBoard: React.FC = () => {
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">
-          Task Board
-        </Typography>
+        <Box display="flex" alignItems="center" gap={2}>
+          <Typography variant="h4">
+            Task Board
+          </Typography>
+          <Chip 
+            size="small"
+            label={isConnected ? 'Real-time updates' : 'Connecting...'}
+            color={isConnected ? 'success' : 'warning'}
+            variant={isConnected ? 'filled' : 'outlined'}
+            sx={{ 
+              animation: !isConnected ? 'pulse 1.5s ease-in-out infinite' : 'none',
+              '@keyframes pulse': {
+                '0%': { opacity: 1 },
+                '50%': { opacity: 0.5 },
+                '100%': { opacity: 1 }
+              }
+            }}
+          />
+        </Box>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
