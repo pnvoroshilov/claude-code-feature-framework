@@ -11,7 +11,8 @@ def generate_claude_md(project_name: str, project_path: str, tech_stack: List[st
     template_path = None
     
     # First, try to find framework-assets in the current project structure
-    current_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+    # Need to go up 5 levels from: backend/app/services/claude_config_generator.py
+    current_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
     framework_assets_path = os.path.join(current_dir, "framework-assets", "claude-configs", "CLAUDE.md")
     
     if os.path.exists(framework_assets_path):

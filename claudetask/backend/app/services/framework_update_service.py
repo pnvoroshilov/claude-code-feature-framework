@@ -108,22 +108,39 @@ class FrameworkUpdateService:
                 shutil.copy2(claude_md_path, backup_path)
                 updated_files.append("CLAUDE.md.backup")
             
+            # Generate new CLAUDE.md from template
+            generated_content = generate_claude_md(project_name, project_path, tech_stack)
             with open(claude_md_path, "w") as f:
-                f.write(generate_claude_md(project_name, project_path, tech_stack))
+                f.write(generated_content)
             updated_files.append("CLAUDE.md")
             
-            # 3. Update agent files in .claude/agents/
+            # Log for debugging
+            has_critical_restrictions = "🔴🔴🔴 ABSOLUTE CRITICAL RESTRICTIONS" in generated_content
+            print(f"Generated CLAUDE.md: {len(generated_content)} chars, has critical restrictions: {has_critical_restrictions}")
+            
+            # 3. Update agent files in .claude/agents/ (force complete refresh)
             agents_source_dir = os.path.join(framework_path, "framework-assets", "claude-agents")
             if os.path.exists(agents_source_dir):
                 agents_dest_dir = os.path.join(project_path, ".claude", "agents")
+                
+                # Remove existing agents directory to ensure clean update
+                if os.path.exists(agents_dest_dir):
+                    shutil.rmtree(agents_dest_dir)
+                
+                # Recreate directory
                 os.makedirs(agents_dest_dir, exist_ok=True)
                 
-                for agent_file in os.listdir(agents_source_dir):
-                    if agent_file.endswith(".md"):
-                        source_file = os.path.join(agents_source_dir, agent_file)
-                        dest_file = os.path.join(agents_dest_dir, agent_file)
-                        shutil.copy2(source_file, dest_file)
-                        updated_files.append(f".claude/agents/{agent_file}")
+                # Copy all agent files
+                source_agents = [f for f in os.listdir(agents_source_dir) if f.endswith(".md")]
+                for agent_file in source_agents:
+                    source_file = os.path.join(agents_source_dir, agent_file)
+                    dest_file = os.path.join(agents_dest_dir, agent_file)
+                    shutil.copy2(source_file, dest_file)
+                    updated_files.append(f".claude/agents/{agent_file}")
+                
+                print(f"Updated {len(source_agents)} agent files: {source_agents[:5]}...")  # Log first 5 for debugging
+            else:
+                errors.append(f"Agents source directory not found: {agents_source_dir}")
             
             # 4. Copy claude-commands to .claude/commands/
             commands_source_dir = os.path.join(framework_path, "framework-assets", "claude-commands")
