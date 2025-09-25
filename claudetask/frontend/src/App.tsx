@@ -13,6 +13,7 @@ import ProjectManager from './pages/ProjectManager';
 import TaskBoard from './pages/TaskBoard';
 import ClaudeSessions from './pages/ClaudeSessions';
 import Settings from './pages/Settings';
+import { ProjectProvider } from './context/ProjectContext';
 
 const theme = createTheme({
   palette: {
@@ -40,32 +41,34 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <QueryClientProvider client={queryClient}>
-        <Router>
-          <Box sx={{ display: 'flex' }}>
-            <Header />
-            <Sidebar />
-            <Box
-              component="main"
-              sx={{
-                flexGrow: 1,
-                bgcolor: 'background.default',
-                p: 3,
-                mt: 8, // Account for header height
-                ml: 30, // Account for sidebar width
-              }}
-            >
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/setup" element={<ProjectSetup />} />
-                <Route path="/projects" element={<ProjectManager />} />
-                <Route path="/tasks" element={<TaskBoard />} />
-                <Route path="/sessions" element={<ClaudeSessions />} />
-                <Route path="/settings" element={<Settings />} />
-              </Routes>
+        <ProjectProvider>
+          <Router>
+            <Box sx={{ display: 'flex' }}>
+              <Header />
+              <Sidebar />
+              <Box
+                component="main"
+                sx={{
+                  flexGrow: 1,
+                  bgcolor: 'background.default',
+                  p: 3,
+                  mt: 8, // Account for header height
+                  ml: 30, // Account for sidebar width
+                }}
+              >
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/setup" element={<ProjectSetup />} />
+                  <Route path="/projects" element={<ProjectManager />} />
+                  <Route path="/tasks" element={<TaskBoard />} />
+                  <Route path="/sessions" element={<ClaudeSessions />} />
+                  <Route path="/settings" element={<Settings />} />
+                </Routes>
+              </Box>
             </Box>
-          </Box>
-          <ReactQueryDevtools initialIsOpen={false} />
-        </Router>
+            <ReactQueryDevtools initialIsOpen={false} />
+          </Router>
+        </ProjectProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );
