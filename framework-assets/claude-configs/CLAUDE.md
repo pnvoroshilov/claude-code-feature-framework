@@ -137,11 +137,12 @@ Existing docs: [current documentation state]
 Technical details: [implementation specifics to cover]"
 ```
 
-#### Testing Status → ⚠️ NO DELEGATION - PREPARE ENVIRONMENT ONLY
+#### Testing Status → ⚠️ PREPARE TEST ENVIRONMENT (First Time Setup)
 ```
-When task.status == "Testing":
-1. DO NOT delegate to any testing agent
-2. ONLY ensure test environment is ready:
+When task moves from "In Progress" to "Testing":
+1. 🔴 THIS IS WHEN YOU SETUP TEST ENVIRONMENT (not before!)
+2. DO NOT delegate to any testing agent
+3. Setup and start test servers:
    - CRITICAL: Find available ports (DO NOT reuse occupied ports)
    - Check occupied ports: lsof -i :PORT_NUMBER
    - Find free port for backend (e.g., 4000-5000 range if 3333 is taken)
@@ -517,9 +518,9 @@ SPLIT INTO:
 ### Status Flow with Agent Delegation:
 - **Backlog** → Get task → Delegate to analyst → **Analysis**
 - **Analysis** → ⚠️ ALWAYS move to **In Progress** after analysis complete
-- **In Progress** → ⚠️ ONLY setup test environment → **STOP** (wait for user development)
+- **In Progress** → ⚠️ NO test environment setup → **STOP** (wait for user development)
 - **After Implementation** → 🔴 **MANDATORY** move to **Testing**
-- **Testing** → ⚠️ NO AUTO PROGRESSION (Manual testing only) → Wait for user
+- **Testing** → ⚠️ SETUP test environment HERE → Wait for manual testing
 - **Code Review** → After review complete → **Pull Request** (PR created, no merge)
 - **Pull Request** → ⚠️ NO AUTO ACTIONS → Wait for user
 
@@ -533,46 +534,39 @@ SPLIT INTO:
 - ❌ **NEVER** skip to Ready or other statuses
 - ❌ **NEVER** stay in Analysis status after analysis is done
 
-##### 🚀 After Moving to In Progress → Setup Test Environment ONLY:
-**CRITICAL: When task status changes to "In Progress", IMMEDIATELY do the following:**
+##### 🚀 After Moving to In Progress → DO NOT SETUP TEST ENVIRONMENT:
+**CRITICAL: When task status changes to "In Progress":**
 ```
-1. ✅ Start test servers in worktree:
-   - cd worktrees/task-{id}
-   - Find available ports (check with lsof -i :PORT)
-   - Start backend: python -m uvicorn app.main:app --port FREE_PORT
-   - Start frontend: PORT=FREE_PORT npm start
+1. ✅ Verify worktree exists:
+   - Check worktrees/task-{id} directory
+   - Ensure git branch is created
    
-2. ✅ Save testing URLs using MCP:
-   mcp__claudetask__set_testing_urls --task_id={id} --urls='{
-     "frontend": "http://localhost:3001",
-     "backend": "http://localhost:4000"
-   }'
-   
-3. ✅ Save environment setup results:
+2. ✅ Save status change:
    mcp__claudetask__append_stage_result --task_id={id} --status="In Progress" \
-     --summary="Test environment configured and ready" \
-     --details="Frontend: http://localhost:3001
-Backend: http://localhost:4000
-Worktree: worktrees/task-{id}
-Environment ready for manual development"
+     --summary="Development phase started" \
+     --details="Worktree: worktrees/task-{id}
+Ready for implementation"
 
-4. ✅ Report environment ready to user:
-   "Test environment is ready at:
-    - Frontend: http://localhost:3001
-    - Backend: http://localhost:4000
-    Task worktree: worktrees/task-{id}"
+3. ✅ Report to user:
+   "Task #{id} is now In Progress
+    Worktree: worktrees/task-{id}
+    Ready for development"
    
-5. ⛔ STOP - DO NOT PROCEED FURTHER
+4. ⛔ STOP - DO NOT PROCEED FURTHER
+   - ❌ DO NOT setup test servers
+   - ❌ DO NOT start frontend/backend
+   - ❌ DO NOT prepare test environment
    - NO delegation to implementation agents
    - NO coding or development
-   - NO automated testing
-   - Wait for user's manual actions
+   - Wait for user's manual development
 ```
 
-**⚠️ IMPORTANT: After setting up test environment, YOUR WORK IS COMPLETE. The user will manually:**
-- Develop the feature
-- Test the implementation
-- Update task status when ready
+**⚠️ IMPORTANT: Test environments are ONLY setup when task moves to TESTING status, NOT during In Progress**
+
+**The user will:**
+- Develop the feature in worktree
+- Update task to Testing status when ready
+- THEN test environment will be prepared
 
 ##### 🔴 After Implementation → MANDATORY TESTING STATUS:
 **⚠️ CRITICAL REQUIREMENT: After ANY code implementation:**
