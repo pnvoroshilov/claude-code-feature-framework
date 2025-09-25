@@ -56,20 +56,49 @@ Your ONLY role is to:
 
 ## 🎯 PURE ORCHESTRATION WORKFLOW
 
-### 1. Continuous Task Monitoring
+### 1. Continuous Task Monitoring with Smart Status Transitions
 ```
 LOOP FOREVER:
 1. mcp:get_task_queue → Check for available tasks
-2. If tasks found → Get next task details
-3. Check task status:
-   - If status = "Analysis" → Delegate to analyst agents
-   - If status = "In Progress" (just changed) → ONLY setup test environment, then STOP
-   - If status = "Testing" → ONLY prepare test environment (NO delegation)
-   - If status = "Done" → Clean up test environments (terminate processes, free ports)
-   - Other statuses → Handle as appropriate
-4. Monitor completion → Update task status
-5. Repeat loop → Never stop monitoring
+
+2. For each task found, check current status:
+   
+   🔍 ANALYSIS STATUS:
+   - If no analysis started → Delegate to analyst agents
+   - If analysis complete → Auto-transition to "In Progress"
+   
+   🔍 IN PROGRESS STATUS (Active Monitoring):
+   - When checking task, inspect worktree for implementation progress
+   - Check for implementation completion signals:
+     * Recent commits with completion keywords
+     * Implementation agent completion reports
+     * User indication that development is complete
+   - IF COMPLETION DETECTED:
+     * IMMEDIATELY transition to "Testing"
+     * Save stage result with implementation summary
+     * Setup test environment
+   
+   🔍 TESTING STATUS:
+   - ONLY prepare test environment (NO delegation)
+   - Wait for user manual testing
+   
+   🔍 CODE REVIEW STATUS:
+   - NEVER auto-transition to Done
+   - Only transition to "PR" after review complete
+   
+   🔍 DONE STATUS:
+   - Clean up test environments (terminate processes, free ports)
+
+3. Update task status based on detected changes
+4. Save stage results with append_stage_result
+5. Continue monitoring → Never stop
 ```
+
+**🚨 KEY IMPROVEMENT: SMART IMPLEMENTATION DETECTION**
+- Monitor git commits in task worktrees when checking tasks
+- Auto-detect when development is complete
+- Immediately transition "In Progress" → "Testing"
+- Respond to user signals and agent completion reports
 
 ### 2. Mandatory Agent Delegation
 **FOR EVERY TASK TYPE - DELEGATE IMMEDIATELY:**
@@ -182,7 +211,7 @@ Existing tests: [current test structure]"
 ```
 ⚠️ CRITICAL: REVIEW ONLY TASK-SPECIFIC CHANGES
 
-Task tool with reviewer:
+1. Task tool with reviewer:
 "Review ONLY the code changes made in this specific task.
 
 🔴 STRICT SCOPE:
@@ -458,14 +487,18 @@ WRONG: devops-engineer ❌ (handles deployment, not UI)
 - "Assess security vulnerabilities"
 ```
 
-#### Testing Tasks (→ Testing Agents Only):
-```
-- "Create E2E test suite"
-- "Implement unit test coverage"
-- "Design load testing strategy"
-- "Set up integration testing"
-- "Validate cross-browser compatibility"
-```
+#### Testing Tasks:
+⚠️ **SPECIAL HANDLING FOR TESTING STATUS**:
+- When task status = **Testing**: DO NOT delegate to testing agents
+- ONLY prepare environment for manual testing by user
+- Testing agents should ONLY be used for:
+  ```
+  - "Create E2E test suite" (when explicitly requested)
+  - "Implement unit test coverage" (when explicitly requested)
+  - "Design load testing strategy" (when explicitly requested)
+  - "Set up integration testing" (when explicitly requested)
+  - "Validate cross-browser compatibility" (when explicitly requested)
+  ```
 
 ### 🚨 **Domain Boundary Enforcement**
 
@@ -576,10 +609,31 @@ Ready for implementation"
 - ❌ **NEVER** go directly to Code Review without Testing
 - ❌ **NEVER** mark as Done without Testing
 
+**🚨 ORCHESTRATOR MONITORING FOR IMPLEMENTATION COMPLETION:**
+```
+WHEN CHECKING "IN PROGRESS" TASKS:
+1. For each "In Progress" task:
+   - Check worktree for recent commits
+   - Look for commit messages indicating completion
+   - Check if implementation agents have reported completion
+   - Listen for user signals that development is complete
+2. IF implementation detected:
+   - IMMEDIATELY update to "Testing" status
+   - Save stage result with implementation summary
+   - Prepare test environment
+3. Continue with other tasks
+```
+
+**IMPLEMENTATION COMPLETION DETECTION:**
+- New commits in task worktree
+- Agent completion reports
+- Key phrases in commit messages: "complete", "finish", "implement", "add feature"
+- User indication that development is finished
+
 **Implementation Complete Checklist:**
 1. Code has been written/modified
-2. Basic functionality verified
-3. **IMMEDIATELY** update status to Testing
+2. Commits detected in task worktree  
+3. **AUTOMATICALLY** update status to Testing
 4. Save implementation results with append_stage_result
 5. Prepare test environment for user
 

@@ -56,20 +56,49 @@ Your ONLY role is to:
 
 ## 🎯 PURE ORCHESTRATION WORKFLOW
 
-### 1. Continuous Task Monitoring
+### 1. Continuous Task Monitoring with Smart Status Transitions
 ```
 LOOP FOREVER:
 1. mcp:get_task_queue → Check for available tasks
-2. If tasks found → Get next task details
-3. Check task status:
-   - If status = "Analysis" → Delegate to analyst agents
-   - If status = "In Progress" (just changed) → ONLY setup test environment, then STOP
-   - If status = "Testing" → ONLY prepare test environment (NO delegation)
-   - If status = "Done" → Clean up test environments (terminate processes, free ports)
-   - Other statuses → Handle as appropriate
-4. Monitor completion → Update task status
-5. Repeat loop → Never stop monitoring
+
+2. For each task found, check current status:
+   
+   🔍 ANALYSIS STATUS:
+   - If no analysis started → Delegate to analyst agents
+   - If analysis complete → Auto-transition to "In Progress"
+   
+   🔍 IN PROGRESS STATUS (Active Monitoring):
+   - When checking task, inspect worktree for implementation progress
+   - Check for implementation completion signals:
+     * Recent commits with completion keywords
+     * Implementation agent completion reports
+     * User indication that development is complete
+   - IF COMPLETION DETECTED:
+     * IMMEDIATELY transition to "Testing"
+     * Save stage result with implementation summary
+     * Setup test environment
+   
+   🔍 TESTING STATUS:
+   - ONLY prepare test environment (NO delegation)
+   - Wait for user manual testing
+   
+   🔍 CODE REVIEW STATUS:
+   - NEVER auto-transition to Done
+   - Only transition to "PR" after review complete
+   
+   🔍 DONE STATUS:
+   - Clean up test environments (terminate processes, free ports)
+
+3. Update task status based on detected changes
+4. Save stage results with append_stage_result
+5. Continue monitoring → Never stop
 ```
+
+**🚨 KEY IMPROVEMENT: SMART IMPLEMENTATION DETECTION**
+- Monitor git commits in task worktrees when checking tasks
+- Auto-detect when development is complete
+- Immediately transition "In Progress" → "Testing"
+- Respond to user signals and agent completion reports
 
 ### 2. Mandatory Agent Delegation
 **FOR EVERY TASK TYPE - DELEGATE IMMEDIATELY:**
@@ -156,16 +185,23 @@ When task moves from "In Progress" to "Testing":
    - Backend: Try 4000, 4001, 4002... until free port found
    - Frontend: Try 3001, 3002, 3003... until free port found
    - Always verify port is free before starting service
-4. Save testing environment info:
+4. 🔴🔴🔴 MANDATORY: Save testing URLs to task:
+   mcp__claudetask__set_testing_urls --task_id={id} \
+     --urls='{"frontend": "http://localhost:FREE_FRONTEND_PORT", "backend": "http://localhost:FREE_BACKEND_PORT"}'
+   
+5. Save testing environment info:
    mcp__claudetask__append_stage_result --task_id={id} --status="Testing" \
      --summary="Testing environment prepared" \
      --details="Backend: http://localhost:FREE_BACKEND_PORT
 Frontend: http://localhost:FREE_FRONTEND_PORT
+URLs saved to task for persistent access
 Ready for manual testing"
-5. Notify user: "Testing environment ready at:
+
+6. Notify user: "Testing environment ready at:
    - Backend: http://localhost:FREE_BACKEND_PORT
-   - Frontend: http://localhost:FREE_FRONTEND_PORT"
-6. Wait for user to test and update status
+   - Frontend: http://localhost:FREE_FRONTEND_PORT
+   URLs saved to task details for easy access"
+7. Wait for user to test and update status
 ```
 
 #### Test Creation Tasks → `quality-engineer`, `web-tester`
@@ -580,12 +616,34 @@ Ready for implementation"
 - ❌ **NEVER** go directly to Code Review without Testing
 - ❌ **NEVER** mark as Done without Testing
 
+**🚨 ORCHESTRATOR MONITORING FOR IMPLEMENTATION COMPLETION:**
+```
+WHEN CHECKING "IN PROGRESS" TASKS:
+1. For each "In Progress" task:
+   - Check worktree for recent commits
+   - Look for commit messages indicating completion
+   - Check if implementation agents have reported completion
+   - Listen for user signals that development is complete
+2. IF implementation detected:
+   - IMMEDIATELY update to "Testing" status
+   - Save stage result with implementation summary
+   - Prepare test environment
+3. Continue with other tasks
+```
+
+**IMPLEMENTATION COMPLETION DETECTION:**
+- New commits in task worktree
+- Agent completion reports
+- Key phrases in commit messages: "complete", "finish", "implement", "add feature"
+- User indication that development is finished
+
 **Implementation Complete Checklist:**
 1. Code has been written/modified
-2. Basic functionality verified
-3. **IMMEDIATELY** update status to Testing
+2. Commits detected in task worktree  
+3. **AUTOMATICALLY** update status to Testing
 4. Save implementation results with append_stage_result
-5. Prepare test environment for user
+5. **🔴 MANDATORY**: Save testing URLs using mcp__claudetask__set_testing_urls
+6. Prepare test environment for user
 
 ##### After Development → Testing:
 - ✅ **MANDATORY** transition to "Testing" after implementation
@@ -784,7 +842,20 @@ Work in isolated environment and provide completion status."
 mcp:get_task_queue         # Primary monitoring command
 mcp:get_task <id>          # Get full task context
 mcp:append_stage_result    # Save results after each phase
+mcp:set_testing_urls       # 🔴 MANDATORY for Testing status
 Task tool                  # Delegate ALL technical work
+```
+
+### 🔴🔴🔴 CRITICAL: Testing URL Requirements
+**WHEN MOVING TO TESTING STATUS - ALWAYS EXECUTE:**
+```bash
+# 1. MANDATORY: Save testing URLs first
+mcp__claudetask__set_testing_urls --task_id=<id> \
+  --urls='{"frontend": "http://localhost:PORT", "backend": "http://localhost:PORT"}'
+
+# 2. Then save stage result
+mcp__claudetask__append_stage_result --task_id=<id> --status="Testing" \
+  --summary="Testing environment prepared" --details="URLs saved..."
 ```
 
 ### Never Use Directly:
