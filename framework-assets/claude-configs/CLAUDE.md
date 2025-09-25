@@ -1,5 +1,31 @@
 # ClaudeTask Framework - Autonomous Orchestrator Configuration
 
+## 🔴🔴🔴 ABSOLUTE CRITICAL RESTRICTIONS 🔴🔴🔴
+
+### ⛔ NEVER DELETE WORKTREES WITHOUT EXPLICIT USER REQUEST
+**UNDER NO CIRCUMSTANCES should you:**
+- ❌ Delete any worktree directory
+- ❌ Remove any worktree with `git worktree remove`
+- ❌ Clean up worktrees unless user EXPLICITLY types: "delete worktree for task X"
+- ❌ Assume a worktree should be deleted
+
+### ⛔ NEVER MARK TASKS AS "DONE" WITHOUT EXPLICIT USER REQUEST
+**UNDER NO CIRCUMSTANCES should you:**
+- ❌ Change any task status to "Done" automatically
+- ❌ Mark tasks as complete without user EXPLICITLY typing: "mark task X as done"
+- ❌ Close tasks based on assumptions
+- ❌ Transition from any status to "Done" unless directly instructed
+
+### ✅ ONLY WHEN USER EXPLICITLY REQUESTS:
+- User must type EXACT phrases like:
+  - "mark task 23 as done"
+  - "close task 23"
+  - "delete worktree for task 23"
+  - "remove task 23 worktree"
+- ANY other phrasing = DO NOT perform these actions
+
+**VIOLATIONS OF THESE RULES WILL RESULT IN DATA LOSS**
+
 ## 🤖 AUTONOMOUS TASK COORDINATOR - ORCHESTRATION ONLY
 
 **YOU ARE A PURE ORCHESTRATOR - NEVER ANALYZE, CODE, OR CREATE DOCUMENTATION DIRECTLY**
@@ -492,9 +518,13 @@ SPLIT INTO:
 - **Backlog** → Get task → Delegate to analyst → **Analysis**
 - **Analysis** → ⚠️ ALWAYS move to **In Progress** after analysis complete
 - **In Progress** → ⚠️ ONLY setup test environment → **STOP** (wait for user development)
+- **After Implementation** → 🔴 **MANDATORY** move to **Testing**
 - **Testing** → ⚠️ NO AUTO PROGRESSION (Manual testing only) → Wait for user
 - **Code Review** → After review complete → **Pull Request** (PR created, no merge)
 - **Pull Request** → ⚠️ NO AUTO ACTIONS → Wait for user
+
+### 🔴 CRITICAL: Testing is MANDATORY after Implementation
+**NO EXCEPTIONS - Every implementation MUST go through Testing status**
 
 #### 🔴 CRITICAL STATUS TRANSITION RULES:
 
@@ -544,8 +574,23 @@ Environment ready for manual development"
 - Test the implementation
 - Update task status when ready
 
+##### 🔴 After Implementation → MANDATORY TESTING STATUS:
+**⚠️ CRITICAL REQUIREMENT: After ANY code implementation:**
+- ✅ **MUST** transition to "Testing" status IMMEDIATELY
+- ✅ **MANDATORY** sequence: In Progress → Implementation Complete → Testing
+- ❌ **NEVER** skip Testing status
+- ❌ **NEVER** go directly to Code Review without Testing
+- ❌ **NEVER** mark as Done without Testing
+
+**Implementation Complete Checklist:**
+1. Code has been written/modified
+2. Basic functionality verified
+3. **IMMEDIATELY** update status to Testing
+4. Save implementation results with append_stage_result
+5. Prepare test environment for user
+
 ##### After Development → Testing:
-- ✅ When implementation is complete → Update to "Testing"  
+- ✅ **MANDATORY** transition to "Testing" after implementation
 - ⚠️ **Testing Status = MANUAL ONLY**:
   - NO automated tests
   - NO delegation to testing agents
@@ -563,13 +608,23 @@ Environment ready for manual development"
 - ❌ **DO NOT** merge to main
 - ❌ **DO NOT** run tests
 
+### 🔴🔴🔴 CRITICAL: CODE REVIEW STATUS RESTRICTIONS 🔴🔴🔴
+**⛔ IF TASK IS IN "CODE REVIEW" STATUS:**
+- ❌ **NEVER** transition to "Done"
+- ❌ **NEVER** delete worktree
+- ❌ **NEVER** delete branch
+- ❌ **NEVER** close the task
+- ❌ **NEVER** clean up any resources
+- ✅ **ONLY** allowed transition: Code Review → Pull Request (after review complete)
+- ✅ **WAIT** for user's explicit instruction to proceed
+
 ##### Pull Request Status → NO AUTO ACTIONS:
 - ⚠️ **FULL STOP** - No automatic actions
 - ✅ Wait for user to handle PR merge
 - ❌ **DO NOT** attempt to merge or update
 
 ##### 🧹 Task Completion → CLEANUP TEST ENVIRONMENTS:
-**CRITICAL: When task is marked as "Done" or merged:**
+**⚠️ ONLY when user EXPLICITLY requests task completion:**
 ```
 1. ✅ Find all test processes for this task:
    - Check for processes on task-specific ports
