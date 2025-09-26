@@ -185,16 +185,32 @@ When task moves from "In Progress" to "Testing":
    - Backend: Try 4000, 4001, 4002... until free port found
    - Frontend: Try 3001, 3002, 3003... until free port found
    - Always verify port is free before starting service
-4. Save testing environment info:
+
+4. 🔴🔴🔴 CRITICAL MANDATORY STEP - SAVE TESTING URLs:
+   ⚠️ YOU MUST EXECUTE THIS COMMAND IMMEDIATELY:
+   
+   mcp__claudetask__set_testing_urls --task_id={id} \
+     --urls='{"frontend": "http://localhost:FREE_FRONTEND_PORT", "backend": "http://localhost:FREE_BACKEND_PORT"}'
+   
+   ⛔ DO NOT PROCEED WITHOUT SAVING URLs
+   ⛔ THIS IS NOT OPTIONAL - IT IS REQUIRED
+   ⛔ SKIPPING THIS STEP = TASK TRACKING FAILURE
+
+5. ONLY AFTER URLs ARE SAVED - Save testing environment info:
    mcp__claudetask__append_stage_result --task_id={id} --status="Testing" \
-     --summary="Testing environment prepared" \
+     --summary="Testing environment prepared with URLs saved" \
      --details="Backend: http://localhost:FREE_BACKEND_PORT
 Frontend: http://localhost:FREE_FRONTEND_PORT
+✅ URLs SAVED to task database for persistent access
 Ready for manual testing"
-5. Notify user: "Testing environment ready at:
+
+6. Notify user WITH CONFIRMATION that URLs were saved:
+   "✅ Testing environment ready and URLs SAVED to task:
    - Backend: http://localhost:FREE_BACKEND_PORT
-   - Frontend: http://localhost:FREE_FRONTEND_PORT"
-6. Wait for user to test and update status
+   - Frontend: http://localhost:FREE_FRONTEND_PORT
+   - URLs permanently saved to task #{id} for easy access"
+   
+7. Wait for user to test and update status
 ```
 
 #### Test Creation Tasks → `quality-engineer`, `web-tester`
@@ -635,7 +651,11 @@ WHEN CHECKING "IN PROGRESS" TASKS:
 2. Commits detected in task worktree  
 3. **AUTOMATICALLY** update status to Testing
 4. Save implementation results with append_stage_result
-5. Prepare test environment for user
+5. **🔴🔴🔴 CRITICAL MANDATORY STEP**: Save testing URLs using mcp__claudetask__set_testing_urls
+   - ⛔ DO NOT SKIP THIS STEP
+   - ⛔ URLs MUST be saved IMMEDIATELY after starting test servers
+   - ⛔ This is REQUIRED for task tracking - NOT OPTIONAL
+6. Prepare test environment for user
 
 ##### After Development → Testing:
 - ✅ **MANDATORY** transition to "Testing" after implementation
@@ -671,36 +691,50 @@ WHEN CHECKING "IN PROGRESS" TASKS:
 - ✅ Wait for user to handle PR merge
 - ❌ **DO NOT** attempt to merge or update
 
-##### 🧹 Task Completion → CLEANUP TEST ENVIRONMENTS:
-**⚠️ ONLY when user EXPLICITLY requests task completion:**
+##### 🧹 Task Completion → CLEANUP ALL RESOURCES:
+**⚠️ ONLY when user EXPLICITLY requests task completion (via /merge command):**
 ```
-1. ✅ Find all test processes for this task:
-   - Check for processes on task-specific ports
-   - lsof -i :3001 # Frontend port used for task
-   - lsof -i :4000 # Backend port used for task
-   - ps aux | grep "task-{id}" # Any task-specific processes
+1. ✅ USE THE AUTOMATED CLEANUP COMMAND:
+   mcp:stop_session {task_id}
    
-2. ✅ Terminate all test servers:
-   - kill {frontend_pid} # Stop frontend dev server
-   - kill {backend_pid} # Stop backend API server
-   - kill any other task-specific processes
+   This single command will:
+   - Complete the Claude session
+   - Stop any embedded terminal sessions
+   - Kill all test server processes
+   - Release all occupied ports
+   - Clear testing URLs from task
+
+2. ✅ Alternative Manual Cleanup (if needed):
+   a) Find all test processes for this task:
+      - Check testing_urls in task for ports
+      - lsof -i :PORT for each port
+      - ps aux | grep "task-{id}"
    
-3. ✅ Release occupied ports:
-   - Verify ports are freed: lsof -i :PORT
-   - Ensure no lingering processes
+   b) Terminate all processes:
+      - kill {frontend_pid}
+      - kill {backend_pid}
+      - kill any task-specific processes
    
-4. ✅ Save cleanup results:
+   c) Complete Claude session:
+      - Call /api/sessions/{task_id}/complete
+      - Stop embedded sessions if exist
+   
+3. ✅ Save cleanup results:
    mcp__claudetask__append_stage_result --task_id={id} --status="Done" \
-     --summary="Task completed and test environment cleaned up" \
-     --details="Released ports: [list of ports]
-Terminated processes: [list of PIDs]
-Resources freed successfully"
+     --summary="Task completed with full resource cleanup" \
+     --details="Claude session: Completed
+Terminal sessions: Stopped
+Test servers: Terminated
+Ports released: [list]
+All resources freed successfully"
    
-5. ✅ Report cleanup completion:
+4. ✅ Report cleanup completion:
    "Task #{id} completed:
-    - Test servers terminated
-    - Ports released: 3001, 4000
-    - Resources cleaned up"
+    - Claude session: Completed ✓
+    - Terminal sessions: Stopped ✓
+    - Test servers: Terminated ✓
+    - Ports released: [list] ✓
+    - All resources cleaned up ✓"
 ```
 
 **⚠️ IMPORTANT: Always clean up test environments to:**
@@ -834,7 +868,28 @@ Work in isolated environment and provide completion status."
 mcp:get_task_queue         # Primary monitoring command
 mcp:get_task <id>          # Get full task context
 mcp:append_stage_result    # Save results after each phase
+mcp:set_testing_urls       # 🔴 MANDATORY for Testing status
+mcp:stop_session <id>      # Clean up all resources on task completion
 Task tool                  # Delegate ALL technical work
+```
+
+### 🔴🔴🔴 CRITICAL: Testing URL Requirements
+**⛔ FAILURE TO SAVE TESTING URLs = CRITICAL ERROR ⛔**
+
+**WHEN MOVING TO TESTING STATUS - ALWAYS EXECUTE IN THIS ORDER:**
+```bash
+# 1. Start test servers and get ports
+# 2. 🔴 MANDATORY: Save testing URLs IMMEDIATELY (DO NOT SKIP!)
+mcp__claudetask__set_testing_urls --task_id=<id> \
+  --urls='{"frontend": "http://localhost:ACTUAL_PORT", "backend": "http://localhost:ACTUAL_PORT"}'
+
+# 3. ONLY AFTER URLs are saved - save stage result
+mcp__claudetask__append_stage_result --task_id=<id> --status="Testing" \
+  --summary="Testing environment prepared with URLs saved" \
+  --details="URLs successfully saved to task database"
+
+# ⚠️ VALIDATION: Check that set_testing_urls was called
+# If you didn't call set_testing_urls, GO BACK AND DO IT NOW
 ```
 
 ### Never Use Directly:

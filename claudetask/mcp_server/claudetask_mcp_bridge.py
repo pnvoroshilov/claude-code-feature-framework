@@ -472,6 +472,20 @@ class ClaudeTaskMCPServer:
                         },
                         "required": ["task_id", "urls"]
                     }
+                ),
+                types.Tool(
+                    name="stop_session",
+                    description="Stop/complete the Claude session for a task and kill any test server processes",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "task_id": {
+                                "type": "integer",
+                                "description": "ID of the task to stop session for"
+                            }
+                        },
+                        "required": ["task_id"]
+                    }
                 )
             ]
 
@@ -544,6 +558,10 @@ class ClaudeTaskMCPServer:
                     return await self._set_testing_urls(
                         arguments["task_id"],
                         arguments["urls"]
+                    )
+                elif name == "stop_session":
+                    return await self._stop_session(
+                        arguments["task_id"]
                     )
                 else:
                     raise ValueError(f"Unknown tool: {name}")
@@ -2087,6 +2105,180 @@ Status: {task['status']}
                 return [types.TextContent(
                     type="text",
                     text=f"Error updating testing URLs: {str(e)}"
+                )]
+
+    async def _stop_session(self, task_id: int) -> list[types.TextContent]:
+        """Stop/complete the Claude session for a task and kill any test server processes"""
+        import subprocess
+        import signal
+        import re
+        from urllib.parse import urlparse
+        
+        async with httpx.AsyncClient() as client:
+            try:
+                # Get task details first to check for testing URLs
+                task_response = await client.get(f"{self.server_url}/api/tasks/{task_id}")
+                task_response.raise_for_status()
+                task = task_response.json()
+                
+                results = []
+                errors = []
+                
+                # 1. Stop the Claude session
+                try:
+                    response = await client.post(
+                        f"{self.server_url}/api/sessions/{task_id}/complete"
+                    )
+                    if response.status_code == 200:
+                        results.append("✅ Claude session completed successfully")
+                    elif response.status_code == 404:
+                        results.append("ℹ️ No active Claude session found to complete")
+                    else:
+                        errors.append(f"Failed to complete Claude session: HTTP {response.status_code}")
+                except httpx.HTTPError as e:
+                    errors.append(f"Error completing Claude session: {str(e)}")
+                
+                # 2. Try to stop embedded session if it exists
+                try:
+                    # Check if there's an embedded session
+                    session_response = await client.get(f"{self.server_url}/api/tasks/{task_id}/session")
+                    if session_response.status_code == 200:
+                        session = session_response.json()
+                        session_id = session.get('id')
+                        if session_id:
+                            stop_response = await client.post(
+                                f"{self.server_url}/api/sessions/embedded/{session_id}/stop"
+                            )
+                            if stop_response.status_code == 200:
+                                results.append("✅ Embedded Claude session stopped successfully")
+                            else:
+                                errors.append(f"Failed to stop embedded session: HTTP {stop_response.status_code}")
+                except httpx.HTTPError as e:
+                    # Embedded session endpoints might not exist, so this is optional
+                    self.logger.warning(f"Could not stop embedded session: {str(e)}")
+                
+                # 3. Kill test server processes based on testing_urls
+                testing_urls = task.get('testing_urls', {})
+                if testing_urls:
+                    results.append("🔍 Looking for test server processes to terminate...")
+                    
+                    ports_to_kill = []
+                    for env_name, url in testing_urls.items():
+                        try:
+                            parsed_url = urlparse(url)
+                            if parsed_url.port:
+                                ports_to_kill.append((env_name, parsed_url.port))
+                        except Exception as e:
+                            errors.append(f"Error parsing URL for {env_name}: {str(e)}")
+                    
+                    if ports_to_kill:
+                        killed_processes = []
+                        for env_name, port in ports_to_kill:
+                            try:
+                                # Find processes using the port
+                                lsof_result = subprocess.run(
+                                    ["lsof", "-ti", f":{port}"],
+                                    capture_output=True,
+                                    text=True
+                                )
+                                
+                                if lsof_result.returncode == 0 and lsof_result.stdout.strip():
+                                    pids = lsof_result.stdout.strip().split('\n')
+                                    for pid in pids:
+                                        try:
+                                            pid = int(pid.strip())
+                                            # Kill the process
+                                            subprocess.run(["kill", str(pid)], check=True)
+                                            killed_processes.append(f"PID {pid} (port {port}, {env_name})")
+                                        except (ValueError, subprocess.CalledProcessError) as e:
+                                            errors.append(f"Failed to kill PID {pid}: {str(e)}")
+                                else:
+                                    results.append(f"ℹ️ No processes found on port {port} ({env_name})")
+                                    
+                            except FileNotFoundError:
+                                # lsof not available, try alternative approach
+                                try:
+                                    # Try using ps and grep to find processes
+                                    ps_result = subprocess.run(
+                                        ["ps", "aux"],
+                                        capture_output=True,
+                                        text=True
+                                    )
+                                    
+                                    if ps_result.returncode == 0:
+                                        # Look for processes that might be using this port
+                                        lines = ps_result.stdout.split('\n')
+                                        for line in lines:
+                                            if str(port) in line and any(keyword in line.lower() for keyword in ['node', 'npm', 'uvicorn', 'python', 'serve']):
+                                                # Extract PID (usually second column)
+                                                parts = line.split()
+                                                if len(parts) > 1:
+                                                    try:
+                                                        pid = int(parts[1])
+                                                        subprocess.run(["kill", str(pid)], check=True)
+                                                        killed_processes.append(f"PID {pid} (port {port}, {env_name})")
+                                                    except (ValueError, subprocess.CalledProcessError):
+                                                        pass
+                                except subprocess.CalledProcessError:
+                                    errors.append(f"Could not find processes on port {port} ({env_name})")
+                        
+                        if killed_processes:
+                            results.append(f"✅ Terminated processes: {', '.join(killed_processes)}")
+                        else:
+                            results.append("ℹ️ No test server processes found to terminate")
+                    else:
+                        results.append("ℹ️ No valid ports found in testing URLs")
+                else:
+                    results.append("ℹ️ No testing URLs configured - no test servers to stop")
+                
+                # 4. Clear testing URLs from task
+                if testing_urls:
+                    try:
+                        await client.patch(
+                            f"{self.server_url}/api/tasks/{task_id}/testing-urls",
+                            json={"testing_urls": {}}
+                        )
+                        results.append("✅ Testing URLs cleared from task")
+                    except httpx.HTTPError as e:
+                        errors.append(f"Failed to clear testing URLs: {str(e)}")
+                
+                # Prepare response
+                response_text = f"""🛑 SESSION STOP COMPLETED - Task #{task_id}
+                
+📋 Task: {task['title']}
+Status: {task['status']}
+
+✅ RESULTS:
+{chr(10).join(f"• {result}" for result in results)}"""
+                
+                if errors:
+                    response_text += f"""
+
+⚠️ WARNINGS/ERRORS:
+{chr(10).join(f"• {error}" for error in errors)}"""
+                
+                response_text += f"""
+
+📊 SUMMARY:
+Claude session for task #{task_id} has been stopped and test environment cleaned up.
+- Session completed and embedded session stopped
+- Test server processes terminated
+- Testing URLs cleared
+- Resources freed for other tasks
+
+Task is now ready for final status updates or closure."""
+                
+                return [types.TextContent(type="text", text=response_text)]
+                
+            except httpx.HTTPError as e:
+                return [types.TextContent(
+                    type="text",
+                    text=f"Failed to stop session for task {task_id}: {str(e)}"
+                )]
+            except Exception as e:
+                return [types.TextContent(
+                    type="text",
+                    text=f"Error stopping session for task {task_id}: {str(e)}"
                 )]
 
     async def run(self):

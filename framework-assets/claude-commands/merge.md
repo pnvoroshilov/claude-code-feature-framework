@@ -31,11 +31,16 @@ After successful merge, update the task status:
 mcp:update_status {{TASK_ID}} Done "PR merged, worktree cleaned"
 ```
 
-### 4. Stop Claude Session
-Stop the current Claude session for this task:
+### 4. Stop Claude Session and Clean Resources
+Stop the Claude session and terminate all test servers:
 ```bash
 mcp:stop_session {{TASK_ID}}
 ```
+This will:
+- Complete the Claude session
+- Stop any embedded terminal sessions
+- Kill all test server processes (frontend/backend)
+- Free up ports for other tasks
 
 ## Important Notes:
 
@@ -57,7 +62,10 @@ mcp:stop_session {{TASK_ID}}
 - PR: Merged
 - Worktree: Removed
 - Branch: Deleted
-- Session: Stopped
+- Claude session: Completed
+- Terminal sessions: Stopped
+- Test servers: Terminated
+- Ports: Released
 
 ## Error Handling:
 
@@ -77,7 +85,11 @@ After successful completion, report:
 - Feature Branch: Deleted ✓
 - Worktree: Cleaned ✓
 - Task Status: Done ✓
-- Session: Stopped ✓
+- Claude Session: Completed ✓
+- Terminal Sessions: Stopped ✓
+- Test Servers: Terminated ✓
+- Ports: Released ✓
 
 The implementation is now in the main branch.
+All resources have been cleaned up.
 ```
