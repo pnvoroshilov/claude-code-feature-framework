@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { CssBaseline, Box } from '@mui/material';
+import { Box } from '@mui/material';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { ReactQueryDevtools } from 'react-query/devtools';
 
@@ -14,46 +13,59 @@ import TaskBoard from './pages/TaskBoard';
 import ClaudeSessions from './pages/ClaudeSessions';
 import Settings from './pages/Settings';
 import { ProjectProvider } from './context/ProjectContext';
-
-const theme = createTheme({
-  palette: {
-    mode: 'light',
-    primary: {
-      main: '#1976d2',
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-  },
-});
+import { ThemeProvider } from './context/ThemeContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
       retry: 1,
+      staleTime: 5000,
     },
   },
 });
 
 function App() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  const toggleSidebar = () => {
+    if (window.innerWidth < 960) {
+      setSidebarOpen(!sidebarOpen);
+    } else {
+      setSidebarCollapsed(!sidebarCollapsed);
+    }
+  };
+
+  const handleSidebarClose = () => {
+    if (window.innerWidth < 960) {
+      setSidebarOpen(false);
+    }
+  };
+
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
+    <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <ProjectProvider>
           <Router>
-            <Box sx={{ display: 'flex' }}>
-              <Header />
-              <Sidebar />
+            <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+              <Header onMenuClick={toggleSidebar} />
+              <Sidebar
+                open={sidebarOpen}
+                collapsed={sidebarCollapsed}
+                onClose={handleSidebarClose}
+              />
               <Box
                 component="main"
                 sx={{
                   flexGrow: 1,
                   bgcolor: 'background.default',
-                  p: 3,
-                  mt: 8, // Account for header height
-                  ml: 30, // Account for sidebar width
+                  pt: { xs: 2, sm: 3 },
+                  pr: { xs: 2, sm: 3 },
+                  pb: { xs: 2, sm: 3 },
+                  pl: 0,
+                  mt: 8,
+                  minHeight: 'calc(100vh - 64px)',
                 }}
               >
                 <Routes>

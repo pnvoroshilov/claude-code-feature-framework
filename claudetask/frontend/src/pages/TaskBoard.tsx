@@ -480,19 +480,19 @@ const TaskBoard: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ px: 1 }}>
       <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={3} gap={2}>
         <Box sx={{ flex: 1 }}>
           <Box display="flex" alignItems="center" gap={2} mb={2}>
             <Typography variant="h4">
               Task Board
             </Typography>
-            <Chip 
+            <Chip
               size="small"
               label={isConnected ? 'Real-time updates' : 'Connecting...'}
               color={isConnected ? 'success' : 'warning'}
               variant={isConnected ? 'filled' : 'outlined'}
-              sx={{ 
+              sx={{
                 animation: !isConnected ? 'pulse 1.5s ease-in-out infinite' : 'none',
                 '@keyframes pulse': {
                   '0%': { opacity: 1 },
@@ -514,12 +514,12 @@ const TaskBoard: React.FC = () => {
         </Button>
       </Box>
 
-      <Grid container spacing={2}>
+      <Grid container spacing={1}>
         {statusColumns.map((column) => {
           const columnTasks = getTasksByStatus(column.status);
           return (
-            <Grid item xs={12} md={6} lg={3} xl={12/7} key={column.status}>
-              <Card sx={{ minHeight: '500px' }}>
+            <Grid item xs={12} sm={6} md={4} lg={3} xl={1.71} key={column.status}>
+              <Card sx={{ minHeight: '500px', height: '100%' }}>
                 <CardContent>
                   <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

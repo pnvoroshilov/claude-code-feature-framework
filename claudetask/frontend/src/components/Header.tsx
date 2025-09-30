@@ -7,13 +7,28 @@ import {
   IconButton,
   Chip,
   CircularProgress,
+  Tooltip,
+  alpha,
 } from '@mui/material';
-import { Settings as SettingsIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import {
+  Settings as SettingsIcon,
+  Refresh as RefreshIcon,
+  Menu as MenuIcon,
+  Brightness4 as DarkModeIcon,
+  Brightness7 as LightModeIcon,
+} from '@mui/icons-material';
 import { useQuery } from 'react-query';
 import { Link } from 'react-router-dom';
 import { getActiveProject, getConnectionStatus } from '../services/api';
+import { useThemeMode } from '../context/ThemeContext';
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  onMenuClick: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
+  const { mode, toggleTheme } = useThemeMode();
+
   const { data: project, isLoading: projectLoading } = useQuery(
     'activeProject',
     getActiveProject,
@@ -27,62 +42,162 @@ const Header: React.FC = () => {
   );
 
   return (
-    <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+    <AppBar
+      position="fixed"
+      elevation={0}
+      sx={{
+        zIndex: (theme) => theme.zIndex.drawer + 1,
+        backdropFilter: 'blur(10px)',
+        bgcolor: mode === 'dark'
+          ? alpha('#1e293b', 0.8)
+          : alpha('#ffffff', 0.8),
+        borderBottom: mode === 'dark' ? '1px solid #334155' : '1px solid #e2e8f0',
+      }}
+    >
       <Toolbar>
-        <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          ClaudeTask
-        </Typography>
-        
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <IconButton
+          color="inherit"
+          aria-label="open drawer"
+          edge="start"
+          onClick={onMenuClick}
+          sx={{ mr: 2, display: { md: 'none' } }}
+        >
+          <MenuIcon />
+        </IconButton>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box
+            sx={{
+              width: 32,
+              height: 32,
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 700,
+              color: 'white',
+              fontSize: '1rem',
+            }}
+          >
+            CT
+          </Box>
+          <Typography
+            variant="h6"
+            component="div"
+            sx={{
+              fontWeight: 700,
+              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              display: { xs: 'none', sm: 'block' },
+            }}
+          >
+            ClaudeTask
+          </Typography>
+        </Box>
+
+        <Box sx={{ flexGrow: 1 }} />
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           {/* Project Status */}
           {projectLoading ? (
-            <CircularProgress size={20} color="inherit" />
+            <CircularProgress size={20} />
           ) : project ? (
             <Chip
-              label={`Project: ${project.name}`}
-              color="secondary"
-              variant="outlined"
-              sx={{ color: 'white', borderColor: 'white' }}
+              label={`${project.name}`}
+              color="primary"
+              size="small"
+              sx={{
+                fontWeight: 500,
+                height: 28,
+                display: { xs: 'none', sm: 'flex' },
+                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+              }}
             />
           ) : (
             <Chip
-              label="No Project Active"
+              label="No Project"
               color="error"
+              size="small"
               variant="outlined"
-              sx={{ color: 'white', borderColor: 'white' }}
+              sx={{
+                height: 28,
+                display: { xs: 'none', sm: 'flex' },
+              }}
             />
           )}
 
           {/* Connection Status */}
           {connectionLoading ? (
-            <CircularProgress size={20} color="inherit" />
+            <CircularProgress size={20} />
           ) : (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Chip
-                label={connection?.connected ? 'Claude Connected' : 'Claude Disconnected'}
-                color={connection?.connected ? 'success' : 'error'}
-                size="small"
-                variant="outlined"
-                sx={{ color: 'white', borderColor: 'white' }}
-              />
-              <IconButton
-                color="inherit"
-                onClick={() => refetchConnection()}
-                size="small"
-              >
-                <RefreshIcon />
-              </IconButton>
+              <Tooltip title={connection?.connected ? 'Claude Connected' : 'Claude Disconnected'}>
+                <Chip
+                  label={connection?.connected ? 'Connected' : 'Disconnected'}
+                  color={connection?.connected ? 'success' : 'error'}
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    height: 28,
+                    fontWeight: 500,
+                    display: { xs: 'none', md: 'flex' },
+                  }}
+                />
+              </Tooltip>
+              <Tooltip title="Refresh Connection">
+                <IconButton
+                  size="small"
+                  onClick={() => refetchConnection()}
+                  sx={{
+                    color: 'text.secondary',
+                    '&:hover': {
+                      color: 'primary.main',
+                      transform: 'rotate(90deg)',
+                    },
+                    transition: 'all 0.3s',
+                  }}
+                >
+                  <RefreshIcon />
+                </IconButton>
+              </Tooltip>
             </Box>
           )}
 
+          {/* Theme Toggle */}
+          <Tooltip title={mode === 'dark' ? 'Light Mode' : 'Dark Mode'}>
+            <IconButton
+              onClick={toggleTheme}
+              size="small"
+              sx={{
+                color: 'text.secondary',
+                '&:hover': {
+                  color: 'primary.main',
+                },
+              }}
+            >
+              {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+            </IconButton>
+          </Tooltip>
+
           {/* Settings */}
-          <IconButton
-            color="inherit"
-            component={Link}
-            to="/settings"
-          >
-            <SettingsIcon />
-          </IconButton>
+          <Tooltip title="Settings">
+            <IconButton
+              component={Link}
+              to="/settings"
+              size="small"
+              sx={{
+                color: 'text.secondary',
+                '&:hover': {
+                  color: 'primary.main',
+                },
+              }}
+            >
+              <SettingsIcon />
+            </IconButton>
+          </Tooltip>
         </Box>
       </Toolbar>
     </AppBar>
