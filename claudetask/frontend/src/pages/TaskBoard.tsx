@@ -925,12 +925,13 @@ const TaskBoard: React.FC = () => {
                 />
               ) : (
                 selectedTask.analysis ? (
-                  <Typography 
-                    variant="body2" 
-                    paragraph 
-                    sx={{ 
+                  <Typography
+                    variant="body2"
+                    paragraph
+                    sx={{
                       whiteSpace: 'pre-wrap',
                       bgcolor: '#f5f5f5',
+                      color: '#1a1a1a',
                       p: 2,
                       borderRadius: 1,
                       fontFamily: 'monospace',
