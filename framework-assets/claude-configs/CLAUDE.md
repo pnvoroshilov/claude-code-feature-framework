@@ -163,15 +163,11 @@ Technical approach: [key points from systems-analyst]
 Ready to proceed with implementation"
 ```
 
-#### Feature Development → ⚠️ NO AUTO DELEGATION AFTER IN PROGRESS
+#### Feature Development → ⚠️ AUTO DELEGATION IN PROGRESS
 ```
 ⛔ IMPORTANT: When task moves to "In Progress" status:
-1. DO NOT delegate to implementation agents
-2. ONLY setup test environment (see Status Management section)
-3. Wait for user's manual development
-
-Feature development delegation ONLY when explicitly requested by user,
-NOT automatically after status changes.
+1. ALWAYS start developing automaticaly
+2. ALWAYS delegate to implementation agents
 ```
 
 #### Bug Fixes → `root-cause-analyst`, `performance-engineer`
