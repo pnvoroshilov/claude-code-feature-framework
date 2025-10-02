@@ -105,35 +105,61 @@ LOOP FOREVER:
 
 #### Analysis Status Tasks → `business-analyst` AND `systems-analyst`
 ```
-⚠️ WHEN TASK ENTERS "ANALYSIS" STATUS - ALWAYS DELEGATE TO BOTH:
+⚠️ WHEN TASK ENTERS "ANALYSIS" STATUS - ALWAYS DELEGATE SEQUENTIALLY:
 
-1. FIRST - Business Analyst:
+🔴 CRITICAL: SEQUENTIAL EXECUTION WITH DEEP THINKING
+- Execute business-analyst FIRST, wait for completion
+- THEN execute systems-analyst with business-analyst output
+- Both agents MUST use extended thinking for deep analysis
+
+1. FIRST - Business Analyst (MUST COMPLETE BEFORE NEXT STEP):
 Task tool with business-analyst:
-"Analyze business requirements and user needs for this task.
+"🧠 IMPORTANT: Use extended thinking to deeply analyze this task.
+
+Analyze business requirements and user needs for this task.
 Task details: [full task info from MCP]
-Create business requirements document including:
+
+Create comprehensive business requirements document including:
 - User stories and acceptance criteria
 - Business value and objectives
 - Stakeholder requirements
-- Process workflows"
+- Process workflows
+- Success metrics
 
-2. THEN - Systems Analyst:
+Think deeply about user needs and business impact before responding."
+
+2. WAIT FOR BUSINESS ANALYST COMPLETION - Get full output
+
+3. THEN - Systems Analyst (uses business-analyst results):
 Task tool with systems-analyst:
-"Analyze technical requirements and system design for this task.
+"🧠 IMPORTANT: Use extended thinking to deeply analyze technical approach.
+
+Analyze technical requirements and system design for this task.
+
 Task details: [full task info from MCP]
-Business analysis: [results from business-analyst]
+
+Business analysis results:
+[PASTE COMPLETE OUTPUT from business-analyst here]
+
 Current codebase context: [relevant file paths]
-Create technical specification including:
+
+Create comprehensive technical specification including:
 - System architecture impact
 - Integration points
 - Technical implementation approach
-- Data flow and dependencies"
+- Data flow and dependencies
+- Technology stack decisions
+- Performance considerations
 
-3. AFTER BOTH COMPLETE - Save Results:
+Think deeply about technical implications and architecture before responding."
+
+4. AFTER BOTH COMPLETE - Save Combined Results:
 mcp__claudetask__append_stage_result --task_id={id} --status="Analysis" \
-  --summary="Business and technical analysis completed" \
+  --summary="Business and technical analysis completed with deep thinking" \
   --details="Business requirements: [key points from business-analyst]
+
 Technical approach: [key points from systems-analyst]
+
 Ready to proceed with implementation"
 ```
 
