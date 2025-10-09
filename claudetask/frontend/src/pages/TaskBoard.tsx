@@ -152,17 +152,12 @@ const TaskBoard: React.FC = () => {
       return;
     }
 
-    if (descriptionTrimmed.length > 1000) {
-      setSnackbar({ open: true, message: 'Description must be 1000 characters or less', severity: 'error' });
-      return;
-    }
-
     const taskData = {
       ...newTask,
       title: titleTrimmed,
       ...(descriptionTrimmed && { description: descriptionTrimmed })
     };
-    
+
     createTaskMutation.mutate(taskData);
   };
 
@@ -367,11 +362,6 @@ const TaskBoard: React.FC = () => {
 
     if (titleTrimmed.length > 200) {
       setSnackbar({ open: true, message: 'Title must be 200 characters or less', severity: 'error' });
-      return;
-    }
-
-    if (descriptionTrimmed.length > 1000) {
-      setSnackbar({ open: true, message: 'Description must be 1000 characters or less', severity: 'error' });
       return;
     }
 
