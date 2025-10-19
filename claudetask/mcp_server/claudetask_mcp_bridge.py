@@ -10,10 +10,16 @@ import asyncio
 import json
 import argparse
 import httpx
+import sys
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from mcp.server import Server
 from mcp.server.models import InitializationOptions
 import mcp.types as types
+
+# Add parent directory to path for config import
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from config import get_config
 
 # RAG imports
 from rag import RAGService, RAGConfig
@@ -184,10 +190,10 @@ class ClaudeTaskMCPServer:
             "Testing", "Code Review", "PR", "Done"
         ]
 
-        # Initialize RAG service
-        import os
+        # Initialize RAG service with centralized config
+        config = get_config(project_path)
         self.rag_service = RAGService(RAGConfig(
-            chromadb_path=os.path.join(project_path, ".claudetask/chromadb"),
+            chromadb_path=str(config.chromadb_dir),
             embedding_model="all-MiniLM-L6-v2",
             chunk_size=500,
             chunk_overlap=50
@@ -2487,7 +2493,8 @@ Task is now ready for final status updates or closure."""
             for i, chunk in enumerate(results, 1):
                 response += f"**{i}. {chunk.file_path}** (lines {chunk.start_line}-{chunk.end_line})\n"
                 response += f"   Type: {chunk.chunk_type} | Language: {chunk.language}\n"
-                response += f"   Summary: {chunk.summary}\n\n"
+                response += f"   Summary: {chunk.summary}\n"
+                response += f"   Code:\n```{chunk.language}\n{chunk.content}\n```\n\n"
 
             return [types.TextContent(type="text", text=response)]
 

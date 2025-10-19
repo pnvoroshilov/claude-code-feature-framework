@@ -184,8 +184,9 @@ class RAGService:
                 where=filters if filters else {}
             )
 
-            # Convert to CodeChunk objects
+            # Convert to CodeChunk objects with deduplication
             code_chunks = []
+            seen_chunks = set()  # Track unique chunks by (file_path, start_line, end_line)
 
             if results and results['ids'] and len(results['ids']) > 0:
                 ids = results['ids'][0]
@@ -194,6 +195,21 @@ class RAGService:
 
                 for i in range(len(ids)):
                     metadata = metadatas[i]
+
+                    # Create unique identifier for deduplication
+                    chunk_key = (
+                        metadata.get('file_path', ''),
+                        metadata.get('start_line', 0),
+                        metadata.get('end_line', 0)
+                    )
+
+                    # Skip if we've already seen this chunk
+                    if chunk_key in seen_chunks:
+                        logger.debug(f"Skipping duplicate chunk: {chunk_key}")
+                        continue
+
+                    seen_chunks.add(chunk_key)
+
                     chunk = CodeChunk(
                         chunk_id=ids[i],
                         repository="main",
@@ -243,8 +259,9 @@ class RAGService:
                 n_results=top_k
             )
 
-            # Convert to task dictionaries
+            # Convert to task dictionaries with deduplication
             similar_tasks = []
+            seen_tasks = set()  # Track unique tasks by task_id
 
             if results and results['ids'] and len(results['ids']) > 0:
                 ids = results['ids'][0]
@@ -254,11 +271,20 @@ class RAGService:
 
                 for i in range(len(ids)):
                     metadata = metadatas[i]
+                    task_id = metadata.get('task_id')
+
+                    # Skip if we've already seen this task
+                    if task_id in seen_tasks:
+                        logger.debug(f"Skipping duplicate task: {task_id}")
+                        continue
+
+                    seen_tasks.add(task_id)
+
                     # Convert distance to similarity (1 - distance for L2, higher is better)
                     similarity = 1.0 - distances[i] if i < len(distances) else 0.0
 
                     task = {
-                        'task_id': metadata.get('task_id'),
+                        'task_id': task_id,
                         'title': metadata.get('title', ''),
                         'task_type': metadata.get('task_type', ''),
                         'priority': metadata.get('priority', ''),
@@ -356,7 +382,6 @@ class RAGService:
 
         from chunking import GenericChunker
         import os
-        import uuid
 
         chunker = GenericChunker(
             chunk_size=self.config.chunk_size,
@@ -416,11 +441,11 @@ class RAGService:
                                 f"{summary}\n\n{chunk_content}"
                             ).tolist()
 
-                            # Generate unique ID
-                            chunk_id = str(uuid.uuid4())
+                            # Generate deterministic ID based on file path and line numbers
+                            chunk_id = f"{metadata.file_path}:{metadata.start_line}:{metadata.end_line}"
 
-                            # Add to ChromaDB
-                            self.codebase_collection.add(
+                            # Upsert to ChromaDB (replaces if ID exists, adds if new)
+                            self.codebase_collection.upsert(
                                 ids=[chunk_id],
                                 embeddings=[embedding],
                                 documents=[chunk_content],
@@ -465,7 +490,6 @@ class RAGService:
 
         from chunking import GenericChunker
         import os
-        import uuid
 
         chunker = GenericChunker(
             chunk_size=self.config.chunk_size,
@@ -536,11 +560,11 @@ class RAGService:
                             f"{summary}\n\n{chunk_content}"
                         ).tolist()
 
-                        # Generate unique ID
-                        chunk_id = str(uuid.uuid4())
+                        # Generate deterministic ID based on file path and line numbers
+                        chunk_id = f"{metadata.file_path}:{metadata.start_line}:{metadata.end_line}"
 
-                        # Add to ChromaDB
-                        self.codebase_collection.add(
+                        # Upsert to ChromaDB (replaces if ID exists, adds if new)
+                        self.codebase_collection.upsert(
                             ids=[chunk_id],
                             embeddings=[embedding],
                             documents=[chunk_content],
@@ -641,8 +665,8 @@ Stage Results:
                 # Collection might be empty or ID doesn't exist - this is fine
                 logger.debug(f"No existing entry for task #{task_id}: {e}")
 
-            # Add to ChromaDB
-            self.tasks_collection.add(
+            # Upsert to ChromaDB (replaces if task already indexed)
+            self.tasks_collection.upsert(
                 ids=[chunk_id],
                 embeddings=[embedding],
                 documents=[task_text],
@@ -694,7 +718,6 @@ Stage Results:
         deleted_chunks = 0
 
         from chunking import GenericChunker
-        import uuid
 
         chunker = GenericChunker(
             chunk_size=self.config.chunk_size,
@@ -771,9 +794,10 @@ Stage Results:
                                 f"{summary}\n\n{chunk_content}"
                             ).tolist()
 
-                            chunk_id = str(uuid.uuid4())
+                            # Generate deterministic ID based on file path and line numbers
+                            chunk_id = f"{chunk_metadata.file_path}:{chunk_metadata.start_line}:{chunk_metadata.end_line}"
 
-                            self.codebase_collection.add(
+                            self.codebase_collection.upsert(
                                 ids=[chunk_id],
                                 embeddings=[embedding],
                                 documents=[chunk_content],
@@ -903,10 +927,10 @@ Stage Results:
                         # Generate embedding
                         embedding = self.embedding_model.encode(f"{summary}\n\n{chunk_content}").tolist()
 
-                        # Store in ChromaDB
-                        chunk_id = f"{chunk_metadata.file_path}:{chunk_metadata.start_line}"
+                        # Store in ChromaDB with deterministic ID
+                        chunk_id = f"{chunk_metadata.file_path}:{chunk_metadata.start_line}:{chunk_metadata.end_line}"
 
-                        self.codebase_collection.add(
+                        self.codebase_collection.upsert(
                             ids=[chunk_id],
                             embeddings=[embedding],
                             documents=[chunk_content],

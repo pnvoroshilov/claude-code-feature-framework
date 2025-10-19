@@ -4,12 +4,21 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 import os
+import sys
+from pathlib import Path
 from typing import Generator
 from .models import Base
 
-# Database URL - SQLite
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/claudetask.db")
-SYNC_DATABASE_URL = DATABASE_URL.replace("sqlite+aiosqlite", "sqlite")
+# Add parent directory to path for config import
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from config import get_config
+
+# Initialize centralized config
+config = get_config()
+
+# Database URL - SQLite (from centralized config)
+DATABASE_URL = os.getenv("DATABASE_URL", config.sqlite_db_url)
+SYNC_DATABASE_URL = os.getenv("SYNC_DATABASE_URL", config.sqlite_db_url_sync)
 
 # Create async engine
 engine = create_async_engine(
