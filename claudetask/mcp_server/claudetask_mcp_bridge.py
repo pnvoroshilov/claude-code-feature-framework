@@ -1216,7 +1216,19 @@ Description:
                 task_response = await client.get(f"{self.server_url}/api/tasks/{task_id}")
                 task_response.raise_for_status()
                 task = task_response.json()
-                
+
+                # If status changed to Done, index the task in RAG
+                rag_index_status = ""
+                if status == "Done" and self.rag_initialized:
+                    try:
+                        self.logger.info(f"Task #{task_id} marked as Done. Indexing in RAG task history...")
+                        await self.rag_service.index_task(task)
+                        rag_index_status = "\n- RAG Task Indexed: ✅ Yes (available for future similarity search)"
+                        self.logger.info(f"Task #{task_id} indexed successfully in RAG task history")
+                    except Exception as e:
+                        rag_index_status = f"\n- RAG Task Indexed: ⚠️ Failed ({str(e)})"
+                        self.logger.error(f"Failed to index task #{task_id} in RAG: {e}")
+
                 # Get next steps guidance
                 progression_guide = self._get_status_progression_instructions(task['type'], status)
                 
@@ -1279,7 +1291,7 @@ Task #{task_id}: {task['title']}
 Type: {task['type']}
 New Status: {status}
 {f"Comment: {comment}" if comment else ""}
-{sync_message}
+{sync_message}{rag_index_status}
 {worktree_info}
 {pr_instructions}
 {progression_guide}

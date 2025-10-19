@@ -250,16 +250,21 @@ class RAGService:
                 ids = results['ids'][0]
                 metadatas = results['metadatas'][0]
                 documents = results['documents'][0]
+                distances = results.get('distances', [[]])[0] if 'distances' in results else []
 
                 for i in range(len(ids)):
                     metadata = metadatas[i]
+                    # Convert distance to similarity (1 - distance for L2, higher is better)
+                    similarity = 1.0 - distances[i] if i < len(distances) else 0.0
+
                     task = {
                         'task_id': metadata.get('task_id'),
                         'title': metadata.get('title', ''),
                         'task_type': metadata.get('task_type', ''),
                         'priority': metadata.get('priority', ''),
                         'status': metadata.get('status', ''),
-                        'description': documents[i]
+                        'content': documents[i],
+                        'similarity': similarity
                     }
                     similar_tasks.append(task)
 
