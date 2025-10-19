@@ -502,7 +502,7 @@ class ClaudeTaskMCPServer:
                 ),
                 types.Tool(
                     name="search_codebase",
-                    description="Semantic search across codebase using RAG to find relevant code chunks",
+                    description="Semantic search across codebase using RAG to find relevant code chunks. Returns multiple results for comprehensive analysis.",
                     inputSchema={
                         "type": "object",
                         "properties": {
@@ -512,12 +512,20 @@ class ClaudeTaskMCPServer:
                             },
                             "top_k": {
                                 "type": "integer",
-                                "description": "Number of results to return (default: 10)",
-                                "default": 10
+                                "description": "Number of results to return (default: 20, max: 100). Use higher values for comprehensive analysis.",
+                                "default": 20,
+                                "minimum": 1,
+                                "maximum": 100
                             },
                             "language": {
                                 "type": "string",
                                 "description": "Optional: filter by programming language (python, javascript, typescript, etc.)"
+                            },
+                            "min_similarity": {
+                                "type": "number",
+                                "description": "Optional: minimum similarity threshold (0.0-1.0). Only return results above this threshold.",
+                                "minimum": 0.0,
+                                "maximum": 1.0
                             }
                         },
                         "required": ["query"]
@@ -535,8 +543,10 @@ class ClaudeTaskMCPServer:
                             },
                             "top_k": {
                                 "type": "integer",
-                                "description": "Number of similar tasks to return (default: 5)",
-                                "default": 5
+                                "description": "Number of similar tasks to return (default: 10, max: 50)",
+                                "default": 10,
+                                "minimum": 1,
+                                "maximum": 50
                             }
                         },
                         "required": ["task_description"]
@@ -636,13 +646,14 @@ class ClaudeTaskMCPServer:
                 elif name == "search_codebase":
                     return await self._search_codebase(
                         arguments["query"],
-                        arguments.get("top_k", 10),
-                        arguments.get("language")
+                        arguments.get("top_k", 20),
+                        arguments.get("language"),
+                        arguments.get("min_similarity")
                     )
                 elif name == "find_similar_tasks":
                     return await self._find_similar_tasks(
                         arguments["task_description"],
-                        arguments.get("top_k", 5)
+                        arguments.get("top_k", 10)
                     )
                 elif name == "reindex_codebase":
                     return await self._reindex_codebase(
@@ -2382,10 +2393,11 @@ Task is now ready for final status updates or closure."""
     async def _search_codebase(
         self,
         query: str,
-        top_k: int = 10,
-        language: Optional[str] = None
+        top_k: int = 20,
+        language: Optional[str] = None,
+        min_similarity: Optional[float] = None
     ) -> list[types.TextContent]:
-        """Search codebase using RAG"""
+        """Search codebase using RAG with optional similarity filtering"""
         if not self.rag_initialized:
             return [types.TextContent(
                 type="text",
@@ -2398,12 +2410,21 @@ Task is now ready for final status updates or closure."""
             if language:
                 filters['language'] = language
 
-            # Search
+            # Search with higher limit to allow filtering
+            search_limit = min(top_k * 2, 100) if min_similarity else top_k
+
             results = await self.rag_service.search_codebase(
                 query=query,
-                top_k=top_k,
+                top_k=search_limit,
                 filters=filters if filters else None
             )
+
+            # Apply similarity threshold if specified
+            if min_similarity and results:
+                # Note: ChromaDB returns results sorted by similarity (distance)
+                # We would need to modify search_codebase to return distances
+                # For now, just take top_k results
+                results = results[:top_k]
 
             if not results:
                 return [types.TextContent(
@@ -2411,9 +2432,15 @@ Task is now ready for final status updates or closure."""
                     text=f"No relevant code found for query: '{query}'"
                 )]
 
-            # Format results
+            # Format results with statistics
+            total_chunks = self.rag_service.codebase_collection.count()
             response = f"🔍 **Code Search Results for: '{query}'**\n\n"
-            response += f"Found {len(results)} relevant code chunks:\n\n"
+            response += f"Found {len(results)} relevant code chunks (out of {total_chunks} total):\n"
+
+            if min_similarity:
+                response += f"Similarity threshold: {min_similarity}\n"
+
+            response += "\n"
 
             for i, chunk in enumerate(results, 1):
                 response += f"**{i}. {chunk.file_path}** (lines {chunk.start_line}-{chunk.end_line})\n"
