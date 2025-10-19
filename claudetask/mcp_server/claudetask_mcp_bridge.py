@@ -15,6 +15,9 @@ from mcp.server import Server
 from mcp.server.models import InitializationOptions
 import mcp.types as types
 
+# RAG imports
+from rag import RAGService, RAGConfig
+
 
 class ClaudeTaskMCPServer:
     """MCP Server for ClaudeTask integration"""
@@ -177,10 +180,20 @@ class ClaudeTaskMCPServer:
         
         # Status progression flow
         self.status_flow = [
-            "Backlog", "Analysis", "Ready", "In Progress", 
+            "Backlog", "Analysis", "Ready", "In Progress",
             "Testing", "Code Review", "PR", "Done"
         ]
-        
+
+        # Initialize RAG service
+        import os
+        self.rag_service = RAGService(RAGConfig(
+            chromadb_path=os.path.join(project_path, ".claudetask/chromadb"),
+            embedding_model="all-MiniLM-L6-v2",
+            chunk_size=500,
+            chunk_overlap=50
+        ))
+        self.rag_initialized = False  # Will be set to True after async init
+
         # Setup tool handlers
         self._setup_tools()
         
@@ -486,6 +499,63 @@ class ClaudeTaskMCPServer:
                         },
                         "required": ["task_id"]
                     }
+                ),
+                types.Tool(
+                    name="search_codebase",
+                    description="Semantic search across codebase using RAG to find relevant code chunks",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Natural language query describing what code you're looking for"
+                            },
+                            "top_k": {
+                                "type": "integer",
+                                "description": "Number of results to return (default: 10)",
+                                "default": 10
+                            },
+                            "language": {
+                                "type": "string",
+                                "description": "Optional: filter by programming language (python, javascript, typescript, etc.)"
+                            }
+                        },
+                        "required": ["query"]
+                    }
+                ),
+                types.Tool(
+                    name="find_similar_tasks",
+                    description="Find similar historical tasks using RAG to learn from past implementations",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "task_description": {
+                                "type": "string",
+                                "description": "Description of the current task"
+                            },
+                            "top_k": {
+                                "type": "integer",
+                                "description": "Number of similar tasks to return (default: 5)",
+                                "default": 5
+                            }
+                        },
+                        "required": ["task_description"]
+                    }
+                ),
+                types.Tool(
+                    name="reindex_codebase",
+                    description="Trigger incremental reindexing of codebase (used after merge to main)",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "full_reindex": {
+                                "type": "boolean",
+                                "description": "If true, perform full reindex instead of incremental (default: false)",
+                                "default": False
+                            }
+                        },
+                        "required": []
+                    }
                 )
             ]
 
@@ -562,6 +632,21 @@ class ClaudeTaskMCPServer:
                 elif name == "stop_session":
                     return await self._stop_session(
                         arguments["task_id"]
+                    )
+                elif name == "search_codebase":
+                    return await self._search_codebase(
+                        arguments["query"],
+                        arguments.get("top_k", 10),
+                        arguments.get("language")
+                    )
+                elif name == "find_similar_tasks":
+                    return await self._find_similar_tasks(
+                        arguments["task_description"],
+                        arguments.get("top_k", 5)
+                    )
+                elif name == "reindex_codebase":
+                    return await self._reindex_codebase(
+                        arguments.get("full_reindex", False)
                     )
                 else:
                     raise ValueError(f"Unknown tool: {name}")
@@ -1798,7 +1883,20 @@ Here are all the agents available for task delegation:
                 
                 if result.get("success"):
                     status_emoji = "✅" if result.get("merged") else "📝"
-                    
+
+                    # If merged to main, trigger RAG reindexing of changed files only
+                    reindex_status = ""
+                    if result.get("merged") and self.rag_initialized:
+                        try:
+                            self.logger.info(f"Task #{task_id} merged to main. Triggering RAG reindexing of changed files...")
+                            # Reindex only files changed in the merge commit (HEAD is the merge commit)
+                            await self.rag_service.reindex_merge_commit(self.project_path)
+                            reindex_status = "- RAG Index Updated: ✅ Yes (changed files only)\n"
+                            self.logger.info("RAG reindexing completed successfully")
+                        except Exception as e:
+                            reindex_status = f"- RAG Index Updated: ⚠️  Failed ({str(e)})\n"
+                            self.logger.error(f"RAG reindexing failed: {e}")
+
                     response_text = f"""{status_emoji} TASK COMPLETION - Task #{task_id}
 
 📋 Task: {task['title']}
@@ -1806,9 +1904,9 @@ Here are all the agents available for task delegation:
 
 🎯 RESULTS:
 - Merged to main: {'✅ Yes' if result.get('merged') else '❌ No'}
-- Worktree removed: {'✅ Yes' if result.get('worktree_removed') else '❌ No'}  
+- Worktree removed: {'✅ Yes' if result.get('worktree_removed') else '❌ No'}
 - Branch deleted: {'✅ Yes' if result.get('branch_deleted') else '❌ No'}
-"""
+{reindex_status}"""
                     
                     if result.get('pr_url'):
                         response_text += f"- Pull Request: {result['pr_url']}\n"
@@ -2281,11 +2379,153 @@ Task is now ready for final status updates or closure."""
                     text=f"Error stopping session for task {task_id}: {str(e)}"
                 )]
 
+    async def _search_codebase(
+        self,
+        query: str,
+        top_k: int = 10,
+        language: Optional[str] = None
+    ) -> list[types.TextContent]:
+        """Search codebase using RAG"""
+        if not self.rag_initialized:
+            return [types.TextContent(
+                type="text",
+                text="⚠️  RAG service not initialized. Cannot search codebase."
+            )]
+
+        try:
+            # Build filters
+            filters = {}
+            if language:
+                filters['language'] = language
+
+            # Search
+            results = await self.rag_service.search_codebase(
+                query=query,
+                top_k=top_k,
+                filters=filters if filters else None
+            )
+
+            if not results:
+                return [types.TextContent(
+                    type="text",
+                    text=f"No relevant code found for query: '{query}'"
+                )]
+
+            # Format results
+            response = f"🔍 **Code Search Results for: '{query}'**\n\n"
+            response += f"Found {len(results)} relevant code chunks:\n\n"
+
+            for i, chunk in enumerate(results, 1):
+                response += f"**{i}. {chunk.file_path}** (lines {chunk.start_line}-{chunk.end_line})\n"
+                response += f"   Type: {chunk.chunk_type} | Language: {chunk.language}\n"
+                response += f"   Summary: {chunk.summary}\n\n"
+
+            return [types.TextContent(type="text", text=response)]
+
+        except Exception as e:
+            return [types.TextContent(
+                type="text",
+                text=f"Error searching codebase: {str(e)}"
+            )]
+
+    async def _find_similar_tasks(
+        self,
+        task_description: str,
+        top_k: int = 5
+    ) -> list[types.TextContent]:
+        """Find similar historical tasks"""
+        if not self.rag_initialized:
+            return [types.TextContent(
+                type="text",
+                text="⚠️  RAG service not initialized. Cannot search tasks."
+            )]
+
+        try:
+            results = await self.rag_service.find_similar_tasks(
+                task_description=task_description,
+                top_k=top_k
+            )
+
+            if not results:
+                return [types.TextContent(
+                    type="text",
+                    text=f"No similar tasks found for: '{task_description}'"
+                )]
+
+            # Format results
+            response = f"📋 **Similar Tasks Found**\n\n"
+            response += f"Found {len(results)} similar tasks:\n\n"
+
+            for i, task in enumerate(results, 1):
+                response += f"**{i}. Task #{task.get('task_id')}**: {task.get('title')}\n"
+                response += f"   Type: {task.get('task_type')} | Priority: {task.get('priority')}\n"
+                response += f"   Status: {task.get('status')}\n\n"
+
+            return [types.TextContent(type="text", text=response)]
+
+        except Exception as e:
+            return [types.TextContent(
+                type="text",
+                text=f"Error finding similar tasks: {str(e)}"
+            )]
+
+    async def _reindex_codebase(
+        self,
+        full_reindex: bool = False
+    ) -> list[types.TextContent]:
+        """Reindex codebase (incremental or full)"""
+        if not self.rag_initialized:
+            return [types.TextContent(
+                type="text",
+                text="⚠️  RAG service not initialized. Cannot reindex."
+            )]
+
+        try:
+            if full_reindex:
+                self.logger.info("Starting full codebase reindex...")
+                await self.rag_service.index_codebase(self.project_path)
+                return [types.TextContent(
+                    type="text",
+                    text="✅ Full codebase reindexing completed successfully"
+                )]
+            else:
+                self.logger.info("Starting incremental codebase reindex...")
+                await self.rag_service.update_index_incremental(self.project_path)
+                return [types.TextContent(
+                    type="text",
+                    text="✅ Incremental codebase reindexing completed successfully"
+                )]
+
+        except Exception as e:
+            return [types.TextContent(
+                type="text",
+                text=f"Error reindexing codebase: {str(e)}"
+            )]
+
     async def run(self):
         """Run the MCP server"""
         from mcp.server.stdio import stdio_server
         from mcp.server.models import ServerCapabilities
-        
+
+        # Initialize RAG service in background
+        try:
+            self.logger.info("Initializing RAG service...")
+            await self.rag_service.initialize()
+            self.rag_initialized = True
+            self.logger.info("RAG service initialized successfully")
+
+            # Check if index exists, if not - create initial index
+            if not await self.rag_service.index_exists():
+                self.logger.info("No RAG index found. Creating initial index...")
+                await self.rag_service.index_codebase(self.project_path)
+            else:
+                self.logger.info("RAG index exists. Running incremental update...")
+                await self.rag_service.update_index_incremental(self.project_path)
+
+        except Exception as e:
+            self.logger.error(f"Failed to initialize RAG service: {e}")
+            self.logger.warning("Server will run without RAG features")
+
         async with stdio_server() as (read_stream, write_stream):
             await self.server.run(
                 read_stream,
