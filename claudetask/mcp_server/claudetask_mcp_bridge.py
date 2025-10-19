@@ -566,6 +566,30 @@ class ClaudeTaskMCPServer:
                         },
                         "required": []
                     }
+                ),
+                types.Tool(
+                    name="index_codebase",
+                    description="Index entire codebase for RAG semantic search. Use this for initial indexing or when you want to rebuild the entire index from scratch.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {},
+                        "required": []
+                    }
+                ),
+                types.Tool(
+                    name="index_files",
+                    description="Index or re-index specific files for RAG semantic search. Useful for updating the index after modifying specific files.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "file_paths": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "List of file paths to index (absolute or relative to project root)"
+                            }
+                        },
+                        "required": ["file_paths"]
+                    }
                 )
             ]
 
@@ -658,6 +682,12 @@ class ClaudeTaskMCPServer:
                 elif name == "reindex_codebase":
                     return await self._reindex_codebase(
                         arguments.get("full_reindex", False)
+                    )
+                elif name == "index_codebase":
+                    return await self._index_codebase()
+                elif name == "index_files":
+                    return await self._index_files(
+                        arguments["file_paths"]
                     )
                 else:
                     raise ValueError(f"Unknown tool: {name}")
@@ -2539,6 +2569,63 @@ Task is now ready for final status updates or closure."""
             return [types.TextContent(
                 type="text",
                 text=f"Error reindexing codebase: {str(e)}"
+            )]
+
+    async def _index_codebase(self) -> list[types.TextContent]:
+        """Index entire codebase from scratch"""
+        if not self.rag_initialized:
+            return [types.TextContent(
+                type="text",
+                text="⚠️  RAG service not initialized. Cannot index codebase."
+            )]
+
+        try:
+            self.logger.info("Starting full codebase indexing...")
+            await self.rag_service.index_codebase(self.project_path)
+
+            # Get collection stats
+            count = self.rag_service.codebase_collection.count()
+
+            return [types.TextContent(
+                type="text",
+                text=f"✅ Codebase indexing completed successfully\n\nTotal chunks indexed: {count}"
+            )]
+
+        except Exception as e:
+            self.logger.error(f"Error indexing codebase: {e}")
+            return [types.TextContent(
+                type="text",
+                text=f"❌ Error indexing codebase: {str(e)}"
+            )]
+
+    async def _index_files(self, file_paths: list[str]) -> list[types.TextContent]:
+        """Index specific files"""
+        if not self.rag_initialized:
+            return [types.TextContent(
+                type="text",
+                text="⚠️  RAG service not initialized. Cannot index files."
+            )]
+
+        try:
+            self.logger.info(f"Starting indexing of {len(file_paths)} files...")
+            result = await self.rag_service.index_files(file_paths, self.project_path)
+
+            response_text = f"""✅ File indexing completed successfully
+
+Files indexed: {result['indexed_files']}
+Files skipped: {result['skipped_files']}
+Total chunks: {result['total_chunks']}"""
+
+            return [types.TextContent(
+                type="text",
+                text=response_text
+            )]
+
+        except Exception as e:
+            self.logger.error(f"Error indexing files: {e}")
+            return [types.TextContent(
+                type="text",
+                text=f"❌ Error indexing files: {str(e)}"
             )]
 
     async def run(self):

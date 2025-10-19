@@ -452,6 +452,132 @@ class RAGService:
             logger.error(f"Codebase indexing failed: {e}")
             raise
 
+    async def index_files(self, file_paths: List[str], repo_path: str):
+        """
+        Index specific files (or re-index existing files).
+        Useful for updating index after file modifications.
+
+        Args:
+            file_paths: List of file paths (absolute or relative to repo_path)
+            repo_path: Path to repository root
+        """
+        logger.info(f"Starting indexing of {len(file_paths)} files")
+
+        from chunking import GenericChunker
+        import os
+        import uuid
+
+        chunker = GenericChunker(
+            chunk_size=self.config.chunk_size,
+            chunk_overlap=self.config.chunk_overlap
+        )
+
+        # Supported file extensions
+        supported_extensions = {
+            '.py', '.js', '.ts', '.tsx', '.jsx',
+            '.java', '.cs', '.go', '.rs', '.cpp', '.c',
+            '.rb', '.php', '.swift', '.kt'
+        }
+
+        total_chunks = 0
+        indexed_files = 0
+        skipped_files = 0
+
+        try:
+            for file_path in file_paths:
+                # Convert to absolute path if needed
+                if not os.path.isabs(file_path):
+                    abs_path = os.path.join(repo_path, file_path)
+                else:
+                    abs_path = file_path
+
+                # Check if file exists
+                if not os.path.exists(abs_path):
+                    logger.warning(f"File not found: {abs_path}")
+                    skipped_files += 1
+                    continue
+
+                # Check file extension
+                ext = os.path.splitext(abs_path)[1].lower()
+                if ext not in supported_extensions:
+                    logger.warning(f"Unsupported file type: {abs_path} (extension: {ext})")
+                    skipped_files += 1
+                    continue
+
+                relative_path = os.path.relpath(abs_path, repo_path)
+
+                try:
+                    # Remove existing chunks for this file before re-indexing
+                    existing = self.codebase_collection.get(
+                        where={"file_path": relative_path}
+                    )
+                    if existing and existing['ids']:
+                        logger.info(f"Removing {len(existing['ids'])} existing chunks for {relative_path}")
+                        self.codebase_collection.delete(ids=existing['ids'])
+
+                    # Read file content
+                    with open(abs_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+
+                    # Detect language
+                    language = self._detect_language(ext)
+
+                    # Chunk the file
+                    chunks = chunker.chunk_code(content, relative_path, language)
+
+                    # Index each chunk
+                    file_chunks = 0
+                    for chunk_content, metadata in chunks:
+                        # Generate summary
+                        summary = chunker.generate_summary(chunk_content, metadata)
+
+                        # Create embedding
+                        embedding = self.embedding_model.encode(
+                            f"{summary}\n\n{chunk_content}"
+                        ).tolist()
+
+                        # Generate unique ID
+                        chunk_id = str(uuid.uuid4())
+
+                        # Add to ChromaDB
+                        self.codebase_collection.add(
+                            ids=[chunk_id],
+                            embeddings=[embedding],
+                            documents=[chunk_content],
+                            metadatas=[{
+                                'file_path': metadata.file_path,
+                                'language': metadata.language,
+                                'start_line': metadata.start_line,
+                                'end_line': metadata.end_line,
+                                'chunk_type': metadata.chunk_type,
+                                'summary': summary,
+                                'symbols': ','.join(metadata.symbols) if metadata.symbols else ''
+                            }]
+                        )
+
+                        file_chunks += 1
+                        total_chunks += 1
+
+                    indexed_files += 1
+                    logger.info(f"Indexed {relative_path}: {file_chunks} chunks")
+
+                except Exception as e:
+                    logger.error(f"Failed to index {abs_path}: {e}")
+                    skipped_files += 1
+                    continue
+
+            logger.info(f"File indexing complete: {indexed_files} indexed, {skipped_files} skipped, {total_chunks} total chunks")
+
+            return {
+                'indexed_files': indexed_files,
+                'skipped_files': skipped_files,
+                'total_chunks': total_chunks
+            }
+
+        except Exception as e:
+            logger.error(f"File indexing failed: {e}")
+            raise
+
     def _detect_language(self, ext: str) -> str:
         """Detect programming language from file extension"""
         language_map = {
