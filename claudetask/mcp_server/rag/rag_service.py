@@ -475,32 +475,45 @@ class RAGService:
 
     async def index_task(self, task: Dict[str, Any]):
         """
-        Index a completed task.
+        Index a completed task (idempotent - replaces existing entry).
         Called when task status changes to Done.
 
         Args:
             task: Task dictionary with all details
         """
-        import uuid
-
         task_id = task.get('id')
         logger.info(f"Indexing task #{task_id}")
 
         try:
-            # Prepare task text for embedding
+            # Prepare task text for embedding (include stage results if available)
+            stage_results = task.get('cumulative_results', '')
+
             task_text = f"""
 Title: {task.get('title', '')}
 Type: {task.get('task_type', '')}
 Priority: {task.get('priority', '')}
 Description: {task.get('description', '')}
 Analysis: {task.get('analysis', '')}
+
+Stage Results:
+{stage_results}
 """
 
             # Create embedding
             embedding = self.embedding_model.encode(task_text).tolist()
 
-            # Generate unique ID
-            chunk_id = f"task_{task_id}_{uuid.uuid4()}"
+            # Use deterministic ID for idempotent indexing
+            chunk_id = f"task_{task_id}"
+
+            # Delete existing entry if present (to enable re-indexing)
+            try:
+                existing = self.tasks_collection.get(ids=[chunk_id])
+                if existing and existing['ids']:
+                    logger.info(f"Removing existing index for task #{task_id}")
+                    self.tasks_collection.delete(ids=[chunk_id])
+            except Exception as e:
+                # Collection might be empty or ID doesn't exist - this is fine
+                logger.debug(f"No existing entry for task #{task_id}: {e}")
 
             # Add to ChromaDB
             self.tasks_collection.add(
