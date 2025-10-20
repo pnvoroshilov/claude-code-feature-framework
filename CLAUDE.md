@@ -26,6 +26,106 @@
 
 **VIOLATIONS OF THESE RULES WILL RESULT IN DATA LOSS**
 
+## 🔍 MANDATORY RAG USAGE - CRITICAL REQUIREMENT
+
+### 🔴 BEFORE DELEGATING ANY TASK - USE RAG SEARCH
+
+**YOU MUST ALWAYS use RAG (Retrieval-Augmented Generation) tools to gather context BEFORE delegating tasks to agents.**
+
+### Required RAG Workflow for ALL Task Delegations:
+
+```
+MANDATORY STEPS BEFORE DELEGATION:
+
+1. 🔍 SEARCH CODEBASE WITH RAG:
+   mcp__claudetask__search_codebase(
+     query="<semantic description of task requirements>",
+     top_k=20,  # or more for complex tasks
+     language="python|typescript|javascript"  # optional filter
+   )
+
+2. 📚 FIND SIMILAR TASKS:
+   mcp__claudetask__find_similar_tasks(
+     task_description="<current task description>",
+     top_k=10
+   )
+
+3. 📋 ANALYZE RAG RESULTS:
+   - Review semantic search results
+   - Identify relevant code patterns
+   - Note similar past implementations
+   - Extract key files and components
+
+4. 🤖 DELEGATE WITH RAG CONTEXT:
+   - Include RAG findings in delegation prompt
+   - Reference relevant files discovered
+   - Mention similar task learnings
+   - Provide comprehensive context
+```
+
+### Example RAG-Enhanced Delegation:
+
+```
+❌ WRONG - No RAG context:
+Task tool with frontend-developer:
+"Add a login button to the header component"
+
+✅ CORRECT - With RAG context:
+Step 1: Search codebase
+→ mcp__claudetask__search_codebase("header component React TypeScript login button UI")
+
+Step 2: Find similar tasks
+→ mcp__claudetask__find_similar_tasks("add login button header")
+
+Step 3: Delegate with context
+Task tool with frontend-developer:
+"Add a login button to the header component.
+
+🔍 RAG FINDINGS:
+- Existing header: src/components/Header.tsx (line 45-120)
+- Similar buttons: LoginButton.tsx, SignupButton.tsx
+- Material-UI patterns used: <Button variant='contained' startIcon={...}>
+- Authentication flow: src/services/auth.ts
+
+📚 SIMILAR TASKS:
+- Task #12: Added signup button (used Material-UI Button with custom icon)
+- Task #34: Implemented social login (integrated with auth service)
+
+Please implement following existing patterns found in RAG search."
+```
+
+### When to Use RAG:
+
+**ALWAYS use RAG for:**
+- ✅ Feature development tasks
+- ✅ Bug fixes requiring code location
+- ✅ Refactoring tasks
+- ✅ Integration work
+- ✅ ANY task involving codebase changes
+
+**Available RAG Tools:**
+
+1. **`mcp__claudetask__search_codebase`** - Semantic code search
+   - Finds conceptually related code, not just keywords
+   - Returns ranked results with similarity scores
+   - Filters by language, file type, etc.
+
+2. **`mcp__claudetask__find_similar_tasks`** - Historical task search
+   - Learns from past implementations
+   - Shows what worked (and what didn't)
+   - Provides implementation patterns
+
+### ⚠️ VIOLATION CHECK:
+
+**Before using Task tool, ask yourself:**
+- "Have I searched the codebase with RAG?"
+- "Have I checked for similar past tasks?"
+- "Am I providing RAG context to the agent?"
+
+**If NO to any question → STOP and run RAG search first!**
+
+---
+
 ## 🤖 AUTONOMOUS TASK COORDINATOR - ORCHESTRATION ONLY
 
 **YOU ARE A PURE ORCHESTRATOR - NEVER ANALYZE, CODE, OR CREATE DOCUMENTATION DIRECTLY**
@@ -105,19 +205,41 @@ LOOP FOREVER:
 
 #### Analysis Status Tasks → `business-analyst` AND `systems-analyst`
 ```
-⚠️ WHEN TASK ENTERS "ANALYSIS" STATUS - ALWAYS DELEGATE SEQUENTIALLY:
+⚠️ WHEN TASK ENTERS "ANALYSIS" STATUS - ALWAYS FOLLOW THIS WORKFLOW:
 
-🔴 CRITICAL: SEQUENTIAL EXECUTION WITH DEEP THINKING
-- Execute business-analyst FIRST, wait for completion
-- THEN execute systems-analyst with business-analyst output
-- Both agents MUST use extended thinking for deep analysis
+🔴 STEP 0: RAG SEARCH (MANDATORY - DO THIS FIRST!)
+Before delegating to analysts, gather codebase context:
 
-1. FIRST - Business Analyst (MUST COMPLETE BEFORE NEXT STEP):
+1. Search relevant code:
+   mcp__claudetask__search_codebase(
+     query="<task-related keywords>",
+     top_k=20,
+     language="<relevant language>"
+   )
+
+2. Find similar tasks:
+   mcp__claudetask__find_similar_tasks(
+     task_description="<task description>",
+     top_k=10
+   )
+
+3. Extract RAG insights:
+   - Relevant files and components
+   - Existing patterns and conventions
+   - Similar past implementations
+
+🔴 STEP 1: DELEGATE TO BUSINESS ANALYST (with RAG context)
 Task tool with business-analyst:
 "🧠 IMPORTANT: Use extended thinking to deeply analyze this task.
 
 Analyze business requirements and user needs for this task.
 Task details: [full task info from MCP]
+
+🔍 RAG CONTEXT (from codebase search):
+[Include relevant findings from RAG search:
+- Related components found
+- Similar features implemented
+- User-facing patterns identified]
 
 Create comprehensive business requirements document including:
 - User stories and acceptance criteria
@@ -128,9 +250,9 @@ Create comprehensive business requirements document including:
 
 Think deeply about user needs and business impact before responding."
 
-2. WAIT FOR BUSINESS ANALYST COMPLETION - Get full output
+🔴 STEP 2: WAIT FOR BUSINESS ANALYST COMPLETION - Get full output
 
-3. THEN - Systems Analyst (uses business-analyst results):
+🔴 STEP 3: DELEGATE TO SYSTEMS ANALYST (with RAG + business context)
 Task tool with systems-analyst:
 "🧠 IMPORTANT: Use extended thinking to deeply analyze technical approach.
 
@@ -141,7 +263,12 @@ Task details: [full task info from MCP]
 Business analysis results:
 [PASTE COMPLETE OUTPUT from business-analyst here]
 
-Current codebase context: [relevant file paths]
+🔍 RAG FINDINGS (from codebase search):
+[Include all RAG search results:
+- Files: <list relevant files with line numbers>
+- Patterns: <existing code patterns to follow>
+- Similar tasks: <past implementations and learnings>
+- Integration points: <existing APIs, services, components>]
 
 Create comprehensive technical specification including:
 - System architecture impact
