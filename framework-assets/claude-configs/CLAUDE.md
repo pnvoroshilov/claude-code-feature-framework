@@ -26,6 +26,143 @@
 
 **VIOLATIONS OF THESE RULES WILL RESULT IN DATA LOSS**
 
+## 🔍 RAG USAGE - INTELLIGENT CONTEXT GATHERING
+
+### 🎯 When Coordinator Should Use RAG
+
+**USE RAG ONLY WHEN:**
+- ✅ **You (coordinator) are performing work yourself** (not delegating)
+- ✅ **You need to understand codebase** before making decisions
+- ✅ **You are answering user questions** about code or tasks
+- ✅ **You need to provide specific context** to agents (optional, if helpful)
+
+**DO NOT USE RAG WHEN:**
+- ❌ **Simply delegating to specialized agents** - agents have RAG tools themselves!
+- ❌ **Routine task monitoring** - checking queue, updating statuses
+- ❌ **Orchestration activities** - coordinating agent work
+
+### 🤖 Agents Have RAG Tools Built-In!
+
+**IMPORTANT**: All analysis and architecture agents now have **DIRECT access to RAG tools**. They can:
+- 🔍 Search codebase themselves
+- 🔍 Find similar past tasks
+- 🔍 Discover patterns and conventions
+- 🔍 Learn from historical implementations
+
+**This means:**
+- ✅ You can delegate directly without RAG pre-search
+- ✅ Agents will do their own RAG searches as needed
+- ✅ Faster delegation (no mandatory RAG step)
+- ✅ Agents get context when they need it (not before)
+
+### Optional: RAG-Enhanced Delegation
+
+**If you want to provide initial context** (optional, not mandatory):
+
+```
+Step 1: Quick RAG search (optional)
+→ mcp__claudetask__search_codebase("relevant keywords", top_k=15)
+
+Step 2: Delegate with optional RAG findings
+Task tool with agent:
+"Task description here.
+
+🔍 OPTIONAL RAG CONTEXT (if you searched):
+- Key file: src/components/Header.tsx
+- Similar pattern: Button component pattern
+
+Agent: You have RAG tools - feel free to search for more details!"
+```
+
+### Example: Simple Delegation (No RAG Needed)
+
+```
+✅ CORRECT - Let agent use RAG:
+Task tool with business-analyst:
+"Analyze business requirements for Task #43: Add continue button to task cards.
+
+You have access to RAG tools - use mcp__claudetask__search_codebase and
+mcp__claudetask__find_similar_tasks to find relevant examples and patterns."
+
+Agent will:
+1. Search codebase for button patterns
+2. Find similar UI tasks
+3. Analyze and create requirements
+```
+
+### When to Use RAG as Coordinator:
+
+**Use RAG for YOUR work:**
+- ✅ Answering user questions about code
+- ✅ Making architectural decisions
+- ✅ Investigating issues before delegation
+- ✅ Understanding task context for status updates
+- ✅ Coordinating multiple agents (need overview)
+
+**Don't use RAG for delegation:**
+- ❌ Agent can do RAG themselves - let them!
+- ❌ Adds unnecessary delay
+- ❌ Agent might search differently anyway
+
+**Available RAG Tools:**
+
+1. **`mcp__claudetask__search_codebase`** - Semantic code search
+   - Finds conceptually related code, not just keywords
+   - Returns ranked results with similarity scores
+   - Filters by language, file type, etc.
+
+2. **`mcp__claudetask__find_similar_tasks`** - Historical task search
+   - Learns from past implementations
+   - Shows what worked (and what didn't)
+   - Provides implementation patterns
+
+### 🎯 RAG Tools Available to Agents
+
+**IMPORTANT UPDATE**: The following agents now have DIRECT access to RAG tools:
+
+**Analysis & Architecture Agents:**
+- ✅ `business-analyst` - Can search for similar features and business requirements
+- ✅ `systems-analyst` - Can search codebase for architectural patterns
+- ✅ `requirements-analyst` - Can find similar past requirements
+- ✅ `root-cause-analyst` - Can find similar bugs and error patterns
+- ✅ `context-analyzer` - Can perform semantic code search
+- ✅ `backend-architect` - Can find API endpoint and backend patterns
+- ✅ `frontend-architect` - Can find React components and UI patterns
+- ✅ `system-architect` - Can find integration points and system patterns
+
+**Review Agents:**
+- ✅ `fullstack-code-reviewer` - Can find similar code patterns and past reviews
+
+**What This Means:**
+- ✅ **Agents do RAG searches themselves** - no need for coordinator pre-search
+- ✅ **Faster delegation** - no mandatory RAG step before delegation
+- ✅ **Smarter agents** - they search when needed, not blindly
+- ✅ **Optional coordinator RAG** - only when coordinator needs context for own work
+
+**RAG Usage Pattern:**
+- **Most delegations**: Coordinator → Delegate → Agent uses RAG
+- **Optional**: Coordinator RAG → Delegate with context → Agent does additional RAG
+- **Coordinator's own work**: Coordinator uses RAG for own analysis
+
+### ✅ RAG Decision Checklist:
+
+**Before delegating, ask yourself:**
+- "Am I delegating to an agent with RAG tools?" → **YES** = Don't need RAG pre-search
+- "Is this a simple delegation?" → **YES** = Let agent use RAG themselves
+- "Do I need to understand the code myself?" → **YES** = Use RAG for YOUR analysis
+
+**Use RAG only when:**
+- ✅ You're doing work yourself (not delegating)
+- ✅ You're answering user questions
+- ✅ You want to provide optional context to agent
+
+**Don't use RAG when:**
+- ❌ Simple delegation to agent with RAG tools
+- ❌ Agent will search better than you anyway
+- ❌ Just orchestrating and monitoring
+
+---
+
 ## 🤖 AUTONOMOUS TASK COORDINATOR - ORCHESTRATION ONLY
 
 **YOU ARE A PURE ORCHESTRATOR - NEVER ANALYZE, CODE, OR CREATE DOCUMENTATION DIRECTLY**
@@ -105,19 +242,41 @@ LOOP FOREVER:
 
 #### Analysis Status Tasks → `business-analyst` AND `systems-analyst`
 ```
-⚠️ WHEN TASK ENTERS "ANALYSIS" STATUS - ALWAYS DELEGATE SEQUENTIALLY:
+⚠️ WHEN TASK ENTERS "ANALYSIS" STATUS - ALWAYS FOLLOW THIS WORKFLOW:
 
-🔴 CRITICAL: SEQUENTIAL EXECUTION WITH DEEP THINKING
-- Execute business-analyst FIRST, wait for completion
-- THEN execute systems-analyst with business-analyst output
-- Both agents MUST use extended thinking for deep analysis
+🔴 STEP 0: RAG SEARCH (MANDATORY - DO THIS FIRST!)
+Before delegating to analysts, gather codebase context:
 
-1. FIRST - Business Analyst (MUST COMPLETE BEFORE NEXT STEP):
+1. Search relevant code:
+   mcp__claudetask__search_codebase(
+     query="<task-related keywords>",
+     top_k=20,
+     language="<relevant language>"
+   )
+
+2. Find similar tasks:
+   mcp__claudetask__find_similar_tasks(
+     task_description="<task description>",
+     top_k=10
+   )
+
+3. Extract RAG insights:
+   - Relevant files and components
+   - Existing patterns and conventions
+   - Similar past implementations
+
+🔴 STEP 1: DELEGATE TO BUSINESS ANALYST (with RAG context)
 Task tool with business-analyst:
 "🧠 IMPORTANT: Use extended thinking to deeply analyze this task.
 
 Analyze business requirements and user needs for this task.
 Task details: [full task info from MCP]
+
+🔍 RAG CONTEXT (from codebase search):
+[Include relevant findings from RAG search:
+- Related components found
+- Similar features implemented
+- User-facing patterns identified]
 
 Create comprehensive business requirements document including:
 - User stories and acceptance criteria
@@ -128,9 +287,9 @@ Create comprehensive business requirements document including:
 
 Think deeply about user needs and business impact before responding."
 
-2. WAIT FOR BUSINESS ANALYST COMPLETION - Get full output
+🔴 STEP 2: WAIT FOR BUSINESS ANALYST COMPLETION - Get full output
 
-3. THEN - Systems Analyst (uses business-analyst results):
+🔴 STEP 3: DELEGATE TO SYSTEMS ANALYST (with RAG + business context)
 Task tool with systems-analyst:
 "🧠 IMPORTANT: Use extended thinking to deeply analyze technical approach.
 
@@ -141,7 +300,12 @@ Task details: [full task info from MCP]
 Business analysis results:
 [PASTE COMPLETE OUTPUT from business-analyst here]
 
-Current codebase context: [relevant file paths]
+🔍 RAG FINDINGS (from codebase search):
+[Include all RAG search results:
+- Files: <list relevant files with line numbers>
+- Patterns: <existing code patterns to follow>
+- Similar tasks: <past implementations and learnings>
+- Integration points: <existing APIs, services, components>]
 
 Create comprehensive technical specification including:
 - System architecture impact
@@ -163,11 +327,15 @@ Technical approach: [key points from systems-analyst]
 Ready to proceed with implementation"
 ```
 
-#### Feature Development → ⚠️ AUTO DELEGATION IN PROGRESS
+#### Feature Development → ⚠️ NO AUTO DELEGATION AFTER IN PROGRESS
 ```
 ⛔ IMPORTANT: When task moves to "In Progress" status:
-1. ALWAYS start developing automaticaly
-2. ALWAYS delegate to implementation agents
+1. DO NOT delegate to implementation agents
+2. ONLY setup test environment (see Status Management section)
+3. Wait for user's manual development
+
+Feature development delegation ONLY when explicitly requested by user,
+NOT automatically after status changes.
 ```
 
 #### Bug Fixes → `root-cause-analyst`, `performance-engineer`
@@ -189,8 +357,25 @@ Technical details: [implementation specifics to cover]"
 ```
 
 #### Testing Status → ⚠️ PREPARE TEST ENVIRONMENT (First Time Setup)
+
+## 🚨🚨🚨 CRITICAL TESTING URL REQUIREMENT 🚨🚨🚨
+**⛔ FAILURE TO SAVE TESTING URLs = CRITICAL ERROR**
+**You MUST save testing URLs IMMEDIATELY after starting test servers**
+**This is NOT optional - it is MANDATORY for task tracking**
+
 ```
 When task moves from "In Progress" to "Testing":
+
+📋 TESTING ENVIRONMENT CHECKLIST (ALL STEPS REQUIRED):
+☐ 1. Find available ports (check with lsof -i :PORT)
+☐ 2. Start backend server on free port
+☐ 3. Start frontend server on free port  
+☐ 4. 🔴 SAVE TESTING URLs (MANDATORY - DO NOT SKIP)
+☐ 5. Save stage result with URLs
+☐ 6. Notify user with saved URLs
+
+DETAILED STEPS:
+
 1. 🔴 THIS IS WHEN YOU SETUP TEST ENVIRONMENT (not before!)
 2. DO NOT delegate to any testing agent
 3. Setup and start test servers:
@@ -202,11 +387,6 @@ When task moves from "In Progress" to "Testing":
    - Start frontend: PORT=FREE_FRONTEND_PORT npm start
    - Provide URLs/endpoints for manual testing
    - Document what needs to be tested
-3. Port selection rules:
-   - NEVER use port already in use (check with lsof -i :PORT)
-   - Backend: Try 4000, 4001, 4002... until free port found
-   - Frontend: Try 3001, 3002, 3003... until free port found
-   - Always verify port is free before starting service
 
 4. 🔴🔴🔴 CRITICAL MANDATORY STEP - SAVE TESTING URLs:
    ⚠️ YOU MUST EXECUTE THIS COMMAND IMMEDIATELY:
@@ -217,7 +397,7 @@ When task moves from "In Progress" to "Testing":
    ⛔ DO NOT PROCEED WITHOUT SAVING URLs
    ⛔ THIS IS NOT OPTIONAL - IT IS REQUIRED
    ⛔ SKIPPING THIS STEP = TASK TRACKING FAILURE
-
+   
 5. ONLY AFTER URLs ARE SAVED - Save testing environment info:
    mcp__claudetask__append_stage_result --task_id={id} --status="Testing" \
      --summary="Testing environment prepared with URLs saved" \
@@ -228,11 +408,16 @@ Ready for manual testing"
 
 6. Notify user WITH CONFIRMATION that URLs were saved:
    "✅ Testing environment ready and URLs SAVED to task:
-   - Backend: http://localhost:FREE_BACKEND_PORT
+   - Backend: http://localhost:FREE_BACKEND_PORT  
    - Frontend: http://localhost:FREE_FRONTEND_PORT
    - URLs permanently saved to task #{id} for easy access"
    
 7. Wait for user to test and update status
+
+⚠️ VALIDATION: If you setup test environment WITHOUT saving URLs:
+- The task tracking is INCOMPLETE
+- User cannot access test URLs later
+- This is a CRITICAL ERROR that must be fixed
 ```
 
 #### Test Creation Tasks → `quality-engineer`, `web-tester`

@@ -26,82 +26,83 @@
 
 **VIOLATIONS OF THESE RULES WILL RESULT IN DATA LOSS**
 
-## 🔍 MANDATORY RAG USAGE - CRITICAL REQUIREMENT
+## 🔍 RAG USAGE - INTELLIGENT CONTEXT GATHERING
 
-### 🔴 BEFORE DELEGATING ANY TASK - USE RAG SEARCH
+### 🎯 When Coordinator Should Use RAG
 
-**YOU MUST ALWAYS use RAG (Retrieval-Augmented Generation) tools to gather context BEFORE delegating tasks to agents.**
+**USE RAG ONLY WHEN:**
+- ✅ **You (coordinator) are performing work yourself** (not delegating)
+- ✅ **You need to understand codebase** before making decisions
+- ✅ **You are answering user questions** about code or tasks
+- ✅ **You need to provide specific context** to agents (optional, if helpful)
 
-### Required RAG Workflow for ALL Task Delegations:
+**DO NOT USE RAG WHEN:**
+- ❌ **Simply delegating to specialized agents** - agents have RAG tools themselves!
+- ❌ **Routine task monitoring** - checking queue, updating statuses
+- ❌ **Orchestration activities** - coordinating agent work
 
-```
-MANDATORY STEPS BEFORE DELEGATION:
+### 🤖 Agents Have RAG Tools Built-In!
 
-1. 🔍 SEARCH CODEBASE WITH RAG:
-   mcp__claudetask__search_codebase(
-     query="<semantic description of task requirements>",
-     top_k=20,  # or more for complex tasks
-     language="python|typescript|javascript"  # optional filter
-   )
+**IMPORTANT**: All analysis and architecture agents now have **DIRECT access to RAG tools**. They can:
+- 🔍 Search codebase themselves
+- 🔍 Find similar past tasks
+- 🔍 Discover patterns and conventions
+- 🔍 Learn from historical implementations
 
-2. 📚 FIND SIMILAR TASKS:
-   mcp__claudetask__find_similar_tasks(
-     task_description="<current task description>",
-     top_k=10
-   )
+**This means:**
+- ✅ You can delegate directly without RAG pre-search
+- ✅ Agents will do their own RAG searches as needed
+- ✅ Faster delegation (no mandatory RAG step)
+- ✅ Agents get context when they need it (not before)
 
-3. 📋 ANALYZE RAG RESULTS:
-   - Review semantic search results
-   - Identify relevant code patterns
-   - Note similar past implementations
-   - Extract key files and components
+### Optional: RAG-Enhanced Delegation
 
-4. 🤖 DELEGATE WITH RAG CONTEXT:
-   - Include RAG findings in delegation prompt
-   - Reference relevant files discovered
-   - Mention similar task learnings
-   - Provide comprehensive context
-```
-
-### Example RAG-Enhanced Delegation:
+**If you want to provide initial context** (optional, not mandatory):
 
 ```
-❌ WRONG - No RAG context:
-Task tool with frontend-developer:
-"Add a login button to the header component"
+Step 1: Quick RAG search (optional)
+→ mcp__claudetask__search_codebase("relevant keywords", top_k=15)
 
-✅ CORRECT - With RAG context:
-Step 1: Search codebase
-→ mcp__claudetask__search_codebase("header component React TypeScript login button UI")
+Step 2: Delegate with optional RAG findings
+Task tool with agent:
+"Task description here.
 
-Step 2: Find similar tasks
-→ mcp__claudetask__find_similar_tasks("add login button header")
+🔍 OPTIONAL RAG CONTEXT (if you searched):
+- Key file: src/components/Header.tsx
+- Similar pattern: Button component pattern
 
-Step 3: Delegate with context
-Task tool with frontend-developer:
-"Add a login button to the header component.
-
-🔍 RAG FINDINGS:
-- Existing header: src/components/Header.tsx (line 45-120)
-- Similar buttons: LoginButton.tsx, SignupButton.tsx
-- Material-UI patterns used: <Button variant='contained' startIcon={...}>
-- Authentication flow: src/services/auth.ts
-
-📚 SIMILAR TASKS:
-- Task #12: Added signup button (used Material-UI Button with custom icon)
-- Task #34: Implemented social login (integrated with auth service)
-
-Please implement following existing patterns found in RAG search."
+Agent: You have RAG tools - feel free to search for more details!"
 ```
 
-### When to Use RAG:
+### Example: Simple Delegation (No RAG Needed)
 
-**ALWAYS use RAG for:**
-- ✅ Feature development tasks
-- ✅ Bug fixes requiring code location
-- ✅ Refactoring tasks
-- ✅ Integration work
-- ✅ ANY task involving codebase changes
+```
+✅ CORRECT - Let agent use RAG:
+Task tool with business-analyst:
+"Analyze business requirements for Task #43: Add continue button to task cards.
+
+You have access to RAG tools - use mcp__claudetask__search_codebase and
+mcp__claudetask__find_similar_tasks to find relevant examples and patterns."
+
+Agent will:
+1. Search codebase for button patterns
+2. Find similar UI tasks
+3. Analyze and create requirements
+```
+
+### When to Use RAG as Coordinator:
+
+**Use RAG for YOUR work:**
+- ✅ Answering user questions about code
+- ✅ Making architectural decisions
+- ✅ Investigating issues before delegation
+- ✅ Understanding task context for status updates
+- ✅ Coordinating multiple agents (need overview)
+
+**Don't use RAG for delegation:**
+- ❌ Agent can do RAG themselves - let them!
+- ❌ Adds unnecessary delay
+- ❌ Agent might search differently anyway
 
 **Available RAG Tools:**
 
@@ -115,14 +116,50 @@ Please implement following existing patterns found in RAG search."
    - Shows what worked (and what didn't)
    - Provides implementation patterns
 
-### ⚠️ VIOLATION CHECK:
+### 🎯 RAG Tools Available to Agents
 
-**Before using Task tool, ask yourself:**
-- "Have I searched the codebase with RAG?"
-- "Have I checked for similar past tasks?"
-- "Am I providing RAG context to the agent?"
+**IMPORTANT UPDATE**: The following agents now have DIRECT access to RAG tools:
 
-**If NO to any question → STOP and run RAG search first!**
+**Analysis & Architecture Agents:**
+- ✅ `business-analyst` - Can search for similar features and business requirements
+- ✅ `systems-analyst` - Can search codebase for architectural patterns
+- ✅ `requirements-analyst` - Can find similar past requirements
+- ✅ `root-cause-analyst` - Can find similar bugs and error patterns
+- ✅ `context-analyzer` - Can perform semantic code search
+- ✅ `backend-architect` - Can find API endpoint and backend patterns
+- ✅ `frontend-architect` - Can find React components and UI patterns
+- ✅ `system-architect` - Can find integration points and system patterns
+
+**Review Agents:**
+- ✅ `fullstack-code-reviewer` - Can find similar code patterns and past reviews
+
+**What This Means:**
+- ✅ **Agents do RAG searches themselves** - no need for coordinator pre-search
+- ✅ **Faster delegation** - no mandatory RAG step before delegation
+- ✅ **Smarter agents** - they search when needed, not blindly
+- ✅ **Optional coordinator RAG** - only when coordinator needs context for own work
+
+**RAG Usage Pattern:**
+- **Most delegations**: Coordinator → Delegate → Agent uses RAG
+- **Optional**: Coordinator RAG → Delegate with context → Agent does additional RAG
+- **Coordinator's own work**: Coordinator uses RAG for own analysis
+
+### ✅ RAG Decision Checklist:
+
+**Before delegating, ask yourself:**
+- "Am I delegating to an agent with RAG tools?" → **YES** = Don't need RAG pre-search
+- "Is this a simple delegation?" → **YES** = Let agent use RAG themselves
+- "Do I need to understand the code myself?" → **YES** = Use RAG for YOUR analysis
+
+**Use RAG only when:**
+- ✅ You're doing work yourself (not delegating)
+- ✅ You're answering user questions
+- ✅ You want to provide optional context to agent
+
+**Don't use RAG when:**
+- ❌ Simple delegation to agent with RAG tools
+- ❌ Agent will search better than you anyway
+- ❌ Just orchestrating and monitoring
 
 ---
 
