@@ -31,93 +31,67 @@ A comprehensive task management framework designed specifically for Claude Code 
 
 Before installing ClaudeTask, ensure you have the following installed:
 
-- **Docker** (version 20.10+) and **Docker Compose** (version 2.0+)
-  - [Install Docker Desktop](https://www.docker.com/products/docker-desktop/)
-  - Verify: `docker --version` and `docker compose version`
 - **Python 3.8+**
   - Verify: `python3 --version`
   - Install pip: `python3 -m pip --version`
+- **Node.js 16+** and **npm**
+  - [Install Node.js](https://nodejs.org/)
+  - Verify: `node --version` and `npm --version`
 - **Git**
   - Verify: `git --version`
 - **Claude Code** (latest version)
   - [Download Claude Code](https://claude.ai/download)
-- **Node.js 16+** and **npm** (for local development)
-  - Verify: `node --version` and `npm --version`
+
+> **Note:** ClaudeTask runs directly on your system (not in Docker) to maintain access to your terminal, Git, and Claude Code integration.
 
 ### Installation
 
-#### Option 1: Automated Installation (Recommended)
-
 1. **Clone the repository:**
    ```bash
    git clone https://github.com/pnvoroshilov/claude-code-feature-framework.git
    cd claude-code-feature-framework
    ```
 
-2. **Run the installation script:**
-   ```bash
-   chmod +x install.sh
-   ./install.sh
-   ```
-
-   This script will:
-   - ✅ Check all prerequisites
-   - ✅ Install MCP server globally to `~/.claudetask_mcp`
-   - ✅ Build and start Docker containers (backend + frontend)
-   - ✅ Create `start-claudetask.sh` and `stop-claudetask.sh` scripts
-   - ✅ Wait for services to be ready
-
-3. **Access the application:**
-   - **Frontend**: http://localhost:3000
-   - **Backend API**: http://localhost:3333
-   - **API Docs**: http://localhost:3333/docs
-
-#### Option 2: Manual Installation
-
-If you prefer to install manually or the automated script fails:
-
-<details>
-<summary>Click to expand manual installation steps</summary>
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/pnvoroshilov/claude-code-feature-framework.git
-   cd claude-code-feature-framework
-   ```
-
-2. **Install MCP Server dependencies:**
-   ```bash
-   cd claudetask/mcp_server
-   pip3 install -r requirements.txt
-   cd ../..
-   ```
-
-3. **Start services with Docker:**
-   ```bash
-   # Build and start all services
-   docker compose up -d --build
-
-   # Check status
-   docker compose ps
-   ```
-
-4. **Or run services locally (without Docker):**
-
-   **Backend:**
+2. **Install Backend:**
    ```bash
    cd claudetask/backend
-   pip3 install -r requirements.txt
-   python3 -m uvicorn app.main:app --host 0.0.0.0 --port 3333 --reload
+
+   # Create virtual environment (recommended)
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+   # Install dependencies
+   pip install -r requirements.txt
+
+   # Start backend server
+   python -m uvicorn app.main:app --host 0.0.0.0 --port 3333 --reload
    ```
 
-   **Frontend:**
+   Backend will be available at:
+   - **API**: http://localhost:3333
+   - **API Docs**: http://localhost:3333/docs
+   - **Health Check**: http://localhost:3333/health
+
+3. **Install Frontend** (in a new terminal):
    ```bash
    cd claudetask/frontend
+
+   # Install dependencies
    npm install
+
+   # Start frontend development server
    REACT_APP_API_URL=http://localhost:3333/api PORT=3000 npm start
    ```
 
-</details>
+   Frontend will be available at: http://localhost:3000
+
+4. **Install MCP Server** (optional - for Claude Code integration):
+   ```bash
+   cd claudetask/mcp_server
+   pip3 install -r requirements.txt
+   ```
+
+   The MCP server will be configured per-project (see Project Setup section below).
 
 ### Project Setup in ClaudeTask
 
@@ -167,21 +141,25 @@ After installation, set up your first project:
 
 ### Managing ClaudeTask Services
 
-After installation, use these scripts:
+You need to run both backend and frontend in separate terminals:
 
+**Terminal 1 - Backend:**
 ```bash
-# Start ClaudeTask
-./start-claudetask.sh
-
-# Stop ClaudeTask
-./stop-claudetask.sh
-
-# View logs
-docker compose logs -f
-
-# Restart services
-docker compose restart
+cd claudetask/backend
+source venv/bin/activate  # Activate virtual environment
+python -m uvicorn app.main:app --host 0.0.0.0 --port 3333 --reload
 ```
+
+**Terminal 2 - Frontend:**
+```bash
+cd claudetask/frontend
+REACT_APP_API_URL=http://localhost:3333/api PORT=3000 npm start
+```
+
+**Tips:**
+- Use `tmux` or `screen` to manage multiple terminals
+- Or use process managers like `pm2` or `supervisor`
+- Keep both services running while working with ClaudeTask
 
 ## 📋 Workflow
 
@@ -266,63 +244,84 @@ mcp:delegate_to_agent 4 "frontend-developer" "Implement the feature"
 
 ## 🛠️ Development
 
-### Running Locally
+### Development Setup
 
-```bash
-# Start services
-./start-claudetask.sh
+ClaudeTask consists of three main components that run separately:
 
-# Stop services
-./stop-claudetask.sh
-```
-
-### Manual Setup
-
-#### Backend
+#### 1. Backend (FastAPI + SQLite)
 ```bash
 cd claudetask/backend
-pip install -r requirements.txt
-python -m app.main
+source venv/bin/activate
+python -m uvicorn app.main:app --host 0.0.0.0 --port 3333 --reload
 ```
 
-#### Frontend
+#### 2. Frontend (React + TypeScript)
 ```bash
 cd claudetask/frontend
-npm install
-npm start
+REACT_APP_API_URL=http://localhost:3333/api PORT=3000 npm start
 ```
 
-#### MCP Server
-```bash
-cd claudetask/mcp_server
-pip install -r requirements.txt
-python claudetask_mcp_bridge.py --project-id <id> --project-path <path>
-```
+#### 3. MCP Server (Per-Project)
+The MCP server runs automatically when Claude Code starts (configured in `.mcp.json` of your project).
+
+### Development Tips
+
+- **Hot Reload:** Both backend (`--reload`) and frontend automatically reload on changes
+- **API Documentation:** Visit http://localhost:3333/docs for interactive API docs
+- **Database:** SQLite database is created automatically at `claudetask/backend/claudetask.db`
+- **Logs:** Backend logs are in `claudetask/backend/server.log`
 
 ## 📁 Project Structure
 
 ```
-ClaudeTask/
+claude-code-feature-framework/
 ├── claudetask/
-│   ├── backend/          # FastAPI backend
+│   ├── backend/              # FastAPI backend (Python)
 │   │   ├── app/
-│   │   │   ├── models.py         # Database models
-│   │   │   ├── schemas.py        # Pydantic schemas
-│   │   │   ├── main.py           # FastAPI app
-│   │   │   └── services/         # Business logic
-│   │   └── requirements.txt
-│   ├── frontend/         # React frontend
+│   │   │   ├── models.py         # SQLAlchemy database models
+│   │   │   ├── schemas.py        # Pydantic schemas for API
+│   │   │   ├── main.py           # FastAPI application entry point
+│   │   │   ├── database.py       # Database configuration
+│   │   │   └── services/         # Business logic services
+│   │   │       ├── task_service.py
+│   │   │       ├── project_service.py
+│   │   │       ├── real_claude_service.py
+│   │   │       └── rag_service.py    # RAG semantic search
+│   │   ├── requirements.txt
+│   │   ├── claudetask.db         # SQLite database (auto-created)
+│   │   └── server.log            # Application logs
+│   │
+│   ├── frontend/             # React frontend (TypeScript)
 │   │   ├── src/
-│   │   │   ├── components/       # React components
-│   │   │   ├── pages/            # Application pages
-│   │   │   └── services/         # API services
-│   │   └── package.json
-│   └── mcp_server/       # MCP bridge server
-│       ├── claudetask_mcp_bridge.py
-│       └── requirements.txt
-├── docker-compose.yml    # Docker services
-├── install.sh           # Installation script
-└── README.md
+│   │   │   ├── components/       # Reusable React components
+│   │   │   ├── pages/            # Page components (TaskBoard, Dashboard)
+│   │   │   ├── services/         # API client services
+│   │   │   └── App.tsx           # Main React app
+│   │   ├── package.json
+│   │   └── public/
+│   │
+│   └── mcp_server/           # MCP bridge (Python)
+│       ├── claudetask_mcp_bridge.py  # Main MCP server
+│       ├── native_stdio_server.py    # STDIO wrapper
+│       ├── requirements.txt
+│       └── rag/                  # RAG indexing system
+│           ├── indexer.py
+│           └── embeddings.py
+│
+├── framework-assets/         # Reusable agent configs
+│   ├── claude-agents/        # Agent markdown files
+│   ├── claude-configs/       # CLAUDE.md templates
+│   └── claude-commands/      # Slash commands
+│
+├── .claude/                  # Project-specific Claude config
+│   ├── agents/               # Agent configurations
+│   └── commands/             # Custom slash commands
+│
+├── worktrees/                # Git worktrees for tasks (auto-created)
+│   └── task-<id>/            # Isolated dev environment per task
+│
+├── install.sh                # Installation script
+└── README.md                 # This file
 ```
 
 ## 🔧 Configuration
@@ -382,25 +381,31 @@ MIT License - see LICENSE file for details
 
 ### Common Issues
 
-#### 1. Docker containers won't start
+#### 1. Backend won't start
 
-**Problem:** `docker compose up` fails or containers exit immediately
+**Problem:** Backend fails to start or crashes immediately
 
 **Solutions:**
 ```bash
-# Check Docker is running
-docker ps
+# Check Python version
+python3 --version  # Should be 3.8+
+
+# Check virtual environment is activated
+which python  # Should point to venv/bin/python
+
+# Reinstall dependencies
+cd claudetask/backend
+rm -rf venv
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Check port is not in use
+lsof -i :3333
+# Kill process if needed: kill -9 <PID>
 
 # Check logs
-docker compose logs
-
-# Clean rebuild
-docker compose down -v
-docker compose up -d --build
-
-# Check ports are not in use
-lsof -i :3000  # Frontend
-lsof -i :3333  # Backend
+python -m uvicorn app.main:app --host 0.0.0.0 --port 3333 --reload
 ```
 
 #### 2. MCP tools not available in Claude Code
@@ -423,14 +428,22 @@ lsof -i :3333  # Backend
 
 **Solutions:**
 ```bash
-# Check backend is running
+# 1. Check backend is running
 curl http://localhost:3333/health
+# Should return: {"status": "healthy"}
 
-# Check backend logs
-docker compose logs backend
+# 2. Check backend process
+ps aux | grep uvicorn
 
-# Restart backend
-docker compose restart backend
+# 3. Check backend is listening on correct port
+lsof -i :3333
+
+# 4. Restart backend
+cd claudetask/backend
+source venv/bin/activate
+python -m uvicorn app.main:app --host 0.0.0.0 --port 3333 --reload
+
+# 5. Check CORS settings if accessing from different origin
 ```
 
 #### 4. Database errors
@@ -439,14 +452,18 @@ docker compose restart backend
 
 **Solutions:**
 ```bash
-# Stop all services
-docker compose down
+# 1. Stop backend
+# Press Ctrl+C in backend terminal
 
-# Remove old database
-rm -rf data/*.db
+# 2. Remove old database
+cd claudetask/backend
+rm -f claudetask.db
 
-# Restart fresh
-docker compose up -d
+# 3. Run migrations (if migration script exists)
+python migrate_db.py
+
+# 4. Restart backend
+python -m uvicorn app.main:app --host 0.0.0.0 --port 3333 --reload
 ```
 
 #### 5. Frontend won't load
@@ -455,30 +472,60 @@ docker compose up -d
 
 **Solutions:**
 ```bash
-# Check frontend logs
-docker compose logs frontend
+# 1. Check Node version
+node --version  # Should be 16+
 
-# Rebuild frontend
-docker compose down
-docker compose up -d --build frontend
+# 2. Clear npm cache and reinstall
+cd claudetask/frontend
+rm -rf node_modules package-lock.json
+npm install
 
-# Check browser console for errors (F12)
+# 3. Check environment variable
+echo $REACT_APP_API_URL
+# Should be: http://localhost:3333/api
+
+# 4. Start with environment variable
+REACT_APP_API_URL=http://localhost:3333/api PORT=3000 npm start
+
+# 5. Check browser console for errors (F12)
 ```
 
 #### 6. Port already in use
 
-**Problem:** "Port 3000 is already allocated" or "Port 3333 is already allocated"
+**Problem:** "Port already in use" error when starting services
 
 **Solutions:**
 ```bash
 # Find what's using the port
-lsof -i :3000
-lsof -i :3333
+lsof -i :3000  # Frontend
+lsof -i :3333  # Backend
 
 # Kill the process
 kill -9 <PID>
 
-# Or change ports in docker-compose.yml
+# Or use different ports:
+# Backend: python -m uvicorn app.main:app --port 3334
+# Frontend: PORT=3001 npm start
+```
+
+#### 7. Git worktree errors
+
+**Problem:** "Cannot create worktree" or "worktree already exists"
+
+**Solutions:**
+```bash
+# 1. List existing worktrees
+git worktree list
+
+# 2. Remove stuck worktree
+git worktree remove worktrees/task-<id>
+# Or force remove: git worktree remove --force worktrees/task-<id>
+
+# 3. Prune invalid worktrees
+git worktree prune
+
+# 4. Check worktrees directory permissions
+ls -la worktrees/
 ```
 
 ### Getting Help
@@ -487,20 +534,37 @@ If you encounter issues not covered here:
 
 1. **Check the logs:**
    ```bash
-   docker compose logs -f
+   # Backend logs
+   cd claudetask/backend
+   tail -f server.log
+
+   # Or check terminal output where backend is running
    ```
 
-2. **Search existing issues:**
+2. **Check environment:**
+   ```bash
+   # Python version
+   python3 --version
+
+   # Node version
+   node --version
+
+   # Virtual environment
+   which python
+
+   # Process status
+   ps aux | grep uvicorn
+   ps aux | grep node
+   ```
+
+3. **Search existing issues:**
    - [GitHub Issues](https://github.com/pnvoroshilov/claude-code-feature-framework/issues)
 
-3. **Create a new issue:**
+4. **Create a new issue:**
    - Include error messages
    - Include relevant logs
-   - Include your environment (OS, Docker version, Python version)
-
-4. **Community support:**
-   - Open a discussion on GitHub Discussions
-   - Include your `docker compose ps` output
+   - Include your environment (OS, Python version, Node version)
+   - Include output of: `ps aux | grep -E "(uvicorn|node)"`
 
 ## 🆘 Support
 
