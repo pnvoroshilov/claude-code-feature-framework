@@ -654,7 +654,7 @@ const TaskBoard: React.FC = () => {
             label="Description"
             fullWidth
             multiline
-            rows={3}
+            rows={8}
             variant="outlined"
             value={newTask.description}
             onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
@@ -880,7 +880,7 @@ const TaskBoard: React.FC = () => {
                 <TextField
                   fullWidth
                   multiline
-                  rows={4}
+                  rows={12}
                   variant="outlined"
                   value={editedTask.description}
                   onChange={(e) => setEditedTask({ ...editedTask, description: e.target.value })}
