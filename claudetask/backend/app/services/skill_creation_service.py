@@ -17,27 +17,24 @@ class SkillCreationService:
         project_path: str,
         skill_name: str,
         skill_description: str,
-        timeout: int = 60
+        timeout: int = 120
     ) -> Dict[str, Any]:
         """
-        Create a skill using Claude Code CLI's /create-skill command
+        Create a skill using Claude Code CLI by delegating to skills-creator agent
 
         Process:
         1. Start Claude terminal session in project directory
-        2. Send /create-skill command
-        3. Wait for skill name prompt
-        4. Send skill name
-        5. Wait for description prompt
-        6. Send skill description
-        7. Wait for completion (timeout: 60s)
-        8. Stop session
-        9. Verify skill file was created
+        2. Send message requesting skill creation with all parameters
+        3. Claude delegates to skills-creator agent
+        4. Wait for skill file to be created (timeout: 120s)
+        5. Stop session
+        6. Verify skill file was created and read its content
 
         Args:
             project_path: Path to project root
             skill_name: Name of the skill to create
             skill_description: Description of the skill
-            timeout: Timeout in seconds (default: 60)
+            timeout: Timeout in seconds (default: 120)
 
         Returns:
             {
@@ -71,23 +68,19 @@ class SkillCreationService:
             # Wait for Claude to initialize
             await asyncio.sleep(2)
 
-            # Send /create-skill command
-            await session.send_input("/create-skill")
-            logger.info("Sent /create-skill command")
+            # Send initial message with all parameters
+            # This tells Claude to use the /create-skill command with the provided parameters
+            initial_message = f"""Please create a new skill with the following specifications:
 
-            # Wait for skill name prompt (look for specific pattern in output)
-            await asyncio.sleep(3)  # Give Claude time to respond
+Skill Name: {skill_name}
+Description: {skill_description}
 
-            # Send skill name
-            await session.send_input(skill_name)
-            logger.info(f"Sent skill name: {skill_name}")
+Use the Task tool to delegate to the skills-creator agent to create a comprehensive skill file following Anthropic's Claude Code best practices. Save the skill file to .claude/skills/ with an appropriate filename (kebab-case).
 
-            # Wait for description prompt
-            await asyncio.sleep(2)
+IMPORTANT: Create the file immediately without asking for confirmation."""
 
-            # Send skill description
-            await session.send_input(skill_description)
-            logger.info(f"Sent skill description")
+            await session.send_input(initial_message)
+            logger.info(f"Sent skill creation request for: {skill_name}")
 
             # Wait for completion (check for success message in output)
             start_time = asyncio.get_event_loop().time()
@@ -119,9 +112,10 @@ class SkillCreationService:
                     "content": content
                 }
             else:
+                logger.warning(f"Skill file not created after {timeout}s timeout")
                 return {
                     "success": False,
-                    "error": f"Skill creation timed out after {timeout}s"
+                    "error": f"Skill file was not created within {timeout}s. The agent may need more time or encountered an error."
                 }
 
         except Exception as e:
