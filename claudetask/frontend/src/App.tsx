@@ -11,6 +11,7 @@ import ProjectSetup from './pages/ProjectSetup';
 import ProjectManager from './pages/ProjectManager';
 import TaskBoard from './pages/TaskBoard';
 import ClaudeSessions from './pages/ClaudeSessions';
+import Skills from './pages/Skills';
 import Settings from './pages/Settings';
 import { ProjectProvider } from './context/ProjectContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -74,6 +75,7 @@ function App() {
                   <Route path="/projects" element={<ProjectManager />} />
                   <Route path="/tasks" element={<TaskBoard />} />
                   <Route path="/sessions" element={<ClaudeSessions />} />
+                  <Route path="/skills" element={<Skills />} />
                   <Route path="/settings" element={<Settings />} />
                 </Routes>
               </Box>

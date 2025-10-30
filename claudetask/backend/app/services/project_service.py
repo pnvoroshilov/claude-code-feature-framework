@@ -334,6 +334,10 @@ class ProjectService:
         # Create agents directory in .claude
         agents_dir = os.path.join(claude_dir, "agents")
         os.makedirs(agents_dir, exist_ok=True)
+
+        # Create skills directory in .claude
+        skills_dir = os.path.join(claude_dir, "skills")
+        os.makedirs(skills_dir, exist_ok=True)
         
         # Copy agent files from framework-assets
         framework_path = os.path.abspath(os.path.join(

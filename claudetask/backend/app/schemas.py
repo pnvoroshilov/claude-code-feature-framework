@@ -226,3 +226,43 @@ class ConnectionStatus(BaseModel):
     tasks_count: int = 0
     active_task: Optional[TaskInDB] = None
     error: Optional[str] = None
+
+
+# Skill Schemas
+class SkillBase(BaseModel):
+    name: str = Field(..., min_length=3, max_length=100)
+    description: str = Field(..., min_length=10, max_length=500)
+
+
+class SkillCreate(SkillBase):
+    """Schema for creating a custom skill"""
+    pass
+
+
+class SkillInDB(SkillBase):
+    id: int
+    skill_type: str  # "default" or "custom"
+    category: str  # e.g., "Analysis", "Development", "Testing"
+    file_path: Optional[str] = None
+    is_enabled: bool = False
+    status: Optional[str] = None  # For custom skills: "creating", "active", "failed"
+    created_by: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SkillsResponse(BaseModel):
+    """Response schema for getting project skills"""
+    enabled: List[SkillInDB]
+    available_default: List[SkillInDB]
+    custom: List[SkillInDB]
+
+
+class AgentSkillRecommendation(BaseModel):
+    agent_name: str
+    skill_id: int
+    priority: int  # 1-5 (1 = highest priority)
+    reason: Optional[str] = None

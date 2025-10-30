@@ -19,7 +19,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
-from .database import get_db, init_db
+from .database import get_db, init_db, seed_default_skills
 from .models import Project, Task, TaskHistory, ProjectSettings, Agent, TaskStatus, TaskPriority
 from .schemas import (
     ProjectCreate, ProjectInDB, ProjectUpdate,
@@ -36,6 +36,7 @@ from .services.git_workflow_service import GitWorkflowService
 from .services.claude_session_service import ClaudeSessionService, SessionStatus
 from .services.real_claude_service import real_claude_service
 from .services.websocket_manager import task_websocket_manager
+from .routers import skills
 
 logger = logging.getLogger(__name__)
 
@@ -54,11 +55,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include routers
+app.include_router(skills.router)
+
 
 @app.on_event("startup")
 async def startup_event():
     """Initialize database on startup"""
     await init_db()
+    await seed_default_skills()
 
 
 # Health check

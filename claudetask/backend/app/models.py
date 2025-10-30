@@ -146,7 +146,7 @@ class ProjectSettings(Base):
 class Agent(Base):
     """Agent configuration model"""
     __tablename__ = "agents"
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     project_id = Column(String, ForeignKey("projects.id"), nullable=False)
     name = Column(String, nullable=False)
@@ -156,3 +156,68 @@ class Agent(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class DefaultSkill(Base):
+    """Default skills provided by the framework"""
+    __tablename__ = "default_skills"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, unique=True)
+    description = Column(Text, nullable=False)
+    category = Column(String(50), nullable=False)
+    file_name = Column(String(100), nullable=False)
+    content = Column(Text, nullable=True)
+    skill_metadata = Column(JSON, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CustomSkill(Base):
+    """Custom skills created by users"""
+    __tablename__ = "custom_skills"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=False)
+    category = Column(String(50), nullable=False)
+    file_name = Column(String(100), nullable=False)
+    content = Column(Text, nullable=True)
+    status = Column(String(20), default="active")  # creating, active, failed
+    error_message = Column(Text, nullable=True)
+    created_by = Column(String(100), default="user")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    project = relationship("Project", backref="custom_skills")
+
+
+class ProjectSkill(Base):
+    """Junction table for project-skill many-to-many relationship"""
+    __tablename__ = "project_skills"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+    skill_id = Column(Integer, nullable=False)
+    skill_type = Column(String(10), nullable=False)  # "default" or "custom"
+    enabled_at = Column(DateTime, default=datetime.utcnow)
+    enabled_by = Column(String(100), default="user")
+
+    # Relationships
+    project = relationship("Project", backref="enabled_skills")
+
+
+class AgentSkillRecommendation(Base):
+    """Recommended skills for each agent"""
+    __tablename__ = "agent_skill_recommendations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    agent_name = Column(String(100), nullable=False)
+    skill_id = Column(Integer, nullable=False)
+    skill_type = Column(String(10), nullable=False)
+    priority = Column(Integer, default=3)  # 1-5
+    reason = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
