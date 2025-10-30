@@ -214,15 +214,6 @@ const Skills: React.FC = () => {
           {skill.description}
         </Typography>
 
-        {skill.is_enabled && (
-          <Chip
-            label="Enabled"
-            size="small"
-            color="success"
-            sx={{ mt: 1 }}
-          />
-        )}
-
         {showToggle && (
           <FormControlLabel
             control={

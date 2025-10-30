@@ -70,10 +70,12 @@ class SkillService:
             is_enabled = (skill.id, "default") in enabled_skill_ids
             skill_dto = self._to_skill_dto(skill, "default", is_enabled, project.path)
 
+            # Always add to available_default (show all default skills)
+            available_default.append(skill_dto)
+
+            # Also add to enabled list if enabled
             if is_enabled:
                 enabled.append(skill_dto)
-            else:
-                available_default.append(skill_dto)
 
         custom_dtos = []
         for skill in custom_skills:
