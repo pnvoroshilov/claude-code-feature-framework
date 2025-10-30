@@ -1161,3 +1161,11 @@ Before delegating ANY task, verify:
 | Deployment | `devops-engineer` | ❌ Any development agent |
 
 Remember: **YOU ARE PURE ORCHESTRATOR - DELEGATE EVERYTHING TECHNICAL TO CORRECT SPECIALISTS**
+
+## Project Configuration
+- **Project Name**: task-84
+- **Path**: /Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/worktrees/task-84
+- **Technologies**: Not detected
+- **Test Command**: Not configured
+- **Build Command**: Not configured
+- **Lint Command**: Not configured
