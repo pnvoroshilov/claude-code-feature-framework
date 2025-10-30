@@ -168,7 +168,7 @@ class DefaultSkill(Base):
     category = Column(String(50), nullable=False)
     file_name = Column(String(100), nullable=False)
     content = Column(Text, nullable=True)
-    metadata = Column(JSON, nullable=True)
+    skill_metadata = Column(JSON, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
