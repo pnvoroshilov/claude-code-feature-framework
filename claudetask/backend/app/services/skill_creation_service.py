@@ -17,7 +17,7 @@ class SkillCreationService:
         project_path: str,
         skill_name: str,
         skill_description: str,
-        timeout: int = 120
+        timeout: int = None
     ) -> Dict[str, Any]:
         """
         Create a skill using Claude Code CLI's /create-skill command
@@ -27,15 +27,15 @@ class SkillCreationService:
         2. Send command: /create-skill "Name" "Description"
         3. Claude Code executes /create-skill slash command
         4. Command delegates to skills-creator agent
-        5. Wait for skill file to be created (timeout: 120s)
-        6. Stop session
+        5. Wait for skill file to be created (NO TIMEOUT - waits indefinitely)
+        6. Stop session when file is created
         7. Verify skill file was created and read its content
 
         Args:
             project_path: Path to project root
             skill_name: Name of the skill to create
             skill_description: Description of the skill
-            timeout: Timeout in seconds (default: 120)
+            timeout: Timeout in seconds (None = no timeout, waits indefinitely)
 
         Returns:
             {
@@ -76,41 +76,38 @@ class SkillCreationService:
             await session.send_input(command)
             logger.info(f"Sent command: {command}")
 
-            # Wait for completion (check for success message in output)
-            start_time = asyncio.get_event_loop().time()
-            skill_created = False
+            # Wait for completion - NO TIMEOUT, wait indefinitely until file is created
+            skill_file_name = self._generate_skill_file_name(skill_name)
+            skill_path = os.path.join(project_path, ".claude", "skills", skill_file_name)
 
-            while (asyncio.get_event_loop().time() - start_time) < timeout:
+            logger.info(f"Waiting for skill file to be created: {skill_path}")
+            logger.info(f"No timeout - will wait as long as needed...")
+
+            check_count = 0
+            while True:
                 # Check if skill file was created
-                skill_file_name = self._generate_skill_file_name(skill_name)
-                skill_path = os.path.join(project_path, ".claude", "skills", skill_file_name)
-
                 if os.path.exists(skill_path):
-                    skill_created = True
-                    logger.info(f"Skill file created: {skill_path}")
+                    logger.info(f"Skill file created after {check_count * 2} seconds: {skill_path}")
                     break
+
+                check_count += 1
+                if check_count % 30 == 0:  # Log every minute
+                    logger.info(f"Still waiting for skill file... ({check_count * 2}s elapsed)")
 
                 await asyncio.sleep(2)  # Check every 2 seconds
 
             # Stop session
             await session.stop()
 
-            if skill_created:
-                # Read skill content
-                with open(skill_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
+            # Read skill content
+            with open(skill_path, 'r', encoding='utf-8') as f:
+                content = f.read()
 
-                return {
-                    "success": True,
-                    "skill_path": skill_path,
-                    "content": content
-                }
-            else:
-                logger.warning(f"Skill file not created after {timeout}s timeout")
-                return {
-                    "success": False,
-                    "error": f"Skill file was not created within {timeout}s. The agent may need more time or encountered an error."
-                }
+            return {
+                "success": True,
+                "skill_path": skill_path,
+                "content": content
+            }
 
         except Exception as e:
             logger.error(f"Error creating skill via CLI: {e}", exc_info=True)
