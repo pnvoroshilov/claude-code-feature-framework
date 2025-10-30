@@ -101,7 +101,7 @@ async def create_custom_skill(
 
     Background task:
     - Start Claude terminal session
-    - Execute /createSkill command
+    - Execute /create-skill command
     - Send skill name and description via terminal
     - Wait for completion (with timeout)
     - Update skill status to "active" or "failed"

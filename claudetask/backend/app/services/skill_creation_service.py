@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class SkillCreationService:
-    """Service for creating skills using Claude Code CLI's /createSkill command"""
+    """Service for creating skills using Claude Code CLI's /create-skill command"""
 
     async def create_skill_via_claude_cli(
         self,
@@ -20,11 +20,11 @@ class SkillCreationService:
         timeout: int = 60
     ) -> Dict[str, Any]:
         """
-        Create a skill using Claude Code CLI's /createSkill command
+        Create a skill using Claude Code CLI's /create-skill command
 
         Process:
         1. Start Claude terminal session in project directory
-        2. Send /createSkill command
+        2. Send /create-skill command
         3. Wait for skill name prompt
         4. Send skill name
         5. Wait for description prompt
@@ -71,9 +71,9 @@ class SkillCreationService:
             # Wait for Claude to initialize
             await asyncio.sleep(2)
 
-            # Send /createSkill command
-            await session.send_input("/createSkill")
-            logger.info("Sent /createSkill command")
+            # Send /create-skill command
+            await session.send_input("/create-skill")
+            logger.info("Sent /create-skill command")
 
             # Wait for skill name prompt (look for specific pattern in output)
             await asyncio.sleep(3)  # Give Claude time to respond
