@@ -20,15 +20,16 @@ class SkillCreationService:
         timeout: int = 120
     ) -> Dict[str, Any]:
         """
-        Create a skill using Claude Code CLI by delegating to skills-creator agent
+        Create a skill using Claude Code CLI's /create-skill command
 
         Process:
         1. Start Claude terminal session in project directory
-        2. Send message requesting skill creation with all parameters
-        3. Claude delegates to skills-creator agent
-        4. Wait for skill file to be created (timeout: 120s)
-        5. Stop session
-        6. Verify skill file was created and read its content
+        2. Send command: /create-skill "Name" "Description"
+        3. Claude Code executes /create-skill slash command
+        4. Command delegates to skills-creator agent
+        5. Wait for skill file to be created (timeout: 120s)
+        6. Stop session
+        7. Verify skill file was created and read its content
 
         Args:
             project_path: Path to project root
@@ -68,19 +69,12 @@ class SkillCreationService:
             # Wait for Claude to initialize
             await asyncio.sleep(2)
 
-            # Send initial message with all parameters
-            # This tells Claude to use the /create-skill command with the provided parameters
-            initial_message = f"""Please create a new skill with the following specifications:
+            # Send /create-skill command with arguments
+            # Format: /create-skill "Skill Name" "Skill Description"
+            command = f'/create-skill "{skill_name}" "{skill_description}"'
 
-Skill Name: {skill_name}
-Description: {skill_description}
-
-Use the Task tool to delegate to the skills-creator agent to create a comprehensive skill file following Anthropic's Claude Code best practices. Save the skill file to .claude/skills/ with an appropriate filename (kebab-case).
-
-IMPORTANT: Create the file immediately without asking for confirmation."""
-
-            await session.send_input(initial_message)
-            logger.info(f"Sent skill creation request for: {skill_name}")
+            await session.send_input(command)
+            logger.info(f"Sent command: {command}")
 
             # Wait for completion (check for success message in output)
             start_time = asyncio.get_event_loop().time()
