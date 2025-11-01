@@ -66,8 +66,16 @@ class SkillCreationService:
 
             logger.info(f"Started Claude session {session_id} for skill creation")
 
-            # Wait for Claude to initialize
-            await asyncio.sleep(2)
+            # Claude already initialized in session.start() with 5 second delay
+            # No additional wait needed here
+
+            # Handle MCP server selection prompt (if appears)
+            # Send Enter to confirm default selection and proceed
+            await session.send_key("enter")
+            logger.info("Sent Enter key to handle MCP prompt")
+
+            # Wait a bit for prompt to process
+            await asyncio.sleep(1)
 
             # Send /create-skill command with arguments
             # Format: /create-skill "Skill Name" "Skill Description"
@@ -76,37 +84,49 @@ class SkillCreationService:
             await session.send_input(command)
             logger.info(f"Sent command: {command}")
 
-            # Wait for completion - NO TIMEOUT, wait indefinitely until file is created
-            skill_file_name = self._generate_skill_file_name(skill_name)
-            skill_path = os.path.join(project_path, ".claude", "skills", skill_file_name)
+            # Ensure command is executed by sending Enter key
+            await asyncio.sleep(0.5)
+            await session.send_key("enter")
+            logger.info("Sent Enter to execute command")
 
-            logger.info(f"Waiting for skill file to be created: {skill_path}")
-            logger.info(f"No timeout - will wait as long as needed...")
+            # Session will run until agent calls MCP complete_skill_creation_session
+            # or timeout is reached (30 minutes)
+            logger.info(f"Skill creation session {session_id} started")
+            logger.info(f"Session will be stopped by agent via MCP or after 30 minute timeout")
 
-            check_count = 0
-            while True:
-                # Check if skill file was created
-                if os.path.exists(skill_path):
-                    logger.info(f"Skill file created after {check_count * 2} seconds: {skill_path}")
-                    break
+            # Wait for timeout (30 minutes = 1800 seconds)
+            # Agent should call mcp__claudetask__complete_skill_creation_session before timeout
+            timeout = 1800
+            await asyncio.sleep(timeout)
 
-                check_count += 1
-                if check_count % 30 == 0:  # Log every minute
-                    logger.info(f"Still waiting for skill file... ({check_count * 2}s elapsed)")
-
-                await asyncio.sleep(2)  # Check every 2 seconds
-
-            # Stop session
+            # If we reach here, timeout occurred - stop session
+            logger.warning(f"Skill creation session {session_id} timed out after {timeout}s")
             await session.stop()
 
-            # Read skill content
-            with open(skill_path, 'r', encoding='utf-8') as f:
-                content = f.read()
+            # Try to find created skill files
+            skill_dir_name = self._generate_skill_dir_name(skill_name)
+            skill_dir_path = os.path.join(project_path, ".claude", "skills", skill_dir_name)
+            skill_file_path = os.path.join(skill_dir_path, "SKILL.md")
+            legacy_file_name = self._generate_skill_file_name(skill_name)
+            legacy_file_path = os.path.join(project_path, ".claude", "skills", legacy_file_name)
+
+            # Check if skill was created
+            skill_path = None
+            content = None
+            if os.path.exists(skill_file_path):
+                skill_path = skill_file_path
+                with open(skill_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            elif os.path.exists(legacy_file_path):
+                skill_path = legacy_file_path
+                with open(skill_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
 
             return {
-                "success": True,
+                "success": skill_path is not None,
                 "skill_path": skill_path,
-                "content": content
+                "content": content,
+                "timeout": True
             }
 
         except Exception as e:
@@ -124,8 +144,17 @@ class SkillCreationService:
                 "error": str(e)
             }
 
+    def _generate_skill_dir_name(self, skill_name: str) -> str:
+        """Generate directory name from skill name (for multi-file skills)"""
+        import re
+        # Convert to lowercase, replace spaces with hyphens
+        dir_name = skill_name.lower().replace(" ", "-")
+        # Remove special characters
+        dir_name = re.sub(r'[^a-z0-9-_]', '', dir_name)
+        return dir_name
+
     def _generate_skill_file_name(self, skill_name: str) -> str:
-        """Generate file name from skill name"""
+        """Generate file name from skill name (for legacy single-file skills)"""
         import re
         # Convert to lowercase, replace spaces with hyphens
         file_name = skill_name.lower().replace(" ", "-")

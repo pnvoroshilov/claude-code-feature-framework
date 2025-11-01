@@ -35,9 +35,20 @@ class SkillFileService:
             True if successful, False otherwise
         """
         try:
+            logger.info(f"copy_skill_to_project called: project_path={project_path}, skill_file_name={skill_file_name}, source_type={source_type}")
             # Source path
             if source_type == "default":
-                source_path = os.path.join(self.framework_skills_dir, skill_file_name)
+                # Check if skill_file_name contains a directory (e.g., "api-development/skill.md")
+                if '/' in skill_file_name:
+                    # Extract directory name (e.g., "api-development")
+                    skill_dir = skill_file_name.split('/')[0]
+                    # Source is the entire skill directory
+                    source_path = os.path.join(self.framework_skills_dir, skill_dir)
+                    logger.info(f"Detected directory-based skill: source_path={source_path}")
+                else:
+                    # Single file skill
+                    source_path = os.path.join(self.framework_skills_dir, skill_file_name)
+                    logger.info(f"Detected single-file skill: source_path={source_path}")
             else:
                 # For custom skills, source is same as destination (already created)
                 return True
@@ -70,11 +81,31 @@ This skill will be automatically invoked by Claude Code when relevant to your ta
                 logger.info(f"Created placeholder skill file at {dest_path}")
                 return True
 
-            # Copy file
-            shutil.copy2(source_path, dest_path)
+            # Check if source is a directory (for skills like api-development/skill.md)
+            if os.path.isdir(source_path):
+                # Copy entire skill directory
+                # Extract directory name from skill_file_name (e.g., "test-runner" from "test-runner/skill.md")
+                if '/' in skill_file_name:
+                    skill_name = skill_file_name.split('/')[0]
+                else:
+                    skill_name = os.path.splitext(os.path.basename(skill_file_name))[0]
 
-            logger.info(f"Copied skill file {skill_file_name} to {dest_path}")
-            return True
+                logger.info(f"Copying skill directory: source={source_path}, skill_name={skill_name}")
+                dest_skill_dir = os.path.join(dest_dir, skill_name)
+
+                # Remove destination if exists
+                if os.path.exists(dest_skill_dir):
+                    shutil.rmtree(dest_skill_dir)
+
+                # Copy entire directory
+                shutil.copytree(source_path, dest_skill_dir)
+                logger.info(f"Copied skill directory {skill_file_name} to {dest_skill_dir}")
+                return True
+            else:
+                # Copy single file
+                shutil.copy2(source_path, dest_path)
+                logger.info(f"Copied skill file {skill_file_name} to {dest_path}")
+                return True
 
         except Exception as e:
             logger.error(f"Failed to copy skill file: {e}", exc_info=True)
@@ -86,25 +117,41 @@ This skill will be automatically invoked by Claude Code when relevant to your ta
         skill_file_name: str
     ) -> bool:
         """
-        Delete skill file from project's .claude/skills/
+        Delete skill file or directory from project's .claude/skills/
 
         Args:
             project_path: Path to project root
-            skill_file_name: Name of skill file to delete
+            skill_file_name: Name of skill file to delete (e.g., "api-development/skill.md")
 
         Returns:
             True if successful, False otherwise
         """
         try:
-            file_path = os.path.join(project_path, ".claude", "skills", skill_file_name)
+            # For directory-based skills (e.g., "api-development/skill.md"),
+            # delete the entire directory, not just the file
+            if '/' in skill_file_name:
+                # Extract directory name (e.g., "api-development")
+                skill_dir = skill_file_name.split('/')[0]
+                dir_path = os.path.join(project_path, ".claude", "skills", skill_dir)
 
-            if os.path.exists(file_path):
-                os.remove(file_path)
-                logger.info(f"Deleted skill file {file_path}")
-                return True
+                if os.path.exists(dir_path) and os.path.isdir(dir_path):
+                    shutil.rmtree(dir_path)
+                    logger.info(f"Deleted skill directory {dir_path}")
+                    return True
+                else:
+                    logger.warning(f"Skill directory not found (already deleted?): {dir_path}")
+                    return True
             else:
-                logger.warning(f"Skill file not found (already deleted?): {file_path}")
-                return True  # Consider it success if already deleted
+                # Single file skill
+                file_path = os.path.join(project_path, ".claude", "skills", skill_file_name)
+
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    logger.info(f"Deleted skill file {file_path}")
+                    return True
+                else:
+                    logger.warning(f"Skill file not found (already deleted?): {file_path}")
+                    return True  # Consider it success if already deleted
 
         except Exception as e:
             logger.error(f"Failed to delete skill file: {e}", exc_info=True)

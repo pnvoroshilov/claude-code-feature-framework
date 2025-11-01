@@ -1163,8 +1163,8 @@ Before delegating ANY task, verify:
 Remember: **YOU ARE PURE ORCHESTRATOR - DELEGATE EVERYTHING TECHNICAL TO CORRECT SPECIALISTS**
 
 ## Project Configuration
-- **Project Name**: task-84
-- **Path**: /Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/worktrees/task-84
+- **Project Name**: Claude Code Feature Framework
+- **Path**: /Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework
 - **Technologies**: Not detected
 - **Test Command**: Not configured
 - **Build Command**: Not configured

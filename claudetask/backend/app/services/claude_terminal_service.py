@@ -77,6 +77,9 @@ class ClaudeTerminalSession:
             "errors_count": 0,
             "session_duration": 0
         }
+        # Log file for Claude terminal output
+        self.log_file_path = os.path.join(working_dir, ".claudetask", f"claude-session-{session_id}.log")
+        self.log_file = None
         
     async def start(self) -> bool:
         """Start the Claude process with enhanced initialization"""
@@ -100,6 +103,7 @@ class ClaudeTerminalSession:
             
             self.child = pexpect.spawn(
                 'claude',
+                ['--dangerously-skip-permissions'],
                 cwd=self.working_dir,
                 encoding='utf-8',
                 timeout=None,  # No timeout
@@ -108,7 +112,24 @@ class ClaudeTerminalSession:
             )
             
             logger.info(f"Started Claude with pexpect, PID={self.child.pid}")
-            
+
+            # Logging disabled to reduce disk I/O
+            # # Open log file for writing
+            # try:
+            #     os.makedirs(os.path.dirname(self.log_file_path), exist_ok=True)
+            #     self.log_file = open(self.log_file_path, 'w', encoding='utf-8', buffering=1)  # Line buffered
+            #     self.log_file.write(f"=== Claude Session {self.session_id} ===\n")
+            #     self.log_file.write(f"Started at: {datetime.now().isoformat()}\n")
+            #     self.log_file.write(f"Task ID: {self.task_id}\n")
+            #     self.log_file.write(f"Working Dir: {self.working_dir}\n")
+            #     self.log_file.write(f"PID: {self.child.pid}\n")
+            #     self.log_file.write("=" * 50 + "\n\n")
+            #     logger.info(f"Logging Claude output to: {self.log_file_path}")
+            # except Exception as e:
+            #     logger.error(f"Failed to open log file: {e}")
+            #     self.log_file = None
+            self.log_file = None  # Logging disabled
+
             self.is_running = True
             
             # Start the reader thread
@@ -132,8 +153,8 @@ class ClaudeTerminalSession:
                 }
             )
             
-            # Wait for Claude to fully initialize
-            await asyncio.sleep(1)
+            # Wait for Claude to fully initialize (5 seconds for complete startup)
+            await asyncio.sleep(5)
             
             return True
             
@@ -170,11 +191,24 @@ class ClaudeTerminalSession:
                         self.child.close(force=True)
                 
                 self.child = None
-                
+
+                # Logging disabled
+                # # Close log file
+                # if self.log_file:
+                #     try:
+                #         self.log_file.write(f"\n{'=' * 50}\n")
+                #         self.log_file.write(f"Session ended at: {datetime.now().isoformat()}\n")
+                #         self.log_file.write(f"Duration: {(datetime.now() - self.session_start_time).total_seconds():.2f}s\n")
+                #         self.log_file.close()
+                #         self.log_file = None
+                #         logger.info(f"Closed log file: {self.log_file_path}")
+                #     except Exception as e:
+                #         logger.error(f"Failed to close log file: {e}")
+
                 # Calculate session duration
                 duration = (datetime.now() - self.session_start_time).total_seconds()
                 self.metrics["session_duration"] = duration
-                
+
                 await self._send_message(
                     MessageType.SYSTEM,
                     "Claude session stopped",
@@ -311,7 +345,15 @@ class ClaudeTerminalSession:
                             # For xterm.js: preserve ANSI codes and formatting
                             # Only remove excessive whitespace
                             processed_line = line.rstrip()
-                            
+
+                            # Logging disabled
+                            # # Write raw output to log file
+                            # if self.log_file:
+                            #     try:
+                            #         self.log_file.write(f"[{datetime.now().strftime('%H:%M:%S')}] {processed_line}\n")
+                            #     except Exception as e:
+                            #         logger.error(f"Failed to write to log file: {e}")
+
                             # Skip completely empty lines and thinking indicators
                             if processed_line and processed_line.strip() not in ['(Thinking...)', '...', '']:
                                 # Check for duplicates using clean version for comparison

@@ -74,67 +74,81 @@ async def seed_default_skills():
             print("Default skills already seeded")
             return
 
-        # Define 10 default skills
+        # Define 11 default skills (from framework-assets/claude-skills)
         default_skills = [
+            # Existing skill
             DefaultSkill(
                 name="Business Requirements Analysis",
                 description="Analyze business requirements, create user stories, and define acceptance criteria for new features",
                 category="Analysis",
                 file_name="business-requirements-analysis.md"
             ),
+            # New skills from framework-assets/claude-skills
             DefaultSkill(
-                name="Python Code Generation",
-                description="Generate clean, maintainable Python code following best practices and PEP 8 standards",
+                name="API Development",
+                description="Comprehensive expertise in RESTful and GraphQL API design, implementation, testing, and deployment",
                 category="Development",
-                file_name="python-code-generation.md"
+                file_name="api-development/skill.md"
             ),
             DefaultSkill(
-                name="AI Model Integration",
-                description="Integrate AI models (LLMs, ML models) into applications with proper error handling and optimization",
+                name="API Integration",
+                description="Expert skill for seamless integration between React frontend and Python FastAPI backend in MVP projects",
                 category="Development",
-                file_name="ai-model-integration.md"
+                file_name="api-integration/skill.md"
             ),
             DefaultSkill(
-                name="System Architecture Design",
-                description="Design scalable system architectures with microservices, databases, and integration patterns",
-                category="Architecture",
-                file_name="system-architecture-design.md"
-            ),
-            DefaultSkill(
-                name="UI/UX Design Validation",
-                description="Validate UI/UX designs for accessibility, usability, and design system compliance",
-                category="Design",
-                file_name="ui-ux-design-validation.md"
-            ),
-            DefaultSkill(
-                name="Automated Testing Strategy",
-                description="Create comprehensive testing strategies including unit, integration, and E2E tests",
-                category="Testing",
-                file_name="automated-testing-strategy.md"
-            ),
-            DefaultSkill(
-                name="CI/CD Pipeline Configuration",
-                description="Configure CI/CD pipelines with GitHub Actions, Docker, and deployment automation",
-                category="DevOps",
-                file_name="cicd-pipeline-configuration.md"
-            ),
-            DefaultSkill(
-                name="Technical Documentation",
-                description="Write clear technical documentation, API docs, and developer guides",
-                category="Documentation",
-                file_name="technical-documentation.md"
-            ),
-            DefaultSkill(
-                name="Quality Assurance Review",
-                description="Perform code reviews, security audits, and quality assurance checks",
+                name="Code Review",
+                description="Comprehensive code review with quality checks, best practices, and actionable feedback",
                 category="Quality",
-                file_name="quality-assurance-review.md"
+                file_name="code-review/skill.md"
             ),
             DefaultSkill(
-                name="Product Roadmap Planning",
-                description="Plan product roadmaps, feature prioritization, and release strategies",
-                category="Planning",
-                file_name="product-roadmap-planning.md"
+                name="Database Migration",
+                description="Expert database schema design and migration management with Alembic, SQLAlchemy, and advanced migration patterns",
+                category="Development",
+                file_name="database-migration/skill.md"
+            ),
+            DefaultSkill(
+                name="Debug Helper",
+                description="Systematic debugging assistance with root cause analysis, diagnostic strategies, and comprehensive fix implementations",
+                category="Development",
+                file_name="debug-helper/skill.md"
+            ),
+            DefaultSkill(
+                name="Deployment Helper",
+                description="Comprehensive skill for automating application deployments, infrastructure setup, and DevOps workflows",
+                category="DevOps",
+                file_name="deployment-helper/skill.md"
+            ),
+            DefaultSkill(
+                name="Documentation Writer",
+                description="Comprehensive skill for creating professional, clear, and maintainable technical documentation",
+                category="Documentation",
+                file_name="documentation-writer/skill.md"
+            ),
+            DefaultSkill(
+                name="Git Workflow",
+                description="Advanced Git workflow management covering commits, branching strategies, pull requests, and team collaboration",
+                category="Development",
+                file_name="git-workflow/skill.md"
+            ),
+            DefaultSkill(
+                name="Refactoring",
+                description="Expert code refactoring and cleanup for maintainability, performance, and code quality improvement",
+                category="Quality",
+                file_name="refactoring/skill.md"
+            ),
+            DefaultSkill(
+                name="Test Runner",
+                description="Automated test execution with intelligent coverage analysis, failure diagnostics, and quality reporting",
+                category="Testing",
+                file_name="test-runner/skill.md"
+            ),
+            DefaultSkill(
+                name="UI Component",
+                description="Expert-level React component creation with TypeScript, modern styling, and production-ready patterns",
+                category="Development",
+                file_name="ui-component/skill.md"
             )
         ]
 
@@ -148,7 +162,7 @@ async def seed_default_skills():
         result = await session.execute(select(DefaultSkill))
         skills = {s.name: s.id for s in result.scalars().all()}
 
-        # Define agent-skill recommendations
+        # Define agent-skill recommendations (updated with new skills)
         agent_recommendations = [
             # Business Analyst
             AgentSkillRecommendation(
@@ -158,20 +172,13 @@ async def seed_default_skills():
                 priority=1,
                 reason="Core skill for business requirements analysis"
             ),
-            AgentSkillRecommendation(
-                agent_name="business-analyst",
-                skill_id=skills["Product Roadmap Planning"],
-                skill_type="default",
-                priority=2,
-                reason="Helpful for feature prioritization"
-            ),
             # Systems Analyst
             AgentSkillRecommendation(
                 agent_name="systems-analyst",
-                skill_id=skills["System Architecture Design"],
+                skill_id=skills["API Development"],
                 skill_type="default",
                 priority=1,
-                reason="Essential for system architecture design"
+                reason="Essential for API architecture design"
             ),
             AgentSkillRecommendation(
                 agent_name="systems-analyst",
@@ -183,14 +190,21 @@ async def seed_default_skills():
             # Frontend Developer
             AgentSkillRecommendation(
                 agent_name="frontend-developer",
-                skill_id=skills["UI/UX Design Validation"],
+                skill_id=skills["UI Component"],
                 skill_type="default",
                 priority=1,
-                reason="Critical for UI/UX validation"
+                reason="Core skill for React component development"
             ),
             AgentSkillRecommendation(
                 agent_name="frontend-developer",
-                skill_id=skills["Automated Testing Strategy"],
+                skill_id=skills["API Integration"],
+                skill_type="default",
+                priority=1,
+                reason="Essential for React-FastAPI integration"
+            ),
+            AgentSkillRecommendation(
+                agent_name="frontend-developer",
+                skill_id=skills["Test Runner"],
                 skill_type="default",
                 priority=2,
                 reason="Important for frontend testing"
@@ -198,59 +212,66 @@ async def seed_default_skills():
             # Backend Architect
             AgentSkillRecommendation(
                 agent_name="backend-architect",
-                skill_id=skills["Python Code Generation"],
+                skill_id=skills["API Development"],
                 skill_type="default",
                 priority=1,
-                reason="Core skill for Python backend development"
+                reason="Core skill for backend API development"
             ),
             AgentSkillRecommendation(
                 agent_name="backend-architect",
-                skill_id=skills["System Architecture Design"],
+                skill_id=skills["Database Migration"],
                 skill_type="default",
                 priority=1,
-                reason="Essential for architecture decisions"
-            ),
-            # Python Expert
-            AgentSkillRecommendation(
-                agent_name="python-expert",
-                skill_id=skills["Python Code Generation"],
-                skill_type="default",
-                priority=1,
-                reason="Primary skill for Python development"
+                reason="Essential for database schema management"
             ),
             AgentSkillRecommendation(
-                agent_name="python-expert",
-                skill_id=skills["AI Model Integration"],
+                agent_name="backend-architect",
+                skill_id=skills["API Integration"],
                 skill_type="default",
                 priority=2,
-                reason="Useful for AI/ML integrations"
+                reason="Helpful for frontend-backend integration"
             ),
-            # AI Implementation Expert
+            # Python API Expert
             AgentSkillRecommendation(
-                agent_name="ai-implementation-expert",
-                skill_id=skills["AI Model Integration"],
+                agent_name="python-api-expert",
+                skill_id=skills["API Development"],
                 skill_type="default",
                 priority=1,
-                reason="Core skill for AI/ML work"
+                reason="Primary skill for FastAPI development"
             ),
             AgentSkillRecommendation(
-                agent_name="ai-implementation-expert",
-                skill_id=skills["Python Code Generation"],
+                agent_name="python-api-expert",
+                skill_id=skills["Database Migration"],
                 skill_type="default",
                 priority=2,
-                reason="Needed for Python implementation"
+                reason="Useful for database operations"
+            ),
+            # Mobile React Expert
+            AgentSkillRecommendation(
+                agent_name="mobile-react-expert",
+                skill_id=skills["UI Component"],
+                skill_type="default",
+                priority=1,
+                reason="Core skill for mobile React components"
+            ),
+            AgentSkillRecommendation(
+                agent_name="mobile-react-expert",
+                skill_id=skills["API Integration"],
+                skill_type="default",
+                priority=1,
+                reason="Essential for mobile API integration"
             ),
             # Quality Engineer
             AgentSkillRecommendation(
                 agent_name="quality-engineer",
-                skill_id=skills["Automated Testing Strategy"],
+                skill_id=skills["Test Runner"],
                 skill_type="default",
                 priority=1,
-                reason="Essential for testing strategies"
+                reason="Essential for automated testing"
             ),
             AgentSkillRecommendation(
                 agent_name="quality-engineer",
-                skill_id=skills["Quality Assurance Review"],
+                skill_id=skills["Code Review"],
                 skill_type="default",
                 priority=1,
                 reason="Core skill for QA reviews"
@@ -258,40 +279,70 @@ async def seed_default_skills():
             # DevOps Engineer
             AgentSkillRecommendation(
                 agent_name="devops-engineer",
-                skill_id=skills["CI/CD Pipeline Configuration"],
+                skill_id=skills["Deployment Helper"],
                 skill_type="default",
                 priority=1,
-                reason="Primary skill for CI/CD work"
+                reason="Primary skill for deployment automation"
             ),
             AgentSkillRecommendation(
                 agent_name="devops-engineer",
-                skill_id=skills["System Architecture Design"],
+                skill_id=skills["Git Workflow"],
                 skill_type="default",
                 priority=2,
-                reason="Helpful for infrastructure design"
+                reason="Important for CI/CD workflows"
             ),
             # Technical Writer
             AgentSkillRecommendation(
                 agent_name="technical-writer",
-                skill_id=skills["Technical Documentation"],
+                skill_id=skills["Documentation Writer"],
                 skill_type="default",
                 priority=1,
-                reason="Core skill for documentation"
+                reason="Core skill for technical documentation"
             ),
             # Fullstack Code Reviewer
             AgentSkillRecommendation(
                 agent_name="fullstack-code-reviewer",
-                skill_id=skills["Quality Assurance Review"],
+                skill_id=skills["Code Review"],
                 skill_type="default",
                 priority=1,
-                reason="Essential for code reviews"
+                reason="Essential for comprehensive code reviews"
             ),
             AgentSkillRecommendation(
                 agent_name="fullstack-code-reviewer",
-                skill_id=skills["Automated Testing Strategy"],
+                skill_id=skills["Test Runner"],
                 skill_type="default",
                 priority=2,
                 reason="Important for test coverage review"
+            ),
+            # Refactoring Expert
+            AgentSkillRecommendation(
+                agent_name="refactoring-expert",
+                skill_id=skills["Refactoring"],
+                skill_type="default",
+                priority=1,
+                reason="Core skill for code refactoring"
+            ),
+            AgentSkillRecommendation(
+                agent_name="refactoring-expert",
+                skill_id=skills["Code Review"],
+                skill_type="default",
+                priority=2,
+                reason="Helpful for identifying refactoring opportunities"
+            ),
+            # Root Cause Analyst
+            AgentSkillRecommendation(
+                agent_name="root-cause-analyst",
+                skill_id=skills["Debug Helper"],
+                skill_type="default",
+                priority=1,
+                reason="Essential for systematic debugging"
+            ),
+            AgentSkillRecommendation(
+                agent_name="root-cause-analyst",
+                skill_id=skills["Test Runner"],
+                skill_type="default",
+                priority=2,
+                reason="Useful for reproducing and testing fixes"
             )
         ]
 
@@ -302,3 +353,4 @@ async def seed_default_skills():
         await session.commit()
 
         print(f"Seeded {len(default_skills)} default skills and {len(agent_recommendations)} agent recommendations")
+        print(f"Skills: {', '.join([s.name for s in default_skills])}")

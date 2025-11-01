@@ -10,11 +10,12 @@ from datetime import datetime
 from git import Repo
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from ..models import Project, ProjectSettings, Agent, Task
+from ..models import Project, ProjectSettings, Agent, Task, DefaultSkill, ProjectSkill
 from ..schemas import ProjectCreate, InitializeProjectResponse
 from .claude_config_generator import generate_claude_md, get_default_agents
 from .docker_file_service import DockerFileService
 from .project_docker_service import create_project_structure_docker, configure_mcp_docker
+from .skill_file_service import SkillFileService
 
 
 class ProjectService:
@@ -140,7 +141,10 @@ class ProjectService:
             db.add(agent)
         
         await db.commit()
-        
+
+        # Enable all default skills automatically
+        await ProjectService._enable_all_default_skills(db, project_id, project_path)
+
         # Create file structure
         if os.getenv("RUNNING_IN_DOCKER"):
             # Use Docker version for creating files on host
@@ -470,6 +474,59 @@ class ProjectService:
         except Exception as e:
             print(f"Failed to create .mcp.json: {e}")
             return False
+
+    @staticmethod
+    async def _enable_all_default_skills(
+        db: AsyncSession,
+        project_id: str,
+        project_path: str
+    ) -> None:
+        """
+        Enable all default skills for a newly initialized project
+
+        This copies all default skills to .claude/skills/ and adds them to project_skills table
+        """
+        # Get all default skills
+        result = await db.execute(select(DefaultSkill))
+        default_skills = result.scalars().all()
+
+        if not default_skills:
+            print("No default skills found to enable")
+            return
+
+        # Initialize file service
+        file_service = SkillFileService()
+
+        # Enable each skill
+        enabled_count = 0
+        for skill in default_skills:
+            try:
+                # Copy skill file to project
+                success = await file_service.copy_skill_to_project(
+                    project_path=project_path,
+                    skill_file_name=skill.file_name,
+                    source_type="default"
+                )
+
+                if success:
+                    # Add to project_skills table
+                    project_skill = ProjectSkill(
+                        project_id=project_id,
+                        skill_id=skill.id,
+                        skill_type="default",
+                        enabled_at=datetime.utcnow()
+                    )
+                    db.add(project_skill)
+                    enabled_count += 1
+                    print(f"Enabled default skill: {skill.name}")
+                else:
+                    print(f"Failed to copy skill file: {skill.name}")
+            except Exception as e:
+                print(f"Error enabling skill {skill.name}: {e}")
+
+        # Commit all enabled skills
+        await db.commit()
+        print(f"Auto-enabled {enabled_count}/{len(default_skills)} default skills for project {project_id}")
 
 
 from datetime import datetime

@@ -596,6 +596,20 @@ class ClaudeTaskMCPServer:
                         },
                         "required": ["file_paths"]
                     }
+                ),
+                types.Tool(
+                    name="complete_skill_creation_session",
+                    description="Complete skill creation session by sending /exit to Claude terminal and stopping the process. MUST be called after skill files are created to clean up the session.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "session_id": {
+                                "type": "string",
+                                "description": "Session ID of the skill creation session (format: skill-creation-*)"
+                            }
+                        },
+                        "required": ["session_id"]
+                    }
                 )
             ]
 
@@ -694,6 +708,10 @@ class ClaudeTaskMCPServer:
                 elif name == "index_files":
                     return await self._index_files(
                         arguments["file_paths"]
+                    )
+                elif name == "complete_skill_creation_session":
+                    return await self._complete_skill_creation_session(
+                        arguments["session_id"]
                     )
                 else:
                     raise ValueError(f"Unknown tool: {name}")
@@ -2634,6 +2652,47 @@ Total chunks: {result['total_chunks']}"""
                 type="text",
                 text=f"❌ Error indexing files: {str(e)}"
             )]
+
+    async def _complete_skill_creation_session(self, session_id: str) -> list[types.TextContent]:
+        """Complete skill creation session by sending /exit and stopping Claude process"""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                self.logger.info(f"Completing skill creation session: {session_id}")
+
+                # Send /exit command to Claude terminal
+                exit_response = await client.post(
+                    f"{self.server_url}/api/claude-terminal/sessions/{session_id}/input",
+                    json={"input": "/exit"}
+                )
+
+                if exit_response.status_code != 200:
+                    self.logger.warning(f"Failed to send /exit command: {exit_response.status_code}")
+
+                # Wait a moment for graceful exit
+                await asyncio.sleep(1)
+
+                # Stop the session (kills the process)
+                stop_response = await client.post(
+                    f"{self.server_url}/api/claude-terminal/sessions/{session_id}/stop"
+                )
+
+                if stop_response.status_code == 200:
+                    return [types.TextContent(
+                        type="text",
+                        text=f"✅ Skill creation session completed successfully\n\nSession {session_id} stopped and cleaned up."
+                    )]
+                else:
+                    return [types.TextContent(
+                        type="text",
+                        text=f"⚠️  Session exit sent, but stop failed: {stop_response.status_code}"
+                    )]
+
+            except Exception as e:
+                self.logger.error(f"Error completing skill creation session: {e}")
+                return [types.TextContent(
+                    type="text",
+                    text=f"❌ Error completing session: {str(e)}"
+                )]
 
     async def run(self):
         """Run the MCP server"""
