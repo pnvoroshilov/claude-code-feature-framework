@@ -54,10 +54,11 @@ class ClaudeMessage:
 class ClaudeTerminalSession:
     """Manages a single Claude terminal session with enhanced features"""
     
-    def __init__(self, session_id: str, task_id: int, working_dir: str):
+    def __init__(self, session_id: str, task_id: int, working_dir: str, skip_permissions: bool = True):
         self.session_id = session_id
         self.task_id = task_id
         self.working_dir = working_dir
+        self.skip_permissions = skip_permissions
         self.child: Optional[pexpect.spawn] = None
         self.is_running = False
         self.message_queue = asyncio.Queue()
@@ -100,18 +101,21 @@ class ClaudeTerminalSession:
             env = os.environ.copy()
             # Add any necessary environment variables
             env['TERM'] = 'xterm-256color'
-            
+
+            # Prepare Claude command arguments
+            claude_args = ['--dangerously-skip-permissions'] if self.skip_permissions else []
+
             self.child = pexpect.spawn(
                 'claude',
-                ['--dangerously-skip-permissions'],
+                claude_args,
                 cwd=self.working_dir,
                 encoding='utf-8',
                 timeout=None,  # No timeout
                 env=env,
                 dimensions=(24, 80)  # Standard terminal size
             )
-            
-            logger.info(f"Started Claude with pexpect, PID={self.child.pid}")
+
+            logger.info(f"Started Claude with pexpect (skip_permissions={self.skip_permissions}), PID={self.child.pid}")
 
             # Logging disabled to reduce disk I/O
             # # Open log file for writing
@@ -524,7 +528,8 @@ class ClaudeTerminalService:
             session = ClaudeTerminalSession(
                 session_id=session_id,
                 task_id=task_id,
-                working_dir=project_path
+                working_dir=project_path,
+                skip_permissions=True  # Use dangerous mode for task sessions (directory already trusted)
             )
             
             # Start the session

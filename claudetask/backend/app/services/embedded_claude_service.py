@@ -22,12 +22,13 @@ logger = logging.getLogger(__name__)
 
 class EmbeddedClaudeProcess:
     """Manages a single embedded Claude Code process with pexpect"""
-    
-    def __init__(self, session_id: str, task_id: int, working_dir: str, context_file: str):
+
+    def __init__(self, session_id: str, task_id: int, working_dir: str, context_file: str, skip_permissions: bool = True):
         self.session_id = session_id
         self.task_id = task_id
         self.working_dir = working_dir
         self.context_file = context_file
+        self.skip_permissions = skip_permissions
         self.child: Optional[pexpect.spawn] = None
         self.is_running = False
         self.message_queue = asyncio.Queue()
@@ -41,8 +42,9 @@ class EmbeddedClaudeProcess:
             logger.info(f"Working directory: {self.working_dir}")
             
             # Start Claude with pexpect
-            self.child = pexpect.spawn('claude', cwd=self.working_dir, encoding='utf-8', timeout=10)
-            logger.info(f"Started Claude with pexpect, PID={self.child.pid}")
+            claude_cmd = 'claude --dangerously-skip-permissions' if self.skip_permissions else 'claude'
+            self.child = pexpect.spawn(claude_cmd, cwd=self.working_dir, encoding='utf-8', timeout=10)
+            logger.info(f"Started Claude with pexpect (skip_permissions={self.skip_permissions}), PID={self.child.pid}")
             
             self.is_running = True
             
@@ -323,7 +325,8 @@ class EmbeddedClaudeService:
                 session_id=session_id,
                 task_id=task_id,
                 working_dir=project_path,
-                context_file=context_file
+                context_file=context_file,
+                skip_permissions=True  # Use dangerous mode for embedded sessions (directory already trusted)
             )
             
             # Start the process

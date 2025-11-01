@@ -16,11 +16,12 @@ from app.models import ClaudeSession
 logger = logging.getLogger(__name__)
 
 class RealClaudeSession:
-    def __init__(self, session_id: str, task_id: int, working_dir: str, root_project_dir: str = None, db_session: Optional[AsyncSession] = None):
+    def __init__(self, session_id: str, task_id: int, working_dir: str, root_project_dir: str = None, db_session: Optional[AsyncSession] = None, skip_permissions: bool = True):
         self.session_id = session_id
         self.task_id = task_id
         self.working_dir = working_dir  # This is the worktree path
         self.root_project_dir = root_project_dir or working_dir  # Root project directory for Claude
+        self.skip_permissions = skip_permissions
         self.child: Optional[pexpect.spawn] = None
         self.is_running = False
         self.websocket_clients: List[Any] = []
@@ -46,15 +47,20 @@ class RealClaudeSession:
             self.main_loop = asyncio.get_running_loop()
             logger.debug(f"Event loop for session {self.session_id}: {id(self.main_loop)}")
             
-            # Start Claude with pexpect in dangerous mode
+            # Start Claude with pexpect
             # Always start in root project directory to have access to .claude config
+            # Use --dangerously-skip-permissions flag based on skip_permissions parameter
+            claude_cmd = 'claude --dangerously-skip-permissions' if self.skip_permissions else 'claude'
+
             self.child = pexpect.spawn(
-                'claude --dangerously-skip-permissions',
+                claude_cmd,
                 cwd=self.root_project_dir,  # Use root directory for .claude access
                 timeout=None,
                 encoding='utf-8',
                 codec_errors='ignore'
             )
+
+            logger.info(f"Started Claude with command: {claude_cmd}")
             
             if not self.child.isalive():
                 logger.error("Failed to start Claude process")
@@ -432,7 +438,14 @@ class RealClaudeService:
                 if not root_project_path:
                     root_project_path = project_path
             
-            session = RealClaudeSession(session_id, task_id, project_path, root_project_path, db_session)
+            session = RealClaudeSession(
+                session_id,
+                task_id,
+                project_path,
+                root_project_path,
+                db_session,
+                skip_permissions=True  # Use dangerous mode for task sessions (directory already trusted)
+            )
             
             # Load history from DB if available
             if db_session:

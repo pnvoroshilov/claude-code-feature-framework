@@ -55,7 +55,8 @@ class SkillCreationService:
             session = ClaudeTerminalSession(
                 session_id=session_id,
                 task_id=0,  # No task associated
-                working_dir=project_path
+                working_dir=project_path,
+                skip_permissions=True  # Use dangerous mode for skill creation (directory already trusted)
             )
 
             if not await session.start():

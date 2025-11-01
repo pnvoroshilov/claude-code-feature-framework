@@ -4,6 +4,8 @@ import os
 import json
 import shutil
 import uuid
+import asyncio
+import logging
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -16,6 +18,8 @@ from .claude_config_generator import generate_claude_md, get_default_agents
 from .docker_file_service import DockerFileService
 from .project_docker_service import create_project_structure_docker, configure_mcp_docker
 from .skill_file_service import SkillFileService
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectService:
@@ -161,13 +165,66 @@ class ProjectService:
             # Configure MCP normally
             mcp_configured = ProjectService._configure_mcp(project_path, project_id)
         
+        # Initialize directory trust for Claude Code
+        # This must be done BEFORE any skill creation sessions
+        await ProjectService._initialize_directory_trust(project_path)
+
         return InitializeProjectResponse(
             project_id=project_id,
             mcp_configured=mcp_configured,
             files_created=files_created,
             claude_restart_required=True
         )
-    
+
+    @staticmethod
+    async def _initialize_directory_trust(project_path: str):
+        """
+        Initialize directory trust for Claude Code by launching in normal mode.
+
+        This is required for MCP servers to be visible in new projects.
+        The first launch must be in normal mode (without --dangerously-skip-permissions)
+        to allow the user to accept the directory trust prompt.
+
+        Process:
+        1. Launch Claude in normal mode (no --dangerously-skip-permissions)
+        2. Wait 10 seconds for trust prompt and auto-acceptance
+        3. Close the session
+        4. Future sessions can use --dangerously-skip-permissions
+        """
+        try:
+            from .claude_terminal_service import ClaudeTerminalSession
+
+            logger.info(f"Initializing directory trust for {project_path}")
+
+            # Create a special session for directory trust initialization
+            # skip_permissions=False to show the trust prompt
+            session_id = f"dir-trust-init-{uuid.uuid4()}"
+            session = ClaudeTerminalSession(
+                session_id=session_id,
+                task_id=0,  # No task associated
+                working_dir=project_path,
+                skip_permissions=False  # CRITICAL: Must be False for first launch
+            )
+
+            # Start the session
+            if await session.start():
+                logger.info(f"Directory trust session started, waiting 10s for trust prompt")
+
+                # Wait 10 seconds for Claude to show trust prompt and auto-accept
+                # The user should see and accept the prompt during this time
+                await asyncio.sleep(10)
+
+                # Stop the session
+                await session.stop()
+                logger.info(f"Directory trust initialization completed for {project_path}")
+            else:
+                logger.warning(f"Failed to start directory trust session for {project_path}")
+
+        except Exception as e:
+            logger.error(f"Error initializing directory trust: {e}", exc_info=True)
+            # Don't fail project initialization if this fails
+            # User can manually trust the directory later
+
     @staticmethod
     def _detect_technologies(project_path: str) -> List[str]:
         """Detect technologies used in the project"""
