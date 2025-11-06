@@ -126,15 +126,32 @@ class MCPConfigService:
         if existing.scalar_one_or_none():
             raise ValueError(f"MCP config already enabled for project")
 
-        # Merge MCP config to project's .mcp.json
-        success = await self.file_service.merge_mcp_config_to_project(
+        # Check if MCP config already exists in project's .mcp.json
+        # If it exists, don't overwrite (user may have customized it)
+        config_exists = await self.file_service.mcp_config_exists_in_project(
             project_path=project.path,
-            mcp_config_name=mcp_config.name,
-            config_data=mcp_config.config
+            mcp_config_name=mcp_config.name
         )
 
-        if not success:
-            raise RuntimeError(f"Failed to merge MCP config to project")
+        if not config_exists:
+            # Prepare config data - customize for specific MCP servers
+            config_data = self._prepare_mcp_config_for_project(
+                mcp_config_name=mcp_config.name,
+                base_config=mcp_config.config,
+                project=project
+            )
+
+            # Only merge if config doesn't exist in project
+            success = await self.file_service.merge_mcp_config_to_project(
+                project_path=project.path,
+                mcp_config_name=mcp_config.name,
+                config_data=config_data
+            )
+
+            if not success:
+                raise RuntimeError(f"Failed to merge MCP config to project")
+        else:
+            logger.info(f"MCP config '{mcp_config.name}' already exists in project, skipping merge to preserve custom settings")
 
         # Insert into project_mcp_configs
         project_mcp_config = ProjectMCPConfig(
@@ -361,3 +378,52 @@ class MCPConfigService:
             created_at=mcp_config.created_at,
             updated_at=mcp_config.updated_at
         )
+
+    def _prepare_mcp_config_for_project(
+        self,
+        mcp_config_name: str,
+        base_config: Dict[str, Any],
+        project: Project
+    ) -> Dict[str, Any]:
+        """
+        Prepare MCP config with project-specific values
+
+        For claudetask MCP: Replace template values with actual project data
+        For other MCPs: Use base config as-is
+        """
+        import copy
+        from pathlib import Path
+
+        config = copy.deepcopy(base_config)
+
+        # Special handling for claudetask MCP
+        if mcp_config_name == "claudetask":
+            # Get absolute path to claudetask venv python
+            project_root = Path(project.path)
+            if project_root.name == "Claude Code Feature Framework":
+                # This is the framework project itself
+                venv_python = project_root / "claudetask" / "mcp_server" / "venv" / "bin" / "python"
+                server_script = project_root / "claudetask" / "mcp_server" / "native_stdio_server.py"
+            else:
+                # External project - look for framework in parent or use relative paths
+                venv_python = Path("python3")  # Fallback to system python
+                server_script = Path("claudetask/mcp_server/native_stdio_server.py")
+
+            # Update command with absolute path
+            config["command"] = str(venv_python) if venv_python.exists() else "python3"
+
+            # Update args with absolute path
+            if "args" in config and len(config["args"]) > 0:
+                config["args"][0] = str(server_script) if server_script.exists() else config["args"][0]
+
+            # Update env variables with project-specific values
+            if "env" not in config:
+                config["env"] = {}
+
+            config["env"]["CLAUDETASK_PROJECT_ID"] = project.id
+            config["env"]["CLAUDETASK_PROJECT_PATH"] = project.path
+            config["env"]["CLAUDETASK_BACKEND_URL"] = os.getenv("CLAUDETASK_BACKEND_URL", "http://localhost:3333")
+
+            logger.info(f"Prepared claudetask MCP config for project {project.id}: command={config['command']}, project_path={project.path}")
+
+        return config
