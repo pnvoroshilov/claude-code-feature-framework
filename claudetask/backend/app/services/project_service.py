@@ -108,6 +108,33 @@ class ProjectService:
                 )
             else:
                 # Delete existing project from database for reinitialiation
+                # First, delete related records to avoid foreign key constraints
+                from ..models import ProjectMCPConfig, CustomMCPConfig, ProjectSkill
+
+                # Delete project_mcp_configs
+                await db.execute(
+                    select(ProjectMCPConfig).where(ProjectMCPConfig.project_id == existing_project.id)
+                )
+                project_configs = (await db.execute(
+                    select(ProjectMCPConfig).where(ProjectMCPConfig.project_id == existing_project.id)
+                )).scalars().all()
+                for config in project_configs:
+                    await db.delete(config)
+
+                # Delete custom_mcp_configs
+                custom_configs = (await db.execute(
+                    select(CustomMCPConfig).where(CustomMCPConfig.project_id == existing_project.id)
+                )).scalars().all()
+                for config in custom_configs:
+                    await db.delete(config)
+
+                # Delete project_skills
+                project_skills = (await db.execute(
+                    select(ProjectSkill).where(ProjectSkill.project_id == existing_project.id)
+                )).scalars().all()
+                for skill in project_skills:
+                    await db.delete(skill)
+
                 await db.delete(existing_project)
                 await db.commit()
         
@@ -148,6 +175,9 @@ class ProjectService:
 
         # Enable all default skills automatically
         await ProjectService._enable_all_default_skills(db, project_id, project_path)
+
+        # Import existing .mcp.json configs into database
+        await ProjectService._import_existing_mcp_configs(db, project_id, project_path)
 
         # Create file structure
         if os.getenv("RUNNING_IN_DOCKER"):
@@ -585,5 +615,81 @@ class ProjectService:
         await db.commit()
         print(f"Auto-enabled {enabled_count}/{len(default_skills)} default skills for project {project_id}")
 
+    @staticmethod
+    async def _import_existing_mcp_configs(
+        db: AsyncSession,
+        project_id: str,
+        project_path: str
+    ) -> None:
+        """
+        Import existing .mcp.json configs from project into database as custom configs
 
-from datetime import datetime
+        This reads the project's existing .mcp.json file and creates custom MCP config
+        records in the database, so they appear in the UI and are properly tracked.
+        """
+        import json
+        from pathlib import Path
+        from ..models import CustomMCPConfig, ProjectMCPConfig
+
+        mcp_file_path = Path(project_path) / ".mcp.json"
+
+        # Check if .mcp.json exists
+        if not mcp_file_path.exists():
+            print(f"No .mcp.json found at {mcp_file_path}, skipping import")
+            return
+
+        try:
+            # Read existing .mcp.json
+            with open(mcp_file_path, 'r') as f:
+                mcp_data = json.load(f)
+
+            mcp_servers = mcp_data.get("mcpServers", {})
+
+            if not mcp_servers:
+                print(f"No MCP servers found in .mcp.json, skipping import")
+                return
+
+            # Import each MCP server config
+            imported_count = 0
+            for server_name, server_config in mcp_servers.items():
+                try:
+                    # Create custom MCP config record
+                    custom_mcp_config = CustomMCPConfig(
+                        project_id=project_id,
+                        name=server_name,
+                        description=f"Imported from existing .mcp.json - {server_name} MCP server",
+                        category="imported",
+                        config=server_config,
+                        status="active",
+                        created_by="system_import",
+                        created_at=datetime.utcnow(),
+                        updated_at=datetime.utcnow()
+                    )
+                    db.add(custom_mcp_config)
+                    await db.flush()  # Get the ID
+
+                    # Create project_mcp_configs junction record (mark as enabled)
+                    project_mcp_config = ProjectMCPConfig(
+                        project_id=project_id,
+                        mcp_config_id=custom_mcp_config.id,
+                        mcp_config_type="custom",
+                        enabled_at=datetime.utcnow(),
+                        enabled_by="system_import"
+                    )
+                    db.add(project_mcp_config)
+
+                    imported_count += 1
+                    print(f"Imported MCP config: {server_name}")
+
+                except Exception as e:
+                    print(f"Error importing MCP config {server_name}: {e}")
+                    continue
+
+            # Commit all imported configs
+            await db.commit()
+            print(f"Imported {imported_count}/{len(mcp_servers)} MCP configs from .mcp.json for project {project_id}")
+
+        except json.JSONDecodeError as e:
+            print(f"Error parsing .mcp.json: {e}")
+        except Exception as e:
+            print(f"Error importing MCP configs: {e}")
