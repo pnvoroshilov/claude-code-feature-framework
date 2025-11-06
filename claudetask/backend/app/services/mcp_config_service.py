@@ -113,7 +113,7 @@ class MCPConfigService:
         if not mcp_config:
             raise ValueError(f"MCP config {mcp_config_id} not found")
 
-        # Check if already enabled
+        # Check if already enabled (use .first() to handle duplicates gracefully)
         existing = await self.db.execute(
             select(ProjectMCPConfig).where(
                 and_(
@@ -123,7 +123,7 @@ class MCPConfigService:
                 )
             )
         )
-        if existing.scalar_one_or_none():
+        if existing.scalars().first():
             raise ValueError(f"MCP config already enabled for project")
 
         # Check if MCP config already exists in project's .mcp.json
@@ -182,7 +182,7 @@ class MCPConfigService:
         if not project:
             raise ValueError(f"Project {project_id} not found")
 
-        # Get project_mcp_config record
+        # Get all project_mcp_config records (may have duplicates)
         result = await self.db.execute(
             select(ProjectMCPConfig).where(
                 and_(
@@ -191,10 +191,13 @@ class MCPConfigService:
                 )
             )
         )
-        project_mcp_config = result.scalar_one_or_none()
+        project_mcp_configs = result.scalars().all()
 
-        if not project_mcp_config:
+        if not project_mcp_configs:
             raise ValueError(f"MCP config not enabled for project")
+
+        # Use first record to get mcp_config_type
+        project_mcp_config = project_mcp_configs[0]
 
         # Get MCP config details for name
         if project_mcp_config.mcp_config_type == "default":
@@ -220,11 +223,12 @@ class MCPConfigService:
         if not success:
             logger.warning(f"Failed to remove MCP config from .mcp.json (may not exist)")
 
-        # Delete from project_mcp_configs
-        await self.db.delete(project_mcp_config)
+        # Delete all records from project_mcp_configs (handle duplicates)
+        for config_record in project_mcp_configs:
+            await self.db.delete(config_record)
         await self.db.commit()
 
-        logger.info(f"Disabled MCP config {mcp_config.name} for project {project_id}")
+        logger.info(f"Disabled MCP config {mcp_config.name} for project {project_id} (removed {len(project_mcp_configs)} record(s))")
 
     async def create_custom_mcp_config(
         self,
