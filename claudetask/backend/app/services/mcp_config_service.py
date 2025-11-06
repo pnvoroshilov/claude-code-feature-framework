@@ -210,7 +210,7 @@ class MCPConfigService:
         Disable an MCP config by removing it from project
 
         Process:
-        1. Get MCP config name
+        1. Get MCP config name (check both default and imported)
         2. Delete ALL junction table records for this MCP name (default + imported)
         3. Remove MCP config from .mcp.json
         4. Keep records in DB (custom_mcp_configs) - don't delete from DB
@@ -222,44 +222,30 @@ class MCPConfigService:
         if not project:
             raise ValueError(f"Project {project_id} not found")
 
-        # Get all project_mcp_config records for this ID
-        result = await self.db.execute(
-            select(ProjectMCPConfig).where(
-                and_(
-                    ProjectMCPConfig.project_id == project_id,
-                    ProjectMCPConfig.mcp_config_id == mcp_config_id
+        # First, try to get the MCP config to determine its name
+        # Try default first
+        default_config_result = await self.db.execute(
+            select(DefaultMCPConfig).where(DefaultMCPConfig.id == mcp_config_id)
+        )
+        default_mcp_config = default_config_result.scalar_one_or_none()
+
+        if default_mcp_config:
+            # This is a default MCP config
+            mcp_name = default_mcp_config.name
+
+            # Look for junction records for this default config
+            result = await self.db.execute(
+                select(ProjectMCPConfig).where(
+                    and_(
+                        ProjectMCPConfig.project_id == project_id,
+                        ProjectMCPConfig.mcp_config_id == mcp_config_id,
+                        ProjectMCPConfig.mcp_config_type == "default"
+                    )
                 )
             )
-        )
-        project_mcp_configs = result.scalars().all()
+            default_junction_records = result.scalars().all()
 
-        if not project_mcp_configs:
-            raise ValueError(f"MCP config not enabled for project")
-
-        # Use first record to get mcp_config_type and name
-        project_mcp_config = project_mcp_configs[0]
-
-        # Get MCP config details for name
-        if project_mcp_config.mcp_config_type == "default":
-            config_result = await self.db.execute(
-                select(DefaultMCPConfig).where(DefaultMCPConfig.id == mcp_config_id)
-            )
-            mcp_config = config_result.scalar_one_or_none()
-        else:
-            config_result = await self.db.execute(
-                select(CustomMCPConfig).where(CustomMCPConfig.id == mcp_config_id)
-            )
-            mcp_config = config_result.scalar_one_or_none()
-
-        if not mcp_config:
-            raise ValueError(f"MCP config {mcp_config_id} not found")
-
-        mcp_name = mcp_config.name
-
-        # IMPORTANT: Also delete any imported custom configs with same name
-        # Because when enabling default MCP, it may use imported config instead
-        if project_mcp_config.mcp_config_type == "default":
-            # Find imported custom config with same name
+            # Also look for imported config with same name
             imported_result = await self.db.execute(
                 select(CustomMCPConfig).where(
                     and_(
@@ -271,8 +257,9 @@ class MCPConfigService:
             )
             imported_config = imported_result.scalar_one_or_none()
 
+            imported_junction_records = []
             if imported_config:
-                # Delete junction records for imported config too
+                # Look for junction records for imported config
                 imported_junction_result = await self.db.execute(
                     select(ProjectMCPConfig).where(
                         and_(
@@ -283,9 +270,38 @@ class MCPConfigService:
                     )
                 )
                 imported_junction_records = imported_junction_result.scalars().all()
-                for record in imported_junction_records:
-                    await self.db.delete(record)
-                    logger.info(f"Also deleted junction record for imported config {imported_config.id}")
+
+            # Collect all junction records to delete
+            all_junction_records = default_junction_records + imported_junction_records
+
+            if not all_junction_records:
+                raise ValueError(f"MCP config not enabled for project")
+
+        else:
+            # Try custom config
+            custom_config_result = await self.db.execute(
+                select(CustomMCPConfig).where(CustomMCPConfig.id == mcp_config_id)
+            )
+            custom_mcp_config = custom_config_result.scalar_one_or_none()
+
+            if not custom_mcp_config:
+                raise ValueError(f"MCP config {mcp_config_id} not found")
+
+            mcp_name = custom_mcp_config.name
+
+            # Get junction records for this custom config
+            result = await self.db.execute(
+                select(ProjectMCPConfig).where(
+                    and_(
+                        ProjectMCPConfig.project_id == project_id,
+                        ProjectMCPConfig.mcp_config_id == mcp_config_id
+                    )
+                )
+            )
+            all_junction_records = result.scalars().all()
+
+            if not all_junction_records:
+                raise ValueError(f"MCP config not enabled for project")
 
         # Remove MCP config from .mcp.json
         # Config stays in DB, so when re-enabled it will be written from DB with correct settings
@@ -294,12 +310,12 @@ class MCPConfigService:
             mcp_config_name=mcp_name
         )
 
-        # Delete all records from project_mcp_configs (handle duplicates)
-        for config_record in project_mcp_configs:
+        # Delete all junction records (both default and imported)
+        for config_record in all_junction_records:
             await self.db.delete(config_record)
         await self.db.commit()
 
-        logger.info(f"Disabled MCP config {mcp_name} for project {project_id} (removed from .mcp.json and DB junction table)")
+        logger.info(f"Disabled MCP config {mcp_name} for project {project_id} (removed {len(all_junction_records)} junction record(s) from DB and removed from .mcp.json)")
 
     async def create_custom_mcp_config(
         self,
