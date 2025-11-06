@@ -653,13 +653,23 @@ class ProjectService:
             imported_count = 0
             for server_name, server_config in mcp_servers.items():
                 try:
+                    # Update config with current project ID (for claudetask MCP)
+                    import copy
+                    config_to_save = copy.deepcopy(server_config)
+
+                    if server_name == "claudetask" and "env" in config_to_save:
+                        # Update environment variables with current project ID and path
+                        config_to_save["env"]["CLAUDETASK_PROJECT_ID"] = project_id
+                        config_to_save["env"]["CLAUDETASK_PROJECT_PATH"] = project_path
+                        print(f"Updated claudetask MCP config with project_id={project_id}")
+
                     # Create custom MCP config record
                     custom_mcp_config = CustomMCPConfig(
                         project_id=project_id,
                         name=server_name,
                         description=f"Imported from existing .mcp.json - {server_name} MCP server",
                         category="imported",
-                        config=server_config,
+                        config=config_to_save,
                         status="active",
                         created_by="system_import",
                         created_at=datetime.utcnow(),

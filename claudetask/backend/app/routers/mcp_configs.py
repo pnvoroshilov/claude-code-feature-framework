@@ -37,20 +37,24 @@ async def get_project_mcp_configs(
 async def enable_mcp_config(
     project_id: str,
     mcp_config_id: int,
+    mcp_config_type: str = "default",
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Enable a default MCP config by merging it to project's .mcp.json
+    Enable an MCP config by writing it from DB to project's .mcp.json
 
     Process:
-    1. Validate MCP config exists in default_mcp_configs table
-    2. Merge MCP config from framework-assets/mcp-configs/.mcp.json to project
-    3. Insert record into project_mcp_configs junction table
-    4. Return enabled MCP config details
+    1. Check if imported config exists in DB (use imported if available)
+    2. Otherwise use default/custom MCP config from DB
+    3. Write MCP config from DB to .mcp.json
+    4. Insert record into project_mcp_configs junction table
+    5. Return enabled MCP config details
+
+    DB is the source of truth - .mcp.json is just the output file
     """
     try:
         service = MCPConfigService(db)
-        return await service.enable_mcp_config(project_id, mcp_config_id)
+        return await service.enable_mcp_config(project_id, mcp_config_id, mcp_config_type)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
