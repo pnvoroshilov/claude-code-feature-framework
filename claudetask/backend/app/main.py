@@ -19,7 +19,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
-from .database import get_db, init_db, seed_default_skills
+from .database import get_db, init_db, seed_default_skills, seed_default_mcp_configs
 from .models import Project, Task, TaskHistory, ProjectSettings, Agent, TaskStatus, TaskPriority
 from .schemas import (
     ProjectCreate, ProjectInDB, ProjectUpdate,
@@ -65,6 +65,7 @@ async def startup_event():
     """Initialize database on startup"""
     await init_db()
     await seed_default_skills()
+    await seed_default_mcp_configs()
 
 
 # Health check

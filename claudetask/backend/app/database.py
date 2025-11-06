@@ -354,3 +354,61 @@ async def seed_default_skills():
 
         print(f"Seeded {len(default_skills)} default skills and {len(agent_recommendations)} agent recommendations")
         print(f"Skills: {', '.join([s.name for s in default_skills])}")
+
+
+async def seed_default_mcp_configs():
+    """Seed default MCP configurations from framework-assets"""
+    from .models import DefaultMCPConfig
+    from sqlalchemy import select
+    import json
+
+    async with AsyncSessionLocal() as session:
+        # Check if MCP configs already seeded
+        result = await session.execute(select(DefaultMCPConfig))
+        existing_configs = result.scalars().first()
+
+        if existing_configs:
+            print("Default MCP configs already seeded")
+            return
+
+        # Load default MCP configs from framework-assets/mcp-configs/.mcp.json
+        # Path is: claudetask/backend/app/database.py -> go up 3 levels to project root
+        framework_assets_path = Path(__file__).parent.parent.parent.parent / "framework-assets" / "mcp-configs" / ".mcp.json"
+
+        if not framework_assets_path.exists():
+            print(f"Warning: Default MCP config file not found at {framework_assets_path}")
+            return
+
+        with open(framework_assets_path, 'r') as f:
+            mcp_data = json.load(f)
+
+        mcp_servers = mcp_data.get("mcpServers", {})
+
+        # Define default MCP configs with descriptions
+        default_mcp_configs = []
+
+        for server_name, server_config in mcp_servers.items():
+            # Create description based on server name
+            descriptions = {
+                "claudetask": "ClaudeTask MCP server for task management, project orchestration, and workflow automation",
+                "playwright": "Playwright MCP server for browser automation, E2E testing, and web scraping capabilities"
+            }
+
+            default_mcp_configs.append(
+                DefaultMCPConfig(
+                    name=server_name,
+                    description=descriptions.get(server_name, f"MCP server configuration for {server_name}"),
+                    category="development" if server_name == "claudetask" else "testing",
+                    config=server_config,
+                    is_active=True
+                )
+            )
+
+        # Add all default MCP configs
+        for config in default_mcp_configs:
+            session.add(config)
+
+        await session.commit()
+
+        print(f"Seeded {len(default_mcp_configs)} default MCP configs")
+        print(f"MCP Servers: {', '.join([c.name for c in default_mcp_configs])}")
