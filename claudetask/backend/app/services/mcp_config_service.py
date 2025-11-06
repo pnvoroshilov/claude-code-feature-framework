@@ -63,8 +63,18 @@ class MCPConfigService:
         enabled = []
         available_default = []
 
+        # Create a map of custom config names to their enabled status
+        custom_config_names_enabled = {}
+        for config in custom_configs:
+            is_enabled = (config.id, "custom") in enabled_config_ids
+            custom_config_names_enabled[config.name] = is_enabled
+
         for config in all_default_configs:
-            is_enabled = (config.id, "default") in enabled_config_ids
+            # Check if default config is enabled OR if imported config with same name is enabled
+            is_default_enabled = (config.id, "default") in enabled_config_ids
+            is_imported_enabled = custom_config_names_enabled.get(config.name, False)
+            is_enabled = is_default_enabled or is_imported_enabled
+
             config_dto = self._to_config_dto(config, "default", is_enabled)
 
             # Always add to available_default (show all default configs)
