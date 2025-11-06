@@ -12,6 +12,7 @@ import ProjectManager from './pages/ProjectManager';
 import TaskBoard from './pages/TaskBoard';
 import ClaudeSessions from './pages/ClaudeSessions';
 import Skills from './pages/Skills';
+import MCPConfigs from './pages/MCPConfigs';
 import Settings from './pages/Settings';
 import { ProjectProvider } from './context/ProjectContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -76,6 +77,7 @@ function App() {
                   <Route path="/tasks" element={<TaskBoard />} />
                   <Route path="/sessions" element={<ClaudeSessions />} />
                   <Route path="/skills" element={<Skills />} />
+                  <Route path="/mcp-configs" element={<MCPConfigs />} />
                   <Route path="/settings" element={<Settings />} />
                 </Routes>
               </Box>

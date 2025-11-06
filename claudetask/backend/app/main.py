@@ -36,7 +36,7 @@ from .services.git_workflow_service import GitWorkflowService
 from .services.claude_session_service import ClaudeSessionService, SessionStatus
 from .services.real_claude_service import real_claude_service
 from .services.websocket_manager import task_websocket_manager
-from .routers import skills
+from .routers import skills, mcp_configs
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(skills.router)
+app.include_router(mcp_configs.router)
 
 
 @app.on_event("startup")

@@ -221,3 +221,53 @@ class AgentSkillRecommendation(Base):
     priority = Column(Integer, default=3)  # 1-5
     reason = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class DefaultMCPConfig(Base):
+    """Default MCP configurations provided by the framework"""
+    __tablename__ = "default_mcp_configs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, unique=True)
+    description = Column(Text, nullable=False)
+    category = Column(String(50), nullable=False)  # development, testing, productivity, etc.
+    config = Column(JSON, nullable=False)  # MCP server configuration JSON
+    mcp_metadata = Column(JSON, nullable=True)  # Additional metadata (version, author, etc.)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CustomMCPConfig(Base):
+    """Custom MCP configurations created by users"""
+    __tablename__ = "custom_mcp_configs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=False)
+    category = Column(String(50), nullable=False)
+    config = Column(JSON, nullable=False)  # MCP server configuration JSON
+    status = Column(String(20), default="active")  # active, inactive, error
+    error_message = Column(Text, nullable=True)
+    created_by = Column(String(100), default="user")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    project = relationship("Project", backref="custom_mcp_configs")
+
+
+class ProjectMCPConfig(Base):
+    """Junction table for project-mcp config many-to-many relationship"""
+    __tablename__ = "project_mcp_configs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+    mcp_config_id = Column(Integer, nullable=False)
+    mcp_config_type = Column(String(10), nullable=False)  # "default" or "custom"
+    enabled_at = Column(DateTime, default=datetime.utcnow)
+    enabled_by = Column(String(100), default="user")
+
+    # Relationships
+    project = relationship("Project", backref="enabled_mcp_configs")

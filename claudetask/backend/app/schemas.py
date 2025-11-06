@@ -266,3 +266,36 @@ class AgentSkillRecommendation(BaseModel):
     skill_id: int
     priority: int  # 1-5 (1 = highest priority)
     reason: Optional[str] = None
+
+
+# MCP Config Schemas
+class MCPConfigBase(BaseModel):
+    name: str = Field(..., min_length=3, max_length=100)
+    description: str = Field(..., min_length=10, max_length=500)
+    category: str = Field(..., min_length=3, max_length=50)
+
+
+class MCPConfigCreate(MCPConfigBase):
+    """Schema for creating a custom MCP config"""
+    config: Dict[str, Any] = Field(..., description="MCP server configuration JSON")
+
+
+class MCPConfigInDB(MCPConfigBase):
+    id: int
+    mcp_config_type: str  # "default" or "custom"
+    config: Dict[str, Any]  # MCP server configuration JSON
+    is_enabled: bool = False
+    status: Optional[str] = None  # For custom configs: "active", "inactive", "error"
+    created_by: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MCPConfigsResponse(BaseModel):
+    """Response schema for getting project MCP configs"""
+    enabled: List[MCPConfigInDB]
+    available_default: List[MCPConfigInDB]
+    custom: List[MCPConfigInDB]
