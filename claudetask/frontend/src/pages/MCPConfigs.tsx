@@ -110,12 +110,12 @@ const MCPConfigs: React.FC = () => {
     }
   };
 
-  const handleEnableConfig = async (configId: number) => {
+  const handleEnableConfig = async (configId: number, configType: 'default' | 'custom') => {
     if (!activeProjectId) return;
 
     try {
       await axios.post(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/mcp-configs/enable/${configId}`
+        `${API_BASE_URL}/api/projects/${activeProjectId}/mcp-configs/enable/${configId}?mcp_config_type=${configType}`
       );
       await fetchMCPConfigs(); // Refresh configs list
     } catch (err: any) {
@@ -250,7 +250,7 @@ const MCPConfigs: React.FC = () => {
                 checked={config.is_enabled}
                 onChange={(e) => {
                   if (e.target.checked) {
-                    handleEnableConfig(config.id);
+                    handleEnableConfig(config.id, config.mcp_config_type);
                   } else {
                     handleDisableConfig(config.id);
                   }
