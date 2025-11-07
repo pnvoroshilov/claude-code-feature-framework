@@ -148,3 +148,28 @@ async def get_default_mcp_configs(db: AsyncSession = Depends(get_db)):
         return await service.get_default_mcp_configs()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get default MCP configs: {str(e)}")
+
+
+@router.post("/favorites/{mcp_config_id}", response_model=MCPConfigInDB)
+async def save_to_favorites(
+    project_id: str,
+    mcp_config_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Save a custom MCP config to favorites (global catalog)
+
+    Process:
+    1. Get custom MCP config from project
+    2. Create a copy in default_mcp_configs with category="user_favorite"
+    3. Return the new default config
+
+    This makes the MCP available for all projects in the Default MCP Servers tab
+    """
+    try:
+        service = MCPConfigService(db)
+        return await service.save_to_favorites(project_id, mcp_config_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save MCP to favorites: {str(e)}")

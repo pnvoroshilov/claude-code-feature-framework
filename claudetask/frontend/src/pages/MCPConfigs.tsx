@@ -24,6 +24,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CodeIcon from '@mui/icons-material/Code';
+import StarIcon from '@mui/icons-material/Star';
 import axios from 'axios';
 
 // Remove /api suffix if present, since we add it manually in request paths
@@ -185,15 +186,31 @@ const MCPConfigs: React.FC = () => {
     }
   };
 
+  const handleSaveToFavorites = async (configId: number, configName: string) => {
+    if (!activeProjectId) return;
+    if (!window.confirm(`Save "${configName}" to favorites?\n\nThis will make it available for all your projects in the Default MCP Servers catalog.`)) return;
+
+    try {
+      await axios.post(
+        `${API_BASE_URL}/api/projects/${activeProjectId}/mcp-configs/favorites/${configId}`
+      );
+      alert(`"${configName}" has been saved to favorites!\n\nYou can now enable it from the Default MCP Servers tab in any project.`);
+      await fetchMCPConfigs(); // Refresh configs list
+    } catch (err: any) {
+      setError('Failed to save to favorites: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
   const handleViewConfig = (config: MCPConfig) => {
     setSelectedConfig(config);
     setViewConfigDialogOpen(true);
   };
 
-  const MCPConfigCard: React.FC<{ config: MCPConfig; showToggle?: boolean; showDelete?: boolean }> = ({
+  const MCPConfigCard: React.FC<{ config: MCPConfig; showToggle?: boolean; showDelete?: boolean; showSaveToFavorites?: boolean }> = ({
     config,
     showToggle = false,
     showDelete = false,
+    showSaveToFavorites = false,
   }) => (
     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <CardContent sx={{ flexGrow: 1 }}>
@@ -227,6 +244,17 @@ const MCPConfigs: React.FC = () => {
                 <CodeIcon />
               </IconButton>
             </Tooltip>
+            {showSaveToFavorites && (
+              <Tooltip title="Save to Favorites">
+                <IconButton
+                  size="small"
+                  color="warning"
+                  onClick={() => handleSaveToFavorites(config.id, config.name)}
+                >
+                  <StarIcon />
+                </IconButton>
+              </Tooltip>
+            )}
             {showDelete && (
               <IconButton
                 size="small"
@@ -344,7 +372,7 @@ const MCPConfigs: React.FC = () => {
           ) : (
             configs.custom.map((config) => (
               <Grid item xs={12} md={6} lg={4} key={config.id}>
-                <MCPConfigCard config={config} showToggle={true} showDelete={true} />
+                <MCPConfigCard config={config} showToggle={true} showDelete={true} showSaveToFavorites={true} />
               </Grid>
             ))
           )}

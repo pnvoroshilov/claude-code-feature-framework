@@ -523,3 +523,62 @@ class MCPConfigService:
             logger.info(f"Prepared claudetask MCP config for project {project.id}: command={config['command']}, project_path={project.path}")
 
         return config
+
+    async def save_to_favorites(self, project_id: str, mcp_config_id: int) -> MCPConfigInDB:
+        """
+        Save a custom MCP config to favorites (global default catalog)
+
+        Process:
+        1. Get custom MCP config from project
+        2. Verify it's not already in favorites (check by name)
+        3. Create a copy in default_mcp_configs with category="user_favorite"
+        4. Return the new default config
+
+        This makes the MCP available for all projects
+        """
+        # Get custom MCP config
+        custom_config_result = await self.db.execute(
+            select(CustomMCPConfig).where(
+                and_(
+                    CustomMCPConfig.project_id == project_id,
+                    CustomMCPConfig.id == mcp_config_id
+                )
+            )
+        )
+        custom_config = custom_config_result.scalar_one_or_none()
+
+        if not custom_config:
+            raise ValueError(f"Custom MCP config {mcp_config_id} not found in project {project_id}")
+
+        # Don't allow saving imported configs to favorites
+        if custom_config.category == "imported":
+            raise ValueError("Cannot save imported configs to favorites. These are project-specific versions of default MCPs.")
+
+        # Check if already exists in defaults with same name
+        existing_default_result = await self.db.execute(
+            select(DefaultMCPConfig).where(DefaultMCPConfig.name == custom_config.name)
+        )
+        existing_default = existing_default_result.scalar_one_or_none()
+
+        if existing_default:
+            raise ValueError(f"MCP config '{custom_config.name}' already exists in favorites")
+
+        # Create new default MCP config
+        new_default = DefaultMCPConfig(
+            name=custom_config.name,
+            description=custom_config.description + " (User Favorite)",
+            category="user_favorite",
+            config=custom_config.config,
+            mcp_metadata={"source": "user_custom", "original_project_id": project_id},
+            is_active=True,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+
+        self.db.add(new_default)
+        await self.db.commit()
+        await self.db.refresh(new_default)
+
+        logger.info(f"Saved custom MCP config '{custom_config.name}' to favorites as default config {new_default.id}")
+
+        return self._to_config_dto(new_default, "default", False)
