@@ -84,8 +84,13 @@ class MCPConfigService:
             if is_enabled:
                 enabled.append(config_dto)
 
+        # Filter out imported configs from custom list (they should only appear in default list)
         custom_dtos = []
         for config in custom_configs:
+            # Skip imported configs - they are just project-specific versions of default configs
+            if config.category == "imported":
+                continue
+
             is_enabled = (config.id, "custom") in enabled_config_ids
             config_dto = self._to_config_dto(config, "custom", is_enabled)
             custom_dtos.append(config_dto)
