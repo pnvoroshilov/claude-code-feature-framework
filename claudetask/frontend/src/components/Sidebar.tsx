@@ -24,6 +24,7 @@ import {
   Terminal as TerminalIcon,
   Extension as SkillsIcon,
   Hub as MCPIcon,
+  SmartToy as SubagentIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
@@ -42,6 +43,7 @@ const menuItems = [
   { text: 'Claude Sessions', icon: <TerminalIcon />, path: '/sessions' },
   { text: 'Skills', icon: <SkillsIcon />, path: '/skills' },
   { text: 'MCP Configs', icon: <MCPIcon />, path: '/mcp-configs' },
+  { text: 'Subagents', icon: <SubagentIcon />, path: '/subagents' },
   { text: 'Project Setup', icon: <SetupIcon />, path: '/setup' },
   { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
 ];

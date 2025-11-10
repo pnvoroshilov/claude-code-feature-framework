@@ -301,3 +301,40 @@ class MCPConfigsResponse(BaseModel):
     available_default: List[MCPConfigInDB]
     custom: List[MCPConfigInDB]
     favorites: List[MCPConfigInDB]
+
+
+# Subagent Schemas
+class SubagentBase(BaseModel):
+    name: str = Field(..., min_length=3, max_length=100)
+    description: str = Field(..., min_length=10, max_length=500)
+    category: str = Field(..., min_length=3, max_length=50)
+
+
+class SubagentCreate(SubagentBase):
+    """Schema for creating a custom subagent"""
+    subagent_type: str = Field(..., min_length=3, max_length=100)
+    config: str = Field(..., min_length=10)
+    tools_available: Optional[List[str]] = None
+
+
+class SubagentInDB(SubagentBase):
+    id: int
+    subagent_type: str  # The actual subagent_type used in Task tool
+    subagent_kind: str  # "default" or "custom" - renamed from subagent_type to avoid confusion
+    tools_available: Optional[List[str]] = None
+    recommended_for: Optional[List[str]] = None
+    is_enabled: bool = False
+    status: Optional[str] = None  # For custom subagents: "creating", "active", "failed"
+    created_by: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SubagentsResponse(BaseModel):
+    """Response schema for getting project subagents"""
+    enabled: List[SubagentInDB]
+    available_default: List[SubagentInDB]
+    custom: List[SubagentInDB]

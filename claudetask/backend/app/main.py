@@ -19,7 +19,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
-from .database import get_db, init_db, seed_default_skills, seed_default_mcp_configs
+from .database import get_db, init_db, seed_default_skills, seed_default_mcp_configs, seed_default_subagents
 from .models import Project, Task, TaskHistory, ProjectSettings, Agent, TaskStatus, TaskPriority
 from .schemas import (
     ProjectCreate, ProjectInDB, ProjectUpdate,
@@ -36,7 +36,7 @@ from .services.git_workflow_service import GitWorkflowService
 from .services.claude_session_service import ClaudeSessionService, SessionStatus
 from .services.real_claude_service import real_claude_service
 from .services.websocket_manager import task_websocket_manager
-from .routers import skills, mcp_configs
+from .routers import skills, mcp_configs, subagents
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +59,7 @@ app.add_middleware(
 app.include_router(skills.router)
 app.include_router(mcp_configs.router)
 app.include_router(mcp_configs.search_router)
+app.include_router(subagents.router)
 
 
 @app.on_event("startup")
@@ -67,6 +68,7 @@ async def startup_event():
     await init_db()
     await seed_default_skills()
     await seed_default_mcp_configs()
+    await seed_default_subagents()
 
 
 # Health check

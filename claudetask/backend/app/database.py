@@ -420,3 +420,216 @@ async def seed_default_mcp_configs():
 
         print(f"Seeded {len(default_mcp_configs)} default MCP configs")
         print(f"MCP Servers: {', '.join([c.name for c in default_mcp_configs])}")
+
+
+async def seed_default_subagents():
+    """Seed default subagents from Claude Code Task tool"""
+    from .models import DefaultSubagent
+    from sqlalchemy import select
+
+    async with AsyncSessionLocal() as session:
+        # Check if subagents already seeded
+        result = await session.execute(select(DefaultSubagent))
+        existing_subagents = result.scalars().first()
+
+        if existing_subagents:
+            print("Default subagents already seeded")
+            return
+
+        # Define default subagents based on Claude Code Task tool agent types
+        default_subagents = [
+            # Development Agents
+            DefaultSubagent(
+                name="Frontend Developer",
+                description="React TypeScript frontend specialist with Material-UI, state management, and responsive design expertise",
+                category="Development",
+                subagent_type="frontend-developer",
+                tools_available=["Read", "Write", "Edit", "MultiEdit", "Bash", "Grep"],
+                recommended_for=["UI components", "React development", "Frontend styling", "Client-side logic"]
+            ),
+            DefaultSubagent(
+                name="Backend Architect",
+                description="Design reliable backend systems with focus on data integrity, security, and fault tolerance",
+                category="Development",
+                subagent_type="backend-architect",
+                tools_available=["Read", "Write", "Edit", "MultiEdit", "Bash", "Grep"],
+                recommended_for=["API design", "Database schema", "Backend services", "Server logic"]
+            ),
+            DefaultSubagent(
+                name="Python Expert",
+                description="Deliver production-ready, secure, high-performance Python code following SOLID principles and modern best practices",
+                category="Development",
+                subagent_type="python-expert",
+                tools_available=["Read", "Write", "Edit", "MultiEdit", "Bash", "Grep"],
+                recommended_for=["Python development", "Backend logic", "Data processing", "Scripts"]
+            ),
+            DefaultSubagent(
+                name="Python API Expert",
+                description="Python FastAPI Backend Development Expert specializing in production-ready API development",
+                category="Development",
+                subagent_type="python-api-expert",
+                tools_available=["Read", "Write", "Edit", "MultiEdit", "Bash", "Grep"],
+                recommended_for=["FastAPI", "REST APIs", "Backend endpoints", "API documentation"]
+            ),
+            DefaultSubagent(
+                name="Mobile React Expert",
+                description="Mobile-First React Development Expert specializing in production-ready frontend code",
+                category="Development",
+                subagent_type="mobile-react-expert",
+                tools_available=["Read", "Write", "Edit", "MultiEdit", "Bash", "Grep"],
+                recommended_for=["Mobile UI", "Responsive design", "React Native", "Progressive web apps"]
+            ),
+            # Analysis Agents
+            DefaultSubagent(
+                name="Business Analyst",
+                description="Analyze business requirements, processes, and stakeholder needs to bridge the gap between business and technical teams",
+                category="Analysis",
+                subagent_type="business-analyst",
+                tools_available=["Read", "Write", "Edit", "TodoWrite", "Grep", "Bash"],
+                recommended_for=["Requirements gathering", "Business analysis", "User stories", "Feature specifications"]
+            ),
+            DefaultSubagent(
+                name="Systems Analyst",
+                description="Analyze existing systems, design solutions, and bridge technical architecture with business requirements using RAG-powered codebase search",
+                category="Analysis",
+                subagent_type="systems-analyst",
+                tools_available=["Read", "Write", "Edit", "Grep", "Glob", "Bash"],
+                recommended_for=["System design", "Architecture analysis", "Technical specifications", "Integration planning"]
+            ),
+            DefaultSubagent(
+                name="Requirements Analyst",
+                description="Transform ambiguous project ideas into concrete specifications through systematic requirements discovery and structured analysis",
+                category="Analysis",
+                subagent_type="requirements-analyst",
+                tools_available=["Read", "Write", "Edit", "TodoWrite", "Grep", "Bash"],
+                recommended_for=["Requirements documentation", "Functional specs", "Use cases", "Acceptance criteria"]
+            ),
+            DefaultSubagent(
+                name="Root Cause Analyst",
+                description="Systematically investigate complex problems to identify underlying causes through evidence-based analysis and hypothesis testing",
+                category="Analysis",
+                subagent_type="root-cause-analyst",
+                tools_available=["Read", "Grep", "Glob", "Bash", "Write"],
+                recommended_for=["Bug investigation", "Error analysis", "Problem diagnosis", "Issue troubleshooting"]
+            ),
+            DefaultSubagent(
+                name="Context Analyzer",
+                description="Analyze codebase, documentation, and project files using RAG-powered semantic search to extract specific information efficiently",
+                category="Analysis",
+                subagent_type="context-analyzer",
+                tools_available=["Bash", "Glob", "Grep", "Read", "WebFetch", "TodoWrite", "WebSearch"],
+                recommended_for=["Code exploration", "Documentation analysis", "Semantic search", "Information extraction"]
+            ),
+            # Architecture Agents
+            DefaultSubagent(
+                name="System Architect",
+                description="Design scalable system architecture with focus on maintainability and long-term technical decisions",
+                category="Architecture",
+                subagent_type="system-architect",
+                tools_available=["Read", "Grep", "Glob", "Write", "Bash"],
+                recommended_for=["System design", "Architecture patterns", "Scalability planning", "Technical strategy"]
+            ),
+            DefaultSubagent(
+                name="Frontend Architect",
+                description="Create accessible, performant user interfaces with focus on user experience and modern frameworks",
+                category="Architecture",
+                subagent_type="frontend-architect",
+                tools_available=["Read", "Write", "Edit", "MultiEdit", "Bash"],
+                recommended_for=["UI architecture", "Component design", "Frontend patterns", "Performance optimization"]
+            ),
+            # Testing & Quality Agents
+            DefaultSubagent(
+                name="Quality Engineer",
+                description="Ensure software quality through comprehensive testing strategies and systematic edge case detection",
+                category="Testing",
+                subagent_type="quality-engineer",
+                tools_available=["Read", "Write", "Bash", "Grep"],
+                recommended_for=["Test planning", "Quality assurance", "Test automation", "Bug prevention"]
+            ),
+            DefaultSubagent(
+                name="Web Tester",
+                description="Comprehensive E2E testing, browser automation, cross-browser compatibility, and visual regression testing specialist",
+                category="Testing",
+                subagent_type="web-tester",
+                tools_available=["Bash", "Read", "Write", "Edit", "Grep", "WebFetch", "Playwright tools"],
+                recommended_for=["E2E testing", "Browser automation", "UI testing", "Visual regression"]
+            ),
+            # DevOps & Infrastructure
+            DefaultSubagent(
+                name="DevOps Engineer",
+                description="Infrastructure automation, Docker, CI/CD pipelines, monitoring, and deployment specialist",
+                category="DevOps",
+                subagent_type="devops-engineer",
+                tools_available=["Read", "Write", "Edit", "Bash", "Grep", "WebFetch"],
+                recommended_for=["CI/CD", "Docker", "Infrastructure", "Deployment automation"]
+            ),
+            DefaultSubagent(
+                name="DevOps Architect",
+                description="Automate infrastructure and deployment processes with focus on reliability and observability",
+                category="DevOps",
+                subagent_type="devops-architect",
+                tools_available=["Read", "Write", "Edit", "Bash"],
+                recommended_for=["Infrastructure design", "DevOps strategy", "Monitoring", "Observability"]
+            ),
+            # Code Quality & Refactoring
+            DefaultSubagent(
+                name="Refactoring Expert",
+                description="Improve code quality and reduce technical debt through systematic refactoring and clean code principles",
+                category="Quality",
+                subagent_type="refactoring-expert",
+                tools_available=["Read", "Edit", "MultiEdit", "Grep", "Write", "Bash"],
+                recommended_for=["Code refactoring", "Technical debt", "Code cleanup", "Design patterns"]
+            ),
+            DefaultSubagent(
+                name="Fullstack Code Reviewer",
+                description="Review code for quality, correctness, best practices, and security across full-stack applications",
+                category="Quality",
+                subagent_type="fullstack-code-reviewer",
+                tools_available=["Bash", "Glob", "Grep", "Read", "WebFetch", "TodoWrite"],
+                recommended_for=["Code review", "Quality checks", "Security audit", "Best practices"]
+            ),
+            # Documentation & Learning
+            DefaultSubagent(
+                name="Technical Writer",
+                description="Create clear, comprehensive technical documentation tailored to specific audiences with focus on usability and accessibility",
+                category="Documentation",
+                subagent_type="technical-writer",
+                tools_available=["Read", "Write", "Edit", "Bash"],
+                recommended_for=["Technical docs", "API documentation", "User guides", "Tutorials"]
+            ),
+            DefaultSubagent(
+                name="Docs Generator",
+                description="Automatically generate and maintain project documentation in background after code changes",
+                category="Documentation",
+                subagent_type="docs-generator",
+                tools_available=["Read", "Write", "Glob", "Grep", "Bash"],
+                recommended_for=["Auto-generated docs", "Code documentation", "API docs", "Changelog"]
+            ),
+            # Security
+            DefaultSubagent(
+                name="Security Engineer",
+                description="Identify security vulnerabilities and ensure compliance with security standards and best practices",
+                category="Security",
+                subagent_type="security-engineer",
+                tools_available=["Read", "Grep", "Glob", "Bash", "Write"],
+                recommended_for=["Security audit", "Vulnerability detection", "Security best practices", "Compliance"]
+            ),
+            # Performance
+            DefaultSubagent(
+                name="Performance Engineer",
+                description="Optimize system performance through measurement-driven analysis and bottleneck elimination",
+                category="Performance",
+                subagent_type="performance-engineer",
+                tools_available=["Read", "Grep", "Glob", "Bash", "Write"],
+                recommended_for=["Performance optimization", "Bottleneck analysis", "Load testing", "Profiling"]
+            ),
+        ]
+
+        # Add all default subagents
+        for subagent in default_subagents:
+            session.add(subagent)
+
+        await session.commit()
+
+        print(f"Seeded {len(default_subagents)} default subagents")
+        print(f"Subagents: {', '.join([s.name for s in default_subagents])}")

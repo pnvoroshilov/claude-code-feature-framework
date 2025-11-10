@@ -273,3 +273,56 @@ class ProjectMCPConfig(Base):
 
     # Relationships
     project = relationship("Project", backref="enabled_mcp_configs")
+
+
+class DefaultSubagent(Base):
+    """Default subagents provided by the framework (from Claude Code Task tool)"""
+    __tablename__ = "default_subagents"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, unique=True)
+    description = Column(Text, nullable=False)
+    category = Column(String(50), nullable=False)  # e.g., "Analysis", "Development", "Testing", "Architecture", "DevOps"
+    subagent_type = Column(String(100), nullable=False)  # The actual subagent_type used in Task tool (e.g., "frontend-developer", "backend-architect")
+    tools_available = Column(JSON, nullable=True)  # List of tools this agent has access to
+    recommended_for = Column(JSON, nullable=True)  # List of task types/scenarios this agent is recommended for
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CustomSubagent(Base):
+    """Custom subagent configurations created by users"""
+    __tablename__ = "custom_subagents"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=False)
+    category = Column(String(50), nullable=False)
+    subagent_type = Column(String(100), nullable=False)  # Custom subagent_type name
+    config = Column(Text, nullable=False)  # Agent configuration/instructions in markdown
+    tools_available = Column(JSON, nullable=True)
+    status = Column(String(20), default="active")  # creating, active, failed
+    error_message = Column(Text, nullable=True)
+    created_by = Column(String(100), default="user")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    project = relationship("Project", backref="custom_subagents")
+
+
+class ProjectSubagent(Base):
+    """Junction table for project-subagent many-to-many relationship"""
+    __tablename__ = "project_subagents"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+    subagent_id = Column(Integer, nullable=False)
+    subagent_type = Column(String(10), nullable=False)  # "default" or "custom"
+    enabled_at = Column(DateTime, default=datetime.utcnow)
+    enabled_by = Column(String(100), default="user")
+
+    # Relationships
+    project = relationship("Project", backref="enabled_subagents")
