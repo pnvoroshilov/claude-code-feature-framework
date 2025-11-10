@@ -207,7 +207,6 @@ const Subagents: React.FC = () => {
 
   const handleSaveToFavorites = async (subagentId: number, subagentName: string, subagentKind: 'default' | 'custom') => {
     if (!activeProjectId) return;
-    if (!window.confirm(`Save "${subagentName}" to favorites?\n\nThis will make it appear in the Favorites tab.`)) return;
 
     try {
       await axios.post(
@@ -220,7 +219,7 @@ const Subagents: React.FC = () => {
   };
 
   const handleRemoveFromFavorites = async (subagentId: number, subagentName: string, subagentKind: 'default' | 'custom') => {
-    if (!window.confirm(`Remove "${subagentName}" from favorites?\n\nIt will no longer appear in the Favorites tab.`)) return;
+    if (!activeProjectId) return;
 
     try {
       await axios.delete(
