@@ -12,6 +12,7 @@ from ..models import (
 )
 from ..schemas import SubagentInDB, SubagentCreate, SubagentsResponse
 from .subagent_file_service import SubagentFileService
+from .subagent_creation_service import SubagentCreationService
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ class SubagentService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.file_service = SubagentFileService()
+        self.creation_service = SubagentCreationService()
 
     async def get_project_subagents(self, project_id: str) -> SubagentsResponse:
         """
@@ -223,18 +225,19 @@ class SubagentService:
 
     async def create_custom_subagent(self, project_id: str, subagent_create: SubagentCreate) -> SubagentInDB:
         """
-        Create a custom subagent
+        Create a custom subagent record (step 1 of 2)
 
-        Process:
-        1. Validate project exists
-        2. Validate subagent name uniqueness
-        3. Create custom subagent record
-        4. Return created subagent
+        This creates the database record with status "creating".
+        The actual CLI interaction happens in background task.
         """
         # Get project
         project = await self._get_project(project_id)
         if not project:
             raise ValueError(f"Project {project_id} not found")
+
+        # Validate subagent name
+        if not self.creation_service.validate_agent_name(subagent_create.name):
+            raise ValueError(f"Invalid subagent name: {subagent_create.name}")
 
         # Check if subagent name already exists for this project
         existing = await self.db.execute(
@@ -248,16 +251,19 @@ class SubagentService:
         if existing.scalar_one_or_none():
             raise ValueError(f"Custom subagent with name '{subagent_create.name}' already exists")
 
-        # Create custom subagent
+        # Convert name to kebab-case for subagent_type
+        subagent_type = subagent_create.name.lower().replace(' ', '-')
+
+        # Create custom subagent record with "creating" status
         custom_subagent = CustomSubagent(
             project_id=project_id,
             name=subagent_create.name,
             description=subagent_create.description,
-            category=subagent_create.category,
-            subagent_type=subagent_create.subagent_type,
+            category=subagent_create.category or "Custom",
+            subagent_type=subagent_type,
             config=subagent_create.config,
-            tools_available=subagent_create.tools_available,
-            status="active",
+            tools_available=subagent_create.tools_available or ["Read", "Write", "Edit", "Bash", "Grep"],
+            status="creating",  # Will be updated by background task
             created_by="user",
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
@@ -266,28 +272,113 @@ class SubagentService:
         await self.db.commit()
         await self.db.refresh(custom_subagent)
 
-        # Auto-enable the custom subagent
-        project_subagent = ProjectSubagent(
-            project_id=project_id,
-            subagent_id=custom_subagent.id,
-            subagent_type="custom",
-            enabled_at=datetime.utcnow(),
-            enabled_by="user"
-        )
-        self.db.add(project_subagent)
-        await self.db.commit()
+        logger.info(f"Created custom subagent record {custom_subagent.id} for project {project_id}")
 
-        return self._to_subagent_dto(custom_subagent, "custom", is_enabled=True)
+        return self._to_subagent_dto(custom_subagent, "custom", False, project.path)
+
+    async def execute_subagent_creation_cli(
+        self,
+        project_id: str,
+        subagent_id: int,
+        agent_name: str,
+        agent_description: str
+    ):
+        """
+        Execute Claude Code CLI to create subagent (background task)
+
+        This is step 2 of 2 for custom subagent creation.
+        """
+        try:
+            # Get project
+            project = await self._get_project(project_id)
+            if not project:
+                raise ValueError(f"Project {project_id} not found")
+
+            # Sanitize inputs
+            safe_name = self.creation_service.sanitize_agent_input(agent_name)
+            safe_description = self.creation_service.sanitize_agent_input(agent_description)
+
+            # Execute CLI command
+            result = await self.creation_service.create_subagent_via_claude_cli(
+                project_path=project.path,
+                agent_name=safe_name,
+                agent_description=safe_description
+            )
+
+            if result["success"]:
+                # Update subagent status to active
+                subagent_result = await self.db.execute(
+                    select(CustomSubagent).where(CustomSubagent.id == subagent_id)
+                )
+                custom_subagent = subagent_result.scalar_one_or_none()
+
+                if custom_subagent:
+                    custom_subagent.status = "active"
+                    custom_subagent.config = result.get("content", "")
+                    custom_subagent.updated_at = datetime.utcnow()
+
+                    # Enable subagent immediately
+                    project_subagent = ProjectSubagent(
+                        project_id=project_id,
+                        subagent_id=subagent_id,
+                        subagent_type="custom",
+                        enabled_at=datetime.utcnow(),
+                        enabled_by="user"
+                    )
+                    self.db.add(project_subagent)
+
+                    await self.db.commit()
+
+                    logger.info(f"Successfully created custom subagent {agent_name} for project {project_id}")
+            else:
+                # Update subagent status to failed
+                subagent_result = await self.db.execute(
+                    select(CustomSubagent).where(CustomSubagent.id == subagent_id)
+                )
+                custom_subagent = subagent_result.scalar_one_or_none()
+
+                if custom_subagent:
+                    custom_subagent.status = "failed"
+                    custom_subagent.error_message = result.get("error", "Unknown error")
+                    custom_subagent.updated_at = datetime.utcnow()
+                    await self.db.commit()
+
+                    logger.error(f"Failed to create custom subagent {agent_name}: {result.get('error')}")
+
+        except Exception as e:
+            logger.error(f"Exception in subagent creation CLI execution: {e}", exc_info=True)
+
+            # Update subagent status to failed
+            try:
+                subagent_result = await self.db.execute(
+                    select(CustomSubagent).where(CustomSubagent.id == subagent_id)
+                )
+                custom_subagent = subagent_result.scalar_one_or_none()
+
+                if custom_subagent:
+                    custom_subagent.status = "failed"
+                    custom_subagent.error_message = str(e)
+                    custom_subagent.updated_at = datetime.utcnow()
+                    await self.db.commit()
+            except Exception as update_error:
+                logger.error(f"Failed to update subagent status: {update_error}")
 
     async def delete_custom_subagent(self, project_id: str, subagent_id: int):
         """
-        Delete a custom subagent
+        Delete a custom subagent permanently
 
         Process:
         1. Verify it's a custom subagent for this project
-        2. Remove from project_subagents if enabled
-        3. Delete from custom_subagents
+        2. Get project details for file deletion
+        3. Delete agent file from .claude/agents/
+        4. Remove from project_subagents if enabled
+        5. Delete from custom_subagents table
         """
+        # Get project
+        project = await self._get_project(project_id)
+        if not project:
+            raise ValueError(f"Project {project_id} not found")
+
         # Get custom subagent
         result = await self.db.execute(
             select(CustomSubagent).where(
@@ -301,6 +392,15 @@ class SubagentService:
 
         if not custom_subagent:
             raise ValueError(f"Custom subagent {subagent_id} not found for project {project_id}")
+
+        # Delete agent file from project's .claude/agents/ directory
+        success = await self.file_service.delete_subagent_from_project(
+            project_path=project.path,
+            subagent_type=custom_subagent.subagent_type
+        )
+
+        if not success:
+            logger.warning(f"Failed to delete subagent file from project (may not exist)")
 
         # Remove from project_subagents if enabled
         enabled_result = await self.db.execute(
@@ -316,9 +416,90 @@ class SubagentService:
         if project_subagent:
             await self.db.delete(project_subagent)
 
-        # Delete custom subagent
+        # Delete custom subagent record
         await self.db.delete(custom_subagent)
         await self.db.commit()
+
+        logger.info(f"Deleted custom subagent {custom_subagent.name} from project {project_id}")
+
+    async def sync_enabled_subagents_after_framework_update(
+        self,
+        project_id: str,
+        project_path: str
+    ):
+        """
+        Sync enabled subagents after framework update
+
+        Process:
+        1. Check which agent files actually exist in .claude/agents/
+        2. Get all default subagents from DB
+        3. For each default subagent:
+           - If file exists in project → ensure ProjectSubagent record exists
+           - If file doesn't exist → remove ProjectSubagent record if exists
+        4. Custom subagents are not affected (they manage their own files)
+        """
+        import os
+
+        # Get agents directory
+        agents_dir = os.path.join(project_path, ".claude", "agents")
+        if not os.path.exists(agents_dir):
+            logger.warning(f"Agents directory not found: {agents_dir}")
+            return
+
+        # Get all agent files in project
+        existing_agent_files = set()
+        for file_name in os.listdir(agents_dir):
+            if file_name.endswith(".md"):
+                # Convert file name to subagent_type (remove .md)
+                subagent_type = file_name[:-3]
+                existing_agent_files.add(subagent_type)
+
+        logger.info(f"Found {len(existing_agent_files)} agent files in project: {existing_agent_files}")
+
+        # Get all default subagents from DB
+        default_subagents_result = await self.db.execute(
+            select(DefaultSubagent).where(DefaultSubagent.is_active == True)
+        )
+        all_default_subagents = default_subagents_result.scalars().all()
+
+        # Get currently enabled subagents for this project
+        enabled_result = await self.db.execute(
+            select(ProjectSubagent).where(
+                and_(
+                    ProjectSubagent.project_id == project_id,
+                    ProjectSubagent.subagent_type == "default"
+                )
+            )
+        )
+        enabled_project_subagents = {
+            ps.subagent_id: ps for ps in enabled_result.scalars().all()
+        }
+
+        # Sync: enable agents whose files exist, disable agents whose files don't exist
+        for subagent in all_default_subagents:
+            file_exists = subagent.subagent_type in existing_agent_files
+            is_enabled = subagent.id in enabled_project_subagents
+
+            if file_exists and not is_enabled:
+                # File exists but not enabled → create ProjectSubagent record
+                project_subagent = ProjectSubagent(
+                    project_id=project_id,
+                    subagent_id=subagent.id,
+                    subagent_type="default",
+                    enabled_at=datetime.utcnow(),
+                    enabled_by="framework_update"
+                )
+                self.db.add(project_subagent)
+                logger.info(f"Enabled subagent {subagent.subagent_type} (file exists)")
+
+            elif not file_exists and is_enabled:
+                # File doesn't exist but enabled → remove ProjectSubagent record
+                project_subagent = enabled_project_subagents[subagent.id]
+                await self.db.delete(project_subagent)
+                logger.info(f"Disabled subagent {subagent.subagent_type} (file not found)")
+
+        await self.db.commit()
+        logger.info(f"Synced enabled subagents for project {project_id}")
 
     async def _get_project(self, project_id: str) -> Optional[Project]:
         """Get project by ID"""
@@ -331,7 +512,8 @@ class SubagentService:
         self,
         subagent: Any,
         subagent_kind: str,
-        is_enabled: bool
+        is_enabled: bool,
+        project_path: str = ""
     ) -> SubagentInDB:
         """Convert DB model to DTO"""
         return SubagentInDB(

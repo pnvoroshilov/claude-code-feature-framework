@@ -1,12 +1,15 @@
 """Subagents API router"""
 
-from fastapi import APIRouter, Depends, HTTPException
+import logging
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
 from ..database import get_db
 from ..schemas import SubagentInDB, SubagentCreate, SubagentsResponse
 from ..services.subagent_service import SubagentService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/projects/{project_id}/subagents", tags=["subagents"])
 
@@ -86,24 +89,44 @@ async def disable_subagent(
 async def create_custom_subagent(
     project_id: str,
     subagent_create: SubagentCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Create a custom subagent
+    Create a custom subagent using Claude Code CLI
 
     Process:
-    1. Validate project exists
-    2. Validate subagent name uniqueness
-    3. Create custom subagent record
-    4. Auto-enable the subagent for the project
-    5. Return created subagent
+    1. Validate subagent name uniqueness
+    2. Insert record into custom_subagents (status: "creating")
+    3. Launch background task for Claude Code CLI interaction
+    4. Return subagent record (status will update when complete)
+
+    Background task:
+    - Start Claude terminal session
+    - Execute /create-agent command
+    - Send agent name and description via terminal
+    - Wait for completion (with timeout)
+    - Update subagent status to "active" or "failed"
     """
     try:
         service = SubagentService(db)
-        return await service.create_custom_subagent(project_id, subagent_create)
+        subagent = await service.create_custom_subagent(project_id, subagent_create)
+
+        # Execute Claude CLI interaction in background
+        background_tasks.add_task(
+            service.execute_subagent_creation_cli,
+            project_id,
+            subagent.id,
+            subagent_create.name,
+            subagent_create.description
+        )
+
+        return subagent
     except ValueError as e:
+        logger.error(f"ValueError creating custom subagent: {e}")
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        logger.error(f"Exception creating custom subagent: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to create custom subagent: {str(e)}")
 
 

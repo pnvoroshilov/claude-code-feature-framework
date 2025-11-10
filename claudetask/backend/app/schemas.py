@@ -313,7 +313,7 @@ class SubagentBase(BaseModel):
 class SubagentCreate(SubagentBase):
     """Schema for creating a custom subagent"""
     subagent_type: str = Field(..., min_length=3, max_length=100)
-    config: str = Field(..., min_length=10)
+    config: Optional[str] = None  # Made optional, will be auto-generated for custom agents
     tools_available: Optional[List[str]] = None
 
 

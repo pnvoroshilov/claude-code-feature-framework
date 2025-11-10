@@ -185,7 +185,7 @@ async def update_framework(project_id: str, db: AsyncSession = Depends(get_db)):
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
     try:
         # Update framework files
         from .services.framework_update_service import FrameworkUpdateService
@@ -193,6 +193,16 @@ async def update_framework(project_id: str, db: AsyncSession = Depends(get_db)):
             project_path=project.path,
             project_id=project_id
         )
+
+        # Sync subagent enabled status based on actual files in project
+        if result.get("success"):
+            from .services.subagent_service import SubagentService
+            subagent_service = SubagentService(db)
+            await subagent_service.sync_enabled_subagents_after_framework_update(
+                project_id=project_id,
+                project_path=project.path
+            )
+
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

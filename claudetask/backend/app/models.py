@@ -301,7 +301,7 @@ class CustomSubagent(Base):
     description = Column(Text, nullable=False)
     category = Column(String(50), nullable=False)
     subagent_type = Column(String(100), nullable=False)  # Custom subagent_type name
-    config = Column(Text, nullable=False)  # Agent configuration/instructions in markdown
+    config = Column(Text, nullable=True)  # Optional: Agent configuration/instructions (file is created in .claude/agents/)
     tools_available = Column(JSON, nullable=True)
     status = Column(String(20), default="active")  # creating, active, failed
     error_message = Column(Text, nullable=True)
