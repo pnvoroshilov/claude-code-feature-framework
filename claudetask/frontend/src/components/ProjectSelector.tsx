@@ -25,6 +25,7 @@ interface ProjectSelectorProps {
   variant?: 'outlined' | 'standard' | 'filled';
   fullWidth?: boolean;
   showStatus?: boolean;
+  minimal?: boolean;
   className?: string;
 }
 
@@ -33,6 +34,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   variant = 'outlined',
   fullWidth = false,
   showStatus = true,
+  minimal = false,
   className,
 }) => {
   const {
@@ -123,20 +125,22 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
   return (
     <Box className={className}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: showStatus ? 1 : 0 }}>
-        <FormControl 
-          size={size} 
-          variant={variant} 
+        <FormControl
+          size={size}
+          variant={variant}
           fullWidth={fullWidth}
-          sx={{ minWidth: 200 }}
+          sx={{ minWidth: minimal ? 150 : 200 }}
           disabled={isLoading}
         >
-          <InputLabel id="project-selector-label">
-            {isLoading ? 'Loading...' : 'Project'}
-          </InputLabel>
+          {!minimal && (
+            <InputLabel id="project-selector-label">
+              {isLoading ? 'Loading...' : 'Project'}
+            </InputLabel>
+          )}
           <Select
             labelId="project-selector-label"
             value={selectedProject?.id || ''}
-            label={isLoading ? 'Loading...' : 'Project'}
+            label={!minimal && (isLoading ? 'Loading...' : 'Project')}
             onChange={(e) => handleProjectChange(e.target.value)}
             disabled={isLoading || availableProjects.length === 0}
             startAdornment={isLoading ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
@@ -144,15 +148,15 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
             {availableProjects.map((project) => (
               <MenuItem key={project.id} value={project.id}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-                  <FolderIcon fontSize="small" color="primary" />
+                  {!minimal && <FolderIcon fontSize="small" color="primary" />}
                   <Box sx={{ flex: 1 }}>
                     <Typography variant="body2" noWrap>
                       {project.name}
                     </Typography>
-                    {project.path && (
-                      <Typography 
-                        variant="caption" 
-                        color="text.secondary" 
+                    {!minimal && project.path && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
                         sx={{ display: 'block' }}
                         noWrap
                       >
@@ -160,7 +164,7 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
                       </Typography>
                     )}
                   </Box>
-                  {project.is_active && (
+                  {!minimal && project.is_active && (
                     <Tooltip title="Active Project">
                       <ActiveIcon fontSize="small" color="success" />
                     </Tooltip>
@@ -171,15 +175,17 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
           </Select>
         </FormControl>
 
-        <Tooltip title="Refresh Projects">
-          <IconButton 
-            size="small" 
-            onClick={handleRefresh} 
-            disabled={isRefreshing || isLoading}
-          >
-            {isRefreshing ? <CircularProgress size={16} /> : <RefreshIcon />}
-          </IconButton>
-        </Tooltip>
+        {!minimal && (
+          <Tooltip title="Refresh Projects">
+            <IconButton
+              size="small"
+              onClick={handleRefresh}
+              disabled={isRefreshing || isLoading}
+            >
+              {isRefreshing ? <CircularProgress size={16} /> : <RefreshIcon />}
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
 
       {showStatus && selectedProject && (

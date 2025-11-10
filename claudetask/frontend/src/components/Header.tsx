@@ -60,7 +60,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           <MenuIcon />
         </IconButton>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box
             sx={{
               width: 32,
@@ -91,19 +91,19 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
           >
             ClaudeTask
           </Typography>
+
+          {/* Project Selector - Minimal */}
+          <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+            <ProjectSelector
+              size="small"
+              variant="standard"
+              showStatus={false}
+              minimal={true}
+            />
+          </Box>
         </Box>
 
         <Box sx={{ flexGrow: 1 }} />
-
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          {/* Project Selector */}
-          <Box sx={{ display: { xs: 'none', md: 'block' }, minWidth: 200 }}>
-            <ProjectSelector
-              size="small"
-              variant="outlined"
-              showStatus={false}
-            />
-          </Box>
 
           {/* Connection Status */}
           {connectionLoading ? (
