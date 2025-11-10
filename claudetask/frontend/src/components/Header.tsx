@@ -105,6 +105,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
 
         <Box sx={{ flexGrow: 1 }} />
 
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {/* Connection Status */}
           {connectionLoading ? (
             <CircularProgress size={20} />
