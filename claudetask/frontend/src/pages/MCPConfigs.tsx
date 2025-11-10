@@ -15,11 +15,11 @@ import {
   TextField,
   Alert,
   Chip,
-  Tab,
-  Tabs,
   CircularProgress,
   IconButton,
   Tooltip,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -53,8 +53,10 @@ interface MCPConfigsResponse {
   favorites: MCPConfig[];
 }
 
+type FilterType = 'all' | 'default' | 'custom' | 'favorite' | 'enabled';
+
 const MCPConfigs: React.FC = () => {
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [configs, setConfigs] = useState<MCPConfigsResponse>({
     enabled: [],
     available_default: [],
@@ -222,6 +224,34 @@ const MCPConfigs: React.FC = () => {
     setViewConfigDialogOpen(true);
   };
 
+  // Filter configs based on active filter
+  const getFilteredConfigs = (): MCPConfig[] => {
+    switch (activeFilter) {
+      case 'default':
+        return configs.available_default;
+      case 'custom':
+        return configs.custom;
+      case 'favorite':
+        return configs.favorites;
+      case 'enabled':
+        return configs.enabled;
+      case 'all':
+      default:
+        // Combine all unique configs (avoiding duplicates by id)
+        const allConfigs = [
+          ...configs.available_default,
+          ...configs.custom,
+        ];
+        // Remove duplicates by id
+        const uniqueConfigs = allConfigs.filter(
+          (config, index, self) => self.findIndex(c => c.id === config.id && c.mcp_config_type === config.mcp_config_type) === index
+        );
+        return uniqueConfigs;
+    }
+  };
+
+  const filteredConfigs = getFilteredConfigs();
+
   const MCPConfigCard: React.FC<{
     config: MCPConfig;
     showToggle?: boolean;
@@ -369,108 +399,58 @@ const MCPConfigs: React.FC = () => {
         </Typography>
       </Alert>
 
-      <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)} sx={{ mb: 3 }}>
-        <Tab label={`Default MCP Servers (${configs.available_default.length})`} />
-        <Tab label={`Favorites (${configs.favorites.length})`} />
-        <Tab label={`Custom MCP Servers (${configs.custom.length})`} />
-        <Tab label={`Enabled MCP Servers (${configs.enabled.length})`} />
-      </Tabs>
+      {/* Filter Buttons */}
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
+        <ToggleButtonGroup
+          value={activeFilter}
+          exclusive
+          onChange={(_, newFilter) => newFilter && setActiveFilter(newFilter)}
+          aria-label="MCP filter"
+        >
+          <ToggleButton value="all" aria-label="all">
+            All ({configs.available_default.length + configs.custom.length})
+          </ToggleButton>
+          <ToggleButton value="default" aria-label="default">
+            Default ({configs.available_default.length})
+          </ToggleButton>
+          <ToggleButton value="custom" aria-label="custom">
+            Custom ({configs.custom.length})
+          </ToggleButton>
+          <ToggleButton value="favorite" aria-label="favorite">
+            Favorites ({configs.favorites.length})
+          </ToggleButton>
+          <ToggleButton value="enabled" aria-label="enabled">
+            Enabled ({configs.enabled.length})
+          </ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
 
-      {/* Default MCP Configs Tab */}
-      {activeTab === 0 && (
-        <Grid container spacing={3}>
-          {configs.available_default.length === 0 ? (
-            <Grid item xs={12}>
-              <Alert severity="info">
-                No default MCP configs available. They will be seeded on backend startup.
-              </Alert>
+      {/* MCP Configs Grid */}
+      <Grid container spacing={3}>
+        {filteredConfigs.length === 0 ? (
+          <Grid item xs={12}>
+            <Alert severity="info">
+              {activeFilter === 'all' && 'No MCP configs available.'}
+              {activeFilter === 'default' && 'No default MCP configs available.'}
+              {activeFilter === 'custom' && 'No custom MCP configs created yet. Click "Add Custom MCP" to add your own.'}
+              {activeFilter === 'favorite' && 'No favorite MCP configs yet. Add MCP servers to favorites by clicking the star icon.'}
+              {activeFilter === 'enabled' && 'No MCP configs enabled yet. Enable configs by toggling the switch.'}
+            </Alert>
+          </Grid>
+        ) : (
+          filteredConfigs.map((config) => (
+            <Grid item xs={12} md={6} lg={4} key={`${config.mcp_config_type}-${config.id}`}>
+              <MCPConfigCard
+                config={config}
+                showToggle={activeFilter !== 'enabled'}
+                showDelete={config.mcp_config_type === 'custom' && activeFilter !== 'enabled'}
+                showSaveToFavorites={!config.is_favorite && activeFilter !== 'enabled' && activeFilter !== 'favorite'}
+                showRemoveFromFavorites={config.is_favorite && activeFilter !== 'enabled'}
+              />
             </Grid>
-          ) : (
-            configs.available_default.map((config) => (
-              <Grid item xs={12} md={6} lg={4} key={config.id}>
-                <MCPConfigCard
-                  config={config}
-                  showToggle={true}
-                  showSaveToFavorites={!config.is_favorite}
-                  showRemoveFromFavorites={config.is_favorite}
-                />
-              </Grid>
-            ))
-          )}
-        </Grid>
-      )}
-
-      {/* Favorites Tab */}
-      {activeTab === 1 && (
-        <Grid container spacing={3}>
-          {configs.favorites.length === 0 ? (
-            <Grid item xs={12}>
-              <Alert severity="info">
-                No favorite MCP configs yet. Add custom MCP servers to favorites from the Custom MCP Servers tab.
-              </Alert>
-            </Grid>
-          ) : (
-            configs.favorites.map((config) => (
-              <Grid item xs={12} md={6} lg={4} key={config.id}>
-                <MCPConfigCard config={config} showToggle={true} showRemoveFromFavorites={true} />
-              </Grid>
-            ))
-          )}
-        </Grid>
-      )}
-
-      {/* Custom MCP Configs Tab */}
-      {activeTab === 2 && (
-        <Grid container spacing={3}>
-          {configs.custom.length === 0 ? (
-            <Grid item xs={12}>
-              <Alert severity="info">
-                No custom MCP configs created yet. Click "Add Custom MCP" to add your own.
-                <br /><br />
-                <strong>Note:</strong> Custom MCPs are shared across all your projects. You can enable/disable them individually for each project.
-              </Alert>
-            </Grid>
-          ) : (
-            <>
-              <Grid item xs={12}>
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  <strong>Global Custom MCPs:</strong> These MCPs are available for all your projects. Use the toggle to enable/disable them for this specific project.
-                </Alert>
-              </Grid>
-              {configs.custom.map((config) => (
-                <Grid item xs={12} md={6} lg={4} key={config.id}>
-                  <MCPConfigCard
-                    config={config}
-                    showToggle={true}
-                    showDelete={true}
-                    showSaveToFavorites={!config.is_favorite}
-                    showRemoveFromFavorites={config.is_favorite}
-                  />
-                </Grid>
-              ))}
-            </>
-          )}
-        </Grid>
-      )}
-
-      {/* Enabled MCP Configs Tab */}
-      {activeTab === 3 && (
-        <Grid container spacing={3}>
-          {configs.enabled.length === 0 ? (
-            <Grid item xs={12}>
-              <Alert severity="info">
-                No MCP configs enabled yet. Enable default or custom configs from their respective tabs.
-              </Alert>
-            </Grid>
-          ) : (
-            configs.enabled.map((config) => (
-              <Grid item xs={12} md={6} lg={4} key={config.id}>
-                <MCPConfigCard config={config} />
-              </Grid>
-            ))
-          )}
-        </Grid>
-      )}
+          ))
+        )}
+      </Grid>
 
       {/* Create Custom MCP Config Dialog */}
       <Dialog
