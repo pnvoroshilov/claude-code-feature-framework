@@ -152,3 +152,54 @@ async def delete_custom_subagent(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete custom subagent: {str(e)}")
+
+
+@router.post("/favorites/{subagent_id}", response_model=SubagentInDB)
+async def save_to_favorites(
+    project_id: str,
+    subagent_id: int,
+    subagent_kind: str = "custom",  # "default" or "custom"
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Mark a subagent as favorite
+
+    Process:
+    1. Verify subagent exists
+    2. Set is_favorite = True
+    3. Return updated subagent
+
+    Note: Favorites are global (not project-specific)
+    """
+    try:
+        service = SubagentService(db)
+        return await service.save_to_favorites(subagent_id, subagent_kind)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save subagent to favorites: {str(e)}")
+
+
+@router.delete("/favorites/{subagent_id}")
+async def remove_from_favorites(
+    subagent_id: int,
+    subagent_kind: str = "custom",  # "default" or "custom"
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Unmark a subagent as favorite
+
+    Process:
+    1. Verify subagent exists and is marked as favorite
+    2. Set is_favorite = False
+
+    Note: project_id is not needed since favorites are just a flag
+    """
+    try:
+        service = SubagentService(db)
+        await service.remove_from_favorites(subagent_id, subagent_kind)
+        return {"success": True, "message": "Subagent removed from favorites successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to remove subagent from favorites: {str(e)}")

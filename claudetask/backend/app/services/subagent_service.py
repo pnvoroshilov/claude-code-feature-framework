@@ -64,6 +64,7 @@ class SubagentService:
         # Organize subagents
         enabled = []
         available_default = []
+        favorites = []
 
         for subagent in all_default_subagents:
             is_enabled = (subagent.id, "default") in enabled_subagent_ids
@@ -71,6 +72,10 @@ class SubagentService:
 
             # Always add to available_default (show all default subagents)
             available_default.append(subagent_dto)
+
+            # Add to favorites if marked as favorite
+            if subagent.is_favorite:
+                favorites.append(subagent_dto)
 
             # Also add to enabled list if enabled
             if is_enabled:
@@ -82,13 +87,18 @@ class SubagentService:
             subagent_dto = self._to_subagent_dto(subagent, "custom", is_enabled)
             custom_dtos.append(subagent_dto)
 
+            # Add to favorites if marked as favorite
+            if subagent.is_favorite:
+                favorites.append(subagent_dto)
+
             if is_enabled:
                 enabled.append(subagent_dto)
 
         return SubagentsResponse(
             enabled=enabled,
             available_default=available_default,
-            custom=custom_dtos
+            custom=custom_dtos,
+            favorites=favorites
         )
 
     async def enable_subagent(self, project_id: str, subagent_id: int, subagent_kind: str = "default") -> SubagentInDB:
@@ -500,6 +510,127 @@ class SubagentService:
 
         await self.db.commit()
         logger.info(f"Synced enabled subagents for project {project_id}")
+
+    async def save_to_favorites(self, subagent_id: int, subagent_kind: str = "custom") -> SubagentInDB:
+        """
+        Mark a subagent as favorite
+
+        Process:
+        1. Get subagent (default or custom)
+        2. Verify it's not already a favorite
+        3. Set is_favorite = True
+
+        Args:
+            subagent_id: ID of the subagent to favorite
+            subagent_kind: Type of subagent ("default" or "custom")
+
+        Returns:
+            SubagentInDB: The favorited subagent
+        """
+        if subagent_kind == "default":
+            # Get default subagent
+            result = await self.db.execute(
+                select(DefaultSubagent).where(DefaultSubagent.id == subagent_id)
+            )
+            subagent = result.scalar_one_or_none()
+
+            if not subagent:
+                raise ValueError(f"Default subagent {subagent_id} not found")
+
+            # Check if already a favorite
+            if subagent.is_favorite:
+                raise ValueError(f"Subagent '{subagent.name}' is already in favorites")
+
+            # Mark as favorite
+            subagent.is_favorite = True
+            subagent.updated_at = datetime.utcnow()
+
+            await self.db.commit()
+            await self.db.refresh(subagent)
+
+            logger.info(f"Marked default subagent '{subagent.name}' as favorite (ID: {subagent.id})")
+
+            return self._to_subagent_dto(subagent, "default", False)
+        else:
+            # Get custom subagent
+            result = await self.db.execute(
+                select(CustomSubagent).where(CustomSubagent.id == subagent_id)
+            )
+            subagent = result.scalar_one_or_none()
+
+            if not subagent:
+                raise ValueError(f"Custom subagent {subagent_id} not found")
+
+            # Check if already a favorite
+            if subagent.is_favorite:
+                raise ValueError(f"Subagent '{subagent.name}' is already in favorites")
+
+            # Mark as favorite
+            subagent.is_favorite = True
+            subagent.updated_at = datetime.utcnow()
+
+            await self.db.commit()
+            await self.db.refresh(subagent)
+
+            logger.info(f"Marked custom subagent '{subagent.name}' as favorite (ID: {subagent.id})")
+
+            return self._to_subagent_dto(subagent, "custom", False)
+
+    async def remove_from_favorites(self, subagent_id: int, subagent_kind: str = "custom") -> None:
+        """
+        Unmark a subagent as favorite
+
+        Process:
+        1. Get subagent (default or custom)
+        2. Verify it's marked as favorite
+        3. Set is_favorite = False
+
+        Args:
+            subagent_id: ID of the subagent to unfavorite
+            subagent_kind: Type of subagent ("default" or "custom")
+        """
+        if subagent_kind == "default":
+            # Get default subagent
+            result = await self.db.execute(
+                select(DefaultSubagent).where(DefaultSubagent.id == subagent_id)
+            )
+            subagent = result.scalar_one_or_none()
+
+            if not subagent:
+                raise ValueError(f"Default subagent {subagent_id} not found")
+
+            # Check if it's marked as favorite
+            if not subagent.is_favorite:
+                raise ValueError(f"Subagent '{subagent.name}' is not in favorites")
+
+            # Unmark as favorite
+            subagent.is_favorite = False
+            subagent.updated_at = datetime.utcnow()
+
+            await self.db.commit()
+
+            logger.info(f"Removed default subagent '{subagent.name}' from favorites (ID: {subagent_id})")
+        else:
+            # Get custom subagent
+            result = await self.db.execute(
+                select(CustomSubagent).where(CustomSubagent.id == subagent_id)
+            )
+            subagent = result.scalar_one_or_none()
+
+            if not subagent:
+                raise ValueError(f"Custom subagent {subagent_id} not found")
+
+            # Check if it's marked as favorite
+            if not subagent.is_favorite:
+                raise ValueError(f"Subagent '{subagent.name}' is not in favorites")
+
+            # Unmark as favorite
+            subagent.is_favorite = False
+            subagent.updated_at = datetime.utcnow()
+
+            await self.db.commit()
+
+            logger.info(f"Removed custom subagent '{subagent.name}' from favorites (ID: {subagent_id})")
 
     async def _get_project(self, project_id: str) -> Optional[Project]:
         """Get project by ID"""

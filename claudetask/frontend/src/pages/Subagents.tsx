@@ -29,6 +29,8 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import InfoIcon from '@mui/icons-material/Info';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
 import axios from 'axios';
 
 // Remove /api suffix if present, since we add it manually in request paths
@@ -44,6 +46,7 @@ interface Subagent {
   tools_available?: string[];
   recommended_for?: string[];
   is_enabled: boolean;
+  is_favorite?: boolean;
   status?: string;
   created_by?: string;
   created_at: string;
@@ -54,9 +57,10 @@ interface SubagentsResponse {
   enabled: Subagent[];
   available_default: Subagent[];
   custom: Subagent[];
+  favorites: Subagent[];
 }
 
-type FilterType = 'all' | 'default' | 'custom' | 'enabled';
+type FilterType = 'all' | 'default' | 'custom' | 'favorite' | 'enabled';
 
 const Subagents: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
@@ -64,6 +68,7 @@ const Subagents: React.FC = () => {
     enabled: [],
     available_default: [],
     custom: [],
+    favorites: [],
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -200,6 +205,33 @@ const Subagents: React.FC = () => {
     }
   };
 
+  const handleSaveToFavorites = async (subagentId: number, subagentName: string, subagentKind: 'default' | 'custom') => {
+    if (!activeProjectId) return;
+    if (!window.confirm(`Save "${subagentName}" to favorites?\n\nThis will make it appear in the Favorites tab.`)) return;
+
+    try {
+      await axios.post(
+        `${API_BASE_URL}/api/projects/${activeProjectId}/subagents/favorites/${subagentId}?subagent_kind=${subagentKind}`
+      );
+      await fetchSubagents(); // Refresh subagents list
+    } catch (err: any) {
+      setError('Failed to save to favorites: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
+  const handleRemoveFromFavorites = async (subagentId: number, subagentName: string, subagentKind: 'default' | 'custom') => {
+    if (!window.confirm(`Remove "${subagentName}" from favorites?\n\nIt will no longer appear in the Favorites tab.`)) return;
+
+    try {
+      await axios.delete(
+        `${API_BASE_URL}/api/projects/${activeProjectId}/subagents/favorites/${subagentId}?subagent_kind=${subagentKind}`
+      );
+      await fetchSubagents(); // Refresh subagents list
+    } catch (err: any) {
+      setError('Failed to remove from favorites: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
   const handleViewSubagent = (subagent: Subagent) => {
     setSelectedSubagent(subagent);
     setViewSubagentDialogOpen(true);
@@ -212,6 +244,8 @@ const Subagents: React.FC = () => {
         return subagents.available_default;
       case 'custom':
         return subagents.custom;
+      case 'favorite':
+        return subagents.favorites;
       case 'enabled':
         return subagents.enabled;
       case 'all':
@@ -235,10 +269,14 @@ const Subagents: React.FC = () => {
     subagent: Subagent;
     showToggle?: boolean;
     showDelete?: boolean;
+    showSaveToFavorites?: boolean;
+    showRemoveFromFavorites?: boolean;
   }> = ({
     subagent,
     showToggle = false,
     showDelete = false,
+    showSaveToFavorites = false,
+    showRemoveFromFavorites = false,
   }) => (
     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <CardContent sx={{ flexGrow: 1 }}>
@@ -262,7 +300,29 @@ const Subagents: React.FC = () => {
               color={subagent.subagent_kind === 'default' ? 'success' : 'info'}
             />
           </Box>
-          <Box>
+          <Box display="flex" gap={1} alignItems="center">
+            {showSaveToFavorites && (
+              <Tooltip title="Add to Favorites">
+                <IconButton
+                  size="small"
+                  sx={{ color: 'warning.main' }}
+                  onClick={() => handleSaveToFavorites(subagent.id, subagent.name, subagent.subagent_kind)}
+                >
+                  <StarBorderIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+            {showRemoveFromFavorites && (
+              <Tooltip title="Remove from Favorites">
+                <IconButton
+                  size="small"
+                  color="warning"
+                  onClick={() => handleRemoveFromFavorites(subagent.id, subagent.name, subagent.subagent_kind)}
+                >
+                  <StarIcon />
+                </IconButton>
+              </Tooltip>
+            )}
             {showDelete && subagent.subagent_kind === 'custom' && (
               <Tooltip title="Delete custom subagent">
                 <IconButton
@@ -366,6 +426,9 @@ const Subagents: React.FC = () => {
           <ToggleButton value="custom" aria-label="custom subagents">
             Custom ({subagents.custom.length})
           </ToggleButton>
+          <ToggleButton value="favorite" aria-label="favorite subagents">
+            Favorites ({subagents.favorites.length})
+          </ToggleButton>
           <ToggleButton value="enabled" aria-label="enabled subagents">
             Enabled ({subagents.enabled.length})
           </ToggleButton>
@@ -389,8 +452,10 @@ const Subagents: React.FC = () => {
               <Grid item xs={12} sm={6} md={4} key={`${subagent.subagent_kind}-${subagent.id}`}>
                 <SubagentCard
                   subagent={subagent}
-                  showToggle={true}
-                  showDelete={true}
+                  showToggle={activeFilter !== 'enabled'}
+                  showDelete={subagent.subagent_kind === 'custom' && activeFilter !== 'enabled'}
+                  showSaveToFavorites={!subagent.is_favorite && activeFilter !== 'enabled' && activeFilter !== 'favorite'}
+                  showRemoveFromFavorites={subagent.is_favorite && activeFilter !== 'enabled'}
                 />
               </Grid>
             ))

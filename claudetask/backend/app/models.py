@@ -287,6 +287,7 @@ class DefaultSubagent(Base):
     tools_available = Column(JSON, nullable=True)  # List of tools this agent has access to
     recommended_for = Column(JSON, nullable=True)  # List of task types/scenarios this agent is recommended for
     is_active = Column(Boolean, default=True)
+    is_favorite = Column(Boolean, default=False)  # Mark as favorite (shows in Favorites tab)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -306,6 +307,7 @@ class CustomSubagent(Base):
     status = Column(String(20), default="active")  # creating, active, failed
     error_message = Column(Text, nullable=True)
     created_by = Column(String(100), default="user")
+    is_favorite = Column(Boolean, default=False)  # Mark as favorite (shows in Favorites tab)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

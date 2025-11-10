@@ -338,3 +338,4 @@ class SubagentsResponse(BaseModel):
     enabled: List[SubagentInDB]
     available_default: List[SubagentInDB]
     custom: List[SubagentInDB]
+    favorites: List[SubagentInDB] = []
