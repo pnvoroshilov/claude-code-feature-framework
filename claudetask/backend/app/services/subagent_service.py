@@ -657,6 +657,7 @@ class SubagentService:
             tools_available=subagent.tools_available if hasattr(subagent, 'tools_available') else [],
             recommended_for=subagent.recommended_for if hasattr(subagent, 'recommended_for') else [],
             is_enabled=is_enabled,
+            is_favorite=subagent.is_favorite if hasattr(subagent, 'is_favorite') else False,
             status=subagent.status if hasattr(subagent, 'status') else None,
             created_by=subagent.created_by if hasattr(subagent, 'created_by') else None,
             created_at=subagent.created_at,

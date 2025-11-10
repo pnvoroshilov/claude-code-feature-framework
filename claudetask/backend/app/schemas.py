@@ -324,6 +324,7 @@ class SubagentInDB(SubagentBase):
     tools_available: Optional[List[str]] = None
     recommended_for: Optional[List[str]] = None
     is_enabled: bool = False
+    is_favorite: bool = False
     status: Optional[str] = None  # For custom subagents: "creating", "active", "failed"
     created_by: Optional[str] = None
     created_at: datetime
