@@ -46,7 +46,6 @@ import {
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { getTasks, createTask, updateTask, updateTaskStatus, deleteTask, Task, getActiveSessions, createClaudeSession, sendCommandToSession } from '../services/api';
 import RealTerminal from '../components/RealTerminal';
-import ProjectSelector from '../components/ProjectSelector';
 import { useProject } from '../context/ProjectContext';
 
 const statusColumns = [
@@ -438,7 +437,6 @@ const TaskBoard: React.FC = () => {
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
           <Typography variant="h4">Task Board</Typography>
         </Box>
-        <ProjectSelector showStatus fullWidth />
         {projectError && (
           <Alert severity="error" sx={{ mt: 2 }}>
             {projectError}
@@ -446,7 +444,7 @@ const TaskBoard: React.FC = () => {
         )}
         {!projectError && (
           <Alert severity="info" sx={{ mt: 2 }}>
-            Please select a project to view tasks.
+            Please select a project from the top menu to view tasks.
           </Alert>
         )}
       </Box>
@@ -471,34 +469,30 @@ const TaskBoard: React.FC = () => {
 
   return (
     <Box sx={{ px: 1 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={3} gap={2}>
-        <Box sx={{ flex: 1 }}>
-          <Box display="flex" alignItems="center" gap={2} mb={2}>
-            <Typography variant="h4">
-              Task Board
-            </Typography>
-            <Chip
-              size="small"
-              label={isConnected ? 'Real-time updates' : 'Connecting...'}
-              color={isConnected ? 'success' : 'warning'}
-              variant={isConnected ? 'filled' : 'outlined'}
-              sx={{
-                animation: !isConnected ? 'pulse 1.5s ease-in-out infinite' : 'none',
-                '@keyframes pulse': {
-                  '0%': { opacity: 1 },
-                  '50%': { opacity: 0.5 },
-                  '100%': { opacity: 1 }
-                }
-              }}
-            />
-          </Box>
-          <ProjectSelector showStatus />
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} gap={2}>
+        <Box display="flex" alignItems="center" gap={2}>
+          <Typography variant="h4">
+            Task Board
+          </Typography>
+          <Chip
+            size="small"
+            label={isConnected ? 'Real-time updates' : 'Connecting...'}
+            color={isConnected ? 'success' : 'warning'}
+            variant={isConnected ? 'filled' : 'outlined'}
+            sx={{
+              animation: !isConnected ? 'pulse 1.5s ease-in-out infinite' : 'none',
+              '@keyframes pulse': {
+                '0%': { opacity: 1 },
+                '50%': { opacity: 0.5 },
+                '100%': { opacity: 1 }
+              }
+            }}
+          />
         </Box>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setCreateDialogOpen(true)}
-          sx={{ mt: 1 }}
         >
           New Task
         </Button>

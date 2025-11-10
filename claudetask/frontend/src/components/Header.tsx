@@ -19,8 +19,9 @@ import {
 } from '@mui/icons-material';
 import { useQuery } from 'react-query';
 import { Link } from 'react-router-dom';
-import { getActiveProject, getConnectionStatus } from '../services/api';
+import { getConnectionStatus } from '../services/api';
 import { useThemeMode } from '../context/ThemeContext';
+import ProjectSelector from './ProjectSelector';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -28,12 +29,6 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const { mode, toggleTheme } = useThemeMode();
-
-  const { data: project, isLoading: projectLoading } = useQuery(
-    'activeProject',
-    getActiveProject,
-    { refetchInterval: 30000 }
-  );
 
   const { data: connection, isLoading: connectionLoading, refetch: refetchConnection } = useQuery(
     'connectionStatus',
@@ -101,33 +96,14 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
         <Box sx={{ flexGrow: 1 }} />
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          {/* Project Status */}
-          {projectLoading ? (
-            <CircularProgress size={20} />
-          ) : project ? (
-            <Chip
-              label={`${project.name}`}
-              color="primary"
-              size="small"
-              sx={{
-                fontWeight: 500,
-                height: 28,
-                display: { xs: 'none', sm: 'flex' },
-                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-              }}
-            />
-          ) : (
-            <Chip
-              label="No Project"
-              color="error"
+          {/* Project Selector */}
+          <Box sx={{ display: { xs: 'none', md: 'block' }, minWidth: 200 }}>
+            <ProjectSelector
               size="small"
               variant="outlined"
-              sx={{
-                height: 28,
-                display: { xs: 'none', sm: 'flex' },
-              }}
+              showStatus={false}
             />
-          )}
+          </Box>
 
           {/* Connection Status */}
           {connectionLoading ? (
