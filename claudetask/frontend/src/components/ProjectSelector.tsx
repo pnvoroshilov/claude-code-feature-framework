@@ -144,6 +144,29 @@ const ProjectSelector: React.FC<ProjectSelectorProps> = ({
             onChange={(e) => handleProjectChange(e.target.value)}
             disabled={isLoading || availableProjects.length === 0}
             startAdornment={isLoading ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
+            sx={minimal ? {
+              backgroundColor: 'rgba(99, 102, 241, 0.1)',
+              borderRadius: 2,
+              px: 2,
+              py: 0.5,
+              fontWeight: 500,
+              color: 'rgb(99, 102, 241)',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              transition: 'all 0.2s',
+              '&:hover': {
+                backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                borderColor: 'rgba(99, 102, 241, 0.5)',
+              },
+              '&.Mui-focused': {
+                backgroundColor: 'rgba(99, 102, 241, 0.15)',
+              },
+              '& .MuiSelect-select': {
+                py: 0.75,
+              },
+              '&:before, &:after': {
+                display: 'none',
+              },
+            } : {}}
           >
             {availableProjects.map((project) => (
               <MenuItem key={project.id} value={project.id}>
