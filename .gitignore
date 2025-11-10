@@ -94,6 +94,8 @@ coverage/
 .claude/
 .claudetask/
 .mcp.json
+# But track default MCP configs in framework assets
+!framework-assets/mcp-configs/.mcp.json
 CLAUDE.md.backup
 
 # Git worktrees
