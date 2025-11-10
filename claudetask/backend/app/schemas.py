@@ -285,6 +285,7 @@ class MCPConfigInDB(MCPConfigBase):
     mcp_config_type: str  # "default" or "custom"
     config: Dict[str, Any]  # MCP server configuration JSON
     is_enabled: bool = False
+    is_favorite: bool = False  # Mark as favorite (shows in Favorites tab)
     status: Optional[str] = None  # For custom configs: "active", "inactive", "error"
     created_by: Optional[str] = None
     created_at: datetime
@@ -299,3 +300,4 @@ class MCPConfigsResponse(BaseModel):
     enabled: List[MCPConfigInDB]
     available_default: List[MCPConfigInDB]
     custom: List[MCPConfigInDB]
+    favorites: List[MCPConfigInDB]

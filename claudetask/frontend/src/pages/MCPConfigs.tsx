@@ -25,6 +25,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CodeIcon from '@mui/icons-material/Code';
 import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
 import axios from 'axios';
 
 // Remove /api suffix if present, since we add it manually in request paths
@@ -38,6 +39,7 @@ interface MCPConfig {
   category: string;
   config: Record<string, any>;
   is_enabled: boolean;
+  is_favorite?: boolean;
   status?: string;
   created_by?: string;
   created_at: string;
@@ -48,6 +50,7 @@ interface MCPConfigsResponse {
   enabled: MCPConfig[];
   available_default: MCPConfig[];
   custom: MCPConfig[];
+  favorites: MCPConfig[];
 }
 
 const MCPConfigs: React.FC = () => {
@@ -56,6 +59,7 @@ const MCPConfigs: React.FC = () => {
     enabled: [],
     available_default: [],
     custom: [],
+    favorites: [],
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -186,18 +190,30 @@ const MCPConfigs: React.FC = () => {
     }
   };
 
-  const handleSaveToFavorites = async (configId: number, configName: string) => {
+  const handleSaveToFavorites = async (configId: number, configName: string, configType: 'default' | 'custom') => {
     if (!activeProjectId) return;
-    if (!window.confirm(`Save "${configName}" to favorites?\n\nThis will make it available for all your projects in the Default MCP Servers catalog.`)) return;
+    if (!window.confirm(`Save "${configName}" to favorites?\n\nThis will make it appear in the Favorites tab.`)) return;
 
     try {
       await axios.post(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/mcp-configs/favorites/${configId}`
+        `${API_BASE_URL}/api/projects/${activeProjectId}/mcp-configs/favorites/${configId}?mcp_config_type=${configType}`
       );
-      alert(`"${configName}" has been saved to favorites!\n\nYou can now enable it from the Default MCP Servers tab in any project.`);
       await fetchMCPConfigs(); // Refresh configs list
     } catch (err: any) {
       setError('Failed to save to favorites: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
+  const handleRemoveFromFavorites = async (configId: number, configName: string, configType: 'default' | 'custom') => {
+    if (!window.confirm(`Remove "${configName}" from favorites?\n\nIt will no longer appear in the Favorites tab.`)) return;
+
+    try {
+      await axios.delete(
+        `${API_BASE_URL}/api/projects/${activeProjectId}/mcp-configs/favorites/${configId}?mcp_config_type=${configType}`
+      );
+      await fetchMCPConfigs(); // Refresh configs list
+    } catch (err: any) {
+      setError('Failed to remove from favorites: ' + (err.response?.data?.detail || err.message));
     }
   };
 
@@ -206,11 +222,18 @@ const MCPConfigs: React.FC = () => {
     setViewConfigDialogOpen(true);
   };
 
-  const MCPConfigCard: React.FC<{ config: MCPConfig; showToggle?: boolean; showDelete?: boolean; showSaveToFavorites?: boolean }> = ({
+  const MCPConfigCard: React.FC<{
+    config: MCPConfig;
+    showToggle?: boolean;
+    showDelete?: boolean;
+    showSaveToFavorites?: boolean;
+    showRemoveFromFavorites?: boolean;
+  }> = ({
     config,
     showToggle = false,
     showDelete = false,
     showSaveToFavorites = false,
+    showRemoveFromFavorites = false,
   }) => (
     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <CardContent sx={{ flexGrow: 1 }}>
@@ -245,11 +268,22 @@ const MCPConfigs: React.FC = () => {
               </IconButton>
             </Tooltip>
             {showSaveToFavorites && (
-              <Tooltip title="Save to Favorites">
+              <Tooltip title="Add to Favorites">
+                <IconButton
+                  size="small"
+                  sx={{ color: 'warning.main' }}
+                  onClick={() => handleSaveToFavorites(config.id, config.name, config.mcp_config_type as 'default' | 'custom')}
+                >
+                  <StarBorderIcon />
+                </IconButton>
+              </Tooltip>
+            )}
+            {showRemoveFromFavorites && (
+              <Tooltip title="Remove from Favorites">
                 <IconButton
                   size="small"
                   color="warning"
-                  onClick={() => handleSaveToFavorites(config.id, config.name)}
+                  onClick={() => handleRemoveFromFavorites(config.id, config.name, config.mcp_config_type as 'default' | 'custom')}
                 >
                   <StarIcon />
                 </IconButton>
@@ -337,6 +371,7 @@ const MCPConfigs: React.FC = () => {
 
       <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)} sx={{ mb: 3 }}>
         <Tab label={`Default MCP Servers (${configs.available_default.length})`} />
+        <Tab label={`Favorites (${configs.favorites.length})`} />
         <Tab label={`Custom MCP Servers (${configs.custom.length})`} />
         <Tab label={`Enabled MCP Servers (${configs.enabled.length})`} />
       </Tabs>
@@ -353,7 +388,31 @@ const MCPConfigs: React.FC = () => {
           ) : (
             configs.available_default.map((config) => (
               <Grid item xs={12} md={6} lg={4} key={config.id}>
-                <MCPConfigCard config={config} showToggle={true} />
+                <MCPConfigCard
+                  config={config}
+                  showToggle={true}
+                  showSaveToFavorites={!config.is_favorite}
+                  showRemoveFromFavorites={config.is_favorite}
+                />
+              </Grid>
+            ))
+          )}
+        </Grid>
+      )}
+
+      {/* Favorites Tab */}
+      {activeTab === 1 && (
+        <Grid container spacing={3}>
+          {configs.favorites.length === 0 ? (
+            <Grid item xs={12}>
+              <Alert severity="info">
+                No favorite MCP configs yet. Add custom MCP servers to favorites from the Custom MCP Servers tab.
+              </Alert>
+            </Grid>
+          ) : (
+            configs.favorites.map((config) => (
+              <Grid item xs={12} md={6} lg={4} key={config.id}>
+                <MCPConfigCard config={config} showToggle={true} showRemoveFromFavorites={true} />
               </Grid>
             ))
           )}
@@ -361,26 +420,41 @@ const MCPConfigs: React.FC = () => {
       )}
 
       {/* Custom MCP Configs Tab */}
-      {activeTab === 1 && (
+      {activeTab === 2 && (
         <Grid container spacing={3}>
           {configs.custom.length === 0 ? (
             <Grid item xs={12}>
               <Alert severity="info">
                 No custom MCP configs created yet. Click "Add Custom MCP" to add your own.
+                <br /><br />
+                <strong>Note:</strong> Custom MCPs are shared across all your projects. You can enable/disable them individually for each project.
               </Alert>
             </Grid>
           ) : (
-            configs.custom.map((config) => (
-              <Grid item xs={12} md={6} lg={4} key={config.id}>
-                <MCPConfigCard config={config} showToggle={true} showDelete={true} showSaveToFavorites={true} />
+            <>
+              <Grid item xs={12}>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  <strong>Global Custom MCPs:</strong> These MCPs are available for all your projects. Use the toggle to enable/disable them for this specific project.
+                </Alert>
               </Grid>
-            ))
+              {configs.custom.map((config) => (
+                <Grid item xs={12} md={6} lg={4} key={config.id}>
+                  <MCPConfigCard
+                    config={config}
+                    showToggle={true}
+                    showDelete={true}
+                    showSaveToFavorites={!config.is_favorite}
+                    showRemoveFromFavorites={config.is_favorite}
+                  />
+                </Grid>
+              ))}
+            </>
           )}
         </Grid>
       )}
 
       {/* Enabled MCP Configs Tab */}
-      {activeTab === 2 && (
+      {activeTab === 3 && (
         <Grid container spacing={3}>
           {configs.enabled.length === 0 ? (
             <Grid item xs={12}>

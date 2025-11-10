@@ -154,22 +154,48 @@ async def get_default_mcp_configs(db: AsyncSession = Depends(get_db)):
 async def save_to_favorites(
     project_id: str,
     mcp_config_id: int,
+    mcp_config_type: str = "custom",  # "default" or "custom"
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Save a custom MCP config to favorites (global catalog)
+    Mark an MCP config as favorite
 
     Process:
-    1. Get custom MCP config from project
-    2. Create a copy in default_mcp_configs with category="user_favorite"
-    3. Return the new default config
+    1. Get MCP config (default or custom)
+    2. Set is_favorite = True
+    3. Return the updated config
 
-    This makes the MCP available for all projects in the Default MCP Servers tab
+    This makes the MCP appear in Favorites tab
     """
     try:
         service = MCPConfigService(db)
-        return await service.save_to_favorites(project_id, mcp_config_id)
+        return await service.save_to_favorites(project_id, mcp_config_id, mcp_config_type)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save MCP to favorites: {str(e)}")
+
+
+@router.delete("/favorites/{mcp_config_id}")
+async def remove_from_favorites(
+    mcp_config_id: int,
+    mcp_config_type: str = "custom",  # "default" or "custom"
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Unmark an MCP config as favorite
+
+    Process:
+    1. Get MCP config (default or custom)
+    2. Set is_favorite = False
+
+    Note: project_id is not needed since favorites are just a flag
+    """
+    try:
+        service = MCPConfigService(db)
+        await service.remove_from_favorites(mcp_config_id, mcp_config_type)
+        return {"success": True, "message": "MCP config removed from favorites successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to remove MCP from favorites: {str(e)}")

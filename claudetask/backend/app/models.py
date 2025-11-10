@@ -234,23 +234,25 @@ class DefaultMCPConfig(Base):
     config = Column(JSON, nullable=False)  # MCP server configuration JSON
     mcp_metadata = Column(JSON, nullable=True)  # Additional metadata (version, author, etc.)
     is_active = Column(Boolean, default=True)
+    is_favorite = Column(Boolean, default=False)  # Mark as favorite (shows in Favorites tab)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class CustomMCPConfig(Base):
-    """Custom MCP configurations created by users"""
+    """Custom MCP configurations created by users (global, shared across all projects)"""
     __tablename__ = "custom_mcp_configs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
-    name = Column(String(100), nullable=False)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=True)  # Optional: track which project created it
+    name = Column(String(100), nullable=False, unique=True)  # Unique across all projects
     description = Column(Text, nullable=False)
     category = Column(String(50), nullable=False)
     config = Column(JSON, nullable=False)  # MCP server configuration JSON
     status = Column(String(20), default="active")  # active, inactive, error
     error_message = Column(Text, nullable=True)
     created_by = Column(String(100), default="user")
+    is_favorite = Column(Boolean, default=False)  # Mark as favorite (shows in Favorites tab)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

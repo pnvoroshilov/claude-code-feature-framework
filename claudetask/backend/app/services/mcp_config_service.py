@@ -30,8 +30,9 @@ class MCPConfigService:
         Returns:
         MCPConfigsResponse with:
         - enabled: Currently enabled MCP configs
-        - available_default: Default MCP configs that can be enabled
+        - available_default: Default MCP configs that can be enabled (excluding favorites)
         - custom: User-created custom MCP configs
+        - favorites: User favorite MCP configs (separate from default)
         """
         # Get project
         project = await self._get_project(project_id)
@@ -53,38 +54,48 @@ class MCPConfigService:
             (pc.mcp_config_id, pc.mcp_config_type) for pc in enabled_project_configs
         }
 
-        # Get custom MCP configs for this project
+        # Get all custom MCP configs (global, shared across all projects)
         custom_configs_result = await self.db.execute(
-            select(CustomMCPConfig).where(CustomMCPConfig.project_id == project_id)
+            select(CustomMCPConfig)
         )
         custom_configs = custom_configs_result.scalars().all()
 
         # Organize MCP configs
         enabled = []
+        enabled_names = set()  # Track names to avoid duplicates in enabled list
         available_default = []
+        favorites = []
 
-        # Create a map of custom config names to their enabled status
-        custom_config_names_enabled = {}
-        for config in custom_configs:
-            is_enabled = (config.id, "custom") in enabled_config_ids
-            custom_config_names_enabled[config.name] = is_enabled
-
+        # Process default configs
         for config in all_default_configs:
             # Check if default config is enabled OR if imported config with same name is enabled
             is_default_enabled = (config.id, "default") in enabled_config_ids
-            is_imported_enabled = custom_config_names_enabled.get(config.name, False)
+
+            # Check if there's an imported config with same name that's enabled
+            is_imported_enabled = False
+            for custom_config in custom_configs:
+                if custom_config.category == "imported" and custom_config.name == config.name:
+                    if (custom_config.id, "custom") in enabled_config_ids:
+                        is_imported_enabled = True
+                        break
+
             is_enabled = is_default_enabled or is_imported_enabled
 
             config_dto = self._to_config_dto(config, "default", is_enabled)
 
-            # Always add to available_default (show all default configs)
+            # Add to default list (always show in Default MCPs)
             available_default.append(config_dto)
 
-            # Also add to enabled list if enabled
-            if is_enabled:
-                enabled.append(config_dto)
+            # Also add to favorites if marked as favorite
+            if config.is_favorite:
+                favorites.append(config_dto)
 
-        # Filter out imported configs from custom list (they should only appear in default list)
+            # Add to enabled only if enabled and not already added
+            if is_enabled and config.name not in enabled_names:
+                enabled.append(config_dto)
+                enabled_names.add(config.name)
+
+        # Process custom configs
         custom_dtos = []
         for config in custom_configs:
             # Skip imported configs - they are just project-specific versions of default configs
@@ -93,15 +104,24 @@ class MCPConfigService:
 
             is_enabled = (config.id, "custom") in enabled_config_ids
             config_dto = self._to_config_dto(config, "custom", is_enabled)
+
+            # Add to custom list (always show in Custom MCPs)
             custom_dtos.append(config_dto)
 
-            if is_enabled:
+            # Also add to favorites if marked as favorite
+            if config.is_favorite:
+                favorites.append(config_dto)
+
+            # Add to enabled only if not already added (avoid duplicates)
+            if is_enabled and config.name not in enabled_names:
                 enabled.append(config_dto)
+                enabled_names.add(config.name)
 
         return MCPConfigsResponse(
             enabled=enabled,
             available_default=available_default,
-            custom=custom_dtos
+            custom=custom_dtos,
+            favorites=favorites
         )
 
     async def enable_mcp_config(self, project_id: str, mcp_config_id: int, mcp_config_type: str = "default") -> MCPConfigInDB:
@@ -328,14 +348,14 @@ class MCPConfigService:
         config_create: MCPConfigCreate
     ) -> MCPConfigInDB:
         """
-        Create a custom MCP config
+        Create a custom MCP config (global, available for all projects)
 
         Process:
         1. Validate config JSON
-        2. Create database record
-        3. Optionally enable it immediately
+        2. Create global database record (no project_id binding)
+        3. Config is available for all projects, but not enabled by default
         """
-        # Get project
+        # Get project (just for validation)
         project = await self._get_project(project_id)
         if not project:
             raise ValueError(f"Project {project_id} not found")
@@ -344,21 +364,18 @@ class MCPConfigService:
         if not self.file_service.validate_mcp_config_json(config_create.config):
             raise ValueError(f"Invalid MCP config JSON")
 
-        # Check for duplicate name
+        # Check for duplicate name (global uniqueness)
         existing = await self.db.execute(
             select(CustomMCPConfig).where(
-                and_(
-                    CustomMCPConfig.project_id == project_id,
-                    CustomMCPConfig.name == config_create.name
-                )
+                CustomMCPConfig.name == config_create.name
             )
         )
         if existing.scalar_one_or_none():
-            raise ValueError(f"MCP config with name '{config_create.name}' already exists")
+            raise ValueError(f"MCP config with name '{config_create.name}' already exists (globally)")
 
-        # Create custom MCP config record
+        # Create custom MCP config record (global, available for all projects)
         custom_mcp_config = CustomMCPConfig(
-            project_id=project_id,
+            project_id=project_id,  # Track which project created it
             name=config_create.name,
             description=config_create.description,
             category=config_create.category,
@@ -379,59 +396,49 @@ class MCPConfigService:
 
     async def delete_custom_mcp_config(self, project_id: str, mcp_config_id: int):
         """
-        Delete a custom MCP config permanently
+        Delete a custom MCP config permanently (global deletion for all projects)
 
         Process:
-        1. Verify MCP config is custom (not default)
-        2. Remove from project_mcp_configs junction table
-        3. Remove MCP config from .mcp.json
+        1. Verify MCP config exists
+        2. Remove from all project_mcp_configs junction tables (all projects)
+        3. Remove MCP config from all projects' .mcp.json files
         4. Delete record from custom_mcp_configs table
         """
-        # Get project
-        project = await self._get_project(project_id)
-        if not project:
-            raise ValueError(f"Project {project_id} not found")
-
-        # Get custom MCP config
+        # Get custom MCP config (no project_id check - it's global)
         result = await self.db.execute(
-            select(CustomMCPConfig).where(
-                and_(
-                    CustomMCPConfig.id == mcp_config_id,
-                    CustomMCPConfig.project_id == project_id
-                )
-            )
+            select(CustomMCPConfig).where(CustomMCPConfig.id == mcp_config_id)
         )
         custom_mcp_config = result.scalar_one_or_none()
 
         if not custom_mcp_config:
             raise ValueError(f"Custom MCP config {mcp_config_id} not found")
 
-        # Delete from project_mcp_configs if enabled
-        project_config_result = await self.db.execute(
+        # Delete from ALL projects' project_mcp_configs junction tables
+        all_project_configs_result = await self.db.execute(
             select(ProjectMCPConfig).where(
                 and_(
-                    ProjectMCPConfig.project_id == project_id,
                     ProjectMCPConfig.mcp_config_id == mcp_config_id,
                     ProjectMCPConfig.mcp_config_type == "custom"
                 )
             )
         )
-        project_mcp_config = project_config_result.scalar_one_or_none()
+        all_project_configs = all_project_configs_result.scalars().all()
 
-        if project_mcp_config:
-            await self.db.delete(project_mcp_config)
+        # Remove from .mcp.json for all projects where it's enabled
+        for project_config in all_project_configs:
+            project = await self._get_project(project_config.project_id)
+            if project:
+                await self.file_service.remove_mcp_config_from_project(
+                    project_path=project.path,
+                    mcp_config_name=custom_mcp_config.name
+                )
+            await self.db.delete(project_config)
 
-        # Remove MCP config from .mcp.json
-        await self.file_service.remove_mcp_config_from_project(
-            project_path=project.path,
-            mcp_config_name=custom_mcp_config.name
-        )
-
-        # Delete custom_mcp_configs record
+        # Delete custom_mcp_configs record (global deletion)
         await self.db.delete(custom_mcp_config)
         await self.db.commit()
 
-        logger.info(f"Deleted custom MCP config {custom_mcp_config.name} from project {project_id}")
+        logger.info(f"Deleted custom MCP config {custom_mcp_config.name} globally (removed from {len(all_project_configs)} project(s))")
 
     async def get_default_mcp_configs(self) -> List[MCPConfigInDB]:
         """Get all default MCP configs catalog"""
@@ -469,6 +476,7 @@ class MCPConfigService:
             category=mcp_config.category,
             config=mcp_config.config,
             is_enabled=is_enabled,
+            is_favorite=getattr(mcp_config, "is_favorite", False),
             status=getattr(mcp_config, "status", None),
             created_by=getattr(mcp_config, "created_by", "system"),
             created_at=mcp_config.created_at,
@@ -524,61 +532,123 @@ class MCPConfigService:
 
         return config
 
-    async def save_to_favorites(self, project_id: str, mcp_config_id: int) -> MCPConfigInDB:
+    async def save_to_favorites(self, project_id: str, mcp_config_id: int, mcp_config_type: str = "custom") -> MCPConfigInDB:
         """
-        Save a custom MCP config to favorites (global default catalog)
+        Mark an MCP config as favorite
 
         Process:
-        1. Get custom MCP config from project
-        2. Verify it's not already in favorites (check by name)
-        3. Create a copy in default_mcp_configs with category="user_favorite"
-        4. Return the new default config
+        1. Get MCP config (default or custom)
+        2. Verify it's not already a favorite
+        3. Set is_favorite = True
+        4. Return the updated config
 
-        This makes the MCP available for all projects
+        This makes the MCP appear in Favorites tab
         """
-        # Get custom MCP config
-        custom_config_result = await self.db.execute(
-            select(CustomMCPConfig).where(
-                and_(
-                    CustomMCPConfig.project_id == project_id,
-                    CustomMCPConfig.id == mcp_config_id
-                )
+        if mcp_config_type == "default":
+            # Get default MCP config
+            default_config_result = await self.db.execute(
+                select(DefaultMCPConfig).where(DefaultMCPConfig.id == mcp_config_id)
             )
-        )
-        custom_config = custom_config_result.scalar_one_or_none()
+            mcp_config = default_config_result.scalar_one_or_none()
 
-        if not custom_config:
-            raise ValueError(f"Custom MCP config {mcp_config_id} not found in project {project_id}")
+            if not mcp_config:
+                raise ValueError(f"Default MCP config {mcp_config_id} not found")
 
-        # Don't allow saving imported configs to favorites
-        if custom_config.category == "imported":
-            raise ValueError("Cannot save imported configs to favorites. These are project-specific versions of default MCPs.")
+            # Check if already a favorite
+            if mcp_config.is_favorite:
+                raise ValueError(f"MCP config '{mcp_config.name}' is already in favorites")
 
-        # Check if already exists in defaults with same name
-        existing_default_result = await self.db.execute(
-            select(DefaultMCPConfig).where(DefaultMCPConfig.name == custom_config.name)
-        )
-        existing_default = existing_default_result.scalar_one_or_none()
+            # Mark as favorite
+            mcp_config.is_favorite = True
+            mcp_config.updated_at = datetime.utcnow()
 
-        if existing_default:
-            raise ValueError(f"MCP config '{custom_config.name}' already exists in favorites")
+            await self.db.commit()
+            await self.db.refresh(mcp_config)
 
-        # Create new default MCP config
-        new_default = DefaultMCPConfig(
-            name=custom_config.name,
-            description=custom_config.description + " (User Favorite)",
-            category="user_favorite",
-            config=custom_config.config,
-            mcp_metadata={"source": "user_custom", "original_project_id": project_id},
-            is_active=True,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
-        )
+            logger.info(f"Marked default MCP config '{mcp_config.name}' as favorite (ID: {mcp_config.id})")
 
-        self.db.add(new_default)
-        await self.db.commit()
-        await self.db.refresh(new_default)
+            return self._to_config_dto(mcp_config, "default", False)
+        else:
+            # Get custom MCP config (global, no project_id check)
+            custom_config_result = await self.db.execute(
+                select(CustomMCPConfig).where(CustomMCPConfig.id == mcp_config_id)
+            )
+            mcp_config = custom_config_result.scalar_one_or_none()
 
-        logger.info(f"Saved custom MCP config '{custom_config.name}' to favorites as default config {new_default.id}")
+            if not mcp_config:
+                raise ValueError(f"Custom MCP config {mcp_config_id} not found")
 
-        return self._to_config_dto(new_default, "default", False)
+            # Don't allow saving imported configs to favorites
+            if mcp_config.category == "imported":
+                raise ValueError("Cannot save imported configs to favorites. These are project-specific versions of default MCPs.")
+
+            # Check if already a favorite
+            if mcp_config.is_favorite:
+                raise ValueError(f"MCP config '{mcp_config.name}' is already in favorites")
+
+            # Mark as favorite
+            mcp_config.is_favorite = True
+            mcp_config.updated_at = datetime.utcnow()
+
+            await self.db.commit()
+            await self.db.refresh(mcp_config)
+
+            logger.info(f"Marked custom MCP config '{mcp_config.name}' as favorite (ID: {mcp_config.id})")
+
+            return self._to_config_dto(mcp_config, "custom", False)
+
+    async def remove_from_favorites(self, mcp_config_id: int, mcp_config_type: str = "custom") -> None:
+        """
+        Unmark an MCP config as favorite
+
+        Process:
+        1. Get MCP config (default or custom)
+        2. Verify it's marked as favorite
+        3. Set is_favorite = False
+
+        Args:
+            mcp_config_id: ID of the MCP config to unfavorite
+            mcp_config_type: Type of MCP config ("default" or "custom")
+        """
+        if mcp_config_type == "default":
+            # Get default MCP config
+            default_config_result = await self.db.execute(
+                select(DefaultMCPConfig).where(DefaultMCPConfig.id == mcp_config_id)
+            )
+            mcp_config = default_config_result.scalar_one_or_none()
+
+            if not mcp_config:
+                raise ValueError(f"Default MCP config {mcp_config_id} not found")
+
+            # Check if it's marked as favorite
+            if not mcp_config.is_favorite:
+                raise ValueError(f"MCP config '{mcp_config.name}' is not in favorites")
+
+            # Unmark as favorite
+            mcp_config.is_favorite = False
+            mcp_config.updated_at = datetime.utcnow()
+
+            await self.db.commit()
+
+            logger.info(f"Removed default MCP config '{mcp_config.name}' from favorites (ID: {mcp_config_id})")
+        else:
+            # Get custom MCP config
+            custom_config_result = await self.db.execute(
+                select(CustomMCPConfig).where(CustomMCPConfig.id == mcp_config_id)
+            )
+            mcp_config = custom_config_result.scalar_one_or_none()
+
+            if not mcp_config:
+                raise ValueError(f"Custom MCP config {mcp_config_id} not found")
+
+            # Check if it's marked as favorite
+            if not mcp_config.is_favorite:
+                raise ValueError(f"MCP config '{mcp_config.name}' is not in favorites")
+
+            # Unmark as favorite
+            mcp_config.is_favorite = False
+            mcp_config.updated_at = datetime.utcnow()
+
+            await self.db.commit()
+
+            logger.info(f"Removed custom MCP config '{mcp_config.name}' from favorites (ID: {mcp_config_id})")
