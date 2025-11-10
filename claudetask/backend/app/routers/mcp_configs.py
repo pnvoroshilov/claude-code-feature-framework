@@ -7,8 +7,10 @@ from typing import List
 from ..database import get_db
 from ..schemas import MCPConfigInDB, MCPConfigCreate, MCPConfigsResponse
 from ..services.mcp_config_service import MCPConfigService
+from ..services.mcp_search_service import MCPSearchService
 
 router = APIRouter(prefix="/api/projects/{project_id}/mcp-configs", tags=["mcp-configs"])
+search_router = APIRouter(prefix="/api/mcp-search", tags=["mcp-search"])
 
 
 @router.get("/", response_model=MCPConfigsResponse)
@@ -199,3 +201,42 @@ async def remove_from_favorites(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to remove MCP from favorites: {str(e)}")
+
+
+# MCP Search endpoints
+@search_router.get("/search")
+async def search_mcp_servers(q: str):
+    """
+    Search for MCP servers on mcp.so
+
+    Args:
+        q: Search query string
+
+    Returns:
+        List of MCP server results with name, description, url
+    """
+    try:
+        service = MCPSearchService()
+        results = await service.search_servers(q)
+        return {"results": results, "count": len(results)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to search MCP servers: {str(e)}")
+
+
+@search_router.get("/server-config")
+async def get_server_config(url: str):
+    """
+    Get detailed configuration for a specific MCP server
+
+    Args:
+        url: Full URL to the server page on mcp.so
+
+    Returns:
+        Server details and configuration
+    """
+    try:
+        service = MCPSearchService()
+        config = await service.get_server_config(url)
+        return config
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch server config: {str(e)}")

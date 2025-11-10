@@ -58,6 +58,7 @@ app.add_middleware(
 # Include routers
 app.include_router(skills.router)
 app.include_router(mcp_configs.router)
+app.include_router(mcp_configs.search_router)
 
 
 @app.on_event("startup")

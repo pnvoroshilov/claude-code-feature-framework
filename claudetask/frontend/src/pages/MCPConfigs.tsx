@@ -20,12 +20,23 @@ import {
   Tooltip,
   ToggleButtonGroup,
   ToggleButton,
+  Menu,
+  MenuItem,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemButton,
+  Divider,
+  InputAdornment,
+  Avatar,
+  CardActionArea,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CodeIcon from '@mui/icons-material/Code';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
+import SearchIcon from '@mui/icons-material/Search';
 import axios from 'axios';
 
 // Remove /api suffix if present, since we add it manually in request paths
@@ -74,6 +85,18 @@ const MCPConfigs: React.FC = () => {
   const [newConfigJson, setNewConfigJson] = useState('{\n  "command": "",\n  "args": [],\n  "env": {}\n}');
   const [creating, setCreating] = useState(false);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+
+  // MCP Search state
+  const [searchDialogOpen, setSearchDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [addMenuAnchor, setAddMenuAnchor] = useState<null | HTMLElement>(null);
+
+  // GitHub info dialog state
+  const [githubInfoDialogOpen, setGithubInfoDialogOpen] = useState(false);
+  const [selectedServerInfo, setSelectedServerInfo] = useState<any>(null);
 
   // Fetch active project
   useEffect(() => {
@@ -224,6 +247,57 @@ const MCPConfigs: React.FC = () => {
     setViewConfigDialogOpen(true);
   };
 
+  const handleSearchMCP = async () => {
+    if (!searchQuery.trim()) return;
+
+    setSearching(true);
+    setSearchError(null);
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/mcp-search/search?q=${encodeURIComponent(searchQuery)}`
+      );
+      setSearchResults(response.data.results || []);
+    } catch (err: any) {
+      setSearchError('Failed to search MCP servers: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleSelectFromSearch = async (server: any) => {
+    // Fetch server config details
+    try {
+      const configResponse = await axios.get(
+        `${API_BASE_URL}/api/mcp-search/server-config?url=${encodeURIComponent(server.url)}`
+      );
+
+      // Pre-fill create dialog with server info
+      setNewConfigName(server.name);
+      setNewConfigDescription(configResponse.data.description || server.description);
+      setNewConfigCategory('custom');
+
+      // Check if config was found
+      if (configResponse.data.config) {
+        // Config found - proceed to create dialog
+        setNewConfigJson(JSON.stringify(configResponse.data.config, null, 2));
+        setSearchDialogOpen(false);
+        setCreateDialogOpen(true);
+      } else {
+        // No config found - show GitHub info dialog
+        setSelectedServerInfo({
+          ...server,
+          github_url: configResponse.data.github_url || server.github_url,
+          description: configResponse.data.description || server.description,
+          avatar_url: configResponse.data.avatar_url || server.avatar_url
+        });
+        setSearchDialogOpen(false);
+        setGithubInfoDialogOpen(true);
+      }
+    } catch (err: any) {
+      setSearchError('Failed to fetch server config: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
   // Filter configs based on active filter
   const getFilteredConfigs = (): MCPConfig[] => {
     switch (activeFilter) {
@@ -370,14 +444,40 @@ const MCPConfigs: React.FC = () => {
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4">MCP Configurations</Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateDialogOpen(true)}
-          disabled={!activeProjectId}
-        >
-          Add Custom MCP
-        </Button>
+        <Box>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={(e) => setAddMenuAnchor(e.currentTarget)}
+            disabled={!activeProjectId}
+          >
+            Add MCP
+          </Button>
+          <Menu
+            anchorEl={addMenuAnchor}
+            open={Boolean(addMenuAnchor)}
+            onClose={() => setAddMenuAnchor(null)}
+          >
+            <MenuItem
+              onClick={() => {
+                setAddMenuAnchor(null);
+                setSearchDialogOpen(true);
+              }}
+            >
+              <SearchIcon sx={{ mr: 1 }} />
+              Search from mcp.so
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setAddMenuAnchor(null);
+                setCreateDialogOpen(true);
+              }}
+            >
+              <AddIcon sx={{ mr: 1 }} />
+              Create Custom
+            </MenuItem>
+          </Menu>
+        </Box>
       </Box>
 
       {error && (
@@ -566,6 +666,210 @@ const MCPConfigs: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setViewConfigDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* MCP Search Dialog */}
+      <Dialog
+        open={searchDialogOpen}
+        onClose={() => setSearchDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Search MCP Servers from mcp.so</DialogTitle>
+        <DialogContent>
+          <Box sx={{ mb: 2 }}>
+            <TextField
+              fullWidth
+              placeholder="Search for MCP servers (e.g., 'postgres', 'filesystem', 'git')"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleSearchMCP();
+                }
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <Button
+                      onClick={handleSearchMCP}
+                      disabled={!searchQuery.trim() || searching}
+                    >
+                      {searching ? <CircularProgress size={20} /> : 'Search'}
+                    </Button>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Box>
+
+          {searchError && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSearchError(null)}>
+              {searchError}
+            </Alert>
+          )}
+
+          {searching && (
+            <Box display="flex" justifyContent="center" p={4}>
+              <CircularProgress />
+            </Box>
+          )}
+
+          {!searching && searchResults.length > 0 && (
+            <>
+              <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+                Found {searchResults.length} MCP servers:
+              </Typography>
+              <Grid container spacing={2} sx={{ maxHeight: '500px', overflow: 'auto', mt: 1 }}>
+                {searchResults.map((server, index) => (
+                  <Grid item xs={12} sm={6} md={4} key={index}>
+                    <Card
+                      sx={{
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          boxShadow: 6,
+                          transform: 'translateY(-4px)',
+                          transition: 'all 0.3s ease-in-out'
+                        }
+                      }}
+                    >
+                      <CardActionArea
+                        onClick={() => handleSelectFromSearch(server)}
+                        sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}
+                      >
+                        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', width: '100%' }}>
+                          <Avatar
+                            src={server.avatar_url}
+                            alt={server.title || server.name}
+                            sx={{ width: 48, height: 48, mr: 2 }}
+                          >
+                            {!server.avatar_url && (server.title || server.name).charAt(0).toUpperCase()}
+                          </Avatar>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="h6" component="div" noWrap>
+                              {server.title || server.name}
+                            </Typography>
+                            {server.author_name && (
+                              <Typography variant="caption" color="text.secondary">
+                                by {server.author_name}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                        <CardContent sx={{ pt: 0, width: '100%', flex: 1 }}>
+                          <Typography variant="body2" color="text.secondary" sx={{
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: 'vertical',
+                          }}>
+                            {server.description}
+                          </Typography>
+                        </CardContent>
+                      </CardActionArea>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            </>
+          )}
+
+          {!searching && searchResults.length === 0 && searchQuery && (
+            <Alert severity="info">
+              No results found. Try a different search term.
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSearchDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* GitHub Info Dialog - shown when config not found */}
+      <Dialog
+        open={githubInfoDialogOpen}
+        onClose={() => setGithubInfoDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>MCP Configuration Not Found</DialogTitle>
+        <DialogContent>
+          {selectedServerInfo && (
+            <Card sx={{ mt: 2 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <Avatar
+                    src={selectedServerInfo.avatar_url}
+                    alt={selectedServerInfo.title || selectedServerInfo.name}
+                    sx={{ width: 64, height: 64, mr: 2 }}
+                  >
+                    {!selectedServerInfo.avatar_url && (selectedServerInfo.title || selectedServerInfo.name).charAt(0).toUpperCase()}
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h6">
+                      {selectedServerInfo.title || selectedServerInfo.name}
+                    </Typography>
+                    {selectedServerInfo.author_name && (
+                      <Typography variant="body2" color="text.secondary">
+                        by {selectedServerInfo.author_name}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {selectedServerInfo.description}
+                </Typography>
+
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Configuration not available. Please visit the GitHub repository to find installation instructions and configuration details.
+                </Alert>
+
+                {selectedServerInfo.github_url && (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    fullWidth
+                    startIcon={<CodeIcon />}
+                    onClick={() => window.open(selectedServerInfo.github_url, '_blank')}
+                  >
+                    Open GitHub Repository
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setGithubInfoDialogOpen(false)}>Close</Button>
+          <Button
+            variant="outlined"
+            onClick={() => {
+              // Provide empty template for manual configuration
+              const emptyConfig = {
+                command: "npx",
+                args: ["-y", `${selectedServerInfo?.name || 'package'}`]
+              };
+              setNewConfigName(selectedServerInfo?.name || '');
+              setNewConfigDescription(selectedServerInfo?.description || '');
+              setNewConfigCategory('custom');
+              setNewConfigJson(JSON.stringify(emptyConfig, null, 2));
+              setGithubInfoDialogOpen(false);
+              setCreateDialogOpen(true);
+            }}
+          >
+            Configure Manually
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

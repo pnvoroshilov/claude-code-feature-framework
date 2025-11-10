@@ -391,14 +391,22 @@ async def seed_default_mcp_configs():
             # Create description based on server name
             descriptions = {
                 "claudetask": "ClaudeTask MCP server for task management, project orchestration, and workflow automation",
+                "serena": "Serena MCP server - a powerful coding agent toolkit providing semantic code retrieval and editing capabilities",
                 "playwright": "Playwright MCP server for browser automation, E2E testing, and web scraping capabilities"
+            }
+
+            # Define categories
+            categories = {
+                "claudetask": "development",
+                "serena": "development",
+                "playwright": "testing"
             }
 
             default_mcp_configs.append(
                 DefaultMCPConfig(
                     name=server_name,
                     description=descriptions.get(server_name, f"MCP server configuration for {server_name}"),
-                    category="development" if server_name == "claudetask" else "testing",
+                    category=categories.get(server_name, "general"),
                     config=server_config,
                     is_active=True
                 )

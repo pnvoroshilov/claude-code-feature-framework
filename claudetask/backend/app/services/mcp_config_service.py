@@ -204,7 +204,12 @@ class MCPConfigService:
             raise ValueError(f"MCP config already enabled for project")
 
         # Write config from DB to .mcp.json (DB is source of truth)
-        config_data = mcp_config.config
+        # Prepare config for project (substitute paths, etc.)
+        config_data = self._prepare_mcp_config_for_project(
+            base_config=mcp_config.config,
+            mcp_config_name=mcp_config.name,
+            project=project
+        )
 
         success = await self.file_service.merge_mcp_config_to_project(
             project_path=project.path,
@@ -529,6 +534,17 @@ class MCPConfigService:
             config["env"]["CLAUDETASK_BACKEND_URL"] = os.getenv("CLAUDETASK_BACKEND_URL", "http://localhost:3333")
 
             logger.info(f"Prepared claudetask MCP config for project {project.id}: command={config['command']}, project_path={project.path}")
+
+        # Special handling for serena MCP - substitute project path in args
+        elif mcp_config_name == "serena":
+            # Replace "." in args with actual project path
+            if "args" in config:
+                config["args"] = [
+                    project.path if arg == "." else arg
+                    for arg in config["args"]
+                ]
+
+            logger.info(f"Prepared serena MCP config for project {project.id}: project_path={project.path}")
 
         return config
 
