@@ -38,6 +38,7 @@ import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import SearchIcon from '@mui/icons-material/Search';
 import axios from 'axios';
+import { useProject } from '../context/ProjectContext';
 
 // Remove /api suffix if present, since we add it manually in request paths
 const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:3333').replace(/\/api$/, '');
@@ -67,6 +68,7 @@ interface MCPConfigsResponse {
 type FilterType = 'all' | 'default' | 'custom' | 'favorite' | 'enabled';
 
 const MCPConfigs: React.FC = () => {
+  const { selectedProject } = useProject();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [configs, setConfigs] = useState<MCPConfigsResponse>({
     enabled: [],
@@ -84,7 +86,6 @@ const MCPConfigs: React.FC = () => {
   const [newConfigCategory, setNewConfigCategory] = useState('custom');
   const [newConfigJson, setNewConfigJson] = useState('{\n  "command": "",\n  "args": [],\n  "env": {}\n}');
   const [creating, setCreating] = useState(false);
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
 
   // MCP Search state
   const [searchDialogOpen, setSearchDialogOpen] = useState(false);
@@ -98,39 +99,21 @@ const MCPConfigs: React.FC = () => {
   const [githubInfoDialogOpen, setGithubInfoDialogOpen] = useState(false);
   const [selectedServerInfo, setSelectedServerInfo] = useState<any>(null);
 
-  // Fetch active project
+  // Fetch MCP configs when project changes
   useEffect(() => {
-    const fetchActiveProject = async () => {
-      try {
-        const response = await axios.get(`${API_BASE_URL}/api/projects`);
-        const activeProject = response.data.find((p: any) => p.is_active);
-        if (activeProject) {
-          setActiveProjectId(activeProject.id);
-        } else {
-          setError('No active project found. Please activate a project first.');
-        }
-      } catch (err: any) {
-        setError('Failed to fetch active project: ' + (err.response?.data?.detail || err.message));
-      }
-    };
-    fetchActiveProject();
-  }, []);
-
-  // Fetch MCP configs when project is loaded
-  useEffect(() => {
-    if (activeProjectId) {
+    if (selectedProject?.id) {
       fetchMCPConfigs();
     }
-  }, [activeProjectId]);
+  }, [selectedProject?.id]);
 
   const fetchMCPConfigs = async () => {
-    if (!activeProjectId) return;
+    if (!selectedProject?.id) return;
 
     setLoading(true);
     setError(null);
     try {
       const response = await axios.get<MCPConfigsResponse>(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/mcp-configs/`
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/mcp-configs/`
       );
       setConfigs(response.data);
     } catch (err: any) {
@@ -141,11 +124,11 @@ const MCPConfigs: React.FC = () => {
   };
 
   const handleEnableConfig = async (configId: number, configType: 'default' | 'custom') => {
-    if (!activeProjectId) return;
+    if (!selectedProject?.id) return;
 
     try {
       await axios.post(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/mcp-configs/enable/${configId}?mcp_config_type=${configType}`
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/mcp-configs/enable/${configId}?mcp_config_type=${configType}`
       );
       await fetchMCPConfigs(); // Refresh configs list
     } catch (err: any) {
@@ -154,11 +137,11 @@ const MCPConfigs: React.FC = () => {
   };
 
   const handleDisableConfig = async (configId: number) => {
-    if (!activeProjectId) return;
+    if (!selectedProject?.id) return;
 
     try {
       await axios.post(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/mcp-configs/disable/${configId}`
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/mcp-configs/disable/${configId}`
       );
       await fetchMCPConfigs(); // Refresh configs list
     } catch (err: any) {
@@ -167,7 +150,7 @@ const MCPConfigs: React.FC = () => {
   };
 
   const handleCreateConfig = async () => {
-    if (!activeProjectId) return;
+    if (!selectedProject?.id) return;
 
     setCreating(true);
     setError(null);
@@ -176,7 +159,7 @@ const MCPConfigs: React.FC = () => {
       const config = JSON.parse(newConfigJson);
 
       await axios.post(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/mcp-configs/create`,
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/mcp-configs/create`,
         {
           name: newConfigName,
           description: newConfigDescription,
@@ -202,12 +185,12 @@ const MCPConfigs: React.FC = () => {
   };
 
   const handleDeleteConfig = async (configId: number) => {
-    if (!activeProjectId) return;
+    if (!selectedProject?.id) return;
     if (!window.confirm('Are you sure you want to delete this custom MCP config?')) return;
 
     try {
       await axios.delete(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/mcp-configs/${configId}`
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/mcp-configs/${configId}`
       );
       await fetchMCPConfigs(); // Refresh configs list
     } catch (err: any) {
@@ -216,12 +199,12 @@ const MCPConfigs: React.FC = () => {
   };
 
   const handleSaveToFavorites = async (configId: number, configName: string, configType: 'default' | 'custom') => {
-    if (!activeProjectId) return;
+    if (!selectedProject?.id) return;
     if (!window.confirm(`Save "${configName}" to favorites?\n\nThis will make it appear in the Favorites tab.`)) return;
 
     try {
       await axios.post(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/mcp-configs/favorites/${configId}?mcp_config_type=${configType}`
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/mcp-configs/favorites/${configId}?mcp_config_type=${configType}`
       );
       await fetchMCPConfigs(); // Refresh configs list
     } catch (err: any) {
@@ -230,11 +213,12 @@ const MCPConfigs: React.FC = () => {
   };
 
   const handleRemoveFromFavorites = async (configId: number, configName: string, configType: 'default' | 'custom') => {
+    if (!selectedProject?.id) return;
     if (!window.confirm(`Remove "${configName}" from favorites?\n\nIt will no longer appear in the Favorites tab.`)) return;
 
     try {
       await axios.delete(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/mcp-configs/favorites/${configId}?mcp_config_type=${configType}`
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/mcp-configs/favorites/${configId}?mcp_config_type=${configType}`
       );
       await fetchMCPConfigs(); // Refresh configs list
     } catch (err: any) {
@@ -449,7 +433,7 @@ const MCPConfigs: React.FC = () => {
             variant="contained"
             startIcon={<AddIcon />}
             onClick={(e) => setAddMenuAnchor(e.currentTarget)}
-            disabled={!activeProjectId}
+            disabled={!selectedProject?.id}
           >
             Add MCP
           </Button>
@@ -486,7 +470,7 @@ const MCPConfigs: React.FC = () => {
         </Alert>
       )}
 
-      {!activeProjectId && (
+      {!selectedProject?.id && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           No active project found. Please go to Projects and activate a project first.
         </Alert>
