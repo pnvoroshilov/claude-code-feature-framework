@@ -25,6 +25,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import InfoIcon from '@mui/icons-material/Info';
 import axios from 'axios';
+import { useProject } from '../context/ProjectContext';
 
 // Remove /api suffix if present, since we add it manually in request paths
 const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:3333').replace(/\/api$/, '');
@@ -50,6 +51,7 @@ interface SkillsResponse {
 }
 
 const Skills: React.FC = () => {
+  const { selectedProject } = useProject();
   const [activeTab, setActiveTab] = useState(0);
   const [skills, setSkills] = useState<SkillsResponse>({
     enabled: [],
@@ -62,41 +64,22 @@ const Skills: React.FC = () => {
   const [newSkillName, setNewSkillName] = useState('');
   const [newSkillDescription, setNewSkillDescription] = useState('');
   const [creating, setCreating] = useState(false);
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
 
-  // Fetch active project
+  // Fetch skills when project changes
   useEffect(() => {
-    const fetchActiveProject = async () => {
-      try {
-        const response = await axios.get(`${API_BASE_URL}/api/projects`);
-        const activeProject = response.data.find((p: any) => p.is_active);
-        if (activeProject) {
-          setActiveProjectId(activeProject.id);
-        } else {
-          setError('No active project found. Please activate a project first.');
-        }
-      } catch (err: any) {
-        setError('Failed to fetch active project: ' + (err.response?.data?.detail || err.message));
-      }
-    };
-    fetchActiveProject();
-  }, []);
-
-  // Fetch skills when project is loaded
-  useEffect(() => {
-    if (activeProjectId) {
+    if (selectedProject?.id) {
       fetchSkills();
     }
-  }, [activeProjectId]);
+  }, [selectedProject?.id]);
 
   const fetchSkills = async () => {
-    if (!activeProjectId) return;
+    if (!selectedProject?.id) return;
 
     setLoading(true);
     setError(null);
     try {
       const response = await axios.get<SkillsResponse>(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/skills/`
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/skills/`
       );
       setSkills(response.data);
     } catch (err: any) {
@@ -107,11 +90,11 @@ const Skills: React.FC = () => {
   };
 
   const handleEnableSkill = async (skillId: number) => {
-    if (!activeProjectId) return;
+    if (!selectedProject?.id) return;
 
     try {
       await axios.post(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/skills/enable/${skillId}`
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/skills/enable/${skillId}`
       );
       await fetchSkills(); // Refresh skills list
     } catch (err: any) {
@@ -120,11 +103,11 @@ const Skills: React.FC = () => {
   };
 
   const handleDisableSkill = async (skillId: number) => {
-    if (!activeProjectId) return;
+    if (!selectedProject?.id) return;
 
     try {
       await axios.post(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/skills/disable/${skillId}`
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/skills/disable/${skillId}`
       );
       await fetchSkills(); // Refresh skills list
     } catch (err: any) {
@@ -133,13 +116,13 @@ const Skills: React.FC = () => {
   };
 
   const handleCreateSkill = async () => {
-    if (!activeProjectId) return;
+    if (!selectedProject?.id) return;
 
     setCreating(true);
     setError(null);
     try {
       await axios.post(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/skills/create`,
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/skills/create`,
         {
           name: newSkillName,
           description: newSkillDescription,
@@ -157,12 +140,12 @@ const Skills: React.FC = () => {
   };
 
   const handleDeleteSkill = async (skillId: number) => {
-    if (!activeProjectId) return;
+    if (!selectedProject?.id) return;
     if (!window.confirm('Are you sure you want to delete this custom skill?')) return;
 
     try {
       await axios.delete(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/skills/${skillId}`
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/skills/${skillId}`
       );
       await fetchSkills(); // Refresh skills list
     } catch (err: any) {
@@ -253,7 +236,7 @@ const Skills: React.FC = () => {
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => setCreateDialogOpen(true)}
-          disabled={!activeProjectId}
+          disabled={!selectedProject?.id}
         >
           Create Custom Skill
         </Button>
@@ -265,7 +248,7 @@ const Skills: React.FC = () => {
         </Alert>
       )}
 
-      {!activeProjectId && (
+      {!selectedProject?.id && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           No active project found. Please go to Projects and activate a project first.
         </Alert>

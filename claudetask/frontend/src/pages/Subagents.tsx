@@ -32,6 +32,7 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import axios from 'axios';
+import { useProject } from '../context/ProjectContext';
 
 // Remove /api suffix if present, since we add it manually in request paths
 const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:3333').replace(/\/api$/, '');
@@ -63,6 +64,7 @@ interface SubagentsResponse {
 type FilterType = 'all' | 'default' | 'custom' | 'favorite' | 'enabled';
 
 const Subagents: React.FC = () => {
+  const { selectedProject } = useProject();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [subagents, setSubagents] = useState<SubagentsResponse>({
     enabled: [],
@@ -78,7 +80,6 @@ const Subagents: React.FC = () => {
   const [newSubagentName, setNewSubagentName] = useState('');
   const [newSubagentDescription, setNewSubagentDescription] = useState('');
   const [creating, setCreating] = useState(false);
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
 
   // Categories for subagents
   const categories = [
@@ -94,39 +95,21 @@ const Subagents: React.FC = () => {
     'Custom',
   ];
 
-  // Fetch active project
+  // Fetch subagents when project changes
   useEffect(() => {
-    const fetchActiveProject = async () => {
-      try {
-        const response = await axios.get(`${API_BASE_URL}/api/projects`);
-        const activeProject = response.data.find((p: any) => p.is_active);
-        if (activeProject) {
-          setActiveProjectId(activeProject.id);
-        } else {
-          setError('No active project found. Please activate a project first.');
-        }
-      } catch (err: any) {
-        setError('Failed to fetch active project: ' + (err.response?.data?.detail || err.message));
-      }
-    };
-    fetchActiveProject();
-  }, []);
-
-  // Fetch subagents when project is loaded
-  useEffect(() => {
-    if (activeProjectId) {
+    if (selectedProject?.id) {
       fetchSubagents();
     }
-  }, [activeProjectId]);
+  }, [selectedProject?.id]);
 
   const fetchSubagents = async () => {
-    if (!activeProjectId) return;
+    if (!selectedProject?.id) return;
 
     setLoading(true);
     setError(null);
     try {
       const response = await axios.get<SubagentsResponse>(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/subagents/`
+        `${API_BASE_URL}/api/projects/${selectedProject?.id}/subagents/`
       );
       setSubagents(response.data);
     } catch (err: any) {
@@ -137,11 +120,11 @@ const Subagents: React.FC = () => {
   };
 
   const handleEnableSubagent = async (subagentId: number, subagentKind: 'default' | 'custom') => {
-    if (!activeProjectId) return;
+    if (!selectedProject?.id) return;
 
     try {
       await axios.post(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/subagents/enable/${subagentId}?subagent_kind=${subagentKind}`
+        `${API_BASE_URL}/api/projects/${selectedProject?.id}/subagents/enable/${subagentId}?subagent_kind=${subagentKind}`
       );
       await fetchSubagents(); // Refresh subagents list
     } catch (err: any) {
@@ -150,11 +133,11 @@ const Subagents: React.FC = () => {
   };
 
   const handleDisableSubagent = async (subagentId: number) => {
-    if (!activeProjectId) return;
+    if (!selectedProject?.id) return;
 
     try {
       await axios.post(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/subagents/disable/${subagentId}`
+        `${API_BASE_URL}/api/projects/${selectedProject?.id}/subagents/disable/${subagentId}`
       );
       await fetchSubagents(); // Refresh subagents list
     } catch (err: any) {
@@ -163,14 +146,14 @@ const Subagents: React.FC = () => {
   };
 
   const handleCreateSubagent = async () => {
-    if (!activeProjectId) return;
+    if (!selectedProject?.id) return;
 
     setCreating(true);
     setError(null);
     try {
       // Send only name and description, backend will generate the agent file
       await axios.post(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/subagents/create`,
+        `${API_BASE_URL}/api/projects/${selectedProject?.id}/subagents/create`,
         {
           name: newSubagentName,
           description: newSubagentDescription,
@@ -192,12 +175,12 @@ const Subagents: React.FC = () => {
   };
 
   const handleDeleteSubagent = async (subagentId: number) => {
-    if (!activeProjectId) return;
+    if (!selectedProject?.id) return;
     if (!window.confirm('Are you sure you want to delete this custom subagent?')) return;
 
     try {
       await axios.delete(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/subagents/${subagentId}`
+        `${API_BASE_URL}/api/projects/${selectedProject?.id}/subagents/${subagentId}`
       );
       await fetchSubagents(); // Refresh subagents list
     } catch (err: any) {
@@ -206,11 +189,11 @@ const Subagents: React.FC = () => {
   };
 
   const handleSaveToFavorites = async (subagentId: number, subagentName: string, subagentKind: 'default' | 'custom') => {
-    if (!activeProjectId) return;
+    if (!selectedProject?.id) return;
 
     try {
       await axios.post(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/subagents/favorites/${subagentId}?subagent_kind=${subagentKind}`
+        `${API_BASE_URL}/api/projects/${selectedProject?.id}/subagents/favorites/${subagentId}?subagent_kind=${subagentKind}`
       );
       await fetchSubagents(); // Refresh subagents list
     } catch (err: any) {
@@ -219,11 +202,11 @@ const Subagents: React.FC = () => {
   };
 
   const handleRemoveFromFavorites = async (subagentId: number, subagentName: string, subagentKind: 'default' | 'custom') => {
-    if (!activeProjectId) return;
+    if (!selectedProject?.id) return;
 
     try {
       await axios.delete(
-        `${API_BASE_URL}/api/projects/${activeProjectId}/subagents/favorites/${subagentId}?subagent_kind=${subagentKind}`
+        `${API_BASE_URL}/api/projects/${selectedProject?.id}/subagents/favorites/${subagentId}?subagent_kind=${subagentKind}`
       );
       await fetchSubagents(); // Refresh subagents list
     } catch (err: any) {
