@@ -35,6 +35,7 @@ class SkillService:
         - enabled: Currently enabled skills
         - available_default: Default skills that can be enabled
         - custom: User-created custom skills
+        - favorites: User favorite skills (cross-project)
         """
         # Get project
         project = await self._get_project(project_id)
@@ -56,40 +57,72 @@ class SkillService:
             (ps.skill_id, ps.skill_type) for ps in enabled_project_skills
         }
 
-        # Get custom skills for this project
+        # Get custom skills for this project only
         custom_skills_result = await self.db.execute(
             select(CustomSkill).where(CustomSkill.project_id == project_id)
         )
         custom_skills = custom_skills_result.scalars().all()
 
+        # Get ALL favorite custom skills from ALL projects (for Favorites tab)
+        favorite_custom_skills_result = await self.db.execute(
+            select(CustomSkill).where(CustomSkill.is_favorite == True)
+        )
+        all_favorite_custom_skills = favorite_custom_skills_result.scalars().all()
+
         # Organize skills
         enabled = []
+        enabled_names = set()  # Track names to avoid duplicates in enabled list
         available_default = []
+        favorites = []
 
+        # Process default skills
         for skill in all_default_skills:
             is_enabled = (skill.id, "default") in enabled_skill_ids
             skill_dto = self._to_skill_dto(skill, "default", is_enabled, project.path)
 
-            # Always add to available_default (show all default skills)
+            # Add to available_default (show all default skills)
             available_default.append(skill_dto)
 
-            # Also add to enabled list if enabled
-            if is_enabled:
-                enabled.append(skill_dto)
+            # Also add to favorites if marked as favorite
+            if skill.is_favorite:
+                favorites.append(skill_dto)
 
+            # Add to enabled only if enabled and not already added
+            if is_enabled and skill.name not in enabled_names:
+                enabled.append(skill_dto)
+                enabled_names.add(skill.name)
+
+        # Process custom skills (for this project only)
         custom_dtos = []
         for skill in custom_skills:
             is_enabled = (skill.id, "custom") in enabled_skill_ids
             skill_dto = self._to_skill_dto(skill, "custom", is_enabled, project.path)
+
+            # Add to custom list (always show in Custom Skills)
             custom_dtos.append(skill_dto)
 
-            if is_enabled:
+            # Add to enabled only if not already added (avoid duplicates)
+            if is_enabled and skill.name not in enabled_names:
                 enabled.append(skill_dto)
+                enabled_names.add(skill.name)
+
+        # Process ALL favorite custom skills (from all projects) for Favorites tab
+        favorite_names = set()  # Track names to avoid duplicates in favorites list
+        for skill in all_favorite_custom_skills:
+            # Check if enabled in current project
+            is_enabled = (skill.id, "custom") in enabled_skill_ids
+            skill_dto = self._to_skill_dto(skill, "custom", is_enabled, project.path)
+
+            # Add to favorites if not already added (avoid duplicates by name)
+            if skill.name not in favorite_names:
+                favorites.append(skill_dto)
+                favorite_names.add(skill.name)
 
         return SkillsResponse(
             enabled=enabled,
             available_default=available_default,
-            custom=custom_dtos
+            custom=custom_dtos,
+            favorites=favorites
         )
 
     async def enable_skill(self, project_id: str, skill_id: int) -> SkillInDB:
@@ -458,6 +491,148 @@ class SkillService:
 
         return skills
 
+    async def save_to_favorites(self, project_id: str, skill_id: int, skill_type: str = "custom") -> SkillInDB:
+        """
+        Mark a skill as favorite
+
+        Process:
+        1. Get skill (default or custom)
+        2. Verify not already a favorite
+        3. Set is_favorite = True
+
+        Args:
+            project_id: Project ID (for validation)
+            skill_id: ID of the skill to favorite
+            skill_type: Type of skill ("default" or "custom")
+
+        This makes the skill appear in Favorites tab
+        """
+        # Get project (for validation)
+        project = await self._get_project(project_id)
+        if not project:
+            raise ValueError(f"Project {project_id} not found")
+
+        if skill_type == "default":
+            # Get default skill
+            default_skill_result = await self.db.execute(
+                select(DefaultSkill).where(DefaultSkill.id == skill_id)
+            )
+            skill = default_skill_result.scalar_one_or_none()
+
+            if not skill:
+                raise ValueError(f"Default skill {skill_id} not found")
+
+            # Check if already a favorite
+            if skill.is_favorite:
+                raise ValueError(f"Skill '{skill.name}' is already in favorites")
+
+            # Mark as favorite
+            skill.is_favorite = True
+            skill.updated_at = datetime.utcnow()
+
+            await self.db.commit()
+            await self.db.refresh(skill)
+
+            logger.info(f"Marked default skill '{skill.name}' as favorite (ID: {skill.id})")
+
+            return self._to_skill_dto(skill, "default", False, project.path)
+        else:
+            # Get custom skill for this project only
+            custom_skill_result = await self.db.execute(
+                select(CustomSkill).where(
+                    and_(
+                        CustomSkill.id == skill_id,
+                        CustomSkill.project_id == project_id
+                    )
+                )
+            )
+            skill = custom_skill_result.scalar_one_or_none()
+
+            if not skill:
+                raise ValueError(f"Custom skill {skill_id} not found in this project")
+
+            # Check if already a favorite
+            if skill.is_favorite:
+                raise ValueError(f"Skill '{skill.name}' is already in favorites")
+
+            # Mark as favorite
+            skill.is_favorite = True
+            skill.updated_at = datetime.utcnow()
+
+            await self.db.commit()
+            await self.db.refresh(skill)
+
+            logger.info(f"Marked custom skill '{skill.name}' as favorite (ID: {skill.id})")
+
+            return self._to_skill_dto(skill, "custom", False, project.path)
+
+    async def remove_from_favorites(self, project_id: str, skill_id: int, skill_type: str = "custom") -> None:
+        """
+        Unmark a skill as favorite
+
+        Process:
+        1. Get skill (default or custom)
+        2. Verify it's marked as favorite
+        3. Set is_favorite = False
+
+        Args:
+            project_id: Project ID (for validation)
+            skill_id: ID of the skill to unfavorite
+            skill_type: Type of skill ("default" or "custom")
+        """
+        # Get project (for validation)
+        project = await self._get_project(project_id)
+        if not project:
+            raise ValueError(f"Project {project_id} not found")
+
+        if skill_type == "default":
+            # Get default skill
+            default_skill_result = await self.db.execute(
+                select(DefaultSkill).where(DefaultSkill.id == skill_id)
+            )
+            skill = default_skill_result.scalar_one_or_none()
+
+            if not skill:
+                raise ValueError(f"Default skill {skill_id} not found")
+
+            # Check if it's marked as favorite
+            if not skill.is_favorite:
+                raise ValueError(f"Skill '{skill.name}' is not in favorites")
+
+            # Unmark as favorite
+            skill.is_favorite = False
+            skill.updated_at = datetime.utcnow()
+
+            await self.db.commit()
+
+            logger.info(f"Removed default skill '{skill.name}' from favorites (ID: {skill_id})")
+        else:
+            # Get custom skill for this project only
+            custom_skill_result = await self.db.execute(
+                select(CustomSkill).where(
+                    and_(
+                        CustomSkill.id == skill_id,
+                        CustomSkill.project_id == project_id
+                    )
+                )
+            )
+            skill = custom_skill_result.scalar_one_or_none()
+
+            if not skill:
+                raise ValueError(f"Custom skill {skill_id} not found in this project")
+
+            # Check if it's marked as favorite
+            if not skill.is_favorite:
+                raise ValueError(f"Skill '{skill.name}' is not in favorites")
+
+            # Unmark as favorite
+            skill.is_favorite = False
+            skill.updated_at = datetime.utcnow()
+
+            await self.db.commit()
+
+            logger.info(f"Removed custom skill '{skill.name}' from favorites (ID: {skill_id})")
+
     # Helper methods
 
     async def _get_project(self, project_id: str) -> Optional[Project]:
@@ -487,6 +662,7 @@ class SkillService:
             category=skill.category,
             file_path=file_path,
             is_enabled=is_enabled,
+            is_favorite=getattr(skill, "is_favorite", False),
             status=getattr(skill, "status", None),
             created_by=getattr(skill, "created_by", "system"),
             created_at=skill.created_at,

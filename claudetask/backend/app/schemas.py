@@ -245,6 +245,7 @@ class SkillInDB(SkillBase):
     category: str  # e.g., "Analysis", "Development", "Testing"
     file_path: Optional[str] = None
     is_enabled: bool = False
+    is_favorite: bool = False  # Mark as favorite (shows in Favorites tab)
     status: Optional[str] = None  # For custom skills: "creating", "active", "failed"
     created_by: Optional[str] = None
     created_at: datetime
@@ -259,6 +260,7 @@ class SkillsResponse(BaseModel):
     enabled: List[SkillInDB]
     available_default: List[SkillInDB]
     custom: List[SkillInDB]
+    favorites: List[SkillInDB] = []  # Cross-project favorites
 
 
 class AgentSkillRecommendation(BaseModel):

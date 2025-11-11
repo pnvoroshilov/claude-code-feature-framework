@@ -24,6 +24,8 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import InfoIcon from '@mui/icons-material/Info';
+import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
 import axios from 'axios';
 import { useProject } from '../context/ProjectContext';
 
@@ -38,6 +40,7 @@ interface Skill {
   category: string;
   file_path?: string;
   is_enabled: boolean;
+  is_favorite: boolean;
   status?: string;
   created_by?: string;
   created_at: string;
@@ -48,6 +51,7 @@ interface SkillsResponse {
   enabled: Skill[];
   available_default: Skill[];
   custom: Skill[];
+  favorites: Skill[];
 }
 
 const Skills: React.FC = () => {
@@ -57,6 +61,7 @@ const Skills: React.FC = () => {
     enabled: [],
     available_default: [],
     custom: [],
+    favorites: [],
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -153,6 +158,46 @@ const Skills: React.FC = () => {
     }
   };
 
+  const handleSaveToFavorites = async (skillId: number, skillType: string) => {
+    if (!selectedProject?.id) return;
+
+    try {
+      await axios.post(
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/skills/favorites/save`,
+        null,
+        {
+          params: {
+            skill_id: skillId,
+            skill_type: skillType,
+          },
+        }
+      );
+      await fetchSkills(); // Refresh skills list
+    } catch (err: any) {
+      setError('Failed to save to favorites: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
+  const handleRemoveFromFavorites = async (skillId: number, skillType: string) => {
+    if (!selectedProject?.id) return;
+
+    try {
+      await axios.post(
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/skills/favorites/remove`,
+        null,
+        {
+          params: {
+            skill_id: skillId,
+            skill_type: skillType,
+          },
+        }
+      );
+      await fetchSkills(); // Refresh skills list
+    } catch (err: any) {
+      setError('Failed to remove from favorites: ' + (err.response?.data?.detail || err.message));
+    }
+  };
+
   const SkillCard: React.FC<{ skill: Skill; showToggle?: boolean; showDelete?: boolean }> = ({
     skill,
     showToggle = false,
@@ -181,6 +226,21 @@ const Skills: React.FC = () => {
                 color={skill.status === 'creating' ? 'info' : 'error'}
               />
             )}
+            <Tooltip title={skill.is_favorite ? 'Remove from favorites' : 'Add to favorites'}>
+              <IconButton
+                size="small"
+                color={skill.is_favorite ? 'warning' : 'default'}
+                onClick={() => {
+                  if (skill.is_favorite) {
+                    handleRemoveFromFavorites(skill.id, skill.skill_type);
+                  } else {
+                    handleSaveToFavorites(skill.id, skill.skill_type);
+                  }
+                }}
+              >
+                {skill.is_favorite ? <StarIcon /> : <StarBorderIcon />}
+              </IconButton>
+            </Tooltip>
             {showDelete && (
               <IconButton
                 size="small"
@@ -258,6 +318,7 @@ const Skills: React.FC = () => {
         <Tab label={`Default Skills (${skills.available_default.length})`} />
         <Tab label={`Custom Skills (${skills.custom.length})`} />
         <Tab label={`Enabled Skills (${skills.enabled.length})`} />
+        <Tab label={`Favorites (${skills.favorites.length})`} />
       </Tabs>
 
       {/* Default Skills Tab */}
@@ -310,6 +371,25 @@ const Skills: React.FC = () => {
           ) : (
             skills.enabled.map((skill) => (
               <Grid item xs={12} md={6} lg={4} key={skill.id}>
+                <SkillCard skill={skill} showToggle={true} />
+              </Grid>
+            ))
+          )}
+        </Grid>
+      )}
+
+      {/* Favorites Tab */}
+      {activeTab === 3 && (
+        <Grid container spacing={3}>
+          {skills.favorites.length === 0 ? (
+            <Grid item xs={12}>
+              <Alert severity="info">
+                No favorite skills yet. Click the star icon on any skill to add it to favorites.
+              </Alert>
+            </Grid>
+          ) : (
+            skills.favorites.map((skill) => (
+              <Grid item xs={12} md={6} lg={4} key={`${skill.skill_type}-${skill.id}`}>
                 <SkillCard skill={skill} showToggle={true} />
               </Grid>
             ))

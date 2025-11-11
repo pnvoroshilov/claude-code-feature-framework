@@ -184,3 +184,54 @@ async def get_agent_recommended_skills(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get recommended skills: {str(e)}")
+
+
+@router.post("/favorites/save", response_model=SkillInDB)
+async def save_to_favorites(
+    project_id: str,
+    skill_id: int,
+    skill_type: str = "custom",
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Mark a skill as favorite
+
+    Process:
+    1. Validate skill exists
+    2. Set is_favorite = True
+    3. Skill appears in Favorites tab
+
+    Note: Favorites are cross-project - they show for all projects
+    """
+    try:
+        service = SkillService(db)
+        return await service.save_to_favorites(project_id, skill_id, skill_type)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save to favorites: {str(e)}")
+
+
+@router.post("/favorites/remove")
+async def remove_from_favorites(
+    project_id: str,
+    skill_id: int,
+    skill_type: str = "custom",
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Remove a skill from favorites
+
+    Process:
+    1. Validate skill exists
+    2. Set is_favorite = False
+    3. Skill removed from Favorites tab
+    """
+    try:
+        service = SkillService(db)
+        await service.remove_from_favorites(project_id, skill_id, skill_type)
+        return {"success": True, "message": "Removed from favorites successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to remove from favorites: {str(e)}")
