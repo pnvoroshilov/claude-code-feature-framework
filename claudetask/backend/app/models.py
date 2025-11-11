@@ -240,12 +240,12 @@ class DefaultMCPConfig(Base):
 
 
 class CustomMCPConfig(Base):
-    """Custom MCP configurations created by users (global, shared across all projects)"""
+    """Custom MCP configurations created by users (project-specific)"""
     __tablename__ = "custom_mcp_configs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=True)  # Optional: track which project created it
-    name = Column(String(100), nullable=False, unique=True)  # Unique across all projects
+    project_id = Column(String, ForeignKey("projects.id"), nullable=False)  # Required: project-specific
+    name = Column(String(100), nullable=False)  # Unique per project, not globally
     description = Column(Text, nullable=False)
     category = Column(String(50), nullable=False)
     config = Column(JSON, nullable=False)  # MCP server configuration JSON
@@ -258,6 +258,11 @@ class CustomMCPConfig(Base):
 
     # Relationships
     project = relationship("Project", backref="custom_mcp_configs")
+
+    # Unique constraint: name must be unique per project
+    __table_args__ = (
+        UniqueConstraint('project_id', 'name', name='uix_project_mcp_name'),
+    )
 
 
 class ProjectMCPConfig(Base):

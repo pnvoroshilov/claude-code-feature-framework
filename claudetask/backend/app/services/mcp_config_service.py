@@ -54,9 +54,9 @@ class MCPConfigService:
             (pc.mcp_config_id, pc.mcp_config_type) for pc in enabled_project_configs
         }
 
-        # Get all custom MCP configs (global, shared across all projects)
+        # Get custom MCP configs for this project only
         custom_configs_result = await self.db.execute(
-            select(CustomMCPConfig)
+            select(CustomMCPConfig).where(CustomMCPConfig.project_id == project_id)
         )
         custom_configs = custom_configs_result.scalars().all()
 
@@ -369,18 +369,21 @@ class MCPConfigService:
         if not self.file_service.validate_mcp_config_json(config_create.config):
             raise ValueError(f"Invalid MCP config JSON")
 
-        # Check for duplicate name (global uniqueness)
+        # Check for duplicate name within this project
         existing = await self.db.execute(
             select(CustomMCPConfig).where(
-                CustomMCPConfig.name == config_create.name
+                and_(
+                    CustomMCPConfig.project_id == project_id,
+                    CustomMCPConfig.name == config_create.name
+                )
             )
         )
         if existing.scalar_one_or_none():
-            raise ValueError(f"MCP config with name '{config_create.name}' already exists (globally)")
+            raise ValueError(f"MCP config with name '{config_create.name}' already exists in this project")
 
-        # Create custom MCP config record (global, available for all projects)
+        # Create custom MCP config record (project-specific)
         custom_mcp_config = CustomMCPConfig(
-            project_id=project_id,  # Track which project created it
+            project_id=project_id,
             name=config_create.name,
             description=config_create.description,
             category=config_create.category,
@@ -409,41 +412,49 @@ class MCPConfigService:
         3. Remove MCP config from all projects' .mcp.json files
         4. Delete record from custom_mcp_configs table
         """
-        # Get custom MCP config (no project_id check - it's global)
+        # Get custom MCP config for this project only
         result = await self.db.execute(
-            select(CustomMCPConfig).where(CustomMCPConfig.id == mcp_config_id)
+            select(CustomMCPConfig).where(
+                and_(
+                    CustomMCPConfig.id == mcp_config_id,
+                    CustomMCPConfig.project_id == project_id
+                )
+            )
         )
         custom_mcp_config = result.scalar_one_or_none()
 
         if not custom_mcp_config:
-            raise ValueError(f"Custom MCP config {mcp_config_id} not found")
+            raise ValueError(f"Custom MCP config {mcp_config_id} not found in this project")
 
-        # Delete from ALL projects' project_mcp_configs junction tables
-        all_project_configs_result = await self.db.execute(
+        # Delete from THIS project's project_mcp_configs junction table
+        project_config_result = await self.db.execute(
             select(ProjectMCPConfig).where(
                 and_(
+                    ProjectMCPConfig.project_id == project_id,
                     ProjectMCPConfig.mcp_config_id == mcp_config_id,
                     ProjectMCPConfig.mcp_config_type == "custom"
                 )
             )
         )
-        all_project_configs = all_project_configs_result.scalars().all()
+        project_configs = project_config_result.scalars().all()
 
-        # Remove from .mcp.json for all projects where it's enabled
-        for project_config in all_project_configs:
-            project = await self._get_project(project_config.project_id)
-            if project:
-                await self.file_service.remove_mcp_config_from_project(
-                    project_path=project.path,
-                    mcp_config_name=custom_mcp_config.name
-                )
+        # Remove from .mcp.json for THIS project only
+        project = await self._get_project(project_id)
+        if project:
+            await self.file_service.remove_mcp_config_from_project(
+                project_path=project.path,
+                mcp_config_name=custom_mcp_config.name
+            )
+
+        # Delete junction table entries for this project
+        for project_config in project_configs:
             await self.db.delete(project_config)
 
-        # Delete custom_mcp_configs record (global deletion)
+        # Delete custom_mcp_configs record (project-specific deletion)
         await self.db.delete(custom_mcp_config)
         await self.db.commit()
 
-        logger.info(f"Deleted custom MCP config {custom_mcp_config.name} globally (removed from {len(all_project_configs)} project(s))")
+        logger.info(f"Deleted custom MCP config {custom_mcp_config.name} from project {project_id}")
 
     async def get_default_mcp_configs(self) -> List[MCPConfigInDB]:
         """Get all default MCP configs catalog"""
@@ -585,14 +596,19 @@ class MCPConfigService:
 
             return self._to_config_dto(mcp_config, "default", False)
         else:
-            # Get custom MCP config (global, no project_id check)
+            # Get custom MCP config for this project only
             custom_config_result = await self.db.execute(
-                select(CustomMCPConfig).where(CustomMCPConfig.id == mcp_config_id)
+                select(CustomMCPConfig).where(
+                    and_(
+                        CustomMCPConfig.id == mcp_config_id,
+                        CustomMCPConfig.project_id == project_id
+                    )
+                )
             )
             mcp_config = custom_config_result.scalar_one_or_none()
 
             if not mcp_config:
-                raise ValueError(f"Custom MCP config {mcp_config_id} not found")
+                raise ValueError(f"Custom MCP config {mcp_config_id} not found in this project")
 
             # Don't allow saving imported configs to favorites
             if mcp_config.category == "imported":
@@ -648,14 +664,19 @@ class MCPConfigService:
 
             logger.info(f"Removed default MCP config '{mcp_config.name}' from favorites (ID: {mcp_config_id})")
         else:
-            # Get custom MCP config
+            # Get custom MCP config for this project only
             custom_config_result = await self.db.execute(
-                select(CustomMCPConfig).where(CustomMCPConfig.id == mcp_config_id)
+                select(CustomMCPConfig).where(
+                    and_(
+                        CustomMCPConfig.id == mcp_config_id,
+                        CustomMCPConfig.project_id == project_id
+                    )
+                )
             )
             mcp_config = custom_config_result.scalar_one_or_none()
 
             if not mcp_config:
-                raise ValueError(f"Custom MCP config {mcp_config_id} not found")
+                raise ValueError(f"Custom MCP config {mcp_config_id} not found in this project")
 
             # Check if it's marked as favorite
             if not mcp_config.is_favorite:
