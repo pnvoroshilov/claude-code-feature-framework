@@ -434,7 +434,7 @@ const Subagents: React.FC = () => {
               <Grid item xs={12} sm={6} md={4} key={`${subagent.subagent_kind}-${subagent.id}`}>
                 <SubagentCard
                   subagent={subagent}
-                  showToggle={activeFilter !== 'enabled'}
+                  showToggle={true}
                   showDelete={subagent.subagent_kind === 'custom' && activeFilter !== 'enabled'}
                   showSaveToFavorites={!subagent.is_favorite && activeFilter !== 'enabled' && activeFilter !== 'favorite'}
                   showRemoveFromFavorites={subagent.is_favorite && activeFilter !== 'enabled'}

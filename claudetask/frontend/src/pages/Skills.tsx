@@ -310,7 +310,7 @@ const Skills: React.FC = () => {
           ) : (
             skills.enabled.map((skill) => (
               <Grid item xs={12} md={6} lg={4} key={skill.id}>
-                <SkillCard skill={skill} />
+                <SkillCard skill={skill} showToggle={true} />
               </Grid>
             ))
           )}

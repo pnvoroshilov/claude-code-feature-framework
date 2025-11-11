@@ -526,7 +526,7 @@ const MCPConfigs: React.FC = () => {
             <Grid item xs={12} md={6} lg={4} key={`${config.mcp_config_type}-${config.id}`}>
               <MCPConfigCard
                 config={config}
-                showToggle={activeFilter !== 'enabled'}
+                showToggle={true}
                 showDelete={config.mcp_config_type === 'custom' && activeFilter !== 'enabled'}
                 showSaveToFavorites={!config.is_favorite && activeFilter !== 'enabled' && activeFilter !== 'favorite'}
                 showRemoveFromFavorites={config.is_favorite && activeFilter !== 'enabled'}
