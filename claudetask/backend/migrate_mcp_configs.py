@@ -91,15 +91,34 @@ def migrate_database():
 
         # Step 5: Copy data (only records with valid project_id)
         if count > 0:
-            cursor.execute("""
-                INSERT INTO custom_mcp_configs_new
-                (id, project_id, name, description, category, config, status, error_message,
-                 created_by, is_favorite, created_at, updated_at)
-                SELECT id, project_id, name, description, category, config, status, error_message,
-                       created_by, is_favorite, created_at, updated_at
-                FROM custom_mcp_configs_backup
-                WHERE project_id IS NOT NULL
-            """)
+            # Check if old table has is_favorite column
+            cursor.execute("PRAGMA table_info(custom_mcp_configs_backup)")
+            backup_columns = {col[1] for col in cursor.fetchall()}
+            has_is_favorite = 'is_favorite' in backup_columns
+
+            if has_is_favorite:
+                # Old table has is_favorite - copy it
+                cursor.execute("""
+                    INSERT INTO custom_mcp_configs_new
+                    (id, project_id, name, description, category, config, status, error_message,
+                     created_by, is_favorite, created_at, updated_at)
+                    SELECT id, project_id, name, description, category, config, status, error_message,
+                           created_by, is_favorite, created_at, updated_at
+                    FROM custom_mcp_configs_backup
+                    WHERE project_id IS NOT NULL
+                """)
+            else:
+                # Old table doesn't have is_favorite - use default value (0/False)
+                print("Note: Old table doesn't have is_favorite column, defaulting to False")
+                cursor.execute("""
+                    INSERT INTO custom_mcp_configs_new
+                    (id, project_id, name, description, category, config, status, error_message,
+                     created_by, is_favorite, created_at, updated_at)
+                    SELECT id, project_id, name, description, category, config, status, error_message,
+                           created_by, 0, created_at, updated_at
+                    FROM custom_mcp_configs_backup
+                    WHERE project_id IS NOT NULL
+                """)
 
             migrated_count = cursor.rowcount
             print(f"Migrated {migrated_count} MCP configs with valid project_id")
