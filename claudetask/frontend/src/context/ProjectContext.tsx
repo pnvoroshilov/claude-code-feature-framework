@@ -101,17 +101,18 @@ export const ProjectProvider: React.FC<ProjectProviderProps> = ({ children }) =>
     try {
       // Activate the project in the backend
       const project = await activateProject(projectId);
-      
+
       // Update local state
       setSelectedProject(project);
-      
+
       // Store in localStorage for persistence
       localStorage.setItem('selectedProjectId', project.id);
-      
-      // Invalidate queries to refresh data for the new project
-      queryClient.invalidateQueries(['activeProject']);
-      queryClient.invalidateQueries(['tasks']);
-      
+
+      // Invalidate ALL queries to refresh data for the new project across all pages
+      // This ensures that every page (Tasks, Skills, MCP Configs, Subagents, etc.)
+      // will reload its data when the project changes
+      queryClient.invalidateQueries();
+
     } catch (error: any) {
       setError(error.message || 'Failed to select project');
       console.error('Error selecting project:', error);
