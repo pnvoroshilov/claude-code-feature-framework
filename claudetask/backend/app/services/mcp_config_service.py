@@ -60,6 +60,12 @@ class MCPConfigService:
         )
         custom_configs = custom_configs_result.scalars().all()
 
+        # Get ALL favorite custom configs from ALL projects (for Favorites tab)
+        favorite_custom_configs_result = await self.db.execute(
+            select(CustomMCPConfig).where(CustomMCPConfig.is_favorite == True)
+        )
+        all_favorite_custom_configs = favorite_custom_configs_result.scalars().all()
+
         # Organize MCP configs
         enabled = []
         enabled_names = set()  # Track names to avoid duplicates in enabled list
@@ -95,7 +101,7 @@ class MCPConfigService:
                 enabled.append(config_dto)
                 enabled_names.add(config.name)
 
-        # Process custom configs
+        # Process custom configs (for this project only)
         custom_dtos = []
         for config in custom_configs:
             # Skip imported configs - they are just project-specific versions of default configs
@@ -108,14 +114,26 @@ class MCPConfigService:
             # Add to custom list (always show in Custom MCPs)
             custom_dtos.append(config_dto)
 
-            # Also add to favorites if marked as favorite
-            if config.is_favorite:
-                favorites.append(config_dto)
-
             # Add to enabled only if not already added (avoid duplicates)
             if is_enabled and config.name not in enabled_names:
                 enabled.append(config_dto)
                 enabled_names.add(config.name)
+
+        # Process ALL favorite custom configs (from all projects) for Favorites tab
+        favorite_names = set()  # Track names to avoid duplicates in favorites list
+        for config in all_favorite_custom_configs:
+            # Skip imported configs
+            if config.category == "imported":
+                continue
+
+            # Check if enabled in current project
+            is_enabled = (config.id, "custom") in enabled_config_ids
+            config_dto = self._to_config_dto(config, "custom", is_enabled)
+
+            # Add to favorites if not already added (avoid duplicates by name)
+            if config.name not in favorite_names:
+                favorites.append(config_dto)
+                favorite_names.add(config.name)
 
         return MCPConfigsResponse(
             enabled=enabled,
@@ -178,7 +196,8 @@ class MCPConfigService:
                 actual_config_id = mcp_config_id
                 actual_config_type = "default"
         else:
-            # Get custom MCP config
+            # Get custom MCP config (allow from ANY project - supports cross-project favorites)
+            # This allows users to enable favorite configs from other projects
             config_result = await self.db.execute(
                 select(CustomMCPConfig).where(CustomMCPConfig.id == mcp_config_id)
             )
