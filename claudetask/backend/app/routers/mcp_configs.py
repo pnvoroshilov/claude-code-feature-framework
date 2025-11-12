@@ -205,20 +205,24 @@ async def remove_from_favorites(
 
 # MCP Search endpoints
 @search_router.get("/search")
-async def search_mcp_servers(q: str):
+async def search_mcp_servers(q: str, max_pages: int = 3):
     """
-    Search for MCP servers on mcp.so
+    Search for MCP servers on mcp.so with pagination support
 
     Args:
         q: Search query string
+        max_pages: Maximum number of pages to fetch (default: 3, max: 5)
 
     Returns:
         List of MCP server results with name, description, url
     """
     try:
+        # Limit max_pages to reasonable value to avoid excessive requests
+        max_pages = min(max_pages, 5)
+
         service = MCPSearchService()
-        results = await service.search_servers(q)
-        return {"results": results, "count": len(results)}
+        results = await service.search_servers(q, max_pages=max_pages)
+        return {"results": results, "count": len(results), "pages_fetched": max_pages}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to search MCP servers: {str(e)}")
 

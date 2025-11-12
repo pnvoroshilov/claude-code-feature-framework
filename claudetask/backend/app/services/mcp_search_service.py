@@ -42,188 +42,119 @@ class MCPSearchService:
         # Config is already in correct format
         return config_data
 
-    async def search_servers(self, query: str) -> List[Dict[str, Any]]:
+    async def search_servers(self, query: str, max_pages: int = 3) -> List[Dict[str, Any]]:
         """
-        Search for MCP servers on mcp.so by parsing embedded JSON data
+        Search for MCP servers on mcp.so with pagination support using direct HTML parsing
 
         Args:
             query: Search query string
+            max_pages: Maximum number of pages to fetch (default: 3, to get ~30 results)
 
         Returns:
             List of MCP server results with name, description, url, avatar, and config
         """
+        all_results = []
+        seen_servers = set()  # Track unique servers by URL
+
         try:
-            # Search on mcp.so/explore with query parameter (RSC endpoint)
-            search_url = f"{self.BASE_URL}/explore?q={query}"
-
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                response = await client.get(search_url)
-                response.raise_for_status()
+                # Fetch multiple pages
+                for page_num in range(1, max_pages + 1):
+                    search_url = f"{self.BASE_URL}/explore?q={query}&page={page_num}"
 
-            html_content = response.text
-            soup = BeautifulSoup(html_content, 'html.parser')
-
-            # Extract server data from Next.js RSC (React Server Components) payload
-            results = []
-            script_tags = soup.find_all('script')
-
-            for script in script_tags:
-                if not script.string or 'self.__next_f' not in script.string:
-                    continue
-
-                # Look for server objects in the JSON data
-                # Pattern: server data contains slug, name, description, avatar_url, etc.
-                try:
-                    # Find server data patterns in the embedded JSON
-                    # Look for slug that matches query
-                    server_data_pattern = r'\{[^{}]*?"slug"\s*:\s*"([^"]*' + re.escape(query.lower()) + r'[^"]*)"[^{}]*?\}'
-                    matches = re.finditer(server_data_pattern, script.string, re.IGNORECASE)
-
-                    for match in matches:
-                        server_json = match.group(0)
-                        try:
-                            # Try to extract fields from the JSON-like string
-                            slug_match = re.search(r'"slug"\s*:\s*"([^"]+)"', server_json)
-                            name_match = re.search(r'"name"\s*:\s*"([^"]+)"', server_json)
-                            desc_match = re.search(r'"description"\s*:\s*"([^"]+)"', server_json)
-                            avatar_match = re.search(r'"avatar_url"\s*:\s*"([^"]+)"', server_json)
-                            author_match = re.search(r'"author_name"\s*:\s*"([^"]+)"', server_json)
-                            github_match = re.search(r'"github_url"\s*:\s*"([^"]+)"', server_json)
-
-                            if slug_match:
-                                slug = slug_match.group(1)
-                                name = name_match.group(1) if name_match else slug.replace('-', ' ').title()
-                                # Clean up name - remove duplicate "C" prefix artifacts from parsing
-                                if name.startswith('C') and len(name) > 1 and name[1].isupper():
-                                    name = name[1:]
-                                description = desc_match.group(1) if desc_match else f"MCP server for {slug}"
-                                avatar_url = avatar_match.group(1) if avatar_match else None
-                                author_name = author_match.group(1) if author_match else None
-                                github_url = github_match.group(1) if github_match else None
-
-                                # Build GitHub avatar URL from github_url or author_name
-                                if not avatar_url and github_url:
-                                    # Extract GitHub username from URL: https://github.com/username/repo
-                                    github_user_match = re.search(r'github\.com/([^/]+)', github_url)
-                                    if github_user_match:
-                                        github_username = github_user_match.group(1)
-                                        avatar_url = f"https://avatars.githubusercontent.com/{github_username}"
-
-                                # Construct URL
-                                if author_name:
-                                    url = f"{self.BASE_URL}/server/{slug}/{author_name}"
-                                    mcp_url = f"/server/{slug}/{author_name}"
-                                else:
-                                    url = f"{self.BASE_URL}/server/{slug}"
-                                    mcp_url = f"/server/{slug}"
-
-                                results.append({
-                                    "name": slug,
-                                    "title": name,
-                                    "description": description,
-                                    "url": url,
-                                    "mcp_url": mcp_url,
-                                    "avatar_url": avatar_url,
-                                    "author_name": author_name,
-                                    "github_url": github_url
-                                })
-                        except:
-                            continue
-
-                    # If we found matches with the query, don't need to continue
-                    if results:
+                    try:
+                        response = await client.get(search_url)
+                        response.raise_for_status()
+                    except Exception as e:
+                        print(f"Failed to fetch page {page_num}: {e}")
                         break
 
-                except Exception as e:
-                    continue
+                    soup = BeautifulSoup(response.text, 'html.parser')
 
-            # If no specific results found, fall back to general server list
-            if not results:
-                server_links = soup.find_all('a', href=re.compile(r'/server/[\w-]+'))
-                seen_servers = set()
+                    # Find all server link cards - they have href="/server/..."
+                    server_links = soup.find_all('a', href=re.compile(r'^/server/[\w\.-]+'))
+                    
+                    page_results_count = 0
 
-                for link in server_links[:20]:
-                    href = link.get('href', '')
-                    if not href:
-                        continue
-
-                    parts = href.strip('/').split('/')
-                    if len(parts) >= 2 and parts[0] == 'server':
-                        server_name = parts[1]
-
-                        # Filter by query
-                        if query.lower() not in server_name.lower():
+                    for link in server_links:
+                        href = link.get('href', '')
+                        if not href or href.startswith('/server/submit'):
                             continue
 
-                        if server_name in seen_servers:
+                        # Skip duplicates
+                        if href in seen_servers:
                             continue
-                        seen_servers.add(server_name)
+                        seen_servers.add(href)
 
-                        # Try to get clean title from the card
-                        title = server_name.replace('-', ' ').title()
-                        description = f"MCP server: {server_name}"
+                        # Parse server info from card
+                        parts = href.strip('/').split('/')
+                        if len(parts) < 2:
+                            continue
 
-                        # Try to find h2 or h3 with actual title in parent card
-                        card = link.find_parent(['div', 'article'])
-                        if card:
-                            h2 = card.find(['h2', 'h3'])
-                            if h2:
-                                title = h2.get_text(strip=True)
+                        slug = parts[1]
+                        author_name = parts[2] if len(parts) > 2 else None
 
-                            # Try to find description in card
-                            desc_elem = card.find('p')
-                            if desc_elem:
-                                description = desc_elem.get_text(strip=True)
+                        # Get title from h3 within the link
+                        h3 = link.find('h3')
+                        title = h3.get_text(strip=True) if h3 else slug.replace('-', ' ').title()
 
-                        # Try to find avatar near the link
+                        # Get description from p within the link
+                        desc_elem = link.find('p')
+                        description = desc_elem.get_text(strip=True) if desc_elem else f"MCP server: {slug}"
+
+                        # Look for avatar image
                         avatar_url = None
+                        img = link.find('img')
+                        if img:
+                            avatar_url = img.get('src')
+                            # Convert relative URLs to absolute
+                            if avatar_url and avatar_url.startswith('/'):
+                                avatar_url = f"{self.BASE_URL}{avatar_url}"
+
+                        # Try to find GitHub URL (we'll do this in enrichment phase)
                         github_url = None
-                        card = link.find_parent(['div', 'article'])
-                        if card:
-                            img = card.find('img')
-                            if img:
-                                avatar_url = img.get('src')
-                                # Convert relative URLs to absolute
-                                if avatar_url and avatar_url.startswith('/'):
-                                    avatar_url = f"{self.BASE_URL}{avatar_url}"
 
-                            # Try to find GitHub link
-                            github_link = card.find('a', href=re.compile(r'github\.com'))
-                            if github_link:
-                                github_url = github_link.get('href')
-                                # Extract GitHub avatar if no avatar found
-                                if not avatar_url:
-                                    github_user_match = re.search(r'github\.com/([^/]+)', github_url)
-                                    if github_user_match:
-                                        github_username = github_user_match.group(1)
-                                        avatar_url = f"https://avatars.githubusercontent.com/{github_username}"
+                        # Construct full URL
+                        full_url = f"{self.BASE_URL}{href}"
 
-                        results.append({
-                            "name": server_name,
+                        all_results.append({
+                            "name": slug,
                             "title": title,
                             "description": description,
-                            "url": f"{self.BASE_URL}{href}",
+                            "url": full_url,
                             "mcp_url": href,
                             "avatar_url": avatar_url,
-                            "author_name": parts[2] if len(parts) > 2 else None,
+                            "author_name": author_name,
                             "github_url": github_url
                         })
+                        
+                        page_results_count += 1
+
+                    print(f"Page {page_num}: Found {page_results_count} servers")
+
+                    # If no results on this page, stop pagination
+                    if page_results_count == 0:
+                        print(f"No results on page {page_num}, stopping pagination")
+                        break
+
+            print(f"Total servers found across all pages: {len(all_results)}")
 
             # Enrich results with GitHub avatars by fetching detail pages
             enriched_results = []
             async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as enrich_client:
-                for result in results[:10]:  # Limit to first 10 to avoid too many requests
+                # Enrich up to 30 results for better coverage
+                for result in all_results[:30]:
                     try:
                         # If no avatar_url, try to get it from detail page
                         if not result.get('avatar_url'):
                             detail_response = await enrich_client.get(result['url'])
                             detail_soup = BeautifulSoup(detail_response.text, 'html.parser')
 
-                            # Find GitHub link on detail page (skip issue trackers and mcp.so links)
+                            # Find GitHub link on detail page
                             github_links = detail_soup.find_all('a', href=re.compile(r'github\.com/[^/]+/[^/]+'))
                             for gh_link in github_links:
                                 gh_url = gh_link.get('href')
-                                # Skip issue tracker, discussion, pulls, and chatmcp/mcpso links
+                                # Skip issue tracker, discussion, pulls, and mcp.so repo links
                                 if any(skip in gh_url for skip in ['/issues', '/pulls', '/discussions', 'chatmcp/mcpso']):
                                     continue
                                 # Found valid repository link
