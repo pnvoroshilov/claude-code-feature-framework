@@ -21,6 +21,15 @@
         "/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework"
       ],
       "env": {}
+    },
+    "context7": {
+      "command": "bunx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp",
+        "--api-key",
+        "ctx7sk-56bf6dfb-cceb-4b69-a0ac-6be4a540147d"
+      ]
     }
   }
 }

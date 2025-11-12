@@ -13,6 +13,35 @@ class MCPSearchService:
 
     BASE_URL = "https://mcp.so"
 
+    def _normalize_mcp_config(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Normalize MCP config by removing double-wrapped mcpServers structure
+        
+        Handles two cases:
+        1. Correct format: {"command": "...", "args": [...]}
+        2. Double-wrapped format: {"mcpServers": {"server_name": {"command": "...", "args": [...]}}}
+        
+        Args:
+            config_data: Raw config data that might have outer wrapper
+            
+        Returns:
+            Normalized config with only the inner server configuration
+        """
+        if not config_data:
+            return config_data
+            
+        # Check if config has outer mcpServers wrapper
+        if "mcpServers" in config_data:
+            # Extract the first (and should be only) server config from mcpServers
+            mcp_servers = config_data["mcpServers"]
+            if isinstance(mcp_servers, dict) and len(mcp_servers) > 0:
+                # Get the first server config (the actual MCP server configuration)
+                first_server_key = next(iter(mcp_servers))
+                return mcp_servers[first_server_key]
+        
+        # Config is already in correct format
+        return config_data
+
     async def search_servers(self, query: str) -> List[Dict[str, Any]]:
         """
         Search for MCP servers on mcp.so by parsing embedded JSON data
@@ -300,9 +329,12 @@ class MCPSearchService:
                     avatar_url = f"https://avatars.githubusercontent.com/{github_username}"
                 break
 
+            # Normalize config to remove double-wrapped mcpServers structure
+            normalized_config = self._normalize_mcp_config(config) if config else None
+
             return {
                 "description": description,
-                "config": config,
+                "config": normalized_config,
                 "github_url": github_url,
                 "avatar_url": avatar_url
             }

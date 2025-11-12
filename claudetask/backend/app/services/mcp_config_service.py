@@ -384,8 +384,11 @@ class MCPConfigService:
         if not project:
             raise ValueError(f"Project {project_id} not found")
 
+        # Normalize config (remove outer mcpServers wrapper if present)
+        normalized_config = self._normalize_mcp_config(config_create.config)
+
         # Validate config JSON
-        if not self.file_service.validate_mcp_config_json(config_create.config):
+        if not self.file_service.validate_mcp_config_json(normalized_config):
             raise ValueError(f"Invalid MCP config JSON")
 
         # Check for duplicate name within this project
@@ -401,12 +404,13 @@ class MCPConfigService:
             raise ValueError(f"MCP config with name '{config_create.name}' already exists in this project")
 
         # Create custom MCP config record (project-specific)
+        # Use normalized config to ensure correct format
         custom_mcp_config = CustomMCPConfig(
             project_id=project_id,
             name=config_create.name,
             description=config_create.description,
             category=config_create.category,
-            config=config_create.config,
+            config=normalized_config,
             status="active",
             created_by="user",
             created_at=datetime.utcnow(),
@@ -517,6 +521,38 @@ class MCPConfigService:
             created_at=mcp_config.created_at,
             updated_at=mcp_config.updated_at
         )
+
+    def _normalize_mcp_config(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Normalize MCP config by removing double-wrapped mcpServers structure
+        
+        Handles two cases:
+        1. Correct format: {"command": "...", "args": [...]}
+        2. Double-wrapped format: {"mcpServers": {"server_name": {"command": "...", "args": [...]}}}
+        
+        This is important when configs come from mcp.so which sometimes includes the outer wrapper.
+        
+        Args:
+            config_data: Raw config data that might have outer wrapper
+            
+        Returns:
+            Normalized config with only the inner server configuration
+        """
+        if not config_data:
+            return config_data
+            
+        # Check if config has outer mcpServers wrapper
+        if "mcpServers" in config_data:
+            # Extract the first (and should be only) server config from mcpServers
+            mcp_servers = config_data["mcpServers"]
+            if isinstance(mcp_servers, dict) and len(mcp_servers) > 0:
+                # Get the first server config (the actual MCP server configuration)
+                first_server_key = next(iter(mcp_servers))
+                logger.info(f"Normalizing MCP config: Removing outer mcpServers wrapper, extracting '{first_server_key}'")
+                return mcp_servers[first_server_key]
+        
+        # Config is already in correct format
+        return config_data
 
     def _prepare_mcp_config_for_project(
         self,
