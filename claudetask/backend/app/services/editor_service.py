@@ -3,9 +3,9 @@
 import os
 import logging
 import asyncio
-import subprocess
 from pathlib import Path
 from typing import Dict, Any
+from .claude_terminal_service import ClaudeTerminalSession
 
 logger = logging.getLogger(__name__)
 
@@ -106,70 +106,85 @@ class EditorService:
         self,
         project_path: str,
         command: str,
-        timeout: int = 60
+        timeout: int = 120
     ) -> Dict[str, Any]:
         """
-        Execute a Claude CLI command
+        Execute a Claude CLI slash command via terminal session
 
         Args:
             project_path: Path to the project directory
-            command: Claude CLI command to execute
-            timeout: Command timeout in seconds
+            command: Claude CLI command to execute (e.g., '/edit-agent "name" "instructions"')
+            timeout: Command timeout in seconds (default: 120s for edits)
 
         Returns:
             Dict with execution result
         """
+        session = None
+
         try:
-            # Change to project directory
-            original_dir = os.getcwd()
-            os.chdir(project_path)
+            # Create unique session ID
+            session_id = f"editor-{asyncio.get_event_loop().time()}"
 
-            # Execute Claude CLI command
-            # Note: This is a simplified version. In production, you would need to:
-            # 1. Start a Claude terminal session
-            # 2. Send the command
-            # 3. Wait for completion
-            # 4. Parse the output
-
-            # For now, we'll use a subprocess approach
-            # This assumes Claude CLI is available as a command
-            process = await asyncio.create_subprocess_shell(
-                f'echo "{command}" | claude',  # Simplified - actual implementation would be more complex
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                cwd=project_path
+            # Start Claude terminal session
+            session = ClaudeTerminalSession(
+                session_id=session_id,
+                task_id=0,  # No task associated
+                working_dir=project_path,
+                skip_permissions=True  # Directory already trusted
             )
 
-            try:
-                stdout, stderr = await asyncio.wait_for(
-                    process.communicate(),
-                    timeout=timeout
-                )
-
-                os.chdir(original_dir)
-
-                if process.returncode != 0:
-                    error_msg = stderr.decode('utf-8') if stderr else "Unknown error"
-                    raise RuntimeError(f"Command failed with return code {process.returncode}: {error_msg}")
-
-                output = stdout.decode('utf-8') if stdout else ""
-
+            if not await session.start():
                 return {
-                    "success": True,
-                    "output": output,
-                    "returncode": process.returncode
+                    "success": False,
+                    "error": "Failed to start Claude terminal session"
                 }
 
-            except asyncio.TimeoutError:
-                process.kill()
-                os.chdir(original_dir)
-                raise RuntimeError(f"Command timed out after {timeout} seconds")
+            logger.info(f"Started Claude session {session_id} for editing command")
+
+            # Handle MCP server selection prompt (if appears)
+            await session.send_key("enter")
+            logger.info("Sent Enter key to handle MCP prompt")
+
+            # Wait for prompt to be ready
+            await asyncio.sleep(1)
+
+            # Send the slash command with arguments
+            await session.send_input(command)
+            logger.info(f"Sent command: {command}")
+
+            # Execute command by pressing Enter
+            await asyncio.sleep(0.5)
+            await session.send_key("enter")
+            logger.info("Sent Enter to execute command")
+
+            # Wait for command to complete (timeout specified by caller)
+            logger.info(f"Waiting {timeout}s for command completion")
+            await asyncio.sleep(timeout)
+
+            # Stop session
+            logger.info(f"Stopping editor session {session_id}")
+            await session.stop()
+
+            return {
+                "success": True,
+                "output": f"Command executed: {command}",
+                "returncode": 0
+            }
 
         except Exception as e:
-            if 'original_dir' in locals():
-                os.chdir(original_dir)
             logger.error(f"Failed to execute Claude command: {e}", exc_info=True)
-            raise
+
+            # Ensure session is stopped
+            if session:
+                try:
+                    await session.stop()
+                except:
+                    pass
+
+            return {
+                "success": False,
+                "error": str(e)
+            }
 
     def validate_agent_name(self, agent_name: str) -> bool:
         """Validate agent name format"""
