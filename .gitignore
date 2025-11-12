@@ -98,5 +98,10 @@ coverage/
 !framework-assets/mcp-configs/.mcp.json
 CLAUDE.md.backup
 
+# MCP server cache directories (all directories starting with dot)
+.playwright/
+.serena/
+.*cache/
+
 # Git worktrees
 worktrees/
