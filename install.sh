@@ -27,11 +27,48 @@ print_header() {
 
 check_requirements() {
     log_info "Checking system requirements..."
-    
+
     command -v python3 >/dev/null 2>&1 && log_success "Python 3 found" || { log_error "Python 3 not found"; exit 1; }
     command -v node >/dev/null 2>&1 && log_success "Node.js found" || { log_error "Node.js not found"; exit 1; }
     command -v npm >/dev/null 2>&1 && log_success "npm found" || { log_error "npm not found"; exit 1; }
-    
+
+    # Check if pip is available, if not - try to install it
+    if ! python3 -m pip --version >/dev/null 2>&1; then
+        log_info "pip not found, attempting to install..."
+
+        # Try different methods to install pip
+        if command -v apt-get >/dev/null 2>&1; then
+            # Debian/Ubuntu
+            sudo apt-get update && sudo apt-get install -y python3-pip
+        elif command -v yum >/dev/null 2>&1; then
+            # RedHat/CentOS
+            sudo yum install -y python3-pip
+        elif command -v brew >/dev/null 2>&1; then
+            # macOS with Homebrew
+            brew install python3
+        else
+            # Try using ensurepip (comes with Python 3.4+)
+            log_info "Trying to install pip using ensurepip..."
+            python3 -m ensurepip --upgrade 2>/dev/null || {
+                log_error "Could not install pip automatically. Please install pip manually:"
+                echo "  Ubuntu/Debian: sudo apt-get install python3-pip"
+                echo "  macOS: brew install python3"
+                echo "  Or download from: https://pip.pypa.io/en/stable/installation/"
+                exit 1
+            }
+        fi
+
+        # Verify pip installation
+        if python3 -m pip --version >/dev/null 2>&1; then
+            log_success "pip installed successfully"
+        else
+            log_error "pip installation failed. Please install pip manually."
+            exit 1
+        fi
+    else
+        log_success "pip found"
+    fi
+
     log_success "All requirements satisfied!"
 }
 
@@ -42,9 +79,9 @@ install_backend() {
     [ ! -d "venv" ] && python3 -m venv venv && log_success "Venv created"
     source venv/bin/activate
     echo "Upgrading pip..."
-    pip install --upgrade pip
+    python -m pip install --upgrade pip
     echo "Installing backend dependencies (this may take a few minutes)..."
-    pip install -r requirements.txt
+    python -m pip install -r requirements.txt
     log_success "Backend installed"
 
     echo "Running database migrations..."
@@ -60,9 +97,9 @@ install_mcp_server() {
     [ ! -d "venv" ] && python3 -m venv venv && log_success "MCP venv created"
     source venv/bin/activate
     echo "Upgrading pip..."
-    pip install --upgrade pip
+    python -m pip install --upgrade pip
     echo "Installing MCP server..."
-    pip install -e .
+    python -m pip install -e .
     log_success "MCP server installed"
 
     deactivate
