@@ -191,7 +191,7 @@ class SubagentService:
         if not project:
             raise ValueError(f"Project {project_id} not found")
 
-        # Find enabled subagent
+        # Find enabled subagent(s) - there might be duplicates
         result = await self.db.execute(
             select(ProjectSubagent).where(
                 and_(
@@ -200,10 +200,13 @@ class SubagentService:
                 )
             )
         )
-        project_subagent = result.scalar_one_or_none()
+        project_subagents = result.scalars().all()
 
-        if not project_subagent:
+        if not project_subagents:
             raise ValueError(f"Subagent not enabled for project")
+
+        # Use first record for details (all duplicates should have same info)
+        project_subagent = project_subagents[0]
 
         # Get subagent details for file deletion
         if project_subagent.subagent_type == "default":
@@ -229,9 +232,13 @@ class SubagentService:
         if not success:
             logger.warning(f"Failed to delete subagent file from project (may not exist)")
 
-        # Delete from project_subagents
-        await self.db.delete(project_subagent)
+        # Delete all records from project_subagents (including duplicates)
+        for ps in project_subagents:
+            await self.db.delete(ps)
         await self.db.commit()
+
+        if len(project_subagents) > 1:
+            logger.warning(f"Removed {len(project_subagents)} duplicate records for subagent {subagent_id} in project {project_id}")
 
     async def create_custom_subagent(self, project_id: str, subagent_create: SubagentCreate) -> SubagentInDB:
         """
