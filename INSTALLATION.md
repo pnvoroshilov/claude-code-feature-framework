@@ -11,7 +11,7 @@ chmod +x install.sh && ./install.sh
 **Или клонировать и установить:**
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/claude-code-feature-framework.git
+git clone https://github.com/pnvoroshilov/claude-code-feature-framework.git
 cd claude-code-feature-framework
 chmod +x install.sh && ./install.sh
 ```

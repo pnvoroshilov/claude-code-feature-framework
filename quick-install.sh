@@ -4,12 +4,12 @@
 # ClaudeTask Framework - Quick Install from GitHub
 #
 # Usage:
-#   curl -fsSL YOUR_GITHUB_RAW_URL/quick-install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/pnvoroshilov/claude-code-feature-framework/main/quick-install.sh | bash
 ###############################################################################
 
 set -e
 
-REPO_URL="https://github.com/YOUR_USERNAME/claude-code-feature-framework.git"
+REPO_URL="https://github.com/pnvoroshilov/claude-code-feature-framework.git"
 INSTALL_DIR="claudetask-framework"
 
 GREEN='\033[0;32m'

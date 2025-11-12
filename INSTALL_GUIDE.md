@@ -15,7 +15,7 @@ chmod +x install.sh && ./install.sh
 
 ```bash
 # Клонировать и установить
-git clone https://github.com/YOUR_USERNAME/claude-code-feature-framework.git
+git clone https://github.com/pnvoroshilov/claude-code-feature-framework.git
 cd claude-code-feature-framework
 chmod +x install.sh && ./install.sh
 ```
@@ -23,7 +23,7 @@ chmod +x install.sh && ./install.sh
 ### ⚡ Вариант 3: Одна команда с автоклонированием
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/claude-code-feature-framework/main/quick-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/pnvoroshilov/claude-code-feature-framework/main/quick-install.sh | bash
 ```
 
 ## 🔧 Что делает установщик
