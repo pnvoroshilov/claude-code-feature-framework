@@ -40,7 +40,7 @@ class EditorService:
             result = await self._execute_claude_command(
                 project_path=project_path,
                 command=command,
-                timeout=120  # 2 minutes timeout
+                timeout=300  # 5 minutes timeout for Claude to complete editing
             )
 
             return {
@@ -83,7 +83,7 @@ class EditorService:
             result = await self._execute_claude_command(
                 project_path=project_path,
                 command=command,
-                timeout=120  # 2 minutes timeout
+                timeout=300  # 5 minutes timeout for Claude to complete editing
             )
 
             return {
@@ -106,7 +106,7 @@ class EditorService:
         self,
         project_path: str,
         command: str,
-        timeout: int = 120
+        timeout: int = 300  # Increased to 5 minutes
     ) -> Dict[str, Any]:
         """
         Execute a Claude CLI slash command via terminal session
@@ -114,7 +114,7 @@ class EditorService:
         Args:
             project_path: Path to the project directory
             command: Claude CLI command to execute (e.g., '/edit-agent "name" "instructions"')
-            timeout: Command timeout in seconds (default: 120s for edits)
+            timeout: Command timeout in seconds (default: 300s for edits)
 
         Returns:
             Dict with execution result
@@ -141,34 +141,74 @@ class EditorService:
 
             logger.info(f"Started Claude session {session_id} for editing command")
 
-            # Handle MCP server selection prompt (if appears)
+            # Wait for Claude to be ready (longer wait)
+            logger.info("Waiting for Claude to initialize...")
+            await asyncio.sleep(3)
+
+            # Handle MCP server selection prompt - send Enter
             await session.send_key("enter")
             logger.info("Sent Enter key to handle MCP prompt")
-
-            # Wait for prompt to be ready
-            await asyncio.sleep(1)
+            await asyncio.sleep(2)
 
             # Send the slash command with arguments
+            logger.info(f"Sending command: {command}")
             await session.send_input(command)
-            logger.info(f"Sent command: {command}")
+
+            # Wait a bit before pressing Enter
+            await asyncio.sleep(1)
 
             # Execute command by pressing Enter
-            await asyncio.sleep(0.5)
             await session.send_key("enter")
             logger.info("Sent Enter to execute command")
 
-            # Wait for command to complete (timeout specified by caller)
-            logger.info(f"Waiting {timeout}s for command completion")
-            await asyncio.sleep(timeout)
+            # Wait for command to complete
+            # Monitor message history to detect completion
+            logger.info(f"Waiting up to {timeout}s for command completion...")
+
+            start_time = asyncio.get_event_loop().time()
+            completed = False
+
+            while (asyncio.get_event_loop().time() - start_time) < timeout:
+                await asyncio.sleep(5)  # Check every 5 seconds
+
+                # Get recent messages to check for completion
+                if session and session.is_running:
+                    history = session.get_message_history(limit=20)
+
+                    # Look for completion indicators in recent messages
+                    recent_text = " ".join([msg.get("content", "") for msg in history])
+
+                    # Check for completion keywords
+                    if any(keyword in recent_text.lower() for keyword in [
+                        "successfully", "completed", "saved", "updated", "done"
+                    ]):
+                        logger.info("Detected completion keywords in output")
+                        completed = True
+                        break
+
+                    # Log progress every 30 seconds
+                    elapsed = asyncio.get_event_loop().time() - start_time
+                    if int(elapsed) % 30 == 0:
+                        logger.info(f"Still processing... ({int(elapsed)}s elapsed)")
+                else:
+                    logger.warning("Session stopped unexpectedly")
+                    break
+
+            if not completed:
+                logger.warning(f"Command did not complete within {timeout}s")
+
+            # Give a bit more time for final operations
+            await asyncio.sleep(2)
 
             # Stop session
             logger.info(f"Stopping editor session {session_id}")
             await session.stop()
 
             return {
-                "success": True,
+                "success": completed,
                 "output": f"Command executed: {command}",
-                "returncode": 0
+                "returncode": 0 if completed else 1,
+                "completed": completed
             }
 
         except Exception as e:
