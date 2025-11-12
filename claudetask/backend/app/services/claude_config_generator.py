@@ -39,18 +39,41 @@ def generate_claude_md(project_name: str, project_path: str, tech_stack: List[st
             # Replace project-specific placeholders
             template_content = template_content.replace("{{PROJECT_NAME}}", project_name)
             template_content = template_content.replace("{{PROJECT_PATH}}", project_path)
-            
+
             # Detect commands and add to template
             commands = detect_commands(tech_stack)
-            
-            # Add custom instructions section at the top if provided
+
+            # Create CUSTOM_INSTRUCTIONS.md file if custom instructions provided
             if custom_instructions and custom_instructions.strip():
-                custom_section = f"""
-# 🔴 PROJECT-SPECIFIC CUSTOM INSTRUCTIONS 🔴
+                custom_instructions_path = os.path.join(project_path, "CUSTOM_INSTRUCTIONS.md")
+                try:
+                    with open(custom_instructions_path, "w", encoding="utf-8") as f:
+                        f.write(f"""# 🔴 PROJECT-SPECIFIC CUSTOM INSTRUCTIONS 🔴
 
 **⚠️ CRITICAL: These project-specific instructions take HIGHEST PRIORITY. Follow them EXACTLY.**
 
 {custom_instructions}
+
+---
+
+## How to Use
+
+These instructions are automatically read by Claude when working on this project. They complement the main CLAUDE.md file and take precedence over general instructions.
+
+To modify these instructions:
+1. Edit this file directly, OR
+2. Update via the Project Instructions page in the ClaudeTask web interface
+""")
+                except Exception as e:
+                    print(f"Warning: Could not create CUSTOM_INSTRUCTIONS.md: {e}")
+
+                # Add reference to custom instructions in CLAUDE.md
+                custom_reference = f"""
+# 📋 Custom Project Instructions
+
+**⚠️ IMPORTANT: This project has custom-specific instructions.**
+
+Please read the [CUSTOM_INSTRUCTIONS.md](./CUSTOM_INSTRUCTIONS.md) file in the project root for project-specific requirements and guidelines that take HIGHEST PRIORITY over general instructions.
 
 ---
 
@@ -59,10 +82,10 @@ def generate_claude_md(project_name: str, project_path: str, tech_stack: List[st
                 lines = template_content.split('\n')
                 if lines and lines[0].startswith('#'):
                     # Insert after first heading
-                    template_content = lines[0] + '\n\n' + custom_section + '\n'.join(lines[1:])
+                    template_content = lines[0] + '\n\n' + custom_reference + '\n'.join(lines[1:])
                 else:
                     # Insert at the beginning
-                    template_content = custom_section + template_content
+                    template_content = custom_reference + template_content
 
             # Add project mode specific instructions
             mode_section = ""

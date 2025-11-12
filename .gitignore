@@ -97,6 +97,7 @@ coverage/
 # But track default MCP configs in framework assets
 !framework-assets/mcp-configs/.mcp.json
 CLAUDE.md.backup
+CUSTOM_INSTRUCTIONS.md
 
 # MCP server cache directories (all directories starting with dot)
 .playwright/

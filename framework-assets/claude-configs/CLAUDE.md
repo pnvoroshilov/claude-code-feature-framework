@@ -1,5 +1,21 @@
 # ClaudeTask Framework - Autonomous Orchestrator Configuration
 
+## 📋 Custom Project Instructions
+
+**⚠️ IMPORTANT: Check for project-specific instructions!**
+
+If a `CUSTOM_INSTRUCTIONS.md` file exists in the project root, **READ IT FIRST**. Custom instructions take HIGHEST PRIORITY over all framework instructions and must be followed EXACTLY.
+
+**To check for custom instructions:**
+```bash
+# Look for CUSTOM_INSTRUCTIONS.md in project root
+ls CUSTOM_INSTRUCTIONS.md
+```
+
+If the file exists, read it immediately and follow those instructions as your PRIMARY guidance.
+
+---
+
 ## 🔴🔴🔴 ABSOLUTE CRITICAL RESTRICTIONS 🔴🔴🔴
 
 ### ⛔ NEVER DELETE WORKTREES WITHOUT EXPLICIT USER REQUEST

@@ -1,18 +1,56 @@
 # ClaudeTask Framework - Autonomous Orchestrator Configuration
 
 
-# 🔴 PROJECT-SPECIFIC CUSTOM INSTRUCTIONS 🔴
+# 🎯 PROJECT MODE: SIMPLE
 
-**⚠️ CRITICAL: These project-specific instructions take HIGHEST PRIORITY. Follow them EXACTLY.**
+**This project is configured in SIMPLE mode.**
 
-# Test Instructions
+## Task Workflow (3 Columns)
+- **Backlog**: Tasks waiting to be started
+- **In Progress**: Tasks currently being worked on
+- **Done**: Completed tasks
 
-- Always use TypeScript strict mode
-- Run tests before committing
-- Use Material-UI for all UI components
+## What this means:
+- ✅ **NO Git workflow** - Direct work, no branches, no PRs
+- ✅ **NO complex statuses** - Just Backlog → In Progress → Done
+- ✅ **Simplified task management** - Focus on getting work done
+- ✅ **No worktrees, no version control complexity**
+
+## Your approach:
+1. When working on tasks, work directly in the main branch
+2. Don't create branches or worktrees
+3. Don't follow the full development workflow
+4. Focus on completing tasks efficiently
+5. Task statuses: Only use Backlog, In Progress, and Done
 
 ---
 
+
+
+# 📋 Custom Project Instructions
+
+**⚠️ IMPORTANT: This project has custom-specific instructions.**
+
+Please read the [CUSTOM_INSTRUCTIONS.md](./CUSTOM_INSTRUCTIONS.md) file in the project root for project-specific requirements and guidelines that take HIGHEST PRIORITY over general instructions.
+
+---
+
+
+## 📋 Custom Project Instructions
+
+**⚠️ IMPORTANT: Check for project-specific instructions!**
+
+If a `CUSTOM_INSTRUCTIONS.md` file exists in the project root, **READ IT FIRST**. Custom instructions take HIGHEST PRIORITY over all framework instructions and must be followed EXACTLY.
+
+**To check for custom instructions:**
+```bash
+# Look for CUSTOM_INSTRUCTIONS.md in project root
+ls CUSTOM_INSTRUCTIONS.md
+```
+
+If the file exists, read it immediately and follow those instructions as your PRIMARY guidance.
+
+---
 
 ## 🔴🔴🔴 ABSOLUTE CRITICAL RESTRICTIONS 🔴🔴🔴
 
