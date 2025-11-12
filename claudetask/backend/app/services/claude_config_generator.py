@@ -4,9 +4,16 @@ import os
 from typing import List, Dict, Any
 
 
-def generate_claude_md(project_name: str, project_path: str, tech_stack: List[str]) -> str:
-    """Generate customized CLAUDE.md for a project"""
-    
+def generate_claude_md(project_name: str, project_path: str, tech_stack: List[str], custom_instructions: str = "") -> str:
+    """Generate customized CLAUDE.md for a project
+
+    Args:
+        project_name: Name of the project
+        project_path: Path to the project
+        tech_stack: List of technologies used
+        custom_instructions: Project-specific custom instructions (from database)
+    """
+
     # Try to read the template from framework-assets
     template_path = None
     
@@ -35,6 +42,27 @@ def generate_claude_md(project_name: str, project_path: str, tech_stack: List[st
             # Detect commands and add to template
             commands = detect_commands(tech_stack)
             
+            # Add custom instructions section at the top if provided
+            if custom_instructions and custom_instructions.strip():
+                custom_section = f"""
+# 🔴 PROJECT-SPECIFIC CUSTOM INSTRUCTIONS 🔴
+
+**⚠️ CRITICAL: These project-specific instructions take HIGHEST PRIORITY. Follow them EXACTLY.**
+
+{custom_instructions}
+
+---
+
+"""
+                # Insert after the first heading (project title)
+                lines = template_content.split('\n')
+                if lines and lines[0].startswith('#'):
+                    # Insert after first heading
+                    template_content = lines[0] + '\n\n' + custom_section + '\n'.join(lines[1:])
+                else:
+                    # Insert at the beginning
+                    template_content = custom_section + template_content
+
             # Add project configuration section if it doesn't exist
             if "## Project Configuration" not in template_content:
                 config_section = f"""
@@ -63,10 +91,24 @@ def generate_claude_md(project_name: str, project_path: str, tech_stack: List[st
     # Fallback to generated template if file doesn't exist or can't be read
     # Detect commands based on tech stack
     commands = detect_commands(tech_stack)
-    
+
+    # Add custom instructions section if provided
+    custom_section = ""
+    if custom_instructions and custom_instructions.strip():
+        custom_section = f"""
+# 🔴 PROJECT-SPECIFIC CUSTOM INSTRUCTIONS 🔴
+
+**⚠️ CRITICAL: These project-specific instructions take HIGHEST PRIORITY. Follow them EXACTLY.**
+
+{custom_instructions}
+
+---
+
+"""
+
     template = f"""# Project: {project_name}
 
-## 🚀 AUTONOMOUS CLAUDETASK COORDINATOR
+{custom_section}## 🚀 AUTONOMOUS CLAUDETASK COORDINATOR
 
 **YOU ARE AUTONOMOUS - ALWAYS CONTINUE PROCESSING TASKS**
 

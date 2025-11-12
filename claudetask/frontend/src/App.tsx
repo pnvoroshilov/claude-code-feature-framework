@@ -14,6 +14,7 @@ import ClaudeSessions from './pages/ClaudeSessions';
 import Skills from './pages/Skills';
 import MCPConfigs from './pages/MCPConfigs';
 import Subagents from './pages/Subagents';
+import ProjectInstructions from './pages/ProjectInstructions';
 import Settings from './pages/Settings';
 import { ProjectProvider } from './context/ProjectContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -80,6 +81,7 @@ function App() {
                   <Route path="/skills" element={<Skills />} />
                   <Route path="/mcp-configs" element={<MCPConfigs />} />
                   <Route path="/subagents" element={<Subagents />} />
+                  <Route path="/instructions" element={<ProjectInstructions />} />
                   <Route path="/settings" element={<Settings />} />
                 </Routes>
               </Box>

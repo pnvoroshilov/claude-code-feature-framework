@@ -703,3 +703,47 @@ class ProjectService:
             print(f"Error parsing .mcp.json: {e}")
         except Exception as e:
             print(f"Error importing MCP configs: {e}")
+
+    @staticmethod
+    async def regenerate_claude_md(db: AsyncSession, project_id: str):
+        """
+        Regenerate CLAUDE.md file with current project data including custom instructions
+
+        Args:
+            db: Database session
+            project_id: Project ID
+        """
+        from sqlalchemy import select
+        from ..models import Project
+        from .claude_config_generator import generate_claude_md
+        import os
+
+        # Get project from database
+        result = await db.execute(select(Project).where(Project.id == project_id))
+        project = result.scalar_one_or_none()
+
+        if not project:
+            raise ValueError(f"Project {project_id} not found")
+
+        # Generate CLAUDE.md with custom instructions
+        claude_md_content = generate_claude_md(
+            project_name=project.name,
+            project_path=project.path,
+            tech_stack=project.tech_stack or [],
+            custom_instructions=project.custom_instructions or ""
+        )
+
+        # Write to CLAUDE.md file
+        claude_md_path = os.path.join(project.path, "CLAUDE.md")
+
+        # Backup existing file
+        if os.path.exists(claude_md_path):
+            backup_path = os.path.join(project.path, "CLAUDE.md.backup")
+            import shutil
+            shutil.copy2(claude_md_path, backup_path)
+
+        # Write new content
+        with open(claude_md_path, "w", encoding="utf-8") as f:
+            f.write(claude_md_content)
+
+        print(f"Regenerated CLAUDE.md for project {project_id} with custom instructions")

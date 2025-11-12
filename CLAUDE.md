@@ -1,5 +1,19 @@
 # ClaudeTask Framework - Autonomous Orchestrator Configuration
 
+
+# 🔴 PROJECT-SPECIFIC CUSTOM INSTRUCTIONS 🔴
+
+**⚠️ CRITICAL: These project-specific instructions take HIGHEST PRIORITY. Follow them EXACTLY.**
+
+# Test Instructions
+
+- Always use TypeScript strict mode
+- Run tests before committing
+- Use Material-UI for all UI components
+
+---
+
+
 ## 🔴🔴🔴 ABSOLUTE CRITICAL RESTRICTIONS 🔴🔴🔴
 
 ### ⛔ NEVER DELETE WORKTREES WITHOUT EXPLICIT USER REQUEST

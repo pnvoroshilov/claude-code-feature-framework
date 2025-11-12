@@ -42,6 +42,7 @@ class Project(Base):
     name = Column(String, nullable=False)
     path = Column(String, nullable=False, unique=True)
     github_repo = Column(String, nullable=True)
+    custom_instructions = Column(Text, nullable=True, default="")
     tech_stack = Column(JSON, default=list)
     is_active = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
