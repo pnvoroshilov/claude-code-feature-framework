@@ -26,8 +26,10 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import InfoIcon from '@mui/icons-material/Info';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
+import EditIcon from '@mui/icons-material/Edit';
 import axios from 'axios';
 import { useProject } from '../context/ProjectContext';
+import CodeEditorDialog from '../components/CodeEditorDialog';
 
 // Remove /api suffix if present, since we add it manually in request paths
 const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:3333').replace(/\/api$/, '');
@@ -69,6 +71,8 @@ const Skills: React.FC = () => {
   const [newSkillName, setNewSkillName] = useState('');
   const [newSkillDescription, setNewSkillDescription] = useState('');
   const [creating, setCreating] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
 
   // Fetch skills when project changes
   useEffect(() => {
@@ -239,6 +243,18 @@ const Skills: React.FC = () => {
                 }}
               >
                 {skill.is_favorite ? <StarIcon /> : <StarBorderIcon />}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Edit skill code">
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={() => {
+                  setEditingSkill(skill);
+                  setEditDialogOpen(true);
+                }}
+              >
+                <EditIcon />
               </IconButton>
             </Tooltip>
             {showDelete && (
@@ -450,6 +466,24 @@ const Skills: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Code Editor Dialog */}
+      {editingSkill && (
+        <CodeEditorDialog
+          open={editDialogOpen}
+          onClose={() => {
+            setEditDialogOpen(false);
+            setEditingSkill(null);
+          }}
+          title={`Edit Skill: ${editingSkill.name}`}
+          itemName={editingSkill.name}
+          itemType="skill"
+          projectId={selectedProject?.id || ''}
+          onSave={() => {
+            fetchSkills();
+          }}
+        />
+      )}
     </Box>
   );
 };

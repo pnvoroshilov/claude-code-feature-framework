@@ -31,8 +31,10 @@ import InfoIcon from '@mui/icons-material/Info';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
+import EditIcon from '@mui/icons-material/Edit';
 import axios from 'axios';
 import { useProject } from '../context/ProjectContext';
+import CodeEditorDialog from '../components/CodeEditorDialog';
 
 // Remove /api suffix if present, since we add it manually in request paths
 const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:3333').replace(/\/api$/, '');
@@ -76,7 +78,9 @@ const Subagents: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [viewSubagentDialogOpen, setViewSubagentDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedSubagent, setSelectedSubagent] = useState<Subagent | null>(null);
+  const [editingSubagent, setEditingSubagent] = useState<Subagent | null>(null);
   const [newSubagentName, setNewSubagentName] = useState('');
   const [newSubagentDescription, setNewSubagentDescription] = useState('');
   const [creating, setCreating] = useState(false);
@@ -305,6 +309,18 @@ const Subagents: React.FC = () => {
                 </IconButton>
               </Tooltip>
             )}
+            <Tooltip title="Edit agent code">
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={() => {
+                  setEditingSubagent(subagent);
+                  setEditDialogOpen(true);
+                }}
+              >
+                <EditIcon />
+              </IconButton>
+            </Tooltip>
             {showDelete && subagent.subagent_kind === 'custom' && (
               <Tooltip title="Delete custom subagent">
                 <IconButton
@@ -562,6 +578,24 @@ const Subagents: React.FC = () => {
           <Button onClick={() => setViewSubagentDialogOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Code Editor Dialog */}
+      {editingSubagent && (
+        <CodeEditorDialog
+          open={editDialogOpen}
+          onClose={() => {
+            setEditDialogOpen(false);
+            setEditingSubagent(null);
+          }}
+          title={`Edit Agent: ${editingSubagent.name}`}
+          itemName={editingSubagent.name}
+          itemType="agent"
+          projectId={selectedProject}
+          onSave={() => {
+            refetch();
+          }}
+        />
+      )}
     </Box>
   );
 };
