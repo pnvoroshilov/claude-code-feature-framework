@@ -590,9 +590,9 @@ const Subagents: React.FC = () => {
           title={`Edit Agent: ${editingSubagent.name}`}
           itemName={editingSubagent.name}
           itemType="agent"
-          projectId={selectedProject}
+          projectId={selectedProject?.id || ''}
           onSave={() => {
-            refetch();
+            fetchSubagents();
           }}
         />
       )}
