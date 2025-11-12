@@ -178,6 +178,11 @@ class EditorService:
                     # Look for completion indicators in recent messages
                     recent_text = " ".join([msg.get("content", "") for msg in history])
 
+                    # Log sample of recent messages for debugging (every minute)
+                    elapsed = asyncio.get_event_loop().time() - start_time
+                    if int(elapsed) % 60 == 0 and history:
+                        logger.info(f"Recent messages sample ({len(history)} total): {recent_text[:200]}...")
+
                     # Check for completion keywords
                     if any(keyword in recent_text.lower() for keyword in [
                         "successfully", "completed", "saved", "updated", "done"
@@ -187,7 +192,6 @@ class EditorService:
                         break
 
                     # Log progress every 30 seconds
-                    elapsed = asyncio.get_event_loop().time() - start_time
                     if int(elapsed) % 30 == 0:
                         logger.info(f"Still processing... ({int(elapsed)}s elapsed)")
                 else:
