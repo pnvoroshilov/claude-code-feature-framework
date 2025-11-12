@@ -38,13 +38,16 @@ check_requirements() {
 install_backend() {
     log_info "Installing backend..."
     cd claudetask/backend
-    
+
     [ ! -d "venv" ] && python3 -m venv venv && log_success "Venv created"
     source venv/bin/activate
-    pip install --upgrade pip > /dev/null 2>&1
-    pip install -r requirements.txt > /dev/null 2>&1
+    echo "Upgrading pip..."
+    pip install --upgrade pip
+    echo "Installing backend dependencies (this may take a few minutes)..."
+    pip install -r requirements.txt
     log_success "Backend installed"
-    
+
+    echo "Running database migrations..."
     python migrations/migrate_add_custom_instructions.py 2>/dev/null || true
     deactivate
     cd ../..
@@ -53,13 +56,15 @@ install_backend() {
 install_mcp_server() {
     log_info "Installing MCP server..."
     cd claudetask/mcp_server
-    
+
     [ ! -d "venv" ] && python3 -m venv venv && log_success "MCP venv created"
     source venv/bin/activate
-    pip install --upgrade pip > /dev/null 2>&1
-    pip install -e . > /dev/null 2>&1
+    echo "Upgrading pip..."
+    pip install --upgrade pip
+    echo "Installing MCP server..."
+    pip install -e .
     log_success "MCP server installed"
-    
+
     deactivate
     cd ../..
 }
@@ -67,7 +72,8 @@ install_mcp_server() {
 install_frontend() {
     log_info "Installing frontend..."
     cd claudetask/frontend
-    npm install > /dev/null 2>&1
+    echo "Installing frontend dependencies (this may take a few minutes)..."
+    npm install
     log_success "Frontend installed"
     cd ../..
 }
