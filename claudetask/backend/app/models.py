@@ -37,13 +37,14 @@ class TaskStatus(str, enum.Enum):
 class Project(Base):
     """Project model"""
     __tablename__ = "projects"
-    
+
     id = Column(String, primary_key=True)
     name = Column(String, nullable=False)
     path = Column(String, nullable=False, unique=True)
     github_repo = Column(String, nullable=True)
     custom_instructions = Column(Text, nullable=True, default="")
     tech_stack = Column(JSON, default=list)
+    project_mode = Column(String, nullable=False, default="simple")  # "simple" or "development"
     is_active = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -725,12 +725,13 @@ class ProjectService:
         if not project:
             raise ValueError(f"Project {project_id} not found")
 
-        # Generate CLAUDE.md with custom instructions
+        # Generate CLAUDE.md with custom instructions and project mode
         claude_md_content = generate_claude_md(
             project_name=project.name,
             project_path=project.path,
             tech_stack=project.tech_stack or [],
-            custom_instructions=project.custom_instructions or ""
+            custom_instructions=project.custom_instructions or "",
+            project_mode=project.project_mode or "simple"
         )
 
         # Write to CLAUDE.md file

@@ -6,6 +6,7 @@ import { ReactQueryDevtools } from 'react-query/devtools';
 
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
+import ProjectModeToggle from './components/ProjectModeToggle';
 import Dashboard from './pages/Dashboard';
 import ProjectSetup from './pages/ProjectSetup';
 import ProjectManager from './pages/ProjectManager';
@@ -52,38 +53,48 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <ProjectProvider>
           <Router>
-            <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+            <Box sx={{ display: 'flex', minHeight: '100vh', flexDirection: 'column' }}>
               <Header onMenuClick={toggleSidebar} />
-              <Sidebar
-                open={sidebarOpen}
-                collapsed={sidebarCollapsed}
-                onClose={handleSidebarClose}
-              />
-              <Box
-                component="main"
-                sx={{
-                  flexGrow: 1,
-                  bgcolor: 'background.default',
-                  pt: { xs: 2, sm: 3 },
-                  pr: { xs: 2, sm: 3 },
-                  pb: { xs: 2, sm: 3 },
-                  pl: 0,
-                  mt: 8,
-                  minHeight: 'calc(100vh - 64px)',
-                }}
-              >
-                <Routes>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/setup" element={<ProjectSetup />} />
-                  <Route path="/projects" element={<ProjectManager />} />
-                  <Route path="/tasks" element={<TaskBoard />} />
-                  <Route path="/sessions" element={<ClaudeSessions />} />
-                  <Route path="/skills" element={<Skills />} />
-                  <Route path="/mcp-configs" element={<MCPConfigs />} />
-                  <Route path="/subagents" element={<Subagents />} />
-                  <Route path="/instructions" element={<ProjectInstructions />} />
-                  <Route path="/settings" element={<Settings />} />
-                </Routes>
+              <Box sx={{ display: 'flex', flex: 1, mt: '64px' }}>
+                <Sidebar
+                  open={sidebarOpen}
+                  collapsed={sidebarCollapsed}
+                  onClose={handleSidebarClose}
+                />
+                <Box
+                  sx={{
+                    flexGrow: 1,
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <ProjectModeToggle />
+                  <Box
+                    component="main"
+                    sx={{
+                      flexGrow: 1,
+                      bgcolor: 'background.default',
+                      pt: { xs: 2, sm: 3 },
+                      pr: { xs: 2, sm: 3 },
+                      pb: { xs: 2, sm: 3 },
+                      pl: 0,
+                      minHeight: 'calc(100vh - 112px)',
+                    }}
+                  >
+                    <Routes>
+                      <Route path="/" element={<Dashboard />} />
+                      <Route path="/setup" element={<ProjectSetup />} />
+                      <Route path="/projects" element={<ProjectManager />} />
+                      <Route path="/tasks" element={<TaskBoard />} />
+                      <Route path="/sessions" element={<ClaudeSessions />} />
+                      <Route path="/skills" element={<Skills />} />
+                      <Route path="/mcp-configs" element={<MCPConfigs />} />
+                      <Route path="/subagents" element={<Subagents />} />
+                      <Route path="/instructions" element={<ProjectInstructions />} />
+                      <Route path="/settings" element={<Settings />} />
+                    </Routes>
+                  </Box>
+                </Box>
               </Box>
             </Box>
             <ReactQueryDevtools initialIsOpen={false} />

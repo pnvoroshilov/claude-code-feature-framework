@@ -27,6 +27,7 @@ export interface Project {
   path: string;
   github_repo?: string;
   tech_stack: string[];
+  project_mode: 'simple' | 'development';
   is_active: boolean;
   created_at: string;
   updated_at: string;

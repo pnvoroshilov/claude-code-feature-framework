@@ -100,6 +100,7 @@ CLAUDE.md.backup
 
 # MCP server cache directories (all directories starting with dot)
 .playwright/
+.playwright-mcp/
 .serena/
 .*cache/
 

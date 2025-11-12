@@ -48,7 +48,15 @@ import { getTasks, createTask, updateTask, updateTaskStatus, deleteTask, Task, g
 import RealTerminal from '../components/RealTerminal';
 import { useProject } from '../context/ProjectContext';
 
-const statusColumns = [
+// Simple mode: Only 3 columns
+const simpleStatusColumns = [
+  { status: 'Backlog', title: 'Backlog', color: '#grey' },
+  { status: 'In Progress', title: 'In Progress', color: '#orange' },
+  { status: 'Done', title: 'Done', color: '#darkgreen' },
+];
+
+// Development mode: Full workflow with 7 columns
+const developmentStatusColumns = [
   { status: 'Backlog', title: 'Backlog', color: '#grey' },
   { status: 'Analysis', title: 'Analysis', color: '#blue' },
   { status: 'In Progress', title: 'In Progress', color: '#orange' },
@@ -84,13 +92,18 @@ const TaskBoard: React.FC = () => {
   const queryClient = useQueryClient();
 
   // Use project context instead of direct API call
-  const { 
-    selectedProject: project, 
-    isConnected, 
+  const {
+    selectedProject: project,
+    isConnected,
     connectionStatus,
-    error: projectError 
+    error: projectError
   } = useProject();
-  
+
+  // Select columns based on project mode
+  const statusColumns = project?.project_mode === 'simple'
+    ? simpleStatusColumns
+    : developmentStatusColumns;
+
   const { data: tasks, isLoading, error } = useQuery(
     ['tasks', project?.id],
     () => project ? getTasks(project.id) : Promise.resolve([]),
@@ -244,46 +257,79 @@ const TaskBoard: React.FC = () => {
 
   // Define valid status transitions
   const getValidTransitions = (currentStatus: string): Array<{ status: string; label: string; icon: JSX.Element; description: string; requiresConfirmation?: boolean }> => {
-    switch (currentStatus) {
-      case 'Backlog':
-        return [
-          { status: 'Analysis', label: 'Start Analysis', icon: <StartIcon />, description: 'Begin task analysis phase' }
-        ];
-      case 'Analysis':
-        return [
-          { status: 'In Progress', label: 'Start Development', icon: <CodeIcon />, description: 'Move to active development' },
-          { status: 'Backlog', label: 'Back to Backlog', icon: <BackIcon />, description: 'Return to backlog for re-prioritization' }
-        ];
-      case 'In Progress':
-        return [
-          { status: 'Testing', label: 'Ready for Testing', icon: <BugIcon />, description: 'Code complete, ready for testing' },
-          { status: 'Blocked', label: 'Mark as Blocked', icon: <BlockIcon />, description: 'Task is blocked by dependencies' },
-          { status: 'Analysis', label: 'Back to Analysis', icon: <BackIcon />, description: 'Needs more analysis' }
-        ];
-      case 'Testing':
-        return [
-          { status: 'Code Review', label: 'Ready for Review', icon: <AssignmentIcon />, description: 'Testing complete, ready for code review' },
-          { status: 'In Progress', label: 'Back to Development', icon: <BackIcon />, description: 'Issues found, back to development' },
-          { status: 'Blocked', label: 'Mark as Blocked', icon: <BlockIcon />, description: 'Testing blocked by issues' }
-        ];
-      case 'Code Review':
-        return [
-          { status: 'PR', label: 'Create Pull Request', icon: <PRIcon />, description: 'Code approved, ready for PR' },
-          { status: 'In Progress', label: 'Rework Required', icon: <BackIcon />, description: 'Code changes requested' }
-        ];
-      case 'PR':
-        return [
-          { status: 'Done', label: 'Mark Complete', icon: <CompleteIcon />, description: 'PR merged, task complete', requiresConfirmation: true },
-          { status: 'Code Review', label: 'Back to Review', icon: <BackIcon />, description: 'PR changes requested' }
-        ];
-      case 'Blocked':
-        return [
-          { status: 'Analysis', label: 'Resume Analysis', icon: <StartIcon />, description: 'Blocker resolved, resume analysis' },
-          { status: 'In Progress', label: 'Resume Development', icon: <CodeIcon />, description: 'Blocker resolved, resume development' },
-          { status: 'Testing', label: 'Resume Testing', icon: <BugIcon />, description: 'Blocker resolved, resume testing' }
-        ];
-      default:
-        return [];
+    const isSimpleMode = project?.project_mode === 'simple';
+
+    if (isSimpleMode) {
+      // Simple mode: only Backlog → In Progress → Done
+      switch (currentStatus) {
+        case 'Backlog':
+          return [
+            { status: 'In Progress', label: 'Start Working', icon: <StartIcon />, description: 'Begin working on this task' }
+          ];
+        case 'In Progress':
+          return [
+            { status: 'Done', label: 'Mark Complete', icon: <CompleteIcon />, description: 'Task is complete', requiresConfirmation: true },
+            { status: 'Backlog', label: 'Back to Backlog', icon: <BackIcon />, description: 'Return to backlog' }
+          ];
+        case 'Done':
+          return [
+            { status: 'In Progress', label: 'Reopen', icon: <StartIcon />, description: 'Reopen this task' }
+          ];
+        // Handle tasks that might have old statuses from development mode
+        case 'Analysis':
+        case 'Testing':
+        case 'Code Review':
+        case 'PR':
+          return [
+            { status: 'In Progress', label: 'Move to In Progress', icon: <StartIcon />, description: 'Simplify to In Progress status' },
+            { status: 'Done', label: 'Mark Complete', icon: <CompleteIcon />, description: 'Task is complete', requiresConfirmation: true }
+          ];
+        default:
+          return [];
+      }
+    } else {
+      // Development mode: full workflow
+      switch (currentStatus) {
+        case 'Backlog':
+          return [
+            { status: 'Analysis', label: 'Start Analysis', icon: <StartIcon />, description: 'Begin task analysis phase' }
+          ];
+        case 'Analysis':
+          return [
+            { status: 'In Progress', label: 'Start Development', icon: <CodeIcon />, description: 'Move to active development' },
+            { status: 'Backlog', label: 'Back to Backlog', icon: <BackIcon />, description: 'Return to backlog for re-prioritization' }
+          ];
+        case 'In Progress':
+          return [
+            { status: 'Testing', label: 'Ready for Testing', icon: <BugIcon />, description: 'Code complete, ready for testing' },
+            { status: 'Blocked', label: 'Mark as Blocked', icon: <BlockIcon />, description: 'Task is blocked by dependencies' },
+            { status: 'Analysis', label: 'Back to Analysis', icon: <BackIcon />, description: 'Needs more analysis' }
+          ];
+        case 'Testing':
+          return [
+            { status: 'Code Review', label: 'Ready for Review', icon: <AssignmentIcon />, description: 'Testing complete, ready for code review' },
+            { status: 'In Progress', label: 'Back to Development', icon: <BackIcon />, description: 'Issues found, back to development' },
+            { status: 'Blocked', label: 'Mark as Blocked', icon: <BlockIcon />, description: 'Testing blocked by issues' }
+          ];
+        case 'Code Review':
+          return [
+            { status: 'PR', label: 'Create Pull Request', icon: <PRIcon />, description: 'Code approved, ready for PR' },
+            { status: 'In Progress', label: 'Rework Required', icon: <BackIcon />, description: 'Code changes requested' }
+          ];
+        case 'PR':
+          return [
+            { status: 'Done', label: 'Mark Complete', icon: <CompleteIcon />, description: 'PR merged, task complete', requiresConfirmation: true },
+            { status: 'Code Review', label: 'Back to Review', icon: <BackIcon />, description: 'PR changes requested' }
+          ];
+        case 'Blocked':
+          return [
+            { status: 'Analysis', label: 'Resume Analysis', icon: <StartIcon />, description: 'Blocker resolved, resume analysis' },
+            { status: 'In Progress', label: 'Resume Development', icon: <CodeIcon />, description: 'Blocker resolved, resume development' },
+            { status: 'Testing', label: 'Resume Testing', icon: <BugIcon />, description: 'Blocker resolved, resume testing' }
+          ];
+        default:
+          return [];
+      }
     }
   };
 
