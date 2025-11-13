@@ -14,6 +14,7 @@ import TaskBoard from './pages/TaskBoard';
 import ClaudeSessions from './pages/ClaudeSessions';
 import ClaudeCodeSessions from './pages/ClaudeCodeSessions';
 import Skills from './pages/Skills';
+import Hooks from './pages/Hooks';
 import MCPConfigs from './pages/MCPConfigs';
 import Subagents from './pages/Subagents';
 import ProjectInstructions from './pages/ProjectInstructions';
@@ -90,6 +91,7 @@ function App() {
                       <Route path="/sessions" element={<ClaudeSessions />} />
                       <Route path="/claude-code-sessions" element={<ClaudeCodeSessions />} />
                       <Route path="/skills" element={<Skills />} />
+                      <Route path="/hooks" element={<Hooks />} />
                       <Route path="/mcp-configs" element={<MCPConfigs />} />
                       <Route path="/subagents" element={<Subagents />} />
                       <Route path="/instructions" element={<ProjectInstructions />} />

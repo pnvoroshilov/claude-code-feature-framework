@@ -86,6 +86,7 @@ install_backend() {
 
     echo "Running database migrations..."
     python migrations/migrate_add_custom_instructions.py 2>/dev/null || true
+    python migrations/migrate_add_hooks_tables.py 2>/dev/null || true
     deactivate
     cd ../..
 }

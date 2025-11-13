@@ -1,0 +1,31 @@
+{
+  "name": "Desktop Notifications",
+  "description": "Shows desktop notifications when Claude requests user input or completes tasks",
+  "category": "notifications",
+  "hook_config": {
+    "Notification": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v osascript &> /dev/null; then osascript -e 'display notification \"Claude needs your input\" with title \"Claude Code\"'; elif command -v notify-send &> /dev/null; then notify-send 'Claude Code' 'Claude needs your input'; fi"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v osascript &> /dev/null; then osascript -e 'display notification \"Task completed\" with title \"Claude Code\"'; elif command -v notify-send &> /dev/null; then notify-send 'Claude Code' 'Task completed'; fi"
+          }
+        ]
+      }
+    ]
+  },
+  "setup_instructions": "This hook shows desktop notifications on macOS (using osascript) or Linux (using notify-send). No additional setup required on macOS. On Linux, install libnotify-bin if needed.",
+  "dependencies": ["osascript (macOS built-in)", "notify-send (Linux - install libnotify-bin)"]
+}

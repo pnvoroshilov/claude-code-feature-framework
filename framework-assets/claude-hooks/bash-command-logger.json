@@ -1,0 +1,20 @@
+{
+  "name": "Bash Command Logger",
+  "description": "Logs all bash commands executed by Claude to a file for audit and review",
+  "category": "logging",
+  "hook_config": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$(date '+%Y-%m-%d %H:%M:%S') - Command: $(echo '$TOOL_INPUT' | jq -r '.command // empty')\" >> ~/.claude/bash_commands.log"
+          }
+        ]
+      }
+    ]
+  },
+  "setup_instructions": "This hook will create a log file at ~/.claude/bash_commands.log to track all bash commands executed by Claude. Make sure jq is installed on your system.",
+  "dependencies": ["jq"]
+}

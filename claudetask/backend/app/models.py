@@ -337,3 +337,60 @@ class ProjectSubagent(Base):
 
     # Relationships
     project = relationship("Project", backref="enabled_subagents")
+
+
+class DefaultHook(Base):
+    """Default hooks provided by the framework"""
+    __tablename__ = "default_hooks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, unique=True)
+    description = Column(Text, nullable=False)
+    category = Column(String(50), nullable=False)  # e.g., "logging", "formatting", "notifications", "security", "version-control"
+    file_name = Column(String(100), nullable=False)
+    hook_config = Column(JSON, nullable=False)  # Hook configuration JSON (events, matchers, commands)
+    setup_instructions = Column(Text, nullable=True)
+    dependencies = Column(JSON, nullable=True)  # List of required dependencies (jq, git, prettier, etc.)
+    is_active = Column(Boolean, default=True)
+    is_favorite = Column(Boolean, default=False)  # Mark as favorite (shows in Favorites tab)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CustomHook(Base):
+    """Custom hooks created by users"""
+    __tablename__ = "custom_hooks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+    description = Column(Text, nullable=False)
+    category = Column(String(50), nullable=False)
+    file_name = Column(String(100), nullable=False)
+    hook_config = Column(JSON, nullable=False)  # Hook configuration JSON
+    setup_instructions = Column(Text, nullable=True)
+    dependencies = Column(JSON, nullable=True)
+    status = Column(String(20), default="active")  # creating, active, failed
+    error_message = Column(Text, nullable=True)
+    created_by = Column(String(100), default="user")
+    is_favorite = Column(Boolean, default=False)  # Mark as favorite (shows in Favorites tab)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    project = relationship("Project", backref="custom_hooks")
+
+
+class ProjectHook(Base):
+    """Junction table for project-hook many-to-many relationship"""
+    __tablename__ = "project_hooks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+    hook_id = Column(Integer, nullable=False)
+    hook_type = Column(String(10), nullable=False)  # "default" or "custom"
+    enabled_at = Column(DateTime, default=datetime.utcnow)
+    enabled_by = Column(String(100), default="user")
+
+    # Relationships
+    project = relationship("Project", backref="enabled_hooks")

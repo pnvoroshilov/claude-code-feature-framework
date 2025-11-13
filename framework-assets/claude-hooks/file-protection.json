@@ -1,0 +1,29 @@
+{
+  "name": "File Protection",
+  "description": "Prevents Claude from editing sensitive files like .env, credentials, and git config",
+  "category": "security",
+  "hook_config": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE=$(echo '$TOOL_INPUT' | jq -r '.file_path // empty'); if [[ $FILE == *.env* || $FILE == *credentials* || $FILE == *secret* || $FILE == *.git/* || $FILE == *id_rsa* || $FILE == *password* ]]; then echo '{\"blocked\": true, \"reason\": \"Cannot edit sensitive file: '$FILE'. This file is protected by security hooks.\"}'; exit 1; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE=$(echo '$TOOL_INPUT' | jq -r '.file_path // empty'); if [[ $FILE == *.env* || $FILE == *credentials* || $FILE == *secret* || $FILE == *.git/* || $FILE == *id_rsa* || $FILE == *password* ]]; then echo '{\"blocked\": true, \"reason\": \"Cannot write sensitive file: '$FILE'. This file is protected by security hooks.\"}'; exit 1; fi"
+          }
+        ]
+      }
+    ]
+  },
+  "setup_instructions": "This hook protects sensitive files from being modified. It blocks edits to:\n- .env files\n- Files containing 'credentials', 'secret', 'password'\n- Git configuration files\n- SSH keys (id_rsa, etc.)\n\nCustomize the patterns in the hook configuration as needed.",
+  "dependencies": ["jq"]
+}

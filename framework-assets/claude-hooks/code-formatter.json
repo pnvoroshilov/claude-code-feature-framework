@@ -1,0 +1,29 @@
+{
+  "name": "Auto Code Formatter",
+  "description": "Automatically formats code files after edit operations using appropriate formatters",
+  "category": "formatting",
+  "hook_config": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE=$(echo '$TOOL_INPUT' | jq -r '.file_path // empty'); if [[ $FILE == *.ts || $FILE == *.tsx || $FILE == *.js || $FILE == *.jsx ]]; then npx prettier --write \"$FILE\" 2>/dev/null || true; elif [[ $FILE == *.py ]]; then black \"$FILE\" 2>/dev/null || true; elif [[ $FILE == *.go ]]; then gofmt -w \"$FILE\" 2>/dev/null || true; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE=$(echo '$TOOL_INPUT' | jq -r '.file_path // empty'); if [[ $FILE == *.ts || $FILE == *.tsx || $FILE == *.js || $FILE == *.jsx ]]; then npx prettier --write \"$FILE\" 2>/dev/null || true; elif [[ $FILE == *.py ]]; then black \"$FILE\" 2>/dev/null || true; elif [[ $FILE == *.go ]]; then gofmt -w \"$FILE\" 2>/dev/null || true; fi"
+          }
+        ]
+      }
+    ]
+  },
+  "setup_instructions": "This hook automatically formats code after edits. Supports:\n- TypeScript/JavaScript: prettier\n- Python: black\n- Go: gofmt\n\nInstall formatters as needed:\n- npm install -g prettier\n- pip install black",
+  "dependencies": ["jq", "prettier (optional)", "black (optional)", "gofmt (optional)"]
+}

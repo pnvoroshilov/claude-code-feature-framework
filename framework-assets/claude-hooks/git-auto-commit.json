@@ -1,0 +1,29 @@
+{
+  "name": "Git Auto Commit",
+  "description": "Automatically commits changes after file edits with descriptive messages",
+  "category": "version-control",
+  "hook_config": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE=$(echo '$TOOL_INPUT' | jq -r '.file_path // empty'); if [ -n \"$FILE\" ] && [ -f \"$FILE\" ]; then git add \"$FILE\" 2>/dev/null && git commit -m \"Auto-commit: Updated $FILE via Claude Code\" 2>/dev/null || true; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE=$(echo '$TOOL_INPUT' | jq -r '.file_path // empty'); if [ -n \"$FILE\" ] && [ -f \"$FILE\" ]; then git add \"$FILE\" 2>/dev/null && git commit -m \"Auto-commit: Created $FILE via Claude Code\" 2>/dev/null || true; fi"
+          }
+        ]
+      }
+    ]
+  },
+  "setup_instructions": "This hook automatically commits file changes to git. Make sure you're in a git repository. The hook will silently fail if git is not available or file is not in a git repo.",
+  "dependencies": ["git", "jq"]
+}

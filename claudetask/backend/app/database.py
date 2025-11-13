@@ -356,6 +356,56 @@ async def seed_default_skills():
         print(f"Skills: {', '.join([s.name for s in default_skills])}")
 
 
+async def seed_default_hooks():
+    """Seed default hooks catalog from framework-assets/claude-hooks"""
+    from .models import DefaultHook
+    from sqlalchemy import select
+    import json
+    from pathlib import Path
+
+    async with AsyncSessionLocal() as session:
+        # Check if hooks already seeded
+        result = await session.execute(select(DefaultHook))
+        existing_hooks = result.scalars().first()
+
+        if existing_hooks:
+            print("Default hooks already seeded")
+            return
+
+        # Load hooks from framework-assets/claude-hooks directory
+        hooks_dir = Path(__file__).parent.parent.parent.parent / "framework-assets" / "claude-hooks"
+
+        if not hooks_dir.exists():
+            print(f"Warning: Hooks directory not found: {hooks_dir}")
+            return
+
+        hooks_to_seed = []
+
+        for hook_file in hooks_dir.glob("*.json"):
+            try:
+                with open(hook_file, 'r') as f:
+                    hook_data = json.load(f)
+
+                    hooks_to_seed.append(DefaultHook(
+                        name=hook_data['name'],
+                        description=hook_data['description'],
+                        category=hook_data['category'],
+                        file_name=hook_file.name,
+                        hook_config=hook_data['hook_config'],
+                        setup_instructions=hook_data.get('setup_instructions', ''),
+                        dependencies=hook_data.get('dependencies', [])
+                    ))
+            except Exception as e:
+                print(f"Warning: Could not load hook file {hook_file.name}: {e}")
+
+        if hooks_to_seed:
+            session.add_all(hooks_to_seed)
+            await session.commit()
+            print(f"Seeded {len(hooks_to_seed)} default hooks")
+        else:
+            print("No hooks found to seed")
+
+
 async def seed_default_mcp_configs():
     """Seed default MCP configurations from framework-assets"""
     from .models import DefaultMCPConfig

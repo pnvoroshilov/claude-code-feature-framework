@@ -272,6 +272,45 @@ class AgentSkillRecommendation(BaseModel):
     reason: Optional[str] = None
 
 
+# Hook Schemas
+class HookBase(BaseModel):
+    name: str = Field(..., min_length=3, max_length=100)
+    description: str = Field(..., min_length=10, max_length=500)
+    category: str = Field(..., min_length=3, max_length=50)
+
+
+class HookCreate(HookBase):
+    """Schema for creating a custom hook"""
+    hook_config: Dict[str, Any] = Field(..., description="Hook configuration JSON")
+    setup_instructions: Optional[str] = None
+    dependencies: Optional[List[str]] = None
+
+
+class HookInDB(HookBase):
+    id: int
+    hook_type: str  # "default" or "custom"
+    hook_config: Dict[str, Any]  # Hook configuration JSON
+    setup_instructions: Optional[str] = None
+    dependencies: Optional[List[str]] = None
+    is_enabled: bool = False
+    is_favorite: bool = False  # Mark as favorite (shows in Favorites tab)
+    status: Optional[str] = None  # For custom hooks: "creating", "active", "failed"
+    created_by: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class HooksResponse(BaseModel):
+    """Response schema for getting project hooks"""
+    enabled: List[HookInDB]
+    available_default: List[HookInDB]
+    custom: List[HookInDB]
+    favorites: List[HookInDB] = []  # Cross-project favorites
+
+
 # MCP Config Schemas
 class MCPConfigBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=100)
