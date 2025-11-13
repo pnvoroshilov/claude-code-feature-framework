@@ -16,12 +16,66 @@
 - ✅ **Simplified task management** - Focus on getting work done
 - ✅ **No worktrees, no version control complexity**
 
-## Your approach:
-1. When working on tasks, work directly in the main branch
-2. Don't create branches or worktrees
-3. Don't follow the full development workflow
-4. Focus on completing tasks efficiently
-5. Task statuses: Only use Backlog, In Progress, and Done
+## 🔴 CRITICAL: SIMPLE Mode Status Rules
+
+**⚠️ IN SIMPLE MODE, IGNORE ALL INSTRUCTIONS ABOUT:**
+- ❌ Analysis status - Skip directly to In Progress
+- ❌ Testing status - Do NOT auto-transition to Testing
+- ❌ Code Review status - Does not exist in SIMPLE mode
+- ❌ Pull Request status - Does not exist in SIMPLE mode
+- ❌ Worktrees and git branches - Work directly in main branch
+- ❌ Test environment setup - No automatic test server management
+
+## 📊 SIMPLE Mode Status Flow:
+
+### Status Transitions (SIMPLE Mode ONLY):
+```
+Backlog → In Progress → Done
+```
+
+**That's it! No other statuses exist in SIMPLE mode.**
+
+### Status Transition Rules:
+
+#### 1. Backlog → In Progress
+- ✅ User starts working on a task
+- ✅ Task moves to "In Progress"
+- ✅ NO analysis phase
+- ✅ NO worktree creation
+- ✅ Work directly in main branch
+
+#### 2. In Progress → Done
+- ⚠️ **ONLY when user EXPLICITLY requests**: "mark task X as done"
+- ❌ **NEVER auto-transition to Done**
+- ❌ **NO Testing status** in between
+- ❌ **NO Code Review** in between
+- ❌ **NO automatic detection of completion**
+
+#### 3. In Progress → Stay In Progress
+- ✅ If implementation detected, task STAYS "In Progress"
+- ✅ NO auto-transition to Testing or any other status
+- ✅ Wait for user to manually mark as Done
+
+### What Coordinator Should Do in SIMPLE Mode:
+
+**When monitoring tasks:**
+1. Check task queue for new Backlog tasks
+2. If user requests help, assist with the task
+3. **NEVER auto-transition statuses** except Backlog → In Progress (when user starts)
+4. Wait for explicit "mark as done" command
+
+**When user works on task:**
+1. Provide assistance as requested
+2. Do NOT setup test environments
+3. Do NOT create worktrees
+4. Do NOT manage git branches
+5. Work directly in main branch
+
+**When implementation complete:**
+1. Do NOT auto-transition to Testing
+2. Do NOT auto-transition to Done
+3. Task STAYS "In Progress"
+4. Wait for user command: "mark task X as done"
 
 ---
 
@@ -290,9 +344,15 @@ LOOP FOREVER:
 - Respond to user signals and agent completion reports
 
 ### 2. Mandatory Agent Delegation
-**FOR EVERY TASK TYPE - DELEGATE IMMEDIATELY:**
 
-#### Analysis Status Tasks → `business-analyst` AND `systems-analyst`
+**⚠️ IMPORTANT: These delegation rules apply to DEVELOPMENT MODE ONLY.**
+**In SIMPLE mode, skip Analysis phase and delegation - see SIMPLE Mode rules at top of file.**
+
+---
+
+**FOR EVERY TASK TYPE - DELEGATE IMMEDIATELY (DEVELOPMENT MODE):**
+
+#### Analysis Status Tasks → `business-analyst` AND `systems-analyst` (DEVELOPMENT MODE ONLY)
 ```
 ⚠️ WHEN TASK ENTERS "ANALYSIS" STATUS - ALWAYS FOLLOW THIS WORKFLOW:
 
@@ -823,7 +883,28 @@ SPLIT INTO:
 
 ## 📊 Status Management
 
-### Status Flow with Agent Delegation:
+### ⚠️ MODE-SPECIFIC STATUS FLOWS
+
+**🔴 IF PROJECT MODE = SIMPLE (check top of this file):**
+```
+SIMPLE Mode Status Flow:
+Backlog → In Progress → Done
+
+RULES:
+- ❌ NO Analysis, Testing, Code Review, PR statuses
+- ❌ NO auto-transitions except user starting task (Backlog → In Progress)
+- ❌ NO worktrees, branches, test environments
+- ✅ ONLY transition to Done when user explicitly requests
+- ✅ Work directly in main branch
+```
+
+**Refer to "SIMPLE Mode Status Rules" section at the top of this file for complete instructions.**
+
+**Stop reading here if in SIMPLE mode. The rest of this section is for DEVELOPMENT mode only.**
+
+---
+
+### Status Flow with Agent Delegation (DEVELOPMENT MODE ONLY):
 - **Backlog** → Get task → Delegate to analyst → **Analysis**
 - **Analysis** → ⚠️ ALWAYS move to **In Progress** after analysis complete
 - **In Progress** → ⚠️ NO test environment setup → **STOP** (wait for user development)
@@ -832,7 +913,7 @@ SPLIT INTO:
 - **Code Review** → After review complete → **Pull Request** (PR created, no merge)
 - **Pull Request** → ⚠️ NO AUTO ACTIONS → Wait for user
 
-### 🔴 CRITICAL: Testing is MANDATORY after Implementation
+### 🔴 CRITICAL: Testing is MANDATORY after Implementation (DEVELOPMENT MODE)
 **NO EXCEPTIONS - Every implementation MUST go through Testing status**
 
 #### 🔴 CRITICAL STATUS TRANSITION RULES:

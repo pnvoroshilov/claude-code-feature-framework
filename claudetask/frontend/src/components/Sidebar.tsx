@@ -28,6 +28,7 @@ import {
   Description as InstructionsIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
+  History as HistoryIcon,
 } from '@mui/icons-material';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -42,6 +43,7 @@ const menuItems = [
   { text: 'Task Board', icon: <TaskIcon />, path: '/tasks' },
   { text: 'Projects', icon: <ProjectIcon />, path: '/projects' },
   { text: 'Claude Sessions', icon: <TerminalIcon />, path: '/sessions' },
+  { text: 'Claude Code Sessions', icon: <HistoryIcon />, path: '/claude-code-sessions' },
   { text: 'Skills', icon: <SkillsIcon />, path: '/skills' },
   { text: 'MCP Configs', icon: <MCPIcon />, path: '/mcp-configs' },
   { text: 'Subagents', icon: <SubagentIcon />, path: '/subagents' },

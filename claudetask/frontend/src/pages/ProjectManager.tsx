@@ -154,6 +154,13 @@ const ProjectManager: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries('projects');
       queryClient.invalidateQueries('activeProject');
+      setDeleteError(null);
+    },
+    onError: (error: any) => {
+      const errorMessage = error.response?.data?.detail || error.message || 'Unknown error';
+      console.error('Failed to delete project:', error);
+      setDeleteError(errorMessage);
+      setTimeout(() => setDeleteError(null), 5000);
     },
   });
 
@@ -188,6 +195,7 @@ const ProjectManager: React.FC = () => {
     message: string;
     updated_files?: string[];
   } | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleUpdateFramework = async (project: Project) => {
     setUpdateFrameworkLoading(true);
@@ -230,9 +238,19 @@ const ProjectManager: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
+      {deleteError && (
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          onClose={() => setDeleteError(null)}
+        >
+          {deleteError}
+        </Alert>
+      )}
+
       {updateFrameworkResult && (
-        <Alert 
-          severity={updateFrameworkResult.success ? "success" : "error"} 
+        <Alert
+          severity={updateFrameworkResult.success ? "success" : "error"}
           sx={{ mb: 2 }}
           onClose={() => setUpdateFrameworkResult(null)}
         >
