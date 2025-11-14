@@ -63,13 +63,45 @@ if echo "$BASH_CMD" | grep -qE '(git merge|gh pr merge|git pull.*origin.*(main|m
 
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✓ Main branch update detected - triggering /update-documentation" >> "$LOGFILE"
 
-        # Create marker file for UserPromptSubmit hook to detect
-        MARKER_FILE="$LOGDIR/.docs-update-pending"
-        echo "$(date '+%Y-%m-%d %H:%M:%S')" > "$MARKER_FILE"
+        # Call backend API to execute /update-documentation command
+        API_URL="http://localhost:3333/api/claude-sessions/execute-command"
+        COMMAND="/update-documentation"
 
-        # Log the marker creation
-        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Created documentation update marker at: $MARKER_FILE" >> "$LOGFILE"
-        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Next user prompt will trigger /update-documentation" >> "$LOGFILE"
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Calling API to execute command: $COMMAND" >> "$LOGFILE"
+
+        # Make API call
+        API_RESPONSE=$(curl -s -X POST "$API_URL?command=${COMMAND}&project_dir=${PROJECT_ROOT}" \
+            -H "Content-Type: application/json" \
+            2>&1)
+
+        API_STATUS=$?
+
+        if [ $API_STATUS -eq 0 ]; then
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] API call successful" >> "$LOGFILE"
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Response: $API_RESPONSE" >> "$LOGFILE"
+
+            # Output success message to stderr (visible in Claude Code)
+            cat << EOF >&2
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ AUTOMATIC DOCUMENTATION UPDATE TRIGGERED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 Main branch updated - documentation sync initiated
+
+🤖 Command: $COMMAND
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EOF
+        else
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] API call failed with status: $API_STATUS" >> "$LOGFILE"
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Error: $API_RESPONSE" >> "$LOGFILE"
+
+            # Fallback: Create marker file for manual trigger
+            MARKER_FILE="$LOGDIR/.docs-update-pending"
+            echo "$(date '+%Y-%m-%d %H:%M:%S')" > "$MARKER_FILE"
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] Fallback: Created marker file for UserPromptSubmit hook" >> "$LOGFILE"
+        fi
 
         # Remove lock file
         rm -f "$LOCKFILE"

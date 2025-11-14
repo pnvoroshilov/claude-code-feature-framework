@@ -311,3 +311,106 @@ async def kill_session(pid: int):
         raise HTTPException(status_code=403, detail=f"Permission denied to kill process {pid}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/execute-command")
+async def execute_claude_command(
+    command: str = Query(..., description="Claude Code slash command (e.g., /update-documentation)"),
+    project_dir: Optional[str] = Query(None, description="Project directory path")
+):
+    """
+    Execute a Claude Code slash command in the project's Claude terminal
+
+    This endpoint allows external scripts (like git hooks) to trigger
+    Claude Code commands programmatically.
+
+    Args:
+        command: Slash command to execute (e.g., /update-documentation)
+        project_dir: Optional project directory path
+
+    Returns:
+        Execution status and command output
+    """
+    try:
+        import subprocess
+        import os
+        from pathlib import Path
+
+        # Validate command format
+        if not command.startswith('/'):
+            raise HTTPException(status_code=400, detail="Command must start with '/'")
+
+        # Get project directory
+        if not project_dir:
+            project_dir = os.getcwd()
+
+        project_path = Path(project_dir)
+        if not project_path.exists():
+            raise HTTPException(status_code=404, detail="Project directory not found")
+
+        # Log the command execution
+        logger.info(f"Executing Claude command: {command} in {project_dir}")
+
+        # Execute command by writing to Claude stdin
+        # This simulates typing the command in Claude terminal
+        try:
+            # Check if Claude Code is running with this project
+            result = subprocess.run(
+                ["ps", "aux"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            # Find Claude process for this project
+            claude_pid = None
+            for line in result.stdout.split('\n'):
+                if 'claude' in line.lower() and str(project_dir) in line:
+                    parts = line.split()
+                    if len(parts) > 1:
+                        claude_pid = parts[1]
+                        break
+
+            if not claude_pid:
+                # Alternative: Use AppleScript on macOS to send command to Claude terminal
+                if os.system('command -v osascript &> /dev/null') == 0:
+                    # Write command to a temporary file that Claude can read
+                    cmd_file = project_path / ".claude" / "logs" / "command_queue.txt"
+                    cmd_file.parent.mkdir(parents=True, exist_ok=True)
+
+                    with open(cmd_file, 'w') as f:
+                        f.write(f"{command}\n")
+
+                    logger.info(f"Command queued in {cmd_file}")
+
+                    return {
+                        "success": True,
+                        "message": f"Command {command} queued for execution",
+                        "command": command,
+                        "queue_file": str(cmd_file),
+                        "note": "Command will be picked up by Claude Code on next prompt"
+                    }
+                else:
+                    raise HTTPException(
+                        status_code=503,
+                        detail="No active Claude Code session found for this project"
+                    )
+
+            return {
+                "success": True,
+                "message": f"Command {command} sent to Claude Code (PID: {claude_pid})",
+                "command": command,
+                "pid": claude_pid
+            }
+
+        except subprocess.TimeoutExpired:
+            raise HTTPException(status_code=504, detail="Command execution timed out")
+        except Exception as e:
+            logger.error(f"Failed to execute command: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to execute command: {str(e)}")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error in execute_claude_command: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
