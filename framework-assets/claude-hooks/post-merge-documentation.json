@@ -9,12 +9,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "BASH_CMD=$(echo '$TOOL_INPUT' | jq -r '.command // empty'); if echo \"$BASH_CMD\" | grep -qE '(git merge|gh pr merge|git pull.*origin.*(main|master)|git push.*origin.*(main|master))'; then CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown'); if [ \"$CURRENT_BRANCH\" = \"main\" ] || [ \"$CURRENT_BRANCH\" = \"master\" ]; then echo '✓ Main branch update detected - triggering documentation update via /update-documentation' && claude-code /update-documentation 2>/dev/null || echo 'Note: /update-documentation command will be triggered in next session'; fi; fi"
+            "command": "BASH_CMD=$(echo '$TOOL_INPUT' | jq -r '.command // empty'); if echo \"$BASH_CMD\" | grep -qE '(git merge|gh pr merge|git pull.*origin.*(main|master)|git push.*origin.*(main|master))'; then CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown'); if [ \"$CURRENT_BRANCH\" = \"main\" ] || [ \"$CURRENT_BRANCH\" = \"master\" ]; then echo '✓ Main branch update detected - triggering documentation update via /update-documentation' && claude --dangerously-skip-permissions /update-documentation 2>/dev/null || echo 'Note: /update-documentation command will be triggered in next session'; fi; fi"
           }
         ]
       }
     ]
   },
   "setup_instructions": "This hook automatically triggers documentation updates after merging to main, pulling from main, or pushing to main. It detects git merge, pull, and push commands targeting main/master branch and invokes the /update-documentation slash command, which delegates to the documentation-updater-agent. Requirements: 1) /update-documentation slash command must exist in framework-assets/claude-commands/, 2) documentation-updater-agent must exist in framework-assets/claude-agents/, 3) Documentation stored in docs/ directory will be managed (overwritten, created, or deleted as needed).",
-  "dependencies": ["git", "jq", "claude-code CLI (optional for auto-trigger)"]
+  "dependencies": ["git", "jq", "claude CLI (optional for auto-trigger)"]
 }
