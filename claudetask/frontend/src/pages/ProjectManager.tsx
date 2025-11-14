@@ -24,6 +24,10 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
+  Container,
+  useTheme,
+  alpha,
+  Skeleton,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -34,6 +38,7 @@ import {
   PlayArrow as PlayArrowIcon,
   Refresh as RefreshIcon,
   SystemUpdate as SystemUpdateIcon,
+  GitHub as GitHubIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { format } from 'date-fns';
@@ -46,6 +51,7 @@ interface EditProjectDialogProps {
 }
 
 const EditProjectDialog: React.FC<EditProjectDialogProps> = ({ open, onClose, project }) => {
+  const theme = useTheme();
   const [name, setName] = useState('');
   const [githubRepo, setGithubRepo] = useState('');
   const queryClient = useQueryClient();
@@ -79,15 +85,47 @@ const EditProjectDialog: React.FC<EditProjectDialogProps> = ({ open, onClose, pr
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Edit Project</DialogTitle>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          backgroundColor: theme.palette.background.paper,
+          backgroundImage: 'none',
+          border: `1px solid ${theme.palette.divider}`,
+          boxShadow: `0 20px 25px -5px ${alpha(theme.palette.common.black, 0.3)}`,
+        }
+      }}
+    >
+      <DialogTitle sx={{
+        color: theme.palette.text.primary,
+        fontWeight: 600,
+        fontSize: '1.25rem',
+      }}>
+        Edit Project
+      </DialogTitle>
       <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
+        <Stack spacing={3} sx={{ mt: 2 }}>
           <TextField
             label="Project Name"
             fullWidth
             value={name}
             onChange={(e) => setName(e.target.value)}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                color: theme.palette.text.primary,
+                backgroundColor: alpha(theme.palette.background.default, 0.5),
+                '& fieldset': { borderColor: theme.palette.divider },
+                '&:hover fieldset': { borderColor: theme.palette.primary.main },
+                '&.Mui-focused fieldset': { borderColor: theme.palette.primary.main }
+              },
+              '& .MuiInputLabel-root': {
+                color: theme.palette.text.secondary,
+                '&.Mui-focused': { color: theme.palette.primary.main }
+              }
+            }}
           />
           <TextField
             label="GitHub Repository (optional)"
@@ -95,27 +133,72 @@ const EditProjectDialog: React.FC<EditProjectDialogProps> = ({ open, onClose, pr
             value={githubRepo}
             onChange={(e) => setGithubRepo(e.target.value)}
             placeholder="https://github.com/username/repo"
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                color: theme.palette.text.primary,
+                backgroundColor: alpha(theme.palette.background.default, 0.5),
+                '& fieldset': { borderColor: theme.palette.divider },
+                '&:hover fieldset': { borderColor: theme.palette.primary.main },
+                '&.Mui-focused fieldset': { borderColor: theme.palette.primary.main }
+              },
+              '& .MuiInputLabel-root': {
+                color: theme.palette.text.secondary,
+                '&.Mui-focused': { color: theme.palette.primary.main }
+              }
+            }}
           />
           {project && (
-            <Box>
-              <Typography variant="body2" color="text.secondary">
-                Project Path: {project.path}
+            <Box sx={{
+              p: 2,
+              borderRadius: 1,
+              backgroundColor: alpha(theme.palette.primary.main, 0.05),
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+            }}>
+              <Typography variant="body2" sx={{ color: theme.palette.text.secondary, mb: 0.5 }}>
+                <strong>Path:</strong> {project.path}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Tech Stack: {project.tech_stack.join(', ') || 'Not detected'}
+              <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
+                <strong>Tech Stack:</strong> {project.tech_stack.join(', ') || 'Not detected'}
               </Typography>
             </Box>
           )}
         </Stack>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
-        <Button 
-          onClick={handleSave} 
+      <DialogActions sx={{ px: 3, pb: 3 }}>
+        <Button
+          onClick={onClose}
+          sx={{
+            color: theme.palette.text.secondary,
+            textTransform: 'none',
+            fontWeight: 500,
+            px: 2,
+            '&:hover': { backgroundColor: alpha(theme.palette.text.secondary, 0.1) }
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          onClick={handleSave}
           variant="contained"
           disabled={updateMutation.isLoading || !name.trim()}
+          sx={{
+            backgroundColor: theme.palette.primary.main,
+            color: '#ffffff',
+            fontWeight: 600,
+            textTransform: 'none',
+            px: 3,
+            boxShadow: `0 4px 6px ${alpha(theme.palette.primary.main, 0.3)}`,
+            '&:hover': {
+              backgroundColor: theme.palette.primary.dark,
+              boxShadow: `0 6px 8px ${alpha(theme.palette.primary.main, 0.4)}`,
+            },
+            '&:disabled': {
+              backgroundColor: theme.palette.action.disabledBackground,
+              color: theme.palette.action.disabled
+            }
+          }}
         >
-          Save
+          {updateMutation.isLoading ? 'Saving...' : 'Save Changes'}
         </Button>
       </DialogActions>
     </Dialog>
@@ -123,6 +206,7 @@ const EditProjectDialog: React.FC<EditProjectDialogProps> = ({ open, onClose, pr
 };
 
 const ProjectManager: React.FC = () => {
+  const theme = useTheme();
   const [editDialog, setEditDialog] = useState<{ open: boolean; project: Project | null }>({
     open: false,
     project: null,
@@ -134,7 +218,6 @@ const ProjectManager: React.FC = () => {
 
   const queryClient = useQueryClient();
 
-  // Queries
   const { data: projects = [], isLoading, error, refetch } = useQuery<Project[]>(
     'projects',
     getProjects
@@ -142,7 +225,6 @@ const ProjectManager: React.FC = () => {
 
   const { data: activeProject } = useQuery('activeProject', getActiveProject);
 
-  // Mutations
   const activateMutation = useMutation(activateProject, {
     onSuccess: () => {
       queryClient.invalidateQueries('projects');
@@ -220,87 +302,218 @@ const ProjectManager: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Typography>Loading projects...</Typography>
+      <Box sx={{ minHeight: '100vh', pb: 4 }}>
+        <Container maxWidth="xl">
+          <Box py={4}>
+            <Skeleton variant="text" width={200} height={60} sx={{ mb: 2 }} />
+            <Skeleton variant="text" width={400} height={30} sx={{ mb: 4 }} />
+            <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
+          </Box>
+        </Container>
       </Box>
     );
   }
 
   if (error) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">
-          Failed to load projects. Please try again.
-        </Alert>
+      <Box sx={{ minHeight: '100vh', pb: 4 }}>
+        <Container maxWidth="xl">
+          <Box py={4}>
+            <Alert
+              severity="error"
+              sx={{
+                backgroundColor: alpha(theme.palette.error.main, 0.1),
+                border: `1px solid ${alpha(theme.palette.error.main, 0.3)}`,
+                color: theme.palette.error.light,
+                '& .MuiAlert-icon': { color: theme.palette.error.light }
+              }}
+            >
+              Failed to load projects. Please try again.
+            </Alert>
+          </Box>
+        </Container>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      {deleteError && (
-        <Alert
-          severity="error"
-          sx={{ mb: 2 }}
-          onClose={() => setDeleteError(null)}
-        >
-          {deleteError}
-        </Alert>
-      )}
+    <Box sx={{ minHeight: '100vh', pb: 4 }}>
+      <Container maxWidth="xl">
+        <Box py={4}>
+          {/* Page Header */}
+          <Box mb={4}>
+            <Typography
+              variant="h3"
+              component="h1"
+              sx={{
+                fontWeight: 700,
+                background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                mb: 1,
+              }}
+            >
+              Projects
+            </Typography>
+            <Typography variant="body1" color="text.secondary" mb={3}>
+              Manage and configure your ClaudeTask projects
+            </Typography>
 
-      {updateFrameworkResult && (
-        <Alert
-          severity={updateFrameworkResult.success ? "success" : "error"}
-          sx={{ mb: 2 }}
-          onClose={() => setUpdateFrameworkResult(null)}
-        >
-          {updateFrameworkResult.message}
-          {updateFrameworkResult.updated_files && updateFrameworkResult.updated_files.length > 0 && (
-            <Box sx={{ mt: 1 }}>
-              <Typography variant="body2">Updated files:</Typography>
-              <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
-                {updateFrameworkResult.updated_files.slice(0, 5).map((file, index) => (
-                  <li key={index}><Typography variant="caption">{file}</Typography></li>
-                ))}
-                {updateFrameworkResult.updated_files.length > 5 && (
-                  <li><Typography variant="caption">...and {updateFrameworkResult.updated_files.length - 5} more</Typography></li>
-                )}
-              </ul>
-            </Box>
+            {/* Action Buttons */}
+            <Stack direction="row" spacing={2}>
+              <Button
+                startIcon={<RefreshIcon />}
+                onClick={() => refetch()}
+                variant="outlined"
+                sx={{
+                  color: theme.palette.text.secondary,
+                  borderColor: theme.palette.divider,
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  px: 2.5,
+                  '&:hover': {
+                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                    borderColor: theme.palette.primary.main,
+                    color: theme.palette.primary.main,
+                  }
+                }}
+              >
+                Refresh
+              </Button>
+              <Button
+                startIcon={<AddIcon />}
+                variant="contained"
+                onClick={() => window.location.href = '/setup'}
+                sx={{
+                  backgroundColor: theme.palette.primary.main,
+                  color: '#ffffff',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  px: 3,
+                  boxShadow: `0 4px 6px ${alpha(theme.palette.primary.main, 0.3)}`,
+                  '&:hover': {
+                    backgroundColor: theme.palette.primary.dark,
+                    boxShadow: `0 6px 8px ${alpha(theme.palette.primary.main, 0.4)}`,
+                  }
+                }}
+              >
+                New Project
+              </Button>
+            </Stack>
+          </Box>
+
+          {/* Alerts */}
+          {deleteError && (
+            <Alert
+              severity="error"
+              sx={{
+                mb: 3,
+                backgroundColor: alpha(theme.palette.error.main, 0.1),
+                border: `1px solid ${alpha(theme.palette.error.main, 0.3)}`,
+                color: theme.palette.error.light,
+                '& .MuiAlert-icon': { color: theme.palette.error.light }
+              }}
+              onClose={() => setDeleteError(null)}
+            >
+              {deleteError}
+            </Alert>
           )}
-        </Alert>
-      )}
-      
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Typography variant="h4" component="h1">
-          Project Manager
-        </Typography>
-        <Stack direction="row" spacing={2}>
-          <Button
-            startIcon={<RefreshIcon />}
-            onClick={() => refetch()}
-            variant="outlined"
-          >
-            Refresh
-          </Button>
-          <Button
-            startIcon={<AddIcon />}
-            variant="contained"
-            onClick={() => window.location.href = '/setup'}
-          >
-            New Project
-          </Button>
-        </Stack>
-      </Stack>
 
-      {activeProject && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          Active Project: <strong>{activeProject.name}</strong> ({activeProject.path})
-        </Alert>
-      )}
+          {updateFrameworkResult && (
+            <Alert
+              severity={updateFrameworkResult.success ? "success" : "error"}
+              sx={{
+                mb: 3,
+                ...(updateFrameworkResult.success ? {
+                  backgroundColor: alpha(theme.palette.success.main, 0.1),
+                  border: `1px solid ${alpha(theme.palette.success.main, 0.3)}`,
+                  color: theme.palette.success.light,
+                  '& .MuiAlert-icon': { color: theme.palette.success.light }
+                } : {
+                  backgroundColor: alpha(theme.palette.error.main, 0.1),
+                  border: `1px solid ${alpha(theme.palette.error.main, 0.3)}`,
+                  color: theme.palette.error.light,
+                  '& .MuiAlert-icon': { color: theme.palette.error.light }
+                })
+              }}
+              onClose={() => setUpdateFrameworkResult(null)}
+            >
+              {updateFrameworkResult.message}
+              {updateFrameworkResult.updated_files && updateFrameworkResult.updated_files.length > 0 && (
+                <Box sx={{ mt: 1 }}>
+                  <Typography variant="body2">Updated files:</Typography>
+                  <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
+                    {updateFrameworkResult.updated_files.slice(0, 5).map((file, index) => (
+                      <li key={index}><Typography variant="caption">{file}</Typography></li>
+                    ))}
+                    {updateFrameworkResult.updated_files.length > 5 && (
+                      <li><Typography variant="caption">...and {updateFrameworkResult.updated_files.length - 5} more</Typography></li>
+                    )}
+                  </ul>
+                </Box>
+              )}
+            </Alert>
+          )}
 
-      <TableContainer component={Paper}>
-        <Table>
+          {activeProject && (
+            <Alert
+              icon={<FolderIcon />}
+              severity="info"
+              sx={{
+                mb: 3,
+                backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
+                color: theme.palette.primary.light,
+                '& .MuiAlert-icon': { color: theme.palette.primary.light }
+              }}
+            >
+              <Typography variant="body2">
+                <strong>Active Project:</strong> {activeProject.name} • {activeProject.path}
+              </Typography>
+            </Alert>
+          )}
+
+          {/* Projects Table */}
+          <TableContainer
+            component={Paper}
+            elevation={0}
+            sx={{
+              backgroundColor: theme.palette.background.paper,
+              border: `1px solid ${theme.palette.divider}`,
+              borderRadius: 2,
+              overflow: 'hidden',
+            }}
+          >
+            <Table
+              sx={{
+                '& .MuiTableHead-root': {
+                  backgroundColor: alpha(theme.palette.background.default, 0.5),
+                  '& .MuiTableCell-root': {
+                    color: theme.palette.text.secondary,
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    fontSize: '0.75rem',
+                    letterSpacing: '0.05em',
+                    borderBottom: `1px solid ${theme.palette.divider}`,
+                    py: 2,
+                  }
+                },
+                '& .MuiTableBody-root': {
+                  '& .MuiTableRow-root': {
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                      transform: 'scale(1.001)',
+                    }
+                  },
+                  '& .MuiTableCell-root': {
+                    color: theme.palette.text.primary,
+                    borderBottom: `1px solid ${theme.palette.divider}`,
+                    py: 2.5,
+                  }
+                }
+              }}
+            >
           <TableHead>
             <TableRow>
               <TableCell>Name</TableCell>
@@ -316,14 +529,25 @@ const ProjectManager: React.FC = () => {
             {projects.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} align="center">
-                  <Box sx={{ py: 4 }}>
-                    <FolderIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                    <Typography variant="h6" color="text.secondary">
+                  <Box sx={{ py: 8 }}>
+                    <FolderIcon sx={{ fontSize: 64, color: theme.palette.text.disabled, mb: 2 }} />
+                    <Typography variant="h6" sx={{ color: theme.palette.text.secondary, mb: 1, fontWeight: 600 }}>
                       No projects found
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: theme.palette.text.disabled, mb: 3 }}>
                       Create your first project to get started
                     </Typography>
+                    <Button
+                      variant="outlined"
+                      startIcon={<AddIcon />}
+                      onClick={() => window.location.href = '/setup'}
+                      sx={{
+                        textTransform: 'none',
+                        fontWeight: 600,
+                      }}
+                    >
+                      Create Project
+                    </Button>
                   </Box>
                 </TableCell>
               </TableRow>
@@ -331,17 +555,36 @@ const ProjectManager: React.FC = () => {
               projects.map((project) => (
                 <TableRow key={project.id}>
                   <TableCell>
-                    <Typography variant="subtitle2">{project.name}</Typography>
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <Box sx={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 1.5,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                        border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                      }}>
+                        <FolderIcon sx={{ color: theme.palette.primary.main, fontSize: 20 }} />
+                      </Box>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
+                        {project.name}
+                      </Typography>
+                    </Stack>
                   </TableCell>
                   <TableCell>
-                    <Tooltip title={project.path}>
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          maxWidth: 200, 
-                          overflow: 'hidden', 
+                    <Tooltip title={project.path} placement="top">
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          maxWidth: 250,
+                          overflow: 'hidden',
                           textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap' 
+                          whiteSpace: 'nowrap',
+                          color: theme.palette.text.secondary,
+                          fontFamily: 'monospace',
+                          fontSize: '0.85rem',
                         }}
                       >
                         {project.path}
@@ -349,12 +592,34 @@ const ProjectManager: React.FC = () => {
                     </Tooltip>
                   </TableCell>
                   <TableCell>
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                    <Stack direction="row" spacing={0.5} flexWrap="wrap" gap={0.5}>
                       {project.tech_stack.slice(0, 2).map((tech) => (
-                        <Chip key={tech} label={tech} size="small" variant="outlined" />
+                        <Chip
+                          key={tech}
+                          label={tech}
+                          size="small"
+                          sx={{
+                            borderColor: theme.palette.divider,
+                            color: theme.palette.text.secondary,
+                            backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                            fontWeight: 500,
+                            fontSize: '0.75rem',
+                            '&:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.15) }
+                          }}
+                        />
                       ))}
                       {project.tech_stack.length > 2 && (
-                        <Chip label={`+${project.tech_stack.length - 2}`} size="small" />
+                        <Chip
+                          label={`+${project.tech_stack.length - 2}`}
+                          size="small"
+                          sx={{
+                            borderColor: theme.palette.divider,
+                            color: theme.palette.text.secondary,
+                            backgroundColor: alpha(theme.palette.text.secondary, 0.1),
+                            fontWeight: 600,
+                            fontSize: '0.75rem',
+                          }}
+                        />
                       )}
                     </Stack>
                   </TableCell>
@@ -362,14 +627,21 @@ const ProjectManager: React.FC = () => {
                     {project.github_repo ? (
                       <Button
                         size="small"
+                        startIcon={<GitHubIcon />}
                         href={project.github_repo}
                         target="_blank"
                         rel="noopener noreferrer"
+                        sx={{
+                          color: theme.palette.primary.main,
+                          textTransform: 'none',
+                          fontWeight: 500,
+                          '&:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.1) }
+                        }}
                       >
                         View Repo
                       </Button>
                     ) : (
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{ color: theme.palette.text.disabled, fontStyle: 'italic' }}>
                         Not set
                       </Typography>
                     )}
@@ -377,12 +649,25 @@ const ProjectManager: React.FC = () => {
                   <TableCell>
                     <Chip
                       label={project.is_active ? 'Active' : 'Inactive'}
-                      color={project.is_active ? 'success' : 'default'}
                       size="small"
+                      sx={{
+                        ...(project.is_active ? {
+                          backgroundColor: alpha(theme.palette.success.main, 0.15),
+                          color: theme.palette.success.light,
+                          borderColor: alpha(theme.palette.success.main, 0.3),
+                          border: '1px solid',
+                          fontWeight: 600,
+                        } : {
+                          backgroundColor: alpha(theme.palette.text.secondary, 0.1),
+                          color: theme.palette.text.secondary,
+                          borderColor: alpha(theme.palette.text.secondary, 0.2),
+                          border: '1px solid',
+                        })
+                      }}
                     />
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">
+                    <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>
                       {format(new Date(project.created_at), 'MMM dd, yyyy')}
                     </Typography>
                   </TableCell>
@@ -390,6 +675,15 @@ const ProjectManager: React.FC = () => {
                     <IconButton
                       onClick={(e) => handleMenuClick(e, project)}
                       size="small"
+                      sx={{
+                        color: theme.palette.text.secondary,
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                          color: theme.palette.primary.main,
+                          transform: 'scale(1.1)',
+                        }
+                      }}
                     >
                       <MoreVertIcon />
                     </IconButton>
@@ -401,37 +695,72 @@ const ProjectManager: React.FC = () => {
         </Table>
       </TableContainer>
 
+        </Box>
+      </Container>
+
       {/* Context Menu */}
       <Menu
         anchorEl={menuAnchor.element}
         open={Boolean(menuAnchor.element)}
         onClose={handleMenuClose}
+        PaperProps={{
+          sx: {
+            backgroundColor: theme.palette.background.paper,
+            border: `1px solid ${theme.palette.divider}`,
+            boxShadow: `0 10px 15px -3px ${alpha(theme.palette.common.black, 0.3)}`,
+            minWidth: 200,
+            '& .MuiMenuItem-root': {
+              color: theme.palette.text.primary,
+              py: 1.5,
+              px: 2,
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                color: theme.palette.primary.main,
+                '& .MuiListItemIcon-root': {
+                  color: theme.palette.primary.main,
+                }
+              }
+            }
+          }
+        }}
       >
         {menuAnchor.project && !menuAnchor.project.is_active && (
           <MenuItem onClick={() => handleActivate(menuAnchor.project!)}>
             <ListItemIcon>
-              <PlayArrowIcon fontSize="small" />
+              <PlayArrowIcon fontSize="small" sx={{ color: theme.palette.text.secondary }} />
             </ListItemIcon>
-            <ListItemText>Activate</ListItemText>
+            <ListItemText primaryTypographyProps={{ fontWeight: 500 }}>Activate Project</ListItemText>
           </MenuItem>
         )}
         <MenuItem onClick={() => handleUpdateFramework(menuAnchor.project!)}>
           <ListItemIcon>
-            <SystemUpdateIcon fontSize="small" />
+            <SystemUpdateIcon fontSize="small" sx={{ color: theme.palette.text.secondary }} />
           </ListItemIcon>
-          <ListItemText>Update Framework</ListItemText>
+          <ListItemText primaryTypographyProps={{ fontWeight: 500 }}>Update Framework</ListItemText>
         </MenuItem>
         <MenuItem onClick={() => handleEdit(menuAnchor.project!)}>
           <ListItemIcon>
-            <EditIcon fontSize="small" />
+            <EditIcon fontSize="small" sx={{ color: theme.palette.text.secondary }} />
           </ListItemIcon>
-          <ListItemText>Edit</ListItemText>
+          <ListItemText primaryTypographyProps={{ fontWeight: 500 }}>Edit Project</ListItemText>
         </MenuItem>
-        <MenuItem onClick={() => handleDelete(menuAnchor.project!)}>
+        <MenuItem
+          onClick={() => handleDelete(menuAnchor.project!)}
+          sx={{
+            '&:hover': {
+              backgroundColor: alpha(theme.palette.error.main, 0.1),
+              color: `${theme.palette.error.main} !important`,
+              '& .MuiListItemIcon-root': {
+                color: `${theme.palette.error.main} !important`,
+              }
+            }
+          }}
+        >
           <ListItemIcon>
-            <DeleteIcon fontSize="small" />
+            <DeleteIcon fontSize="small" sx={{ color: theme.palette.error.main }} />
           </ListItemIcon>
-          <ListItemText>Delete</ListItemText>
+          <ListItemText primaryTypographyProps={{ fontWeight: 500, color: theme.palette.error.main }}>Delete Project</ListItemText>
         </MenuItem>
       </Menu>
 

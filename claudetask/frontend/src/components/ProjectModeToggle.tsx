@@ -61,7 +61,7 @@ const ProjectModeToggle: React.FC = () => {
       <Typography
         variant="body2"
         sx={{
-          color: 'text.secondary',
+          color: '#94a3b8',
           fontWeight: 500,
           display: { xs: 'none', sm: 'block' },
         }}
@@ -108,7 +108,7 @@ const ProjectModeToggle: React.FC = () => {
       <Typography
         variant="caption"
         sx={{
-          color: 'text.secondary',
+          color: '#94a3b8',
           display: { xs: 'none', md: 'block' },
         }}
       >

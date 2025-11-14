@@ -30,6 +30,12 @@ import {
   InputAdornment,
   Avatar,
   CardActionArea,
+  Stack,
+  Container,
+  alpha,
+  useTheme,
+  Paper,
+  Badge,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -37,6 +43,10 @@ import CodeIcon from '@mui/icons-material/Code';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import SearchIcon from '@mui/icons-material/Search';
+import CloseIcon from '@mui/icons-material/Close';
+import SettingsIcon from '@mui/icons-material/Settings';
+import CloudIcon from '@mui/icons-material/Cloud';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import axios from 'axios';
 import { useProject } from '../context/ProjectContext';
 
@@ -69,7 +79,9 @@ type FilterType = 'all' | 'default' | 'custom' | 'favorite' | 'enabled';
 
 const MCPConfigs: React.FC = () => {
   const { selectedProject } = useProject();
+  const theme = useTheme();
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [filterQuery, setFilterQuery] = useState('');
   const [configs, setConfigs] = useState<MCPConfigsResponse>({
     enabled: [],
     available_default: [],
@@ -284,15 +296,21 @@ const MCPConfigs: React.FC = () => {
 
   // Filter configs based on active filter
   const getFilteredConfigs = (): MCPConfig[] => {
+    let filtered: MCPConfig[] = [];
+
     switch (activeFilter) {
       case 'default':
-        return configs.available_default;
+        filtered = configs.available_default;
+        break;
       case 'custom':
-        return configs.custom;
+        filtered = configs.custom;
+        break;
       case 'favorite':
-        return configs.favorites;
+        filtered = configs.favorites;
+        break;
       case 'enabled':
-        return configs.enabled;
+        filtered = configs.enabled;
+        break;
       case 'all':
       default:
         // Combine all unique configs (avoiding duplicates by id)
@@ -301,14 +319,34 @@ const MCPConfigs: React.FC = () => {
           ...configs.custom,
         ];
         // Remove duplicates by id
-        const uniqueConfigs = allConfigs.filter(
+        filtered = allConfigs.filter(
           (config, index, self) => self.findIndex(c => c.id === config.id && c.mcp_config_type === config.mcp_config_type) === index
         );
-        return uniqueConfigs;
     }
+
+    // Apply search filter
+    if (filterQuery.trim()) {
+      const query = filterQuery.toLowerCase();
+      filtered = filtered.filter(
+        config =>
+          config.name.toLowerCase().includes(query) ||
+          config.description.toLowerCase().includes(query) ||
+          config.category.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
   };
 
   const filteredConfigs = getFilteredConfigs();
+
+  // Statistics
+  const stats = {
+    total: configs.available_default.length + configs.custom.length,
+    enabled: configs.enabled.length,
+    favorites: configs.favorites.length,
+    custom: configs.custom.length,
+  };
 
   const MCPConfigCard: React.FC<{
     config: MCPConfig;
@@ -323,46 +361,159 @@ const MCPConfigs: React.FC = () => {
     showSaveToFavorites = false,
     showRemoveFromFavorites = false,
   }) => (
-    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <CardContent sx={{ flexGrow: 1 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="start" mb={1}>
-          <Box flexGrow={1}>
-            <Typography variant="h6" component="div" gutterBottom>
-              {config.name}
-            </Typography>
-            <Chip
-              label={config.category}
-              size="small"
-              color="primary"
-              variant="outlined"
-              sx={{ mb: 1 }}
-            />
+    <Card
+      sx={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+        overflow: 'visible',
+        background: `linear-gradient(145deg, ${alpha(theme.palette.background.paper, 0.9)}, ${alpha(theme.palette.background.paper, 0.7)})`,
+        border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+        borderRadius: 3,
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        '&:hover': {
+          transform: 'translateY(-8px)',
+          borderColor: alpha(theme.palette.primary.main, 0.3),
+          boxShadow: `0 20px 40px ${alpha(theme.palette.primary.main, 0.15)}`,
+        },
+      }}
+    >
+      {/* Status indicator bar */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 4,
+          background: config.is_enabled
+            ? `linear-gradient(90deg, ${theme.palette.success.main}, ${theme.palette.success.light})`
+            : `linear-gradient(90deg, ${alpha(theme.palette.text.disabled, 0.3)}, ${alpha(theme.palette.text.disabled, 0.1)})`,
+          borderTopLeftRadius: 12,
+          borderTopRightRadius: 12,
+        }}
+      />
+
+      <CardContent sx={{ flexGrow: 1, pt: 3 }}>
+        {/* Header */}
+        <Box display="flex" justifyContent="space-between" alignItems="start" mb={2}>
+          <Box display="flex" alignItems="start" gap={1.5} flexGrow={1}>
+            <Box
+              sx={{
+                width: 48,
+                height: 48,
+                borderRadius: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.15)}, ${alpha(theme.palette.primary.main, 0.05)})`,
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+              }}
+            >
+              <SettingsIcon sx={{ color: theme.palette.primary.main, fontSize: 28 }} />
+            </Box>
+            <Box flexGrow={1}>
+              <Typography
+                variant="h6"
+                component="div"
+                sx={{
+                  fontWeight: 700,
+                  fontSize: '1.1rem',
+                  mb: 0.5,
+                  color: theme.palette.text.primary,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                }}
+              >
+                {config.name}
+                {config.is_enabled && (
+                  <Tooltip title="Enabled">
+                    <CheckCircleIcon sx={{ fontSize: 20, color: theme.palette.success.main }} />
+                  </Tooltip>
+                )}
+              </Typography>
+              <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                <Chip
+                  label={config.category}
+                  size="small"
+                  sx={{
+                    height: 22,
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)}, ${alpha(theme.palette.primary.main, 0.05)})`,
+                    border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                    color: theme.palette.primary.main,
+                  }}
+                />
+                <Chip
+                  label={config.mcp_config_type === 'default' ? 'Default' : 'Custom'}
+                  size="small"
+                  sx={{
+                    height: 22,
+                    fontSize: '0.7rem',
+                    fontWeight: 500,
+                    bgcolor: alpha(theme.palette.info.main, 0.1),
+                    color: theme.palette.info.main,
+                    border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
+                  }}
+                />
+              </Stack>
+            </Box>
           </Box>
-          <Box display="flex" gap={1} alignItems="center">
+
+          {/* Action Icons */}
+          <Stack direction="row" spacing={0.5}>
             {config.status && config.status !== 'active' && (
               <Chip
                 label={config.status}
                 size="small"
-                color={config.status === 'creating' ? 'info' : 'error'}
+                sx={{
+                  height: 22,
+                  fontSize: '0.7rem',
+                  fontWeight: 600,
+                  ...(config.status === 'creating' ? {
+                    backgroundColor: alpha(theme.palette.info.main, 0.15),
+                    color: theme.palette.info.light,
+                  } : {
+                    backgroundColor: alpha(theme.palette.error.main, 0.15),
+                    color: theme.palette.error.light,
+                  })
+                }}
               />
             )}
             <Tooltip title="View Config JSON">
               <IconButton
                 size="small"
-                color="primary"
                 onClick={() => handleViewConfig(config)}
+                sx={{
+                  color: theme.palette.primary.main,
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                    transform: 'scale(1.1)',
+                  }
+                }}
               >
-                <CodeIcon />
+                <CodeIcon fontSize="small" />
               </IconButton>
             </Tooltip>
             {showSaveToFavorites && (
               <Tooltip title="Add to Favorites">
                 <IconButton
                   size="small"
-                  sx={{ color: 'warning.main' }}
                   onClick={() => handleSaveToFavorites(config.id, config.name, config.mcp_config_type as 'default' | 'custom')}
+                  sx={{
+                    color: theme.palette.warning.main,
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.warning.main, 0.1),
+                      transform: 'scale(1.1)',
+                    }
+                  }}
                 >
-                  <StarBorderIcon />
+                  <StarBorderIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
             )}
@@ -370,29 +521,61 @@ const MCPConfigs: React.FC = () => {
               <Tooltip title="Remove from Favorites">
                 <IconButton
                   size="small"
-                  color="warning"
                   onClick={() => handleRemoveFromFavorites(config.id, config.name, config.mcp_config_type as 'default' | 'custom')}
+                  sx={{
+                    color: theme.palette.warning.main,
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.warning.main, 0.1),
+                      transform: 'scale(1.1)',
+                    }
+                  }}
                 >
-                  <StarIcon />
+                  <StarIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
             )}
             {showDelete && (
-              <IconButton
-                size="small"
-                color="error"
-                onClick={() => handleDeleteConfig(config.id)}
-              >
-                <DeleteIcon />
-              </IconButton>
+              <Tooltip title="Delete Config">
+                <IconButton
+                  size="small"
+                  onClick={() => handleDeleteConfig(config.id)}
+                  sx={{
+                    color: theme.palette.error.main,
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.error.main, 0.1),
+                      transform: 'scale(1.1)',
+                    }
+                  }}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             )}
-          </Box>
+          </Stack>
         </Box>
 
-        <Typography variant="body2" color="text.secondary" paragraph>
+        <Divider sx={{ my: 2, borderColor: alpha(theme.palette.divider, 0.5) }} />
+
+        {/* Description */}
+        <Typography
+          variant="body2"
+          sx={{
+            color: theme.palette.text.secondary,
+            mb: 2,
+            lineHeight: 1.6,
+            minHeight: '48px',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
           {config.description}
         </Typography>
 
+        {/* Toggle Switch */}
         {showToggle && (
           <FormControlLabel
             control={
@@ -406,9 +589,21 @@ const MCPConfigs: React.FC = () => {
                   }
                 }}
                 disabled={config.status === 'creating'}
+                sx={{
+                  '& .MuiSwitch-switchBase.Mui-checked': {
+                    color: theme.palette.success.main,
+                  },
+                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                    backgroundColor: theme.palette.success.main,
+                  },
+                }}
               />
             }
-            label={config.is_enabled ? 'Enabled' : 'Enable'}
+            label={
+              <Typography variant="body2" fontWeight={600} color={config.is_enabled ? 'success.main' : 'text.secondary'}>
+                {config.is_enabled ? 'Enabled' : 'Enable'}
+              </Typography>
+            }
             sx={{ mt: 1 }}
           />
         )}
@@ -419,21 +614,65 @@ const MCPConfigs: React.FC = () => {
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
+        <CircularProgress sx={{ color: '#6366f1' }} />
       </Box>
     );
   }
 
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">MCP Configurations</Typography>
-        <Box>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      {/* Header Section */}
+      <Box sx={{ mb: 5 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+          <Box>
+            <Typography
+              variant="h3"
+              component="h1"
+              sx={{
+                fontWeight: 700,
+                background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                mb: 1,
+              }}
+            >
+              MCP Configurations
+            </Typography>
+            <Typography
+              variant="body1"
+              sx={{
+                color: alpha(theme.palette.text.secondary, 0.8),
+                maxWidth: '600px',
+              }}
+            >
+              Manage Model Context Protocol servers for enhanced AI capabilities
+            </Typography>
+          </Box>
           <Button
             variant="contained"
             startIcon={<AddIcon />}
             onClick={(e) => setAddMenuAnchor(e.currentTarget)}
             disabled={!selectedProject?.id}
+            sx={{
+              background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+              color: '#fff',
+              fontWeight: 600,
+              textTransform: 'none',
+              px: 3,
+              py: 1.5,
+              borderRadius: 2,
+              boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
+                transform: 'translateY(-2px)',
+                boxShadow: `0 6px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
+              },
+              '&:disabled': {
+                background: alpha(theme.palette.action.disabledBackground, 0.3),
+                color: alpha(theme.palette.text.disabled, 0.5),
+              },
+            }}
           >
             Add MCP
           </Button>
@@ -441,6 +680,23 @@ const MCPConfigs: React.FC = () => {
             anchorEl={addMenuAnchor}
             open={Boolean(addMenuAnchor)}
             onClose={() => setAddMenuAnchor(null)}
+            PaperProps={{
+              sx: {
+                backgroundColor: theme.palette.background.paper,
+                border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                borderRadius: 2,
+                mt: 1,
+                '& .MuiMenuItem-root': {
+                  color: theme.palette.text.primary,
+                  borderRadius: 1,
+                  mx: 1,
+                  my: 0.5,
+                  '&:hover': {
+                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                  },
+                },
+              },
+            }}
           >
             <MenuItem
               onClick={() => {
@@ -448,7 +704,7 @@ const MCPConfigs: React.FC = () => {
                 setSearchDialogOpen(true);
               }}
             >
-              <SearchIcon sx={{ mr: 1 }} />
+              <SearchIcon sx={{ mr: 1.5, color: theme.palette.primary.main }} />
               Search from mcp.so
             </MenuItem>
             <MenuItem
@@ -457,69 +713,273 @@ const MCPConfigs: React.FC = () => {
                 setCreateDialogOpen(true);
               }}
             >
-              <AddIcon sx={{ mr: 1 }} />
+              <AddIcon sx={{ mr: 1.5, color: theme.palette.primary.main }} />
               Create Custom
             </MenuItem>
           </Menu>
         </Box>
       </Box>
 
+      {/* Alerts */}
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert
+          severity="error"
+          sx={{
+            mb: 3,
+            backgroundColor: alpha(theme.palette.error.main, 0.1),
+            border: `1px solid ${alpha(theme.palette.error.main, 0.3)}`,
+            borderRadius: 2,
+            '& .MuiAlert-icon': { color: theme.palette.error.main },
+          }}
+          onClose={() => setError(null)}
+        >
           {error}
         </Alert>
       )}
 
       {!selectedProject?.id && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
+        <Alert
+          severity="warning"
+          sx={{
+            mb: 3,
+            backgroundColor: alpha(theme.palette.warning.main, 0.1),
+            border: `1px solid ${alpha(theme.palette.warning.main, 0.3)}`,
+            borderRadius: 2,
+            '& .MuiAlert-icon': { color: theme.palette.warning.main },
+          }}
+        >
           No active project found. Please go to Projects and activate a project first.
         </Alert>
       )}
 
-      <Alert severity="info" sx={{ mb: 3 }}>
+      <Alert
+        severity="info"
+        sx={{
+          mb: 4,
+          backgroundColor: alpha(theme.palette.info.main, 0.1),
+          border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
+          borderRadius: 2,
+          '& .MuiAlert-icon': { color: theme.palette.info.main },
+        }}
+      >
         <Typography variant="body2">
           <strong>Note:</strong> After enabling/disabling MCP configs, you need to restart Claude Code for changes to take effect.
           The configurations are merged into your project's .mcp.json file.
         </Typography>
       </Alert>
 
-      {/* Filter Buttons */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
-        <ToggleButtonGroup
-          value={activeFilter}
-          exclusive
-          onChange={(_, newFilter) => newFilter && setActiveFilter(newFilter)}
-          aria-label="MCP filter"
-        >
-          <ToggleButton value="all" aria-label="all">
-            All ({configs.available_default.length + configs.custom.length})
-          </ToggleButton>
-          <ToggleButton value="default" aria-label="default">
-            Default ({configs.available_default.length})
-          </ToggleButton>
-          <ToggleButton value="custom" aria-label="custom">
-            Custom ({configs.custom.length})
-          </ToggleButton>
-          <ToggleButton value="favorite" aria-label="favorite">
-            Favorites ({configs.favorites.length})
-          </ToggleButton>
-          <ToggleButton value="enabled" aria-label="enabled">
-            Enabled ({configs.enabled.length})
-          </ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
+      {/* Statistics Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {[
+          { label: 'Total MCPs', value: stats.total, color: theme.palette.primary.main, icon: <CloudIcon /> },
+          { label: 'Enabled', value: stats.enabled, color: theme.palette.success.main, icon: <CheckCircleIcon /> },
+          { label: 'Favorites', value: stats.favorites, color: theme.palette.warning.main, icon: <StarIcon /> },
+          { label: 'Custom', value: stats.custom, color: theme.palette.info.main, icon: <SettingsIcon /> },
+        ].map((stat, index) => (
+          <Grid item xs={12} sm={6} md={3} key={index}>
+            <Paper
+              sx={{
+                p: 2.5,
+                borderRadius: 2,
+                background: `linear-gradient(145deg, ${alpha(stat.color, 0.05)}, ${alpha(stat.color, 0.02)})`,
+                border: `1px solid ${alpha(stat.color, 0.15)}`,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: `0 8px 16px ${alpha(stat.color, 0.2)}`,
+                },
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    background: `linear-gradient(135deg, ${alpha(stat.color, 0.2)}, ${alpha(stat.color, 0.1)})`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {React.cloneElement(stat.icon as React.ReactElement, {
+                    sx: { color: stat.color, fontSize: 28 },
+                  })}
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography
+                    variant="h4"
+                    sx={{
+                      fontWeight: 700,
+                      color: stat.color,
+                      mb: 0.5,
+                    }}
+                  >
+                    {stat.value}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: alpha(theme.palette.text.secondary, 0.8),
+                      fontWeight: 500,
+                    }}
+                  >
+                    {stat.label}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Paper>
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* Search and Filter Bar */}
+      <Paper
+        sx={{
+          p: 3,
+          mb: 4,
+          borderRadius: 2,
+          background: alpha(theme.palette.background.paper, 0.6),
+          border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+        }}
+      >
+        <Stack spacing={3}>
+          {/* Search */}
+          <TextField
+            fullWidth
+            placeholder="Search MCP configs by name, description, or category..."
+            value={filterQuery}
+            onChange={(e) => setFilterQuery(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: alpha(theme.palette.text.secondary, 0.5) }} />
+                </InputAdornment>
+              ),
+              endAdornment: filterQuery && (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    onClick={() => setFilterQuery('')}
+                    sx={{ color: alpha(theme.palette.text.secondary, 0.5) }}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                backgroundColor: alpha(theme.palette.background.default, 0.5),
+                borderRadius: 2,
+                '& fieldset': {
+                  borderColor: alpha(theme.palette.divider, 0.1),
+                },
+                '&:hover fieldset': {
+                  borderColor: alpha(theme.palette.primary.main, 0.3),
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: theme.palette.primary.main,
+                },
+              },
+            }}
+          />
+
+          {/* Filter Toggles */}
+          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <ToggleButtonGroup
+              value={activeFilter}
+              exclusive
+              onChange={(_, newFilter) => newFilter && setActiveFilter(newFilter)}
+              aria-label="MCP filter"
+              sx={{
+                '& .MuiToggleButton-root': {
+                  color: alpha(theme.palette.text.secondary, 0.7),
+                  borderColor: alpha(theme.palette.divider, 0.1),
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  px: 3,
+                  py: 1,
+                  borderRadius: 2,
+                  '&:hover': {
+                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                    borderColor: alpha(theme.palette.primary.main, 0.3),
+                  },
+                  '&.Mui-selected': {
+                    background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.2)}, ${alpha(theme.palette.primary.main, 0.1)})`,
+                    color: theme.palette.primary.main,
+                    borderColor: alpha(theme.palette.primary.main, 0.5),
+                    fontWeight: 600,
+                    '&:hover': {
+                      background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.3)}, ${alpha(theme.palette.primary.main, 0.15)})`,
+                    },
+                  },
+                },
+              }}
+            >
+              <ToggleButton value="all" aria-label="all">
+                All ({configs.available_default.length + configs.custom.length})
+              </ToggleButton>
+              <ToggleButton value="default" aria-label="default">
+                Default ({configs.available_default.length})
+              </ToggleButton>
+              <ToggleButton value="custom" aria-label="custom">
+                Custom ({configs.custom.length})
+              </ToggleButton>
+              <ToggleButton value="favorite" aria-label="favorite">
+                Favorites ({configs.favorites.length})
+              </ToggleButton>
+              <ToggleButton value="enabled" aria-label="enabled">
+                Enabled ({configs.enabled.length})
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+        </Stack>
+      </Paper>
 
       {/* MCP Configs Grid */}
       <Grid container spacing={3}>
         {filteredConfigs.length === 0 ? (
           <Grid item xs={12}>
-            <Alert severity="info">
-              {activeFilter === 'all' && 'No MCP configs available.'}
-              {activeFilter === 'default' && 'No default MCP configs available.'}
-              {activeFilter === 'custom' && 'No custom MCP configs created yet. Click "Add Custom MCP" to add your own.'}
-              {activeFilter === 'favorite' && 'No favorite MCP configs yet. Add MCP servers to favorites by clicking the star icon.'}
-              {activeFilter === 'enabled' && 'No MCP configs enabled yet. Enable configs by toggling the switch.'}
-            </Alert>
+            <Paper
+              sx={{
+                p: 6,
+                textAlign: 'center',
+                borderRadius: 2,
+                background: alpha(theme.palette.background.paper, 0.4),
+                border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+              }}
+            >
+              <CloudIcon
+                sx={{
+                  fontSize: 64,
+                  color: alpha(theme.palette.text.secondary, 0.3),
+                  mb: 2,
+                }}
+              />
+              <Typography
+                variant="h6"
+                sx={{
+                  color: alpha(theme.palette.text.secondary, 0.7),
+                  mb: 1,
+                }}
+              >
+                {activeFilter === 'all' && 'No MCP configs available'}
+                {activeFilter === 'default' && 'No default MCP configs available'}
+                {activeFilter === 'custom' && 'No custom MCP configs created yet'}
+                {activeFilter === 'favorite' && 'No favorite MCP configs yet'}
+                {activeFilter === 'enabled' && 'No MCP configs enabled yet'}
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: alpha(theme.palette.text.secondary, 0.5),
+                }}
+              >
+                {activeFilter === 'custom' && 'Click "Add MCP" to create your own custom configuration'}
+                {activeFilter === 'favorite' && 'Add MCP servers to favorites by clicking the star icon'}
+                {activeFilter === 'enabled' && 'Enable configs by toggling the switch on any MCP card'}
+              </Typography>
+            </Paper>
           </Grid>
         ) : (
           filteredConfigs.map((config) => (
@@ -542,10 +1002,26 @@ const MCPConfigs: React.FC = () => {
         onClose={() => !creating && setCreateDialogOpen(false)}
         maxWidth="md"
         fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: '#1e293b',
+            backgroundImage: 'none',
+            border: '1px solid #334155',
+          }
+        }}
       >
-        <DialogTitle>Add Custom MCP Server</DialogTitle>
+        <DialogTitle sx={{ color: '#e2e8f0' }}>Add Custom MCP Server</DialogTitle>
         <DialogContent>
-          <Alert severity="info" sx={{ mb: 2 }}>
+          <Alert
+            severity="info"
+            sx={{
+              mb: 2,
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              color: '#60a5fa',
+              '& .MuiAlert-icon': { color: '#60a5fa' }
+            }}
+          >
             <Typography variant="body2">
               Add a custom MCP server configuration. The config will be merged into your project's .mcp.json file.
               Make sure to restart Claude Code after enabling/disabling MCP configs.
@@ -561,7 +1037,23 @@ const MCPConfigs: React.FC = () => {
             onChange={(e) => setNewConfigName(e.target.value)}
             disabled={creating}
             helperText="e.g., 'my-custom-server' (will be used as key in mcpServers)"
-            sx={{ mb: 2 }}
+            sx={{
+              mb: 2,
+              '& .MuiOutlinedInput-root': {
+                color: '#e2e8f0',
+                backgroundColor: '#0f172a',
+                '& fieldset': { borderColor: '#334155' },
+                '&:hover fieldset': { borderColor: '#475569' },
+                '&.Mui-focused fieldset': { borderColor: '#6366f1' }
+              },
+              '& .MuiInputLabel-root': {
+                color: '#94a3b8',
+                '&.Mui-focused': { color: '#6366f1' }
+              },
+              '& .MuiFormHelperText-root': {
+                color: '#64748b'
+              }
+            }}
           />
           <TextField
             margin="dense"
@@ -572,7 +1064,23 @@ const MCPConfigs: React.FC = () => {
             onChange={(e) => setNewConfigDescription(e.target.value)}
             disabled={creating}
             helperText="Describe what this MCP server provides"
-            sx={{ mb: 2 }}
+            sx={{
+              mb: 2,
+              '& .MuiOutlinedInput-root': {
+                color: '#e2e8f0',
+                backgroundColor: '#0f172a',
+                '& fieldset': { borderColor: '#334155' },
+                '&:hover fieldset': { borderColor: '#475569' },
+                '&.Mui-focused fieldset': { borderColor: '#6366f1' }
+              },
+              '& .MuiInputLabel-root': {
+                color: '#94a3b8',
+                '&.Mui-focused': { color: '#6366f1' }
+              },
+              '& .MuiFormHelperText-root': {
+                color: '#64748b'
+              }
+            }}
           />
           <TextField
             margin="dense"
@@ -583,7 +1091,23 @@ const MCPConfigs: React.FC = () => {
             onChange={(e) => setNewConfigCategory(e.target.value)}
             disabled={creating}
             helperText="e.g., 'development', 'testing', 'productivity'"
-            sx={{ mb: 2 }}
+            sx={{
+              mb: 2,
+              '& .MuiOutlinedInput-root': {
+                color: '#e2e8f0',
+                backgroundColor: '#0f172a',
+                '& fieldset': { borderColor: '#334155' },
+                '&:hover fieldset': { borderColor: '#475569' },
+                '&.Mui-focused fieldset': { borderColor: '#6366f1' }
+              },
+              '& .MuiInputLabel-root': {
+                color: '#94a3b8',
+                '&.Mui-focused': { color: '#6366f1' }
+              },
+              '& .MuiFormHelperText-root': {
+                color: '#64748b'
+              }
+            }}
           />
           <TextField
             margin="dense"
@@ -596,19 +1120,53 @@ const MCPConfigs: React.FC = () => {
             onChange={(e) => setNewConfigJson(e.target.value)}
             disabled={creating}
             helperText="MCP server configuration in JSON format (must include 'command' field)"
-            sx={{ fontFamily: 'monospace' }}
+            sx={{
+              fontFamily: 'monospace',
+              '& .MuiOutlinedInput-root': {
+                color: '#e2e8f0',
+                backgroundColor: '#0f172a',
+                fontFamily: 'monospace',
+                '& fieldset': { borderColor: '#334155' },
+                '&:hover fieldset': { borderColor: '#475569' },
+                '&.Mui-focused fieldset': { borderColor: '#6366f1' }
+              },
+              '& .MuiInputLabel-root': {
+                color: '#94a3b8',
+                '&.Mui-focused': { color: '#6366f1' }
+              },
+              '& .MuiFormHelperText-root': {
+                color: '#64748b'
+              }
+            }}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateDialogOpen(false)} disabled={creating}>
+          <Button
+            onClick={() => setCreateDialogOpen(false)}
+            disabled={creating}
+            sx={{
+              color: '#94a3b8',
+              textTransform: 'none',
+              fontWeight: 500,
+              '&:hover': { backgroundColor: 'rgba(148, 163, 184, 0.1)' }
+            }}
+          >
             Cancel
           </Button>
           <Button
             onClick={handleCreateConfig}
             variant="contained"
             disabled={!newConfigName || !newConfigDescription || !newConfigJson || creating}
+            sx={{
+              backgroundColor: '#6366f1',
+              color: '#ffffff',
+              fontWeight: 600,
+              textTransform: 'none',
+              '&:hover': { backgroundColor: '#4f46e5' },
+              '&:disabled': { backgroundColor: '#334155', color: '#64748b' }
+            }}
           >
-            {creating ? <CircularProgress size={24} /> : 'Create'}
+            {creating ? <CircularProgress size={24} sx={{ color: '#ffffff' }} /> : 'Create'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -619,22 +1177,48 @@ const MCPConfigs: React.FC = () => {
         onClose={() => setViewConfigDialogOpen(false)}
         maxWidth="md"
         fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: '#1e293b',
+            backgroundImage: 'none',
+            border: '1px solid #334155',
+          }
+        }}
       >
-        <DialogTitle>MCP Configuration: {selectedConfig?.name}</DialogTitle>
+        <DialogTitle sx={{ color: '#e2e8f0' }}>MCP Configuration: {selectedConfig?.name}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" paragraph>
+          <Typography variant="body2" sx={{ color: '#94a3b8', mb: 2 }}>
             {selectedConfig?.description}
           </Typography>
           <Box sx={{ mb: 2 }}>
-            <Chip label={selectedConfig?.category} size="small" color="primary" sx={{ mr: 1 }} />
-            <Chip label={selectedConfig?.mcp_config_type} size="small" variant="outlined" />
+            <Chip
+              label={selectedConfig?.category}
+              size="small"
+              sx={{
+                mr: 1,
+                borderColor: '#6366f1',
+                color: '#6366f1',
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+              }}
+            />
+            <Chip
+              label={selectedConfig?.mcp_config_type}
+              size="small"
+              variant="outlined"
+              sx={{
+                borderColor: '#334155',
+                color: '#94a3b8',
+                backgroundColor: 'rgba(51, 65, 85, 0.3)',
+              }}
+            />
           </Box>
-          <Typography variant="subtitle2" gutterBottom>
+          <Typography variant="subtitle2" gutterBottom sx={{ color: '#e2e8f0', fontWeight: 600 }}>
             Configuration JSON:
           </Typography>
           <Box
             sx={{
-              bgcolor: 'grey.100',
+              bgcolor: '#0f172a',
+              border: '1px solid #334155',
               p: 2,
               borderRadius: 1,
               fontFamily: 'monospace',
@@ -643,13 +1227,23 @@ const MCPConfigs: React.FC = () => {
               maxHeight: '400px',
             }}
           >
-            <pre style={{ margin: 0 }}>
+            <pre style={{ margin: 0, color: '#e2e8f0' }}>
               {JSON.stringify(selectedConfig?.config, null, 2)}
             </pre>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setViewConfigDialogOpen(false)}>Close</Button>
+          <Button
+            onClick={() => setViewConfigDialogOpen(false)}
+            sx={{
+              color: '#94a3b8',
+              textTransform: 'none',
+              fontWeight: 500,
+              '&:hover': { backgroundColor: 'rgba(148, 163, 184, 0.1)' }
+            }}
+          >
+            Close
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -659,8 +1253,15 @@ const MCPConfigs: React.FC = () => {
         onClose={() => setSearchDialogOpen(false)}
         maxWidth="md"
         fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: '#1e293b',
+            backgroundImage: 'none',
+            border: '1px solid #334155',
+          }
+        }}
       >
-        <DialogTitle>Search MCP Servers from mcp.so</DialogTitle>
+        <DialogTitle sx={{ color: '#e2e8f0' }}>Search MCP Servers from mcp.so</DialogTitle>
         <DialogContent>
           <Box sx={{ mb: 2 }}>
             <TextField
@@ -673,10 +1274,19 @@ const MCPConfigs: React.FC = () => {
                   handleSearchMCP();
                 }
               }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  color: '#e2e8f0',
+                  backgroundColor: '#0f172a',
+                  '& fieldset': { borderColor: '#334155' },
+                  '&:hover fieldset': { borderColor: '#475569' },
+                  '&.Mui-focused fieldset': { borderColor: '#6366f1' }
+                }
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchIcon />
+                    <SearchIcon sx={{ color: '#94a3b8' }} />
                   </InputAdornment>
                 ),
                 endAdornment: (
@@ -684,8 +1294,15 @@ const MCPConfigs: React.FC = () => {
                     <Button
                       onClick={handleSearchMCP}
                       disabled={!searchQuery.trim() || searching}
+                      sx={{
+                        color: '#94a3b8',
+                        textTransform: 'none',
+                        fontWeight: 500,
+                        '&:hover': { backgroundColor: 'rgba(99, 102, 241, 0.1)', color: '#6366f1' },
+                        '&:disabled': { color: '#64748b' }
+                      }}
                     >
-                      {searching ? <CircularProgress size={20} /> : 'Search'}
+                      {searching ? <CircularProgress size={20} sx={{ color: '#6366f1' }} /> : 'Search'}
                     </Button>
                   </InputAdornment>
                 ),
@@ -694,20 +1311,30 @@ const MCPConfigs: React.FC = () => {
           </Box>
 
           {searchError && (
-            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSearchError(null)}>
+            <Alert
+              severity="error"
+              sx={{
+                mb: 2,
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                color: '#f87171',
+                '& .MuiAlert-icon': { color: '#f87171' }
+              }}
+              onClose={() => setSearchError(null)}
+            >
               {searchError}
             </Alert>
           )}
 
           {searching && (
             <Box display="flex" justifyContent="center" p={4}>
-              <CircularProgress />
+              <CircularProgress sx={{ color: '#6366f1' }} />
             </Box>
           )}
 
           {!searching && searchResults.length > 0 && (
             <>
-              <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ mt: 2, color: '#e2e8f0', fontWeight: 600 }}>
                 Found {searchResults.length} MCP servers:
               </Typography>
               <Grid container spacing={2} sx={{ maxHeight: '500px', overflow: 'auto', mt: 1 }}>
@@ -719,10 +1346,13 @@ const MCPConfigs: React.FC = () => {
                         display: 'flex',
                         flexDirection: 'column',
                         cursor: 'pointer',
+                        backgroundColor: '#0f172a',
+                        border: '1px solid #334155',
                         '&:hover': {
-                          boxShadow: 6,
+                          borderColor: '#6366f1',
                           transform: 'translateY(-4px)',
-                          transition: 'all 0.3s ease-in-out'
+                          transition: 'all 0.3s ease-in-out',
+                          boxShadow: '0 10px 15px -3px rgba(99, 102, 241, 0.1), 0 4px 6px -2px rgba(99, 102, 241, 0.05)'
                         }
                       }}
                     >
@@ -739,18 +1369,19 @@ const MCPConfigs: React.FC = () => {
                             {!server.avatar_url && (server.title || server.name).charAt(0).toUpperCase()}
                           </Avatar>
                           <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography variant="h6" component="div" noWrap>
+                            <Typography variant="h6" component="div" noWrap sx={{ color: '#e2e8f0', fontWeight: 600 }}>
                               {server.title || server.name}
                             </Typography>
                             {server.author_name && (
-                              <Typography variant="caption" color="text.secondary">
+                              <Typography variant="caption" sx={{ color: '#94a3b8' }}>
                                 by {server.author_name}
                               </Typography>
                             )}
                           </Box>
                         </Box>
                         <CardContent sx={{ pt: 0, width: '100%', flex: 1 }}>
-                          <Typography variant="body2" color="text.secondary" sx={{
+                          <Typography variant="body2" sx={{
+                            color: '#94a3b8',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             display: '-webkit-box',
@@ -769,13 +1400,31 @@ const MCPConfigs: React.FC = () => {
           )}
 
           {!searching && searchResults.length === 0 && searchQuery && (
-            <Alert severity="info">
+            <Alert
+              severity="info"
+              sx={{
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                border: '1px solid rgba(59, 130, 246, 0.3)',
+                color: '#60a5fa',
+                '& .MuiAlert-icon': { color: '#60a5fa' }
+              }}
+            >
               No results found. Try a different search term.
             </Alert>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSearchDialogOpen(false)}>Close</Button>
+          <Button
+            onClick={() => setSearchDialogOpen(false)}
+            sx={{
+              color: '#94a3b8',
+              textTransform: 'none',
+              fontWeight: 500,
+              '&:hover': { backgroundColor: 'rgba(148, 163, 184, 0.1)' }
+            }}
+          >
+            Close
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -785,11 +1434,24 @@ const MCPConfigs: React.FC = () => {
         onClose={() => setGithubInfoDialogOpen(false)}
         maxWidth="sm"
         fullWidth
+        PaperProps={{
+          sx: {
+            backgroundColor: '#1e293b',
+            backgroundImage: 'none',
+            border: '1px solid #334155',
+          }
+        }}
       >
-        <DialogTitle>MCP Configuration Not Found</DialogTitle>
+        <DialogTitle sx={{ color: '#e2e8f0' }}>MCP Configuration Not Found</DialogTitle>
         <DialogContent>
           {selectedServerInfo && (
-            <Card sx={{ mt: 2 }}>
+            <Card
+              sx={{
+                mt: 2,
+                backgroundColor: '#0f172a',
+                border: '1px solid #334155',
+              }}
+            >
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                   <Avatar
@@ -800,22 +1462,31 @@ const MCPConfigs: React.FC = () => {
                     {!selectedServerInfo.avatar_url && (selectedServerInfo.title || selectedServerInfo.name).charAt(0).toUpperCase()}
                   </Avatar>
                   <Box>
-                    <Typography variant="h6">
+                    <Typography variant="h6" sx={{ color: '#e2e8f0', fontWeight: 600 }}>
                       {selectedServerInfo.title || selectedServerInfo.name}
                     </Typography>
                     {selectedServerInfo.author_name && (
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{ color: '#94a3b8' }}>
                         by {selectedServerInfo.author_name}
                       </Typography>
                     )}
                   </Box>
                 </Box>
 
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                <Typography variant="body2" sx={{ color: '#94a3b8', mb: 2 }}>
                   {selectedServerInfo.description}
                 </Typography>
 
-                <Alert severity="info" sx={{ mb: 2 }}>
+                <Alert
+                  severity="info"
+                  sx={{
+                    mb: 2,
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    color: '#60a5fa',
+                    '& .MuiAlert-icon': { color: '#60a5fa' }
+                  }}
+                >
                   Configuration not available. Please visit the GitHub repository to find installation instructions and configuration details.
                 </Alert>
 
@@ -826,6 +1497,13 @@ const MCPConfigs: React.FC = () => {
                     fullWidth
                     startIcon={<CodeIcon />}
                     onClick={() => window.open(selectedServerInfo.github_url, '_blank')}
+                    sx={{
+                      backgroundColor: '#6366f1',
+                      color: '#ffffff',
+                      fontWeight: 600,
+                      textTransform: 'none',
+                      '&:hover': { backgroundColor: '#4f46e5' }
+                    }}
                   >
                     Open GitHub Repository
                   </Button>
@@ -835,11 +1513,20 @@ const MCPConfigs: React.FC = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setGithubInfoDialogOpen(false)}>Close</Button>
+          <Button
+            onClick={() => setGithubInfoDialogOpen(false)}
+            sx={{
+              color: '#94a3b8',
+              textTransform: 'none',
+              fontWeight: 500,
+              '&:hover': { backgroundColor: 'rgba(148, 163, 184, 0.1)' }
+            }}
+          >
+            Close
+          </Button>
           <Button
             variant="outlined"
             onClick={() => {
-              // Provide empty template for manual configuration
               const emptyConfig = {
                 command: "npx",
                 args: ["-y", `${selectedServerInfo?.name || 'package'}`]
@@ -851,12 +1538,23 @@ const MCPConfigs: React.FC = () => {
               setGithubInfoDialogOpen(false);
               setCreateDialogOpen(true);
             }}
+            sx={{
+              color: '#94a3b8',
+              border: '1px solid #334155',
+              textTransform: 'none',
+              fontWeight: 500,
+              '&:hover': {
+                backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                borderColor: '#6366f1',
+                color: '#6366f1',
+              }
+            }}
           >
             Configure Manually
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Container>
   );
 };
 

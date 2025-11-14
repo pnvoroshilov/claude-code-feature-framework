@@ -1,49 +1,48 @@
 import React from 'react';
-import { Card, CardContent, Box, Typography, alpha, useTheme } from '@mui/material';
-import { SvgIconComponent } from '@mui/icons-material';
+import { Paper, Box, Typography, alpha, useTheme } from '@mui/material';
+import { TrendingUp, TrendingDown } from '@mui/icons-material';
 
 interface MetricCardProps {
   title: string;
   value: number | string;
-  icon: SvgIconComponent;
-  color?: 'primary' | 'success' | 'warning' | 'error' | 'info';
+  icon: React.ReactNode;
+  color: string; // Theme color (e.g., theme.palette.primary.main)
   subtitle?: string;
   trend?: {
-    value: number;
-    isPositive: boolean;
+    value: string;
+    direction: 'up' | 'down';
   };
+  onClick?: () => void;
 }
 
 const MetricCard: React.FC<MetricCardProps> = ({
   title,
   value,
-  icon: Icon,
-  color = 'primary',
+  icon,
+  color,
   subtitle,
   trend,
+  onClick,
 }) => {
   const theme = useTheme();
 
-  const colorMap = {
-    primary: theme.palette.primary.main,
-    success: theme.palette.success.main,
-    warning: theme.palette.warning.main,
-    error: theme.palette.error.main,
-    info: theme.palette.info.main,
-  };
-
-  const selectedColor = colorMap[color];
-
   return (
-    <Card
+    <Paper
+      onClick={onClick}
       sx={{
-        height: '100%',
+        p: 3,
+        borderRadius: 2,
+        background: `linear-gradient(145deg, ${alpha(color, 0.05)}, ${alpha(color, 0.02)})`,
+        border: `1px solid ${alpha(color, 0.15)}`,
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         position: 'relative',
         overflow: 'hidden',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        cursor: onClick ? 'pointer' : 'default',
+        height: '100%',
         '&:hover': {
           transform: 'translateY(-4px)',
-          boxShadow: theme.shadows[8],
+          boxShadow: `0 12px 24px -6px ${alpha(color, 0.2)}`,
+          border: `1px solid ${alpha(color, 0.3)}`,
         },
         '&::before': {
           content: '""',
@@ -51,92 +50,85 @@ const MetricCard: React.FC<MetricCardProps> = ({
           top: 0,
           left: 0,
           right: 0,
-          height: '4px',
-          background: `linear-gradient(90deg, ${selectedColor} 0%, ${alpha(
-            selectedColor,
-            0.6
-          )} 100%)`,
+          height: 4,
+          background: `linear-gradient(90deg, ${color}, ${alpha(color, 0.5)})`,
         },
       }}
     >
-      <CardContent sx={{ p: 3 }}>
+      <Box display="flex" alignItems="start" justifyContent="space-between" mb={2}>
         <Box
           sx={{
+            width: 48,
+            height: 48,
+            borderRadius: 2,
             display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            mb: 2,
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: `linear-gradient(135deg, ${alpha(color, 0.2)}, ${alpha(color, 0.1)})`,
+            border: `1px solid ${alpha(color, 0.3)}`,
           }}
         >
-          <Box sx={{ flex: 1 }}>
-            <Typography
-              variant="body2"
-              color="text.secondary"
+          {React.isValidElement(icon) ? (
+            React.cloneElement(icon as React.ReactElement, {
+              sx: { color: color, fontSize: 24 },
+            })
+          ) : (
+            icon
+          )}
+        </Box>
+      </Box>
+
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        gutterBottom
+        sx={{ fontSize: '0.85rem' }}
+      >
+        {title}
+      </Typography>
+
+      <Typography variant="h3" sx={{ fontWeight: 700, color: color, mb: 0.5 }}>
+        {value}
+      </Typography>
+
+      {subtitle && (
+        <Typography variant="caption" color="text.secondary">
+          {subtitle}
+        </Typography>
+      )}
+
+      {trend && (
+        <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, gap: 0.5 }}>
+          {trend.direction === 'up' ? (
+            <TrendingUp
               sx={{
-                fontWeight: 500,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                fontSize: '0.75rem',
-                mb: 1,
+                fontSize: 16,
+                color: theme.palette.success.main,
               }}
-            >
-              {title}
-            </Typography>
-            <Typography
-              variant="h3"
+            />
+          ) : (
+            <TrendingDown
               sx={{
-                fontWeight: 700,
-                color: 'text.primary',
-                lineHeight: 1,
-                mb: 0.5,
+                fontSize: 16,
+                color: theme.palette.error.main,
               }}
-            >
-              {value}
-            </Typography>
-            {subtitle && (
-              <Typography variant="body2" color="text.secondary">
-                {subtitle}
-              </Typography>
-            )}
-            {trend && (
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: trend.isPositive ? 'success.main' : 'error.main',
-                    fontWeight: 600,
-                    mr: 0.5,
-                  }}
-                >
-                  {trend.isPositive ? '+' : '-'}
-                  {Math.abs(trend.value)}%
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  vs last period
-                </Typography>
-              </Box>
-            )}
-          </Box>
-          <Box
+            />
+          )}
+          <Typography
+            variant="caption"
             sx={{
-              width: 56,
-              height: 56,
-              borderRadius: 2,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: `linear-gradient(135deg, ${selectedColor} 0%, ${alpha(
-                selectedColor,
-                0.7
-              )} 100%)`,
-              boxShadow: `0 8px 16px ${alpha(selectedColor, 0.3)}`,
+              color: trend.direction === 'up' ? 'success.main' : 'error.main',
+              fontWeight: 600,
             }}
           >
-            <Icon sx={{ fontSize: 32, color: 'white' }} />
-          </Box>
+            {trend.value}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            vs last period
+          </Typography>
         </Box>
-      </CardContent>
-    </Card>
+      )}
+    </Paper>
   );
 };
 

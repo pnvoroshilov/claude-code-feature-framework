@@ -26,6 +26,16 @@ import {
   Menu,
   Tooltip,
   Snackbar,
+  Container,
+  alpha,
+  useTheme,
+  Paper,
+  Stack,
+  InputAdornment,
+  ToggleButtonGroup,
+  ToggleButton,
+  Badge,
+  Divider,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -42,6 +52,11 @@ import {
   Edit as EditIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
+  Search as SearchIcon,
+  FilterList as FilterListIcon,
+  CalendarToday as CalendarIcon,
+  Person as PersonIcon,
+  Timeline as TimelineIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { getTasks, createTask, updateTask, updateTaskStatus, deleteTask, Task, getActiveSessions, createClaudeSession, sendCommandToSession } from '../services/api';
@@ -66,7 +81,10 @@ const developmentStatusColumns = [
   { status: 'Done', title: 'Done', color: '#darkgreen' },
 ];
 
+type ViewMode = 'kanban' | 'list';
+
 const TaskBoard: React.FC = () => {
+  const theme = useTheme();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [taskDetailsOpen, setTaskDetailsOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -88,6 +106,9 @@ const TaskBoard: React.FC = () => {
     analysis: string;
   }>({ title: '', description: '', analysis: '' });
   const [saveLoading, setSaveLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('kanban');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'feature' | 'bug'>('all');
 
   const queryClient = useQueryClient();
 
@@ -177,7 +198,7 @@ const TaskBoard: React.FC = () => {
     updateStatusMutation.mutate({ taskId, status: newStatus }, {
       onSuccess: async () => {
         setSnackbar({ open: true, message: `Task moved to ${newStatus}`, severity: 'success' });
-        
+
         // Auto-send /start-feature command when task moves to "In Progress"
         if (newStatus === 'In Progress') {
           try {
@@ -186,19 +207,19 @@ const TaskBoard: React.FC = () => {
             // Ensure sessions is an array (extra safety check)
             const sessionsArray = Array.isArray(sessions) ? sessions : [];
             let targetSession = sessionsArray.find(s => s.task_id === taskId);
-            
+
             if (!targetSession && sessionsArray.length > 0) {
               // If no session for this task but there are active sessions, use the first one
               targetSession = sessionsArray[0];
             }
-            
+
             if (targetSession) {
               // Send /start-feature command to existing session
               await sendCommandToSession(targetSession.session_id, `/start-feature ${taskId}`);
-              setSnackbar({ 
-                open: true, 
-                message: `Task moved to ${newStatus} and /start-feature command sent to Claude session`, 
-                severity: 'success' 
+              setSnackbar({
+                open: true,
+                message: `Task moved to ${newStatus} and /start-feature command sent to Claude session`,
+                severity: 'success'
               });
             } else {
               // Create new Claude session and send command
@@ -209,42 +230,42 @@ const TaskBoard: React.FC = () => {
                   setTimeout(async () => {
                     try {
                       await sendCommandToSession(sessionResult.session_id, `/start-feature ${taskId}`);
-                      setSnackbar({ 
-                        open: true, 
-                        message: `Task moved to ${newStatus}, new Claude session created, and /start-feature command sent`, 
-                        severity: 'success' 
+                      setSnackbar({
+                        open: true,
+                        message: `Task moved to ${newStatus}, new Claude session created, and /start-feature command sent`,
+                        severity: 'success'
                       });
                     } catch (error) {
                       console.error('Failed to send /start-feature command:', error);
-                      setSnackbar({ 
-                        open: true, 
-                        message: `Task moved to ${newStatus} and Claude session created, but failed to send /start-feature command`, 
-                        severity: 'warning' 
+                      setSnackbar({
+                        open: true,
+                        message: `Task moved to ${newStatus} and Claude session created, but failed to send /start-feature command`,
+                        severity: 'warning'
                       });
                     }
                   }, 2000);
                 } else {
-                  setSnackbar({ 
-                    open: true, 
-                    message: `Task moved to ${newStatus} but failed to create Claude session: ${sessionResult.error}`, 
-                    severity: 'warning' 
+                  setSnackbar({
+                    open: true,
+                    message: `Task moved to ${newStatus} but failed to create Claude session: ${sessionResult.error}`,
+                    severity: 'warning'
                   });
                 }
               } catch (error) {
                 console.error('Failed to create Claude session:', error);
-                setSnackbar({ 
-                  open: true, 
-                  message: `Task moved to ${newStatus} but failed to create Claude session`, 
-                  severity: 'warning' 
+                setSnackbar({
+                  open: true,
+                  message: `Task moved to ${newStatus} but failed to create Claude session`,
+                  severity: 'warning'
                 });
               }
             }
           } catch (error) {
             console.error('Failed to handle Claude session for In Progress task:', error);
-            setSnackbar({ 
-              open: true, 
-              message: `Task moved to ${newStatus} but failed to handle Claude session`, 
-              severity: 'warning' 
+            setSnackbar({
+              open: true,
+              message: `Task moved to ${newStatus} but failed to handle Claude session`,
+              severity: 'warning'
             });
           }
         }
@@ -352,7 +373,7 @@ const TaskBoard: React.FC = () => {
       handleStatusChange(task.id, newStatus);
     }
     handleStatusMenuClose();
-    
+
     // Update selected task in detail dialog if it's the same task
     if (selectedTask && selectedTask.id === task.id) {
       setSelectedTask({ ...selectedTask, status: newStatus as Task['status'] });
@@ -362,7 +383,7 @@ const TaskBoard: React.FC = () => {
   const handleConfirmStatusChange = () => {
     if (confirmAction) {
       handleStatusChange(confirmAction.task.id, confirmAction.newStatus);
-      
+
       // Update selected task in detail dialog if it's the same task
       if (selectedTask && selectedTask.id === confirmAction.task.id) {
         setSelectedTask({ ...selectedTask, status: confirmAction.newStatus as Task['status'] });
@@ -422,7 +443,7 @@ const TaskBoard: React.FC = () => {
         ...(descriptionTrimmed && { description: descriptionTrimmed }),
         ...(analysisTrimmed && { analysis: analysisTrimmed })
       };
-      
+
       await updateTaskMutation.mutateAsync({
         taskId: selectedTask.id,
         data: updateData
@@ -463,9 +484,27 @@ const TaskBoard: React.FC = () => {
     });
   };
 
-
   const getTasksByStatus = (status: string) => {
-    return tasks?.filter(task => task.status === status) || [];
+    let filtered = tasks?.filter(task => task.status === status) || [];
+
+    // Apply type filter
+    if (activeFilter !== 'all') {
+      filtered = filtered.filter(task =>
+        task.type.toLowerCase() === activeFilter
+      );
+    }
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(task =>
+        task.title.toLowerCase().includes(query) ||
+        task.description?.toLowerCase().includes(query) ||
+        task.id.toString().includes(query)
+      );
+    }
+
+    return filtered;
   };
 
   const getPriorityColor = (priority: string) => {
@@ -477,22 +516,214 @@ const TaskBoard: React.FC = () => {
     }
   };
 
+  const getStatusColor = (status: string) => {
+    const column = statusColumns.find(c => c.status === status);
+    return column?.color || '#grey';
+  };
+
+  // Statistics
+  const stats = {
+    total: tasks?.length || 0,
+    features: tasks?.filter(t => t.type === 'Feature').length || 0,
+    bugs: tasks?.filter(t => t.type === 'Bug').length || 0,
+    inProgress: tasks?.filter(t => t.status === 'In Progress').length || 0,
+  };
+
+  // Task Card Component with modern design
+  const TaskCard: React.FC<{ task: Task }> = ({ task }) => (
+    <Card
+      sx={{
+        mb: 2,
+        position: 'relative',
+        overflow: 'visible',
+        background: theme.palette.mode === 'dark'
+          ? `linear-gradient(145deg, ${alpha(theme.palette.background.paper, 0.9)}, ${alpha(theme.palette.background.paper, 0.95)})`
+          : theme.palette.background.paper,
+        border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        cursor: 'pointer',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: theme.palette.mode === 'dark'
+            ? `0 12px 24px -6px ${alpha(theme.palette.primary.main, 0.3)}`
+            : `0 12px 24px -6px ${alpha(theme.palette.primary.main, 0.15)}`,
+          border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
+        },
+      }}
+      onClick={() => handleTaskClick(task)}
+    >
+      {/* Status indicator bar */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 4,
+          background: `linear-gradient(90deg, ${getStatusColor(task.status)}, ${alpha(getStatusColor(task.status), 0.7)})`,
+          borderTopLeftRadius: 12,
+          borderTopRightRadius: 12,
+        }}
+      />
+
+      <CardContent sx={{ pt: 3 }}>
+        {/* Header with icon */}
+        <Box display="flex" alignItems="start" gap={1.5} mb={2}>
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.2)}, ${alpha(theme.palette.primary.light, 0.1)})`,
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+            }}
+          >
+            {task.type === 'Bug' ? (
+              <BugIcon sx={{ color: theme.palette.error.main, fontSize: 22 }} />
+            ) : (
+              <CodeIcon sx={{ color: theme.palette.primary.main, fontSize: 22 }} />
+            )}
+          </Box>
+          <Box flexGrow={1}>
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 600,
+                fontSize: '1rem',
+                mb: 0.5,
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }}
+            >
+              #{task.id} - {task.title}
+            </Typography>
+            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+              <Chip
+                label={task.status}
+                size="small"
+                sx={{
+                  height: 22,
+                  fontSize: '0.7rem',
+                  fontWeight: 500,
+                  background: `linear-gradient(135deg, ${alpha(getStatusColor(task.status), 0.2)}, ${alpha(getStatusColor(task.status), 0.1)})`,
+                  border: `1px solid ${alpha(getStatusColor(task.status), 0.3)}`,
+                  color: getStatusColor(task.status),
+                }}
+              />
+            </Stack>
+          </Box>
+          <Box>
+            <IconButton
+              size="small"
+              onClick={(e) => handleStatusMenuOpen(e, task)}
+              sx={{
+                color: theme.palette.text.secondary,
+                '&:hover': {
+                  background: alpha(theme.palette.primary.main, 0.1),
+                },
+              }}
+            >
+              <MoreIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        </Box>
+
+        {/* Priority and Type Chips */}
+        <Stack direction="row" spacing={1} mb={2}>
+          <Chip
+            label={task.priority}
+            size="small"
+            color={getPriorityColor(task.priority) as any}
+            sx={{
+              height: 24,
+              fontSize: '0.75rem',
+              fontWeight: 500,
+            }}
+          />
+          <Chip
+            label={task.type}
+            size="small"
+            variant="outlined"
+            sx={{
+              height: 24,
+              fontSize: '0.75rem',
+              fontWeight: 500,
+            }}
+          />
+        </Stack>
+
+        {/* Description */}
+        {task.description && (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{
+              mb: 2,
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              lineHeight: 1.5,
+            }}
+          >
+            {task.description}
+          </Typography>
+        )}
+
+        <Divider sx={{ my: 2 }} />
+
+        {/* Metadata */}
+        <Stack spacing={1}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <CalendarIcon sx={{ fontSize: 14 }} />
+            {new Date(task.created_at).toLocaleDateString()}
+          </Typography>
+          {task.assigned_agent && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <PersonIcon sx={{ fontSize: 14 }} />
+              {task.assigned_agent}
+            </Typography>
+          )}
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+
   if (!project) {
     return (
-      <Box>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h4">Task Board</Typography>
-        </Box>
-        {projectError && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            {projectError}
-          </Alert>
-        )}
-        {!projectError && (
-          <Alert severity="info" sx={{ mt: 2 }}>
-            Please select a project from the top menu to view tasks.
-          </Alert>
-        )}
+      <Box sx={{ minHeight: '100vh', pb: 4 }}>
+        <Container maxWidth="xl">
+          <Box py={4}>
+            <Typography
+              variant="h3"
+              component="h1"
+              sx={{
+                fontWeight: 700,
+                background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                mb: 3,
+              }}
+            >
+              Task Board
+            </Typography>
+            {projectError && (
+              <Alert severity="error" sx={{ borderRadius: 2 }}>
+                {projectError}
+              </Alert>
+            )}
+            {!projectError && (
+              <Alert severity="info" sx={{ borderRadius: 2 }}>
+                Please select a project from the top menu to view tasks.
+              </Alert>
+            )}
+          </Box>
+        </Container>
       </Box>
     );
   }
@@ -500,238 +731,333 @@ const TaskBoard: React.FC = () => {
   if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
+        <CircularProgress size={48} />
       </Box>
     );
   }
 
   if (error) {
     return (
-      <Alert severity="error">
+      <Alert severity="error" sx={{ m: 2, borderRadius: 2 }}>
         Failed to load tasks. Please try again.
       </Alert>
     );
   }
 
   return (
-    <Box sx={{ px: 1 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} gap={2}>
-        <Box display="flex" alignItems="center" gap={2}>
-          <Typography variant="h4">
-            Task Board
-          </Typography>
-          <Chip
-            size="small"
-            label={isConnected ? 'Real-time updates' : 'Connecting...'}
-            color={isConnected ? 'success' : 'warning'}
-            variant={isConnected ? 'filled' : 'outlined'}
-            sx={{
-              animation: !isConnected ? 'pulse 1.5s ease-in-out infinite' : 'none',
-              '@keyframes pulse': {
-                '0%': { opacity: 1 },
-                '50%': { opacity: 0.5 },
-                '100%': { opacity: 1 }
-              }
-            }}
-          />
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setCreateDialogOpen(true)}
-        >
-          New Task
-        </Button>
-      </Box>
+    <Box sx={{ minHeight: '100vh', pb: 4 }}>
+      <Container maxWidth="xl">
+        {/* Hero Header */}
+        <Box py={4}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
+            <Box>
+              <Typography
+                variant="h3"
+                component="h1"
+                sx={{
+                  fontWeight: 700,
+                  background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  mb: 1,
+                }}
+              >
+                Task Board
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Manage and track your project tasks
+                {isConnected && (
+                  <Chip
+                    size="small"
+                    label="Real-time updates"
+                    color="success"
+                    sx={{ ml: 2, height: 20, fontSize: '0.7rem' }}
+                  />
+                )}
+              </Typography>
+            </Box>
+            <Button
+              variant="contained"
+              size="large"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateDialogOpen(true)}
+              sx={{
+                borderRadius: 2,
+                px: 3,
+                py: 1.5,
+                background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                boxShadow: `0 8px 16px ${alpha(theme.palette.primary.main, 0.3)}`,
+                '&:hover': {
+                  background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
+                  transform: 'translateY(-2px)',
+                  boxShadow: `0 12px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
+                },
+              }}
+            >
+              New Task
+            </Button>
+          </Stack>
 
-      <Grid container spacing={1}>
-        {statusColumns.map((column) => {
-          const columnTasks = getTasksByStatus(column.status);
-          return (
-            <Grid item xs={12} sm={6} md={4} lg={3} xl={1.71} key={column.status}>
-              <Card sx={{ minHeight: '500px', height: '100%' }}>
-                <CardContent>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {getStatusIcon(column.status)}
-                      <Typography variant="h6" sx={{ color: column.color }}>
-                        {column.title}
-                      </Typography>
-                    </Box>
-                    <Chip 
-                      label={columnTasks.length} 
-                      size="small" 
-                      sx={{ 
-                        bgcolor: column.color,
-                        color: 'white',
-                        fontWeight: 'bold'
-                      }} 
-                    />
-                  </Box>
-                  
-                  <List dense>
-                    {columnTasks.map((task) => (
-                      <ListItem
-                        key={task.id}
-                        button
-                        onClick={() => handleTaskClick(task)}
+          {/* Statistics Cards */}
+          <Grid container spacing={2} mb={3}>
+            {[
+              { label: 'Total Tasks', value: stats.total, color: theme.palette.primary.main },
+              { label: 'Features', value: stats.features, color: theme.palette.success.main },
+              { label: 'Bugs', value: stats.bugs, color: theme.palette.error.main },
+              { label: 'In Progress', value: stats.inProgress, color: theme.palette.warning.main },
+            ].map((stat) => (
+              <Grid item xs={12} sm={6} md={3} key={stat.label}>
+                <Paper
+                  sx={{
+                    p: 2.5,
+                    borderRadius: 2,
+                    background: `linear-gradient(145deg, ${alpha(stat.color, 0.05)}, ${alpha(stat.color, 0.02)})`,
+                    border: `1px solid ${alpha(stat.color, 0.15)}`,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: `0 8px 16px ${alpha(stat.color, 0.2)}`,
+                    },
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    {stat.label}
+                  </Typography>
+                  <Typography variant="h3" sx={{ fontWeight: 700, color: stat.color }}>
+                    {stat.value}
+                  </Typography>
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+
+          {/* Search and Filter Bar */}
+          <Paper
+            sx={{
+              p: 2,
+              mb: 3,
+              borderRadius: 2,
+              background: alpha(theme.palette.background.paper, 0.8),
+              backdropFilter: 'blur(10px)',
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+            }}
+          >
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+              {/* Search */}
+              <TextField
+                fullWidth
+                placeholder="Search tasks by title, description, or ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                  },
+                }}
+              />
+
+              {/* Filter Toggle */}
+              <ToggleButtonGroup
+                value={activeFilter}
+                exclusive
+                onChange={(e, newFilter) => {
+                  if (newFilter !== null) {
+                    setActiveFilter(newFilter);
+                  }
+                }}
+                sx={{
+                  flexShrink: 0,
+                  '& .MuiToggleButton-root': {
+                    borderRadius: 2,
+                    px: 2,
+                    py: 1,
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    '&.Mui-selected': {
+                      background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                      color: theme.palette.primary.contrastText,
+                      '&:hover': {
+                        background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
+                      },
+                    },
+                  },
+                }}
+              >
+                <ToggleButton value="all">
+                  All <Badge badgeContent={stats.total} color="primary" sx={{ ml: 1 }} />
+                </ToggleButton>
+                <ToggleButton value="feature">
+                  Features <Badge badgeContent={stats.features} color="success" sx={{ ml: 1 }} />
+                </ToggleButton>
+                <ToggleButton value="bug">
+                  Bugs <Badge badgeContent={stats.bugs} color="error" sx={{ ml: 1 }} />
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Stack>
+          </Paper>
+        </Box>
+
+        {/* Kanban Board */}
+        <Grid container spacing={3}>
+          {statusColumns.map((column) => {
+            const columnTasks = getTasksByStatus(column.status);
+            return (
+              <Grid item xs={12} sm={6} md={4} lg={project?.project_mode === 'simple' ? 4 : 1.71} key={column.status}>
+                <Paper
+                  sx={{
+                    minHeight: '500px',
+                    borderRadius: 2,
+                    background: alpha(theme.palette.background.paper, 0.6),
+                    backdropFilter: 'blur(10px)',
+                    border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      p: 2,
+                      background: `linear-gradient(135deg, ${alpha(column.color, 0.15)}, ${alpha(column.color, 0.05)})`,
+                      borderBottom: `2px solid ${alpha(column.color, 0.3)}`,
+                    }}
+                  >
+                    <Box display="flex" justifyContent="space-between" alignItems="center">
+                      <Box display="flex" alignItems="center" gap={1}>
+                        {getStatusIcon(column.status)}
+                        <Typography variant="h6" sx={{ fontWeight: 600, color: column.color }}>
+                          {column.title}
+                        </Typography>
+                      </Box>
+                      <Chip
+                        label={columnTasks.length}
+                        size="small"
                         sx={{
-                          mb: 1,
-                          border: '1px solid #e0e0e0',
-                          borderRadius: 1,
-                          bgcolor: 'background.paper',
-                          cursor: 'pointer',
-                          '&:hover': {
-                            bgcolor: 'action.hover',
-                          },
+                          bgcolor: column.color,
+                          color: 'white',
+                          fontWeight: 'bold',
+                          minWidth: 32,
+                          height: 24,
+                        }}
+                      />
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ p: 2 }}>
+                    {columnTasks.length === 0 ? (
+                      <Paper
+                        sx={{
+                          p: 4,
+                          textAlign: 'center',
+                          background: alpha(theme.palette.background.paper, 0.3),
+                          border: `1px dashed ${alpha(theme.palette.text.secondary, 0.2)}`,
+                          borderRadius: 2,
                         }}
                       >
-                        <ListItemText
-                          primary={
-                            <Box>
-                              <Typography variant="subtitle2" noWrap>
-                                #{task.id} - {task.title}
-                              </Typography>
-                              <Box sx={{ mt: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                                <Chip
-                                  label={task.priority}
-                                  size="small"
-                                  color={getPriorityColor(task.priority) as any}
-                                />
-                                <Chip
-                                  label={task.type}
-                                  size="small"
-                                  variant="outlined"
-                                />
-                                {getValidTransitions(task.status).length > 0 && (
-                                  <Chip
-                                    label={`${getValidTransitions(task.status).length} action${getValidTransitions(task.status).length > 1 ? 's' : ''}`}
-                                    size="small"
-                                    sx={{ 
-                                      bgcolor: 'action.hover',
-                                      fontSize: '0.7rem'
-                                    }}
-                                  />
-                                )}
-                              </Box>
-                              {task.assigned_agent && (
-                                <Chip
-                                  label={`Agent: ${task.assigned_agent}`}
-                                  size="small"
-                                  sx={{ mt: 0.5 }}
-                                />
-                              )}
-                            </Box>
-                          }
-                          secondary={
-                            task.description ? (
-                              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                                {task.description.length > 50 
-                                  ? `${task.description.substring(0, 50)}...`
-                                  : task.description
-                                }
-                              </Typography>
-                            ) : null
-                          }
-                        />
-                        <ListItemSecondaryAction>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                            {getValidTransitions(task.status).length > 0 && (
-                              <Tooltip title="Change Status">
-                                <IconButton
-                                  size="small"
-                                  onClick={(e) => handleStatusMenuOpen(e, task)}
-                                  disabled={updateStatusMutation.isLoading}
-                                >
-                                  {updateStatusMutation.isLoading && updateStatusMutation.variables?.taskId === task.id ? (
-                                    <CircularProgress size={16} />
-                                  ) : (
-                                    <MoreIcon />
-                                  )}
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                            <Tooltip title="Delete Task">
-                              <IconButton
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteTaskMutation.mutate(task.id);
-                                }}
-                                disabled={deleteTaskMutation.isLoading}
-                              >
-                                <DeleteIcon />
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
-                        </ListItemSecondaryAction>
-                      </ListItem>
-                    ))}
-                  </List>
-                </CardContent>
-              </Card>
-            </Grid>
-          );
-        })}
-      </Grid>
+                        <AssignmentIcon sx={{ fontSize: 48, color: theme.palette.text.disabled, mb: 1 }} />
+                        <Typography variant="body2" color="text.secondary">
+                          No tasks
+                        </Typography>
+                      </Paper>
+                    ) : (
+                      columnTasks.map((task) => <TaskCard key={task.id} task={task} />)
+                    )}
+                  </Box>
+                </Paper>
+              </Grid>
+            );
+          })}
+        </Grid>
+      </Container>
 
       {/* Create Task Dialog */}
-      <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Create New Task</DialogTitle>
+      <Dialog
+        open={createDialogOpen}
+        onClose={() => setCreateDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            background: theme.palette.background.paper,
+          },
+        }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Typography variant="h5" fontWeight={600}>
+            Create New Task
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Add a new task to your project
+          </Typography>
+        </DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Title"
-            fullWidth
-            variant="outlined"
-            value={newTask.title}
-            onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-            sx={{ mb: 2 }}
-          />
-          <TextField
-            margin="dense"
-            label="Description"
-            fullWidth
-            multiline
-            rows={8}
-            variant="outlined"
-            value={newTask.description}
-            onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-            sx={{ mb: 2 }}
-          />
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Type</InputLabel>
-            <Select
-              value={newTask.type}
-              label="Type"
-              onChange={(e) => setNewTask({ ...newTask, type: e.target.value as 'Feature' | 'Bug' })}
-            >
-              <MenuItem value="Feature">Feature</MenuItem>
-              <MenuItem value="Bug">Bug</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl fullWidth>
-            <InputLabel>Priority</InputLabel>
-            <Select
-              value={newTask.priority}
-              label="Priority"
-              onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as 'High' | 'Medium' | 'Low' })}
-            >
-              <MenuItem value="High">High</MenuItem>
-              <MenuItem value="Medium">Medium</MenuItem>
-              <MenuItem value="Low">Low</MenuItem>
-            </Select>
-          </FormControl>
+          <Stack spacing={3} mt={2}>
+            <TextField
+              autoFocus
+              label="Title"
+              fullWidth
+              variant="outlined"
+              value={newTask.title}
+              onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+              required
+              placeholder="Enter task title"
+            />
+            <TextField
+              label="Description"
+              fullWidth
+              multiline
+              rows={8}
+              variant="outlined"
+              value={newTask.description}
+              onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+              placeholder="Describe the task in detail"
+            />
+            <FormControl fullWidth>
+              <InputLabel>Type</InputLabel>
+              <Select
+                value={newTask.type}
+                label="Type"
+                onChange={(e) => setNewTask({ ...newTask, type: e.target.value as 'Feature' | 'Bug' })}
+              >
+                <MenuItem value="Feature">Feature</MenuItem>
+                <MenuItem value="Bug">Bug</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel>Priority</InputLabel>
+              <Select
+                value={newTask.priority}
+                label="Priority"
+                onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as 'High' | 'Medium' | 'Low' })}
+              >
+                <MenuItem value="High">High</MenuItem>
+                <MenuItem value="Medium">Medium</MenuItem>
+                <MenuItem value="Low">Low</MenuItem>
+              </Select>
+            </FormControl>
+          </Stack>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateDialogOpen(false)}>Cancel</Button>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={() => setCreateDialogOpen(false)} sx={{ borderRadius: 2 }}>
+            Cancel
+          </Button>
           <Button
             onClick={handleCreateTask}
             variant="contained"
             disabled={!newTask.title.trim() || createTaskMutation.isLoading}
+            sx={{
+              borderRadius: 2,
+              px: 3,
+              background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+            }}
           >
-            {createTaskMutation.isLoading ? <CircularProgress size={20} /> : 'Create'}
+            {createTaskMutation.isLoading ? <CircularProgress size={24} /> : 'Create Task'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -745,6 +1071,7 @@ const TaskBoard: React.FC = () => {
           sx: {
             maxHeight: 300,
             width: '280px',
+            borderRadius: 2,
           }
         }}
       >
@@ -752,8 +1079,8 @@ const TaskBoard: React.FC = () => {
           <MenuItem
             key={transition.status}
             onClick={() => handleStatusTransition(
-              selectedTaskForStatus, 
-              transition.status, 
+              selectedTaskForStatus,
+              transition.status,
               transition.requiresConfirmation,
               transition.description
             )}
@@ -782,6 +1109,9 @@ const TaskBoard: React.FC = () => {
         onClose={() => setConfirmDialogOpen(false)}
         maxWidth="sm"
         fullWidth
+        PaperProps={{
+          sx: { borderRadius: 3 },
+        }}
       >
         <DialogTitle>
           Confirm Status Change
@@ -791,17 +1121,18 @@ const TaskBoard: React.FC = () => {
             {confirmAction?.message}
           </Typography>
           {confirmAction?.newStatus === 'Done' && (
-            <Alert severity="info" sx={{ mt: 2 }}>
+            <Alert severity="info" sx={{ mt: 2, borderRadius: 2 }}>
               This will mark the task as complete. Make sure the PR has been merged and all work is finished.
             </Alert>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmDialogOpen(false)}>Cancel</Button>
-          <Button 
-            onClick={handleConfirmStatusChange} 
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={() => setConfirmDialogOpen(false)} sx={{ borderRadius: 2 }}>Cancel</Button>
+          <Button
+            onClick={handleConfirmStatusChange}
             variant="contained"
             disabled={updateStatusMutation.isLoading}
+            sx={{ borderRadius: 2 }}
           >
             {updateStatusMutation.isLoading ? <CircularProgress size={20} /> : 'Confirm'}
           </Button>
@@ -815,22 +1146,27 @@ const TaskBoard: React.FC = () => {
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert 
-          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
-          sx={{ width: '100%' }}
+          sx={{ width: '100%', borderRadius: 2 }}
         >
           {snackbar.message}
         </Alert>
       </Snackbar>
 
       {/* Task Details Dialog */}
-      <Dialog 
-        open={taskDetailsOpen} 
-        onClose={() => setTaskDetailsOpen(false)} 
-        maxWidth="xl" 
+      <Dialog
+        open={taskDetailsOpen}
+        onClose={() => setTaskDetailsOpen(false)}
+        maxWidth="xl"
         fullWidth
-        sx={{ '& .MuiDialog-paper': { height: '90vh' } }}
+        PaperProps={{
+          sx: {
+            height: '90vh',
+            borderRadius: 3,
+          },
+        }}
       >
         <DialogTitle>
           <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -845,7 +1181,7 @@ const TaskBoard: React.FC = () => {
                     size="small"
                     startIcon={<EditIcon />}
                     onClick={handleEditClick}
-                    sx={{ mr: 1 }}
+                    sx={{ mr: 1, borderRadius: 2 }}
                   >
                     Edit
                   </Button>
@@ -862,7 +1198,7 @@ const TaskBoard: React.FC = () => {
                   <Chip
                     label={selectedTask?.status}
                     size="small"
-                    sx={{ bgcolor: '#e3f2fd' }}
+                    sx={{ bgcolor: alpha(getStatusColor(selectedTask?.status || ''), 0.2) }}
                   />
                 </>
               ) : (
@@ -873,7 +1209,7 @@ const TaskBoard: React.FC = () => {
                     startIcon={saveLoading ? <CircularProgress size={16} /> : <SaveIcon />}
                     onClick={handleSaveEdit}
                     disabled={saveLoading || !editedTask.title.trim()}
-                    sx={{ mr: 1 }}
+                    sx={{ mr: 1, borderRadius: 2 }}
                   >
                     {saveLoading ? 'Saving...' : 'Save'}
                   </Button>
@@ -883,6 +1219,7 @@ const TaskBoard: React.FC = () => {
                     startIcon={<CancelIcon />}
                     onClick={handleCancelEdit}
                     disabled={saveLoading}
+                    sx={{ borderRadius: 2 }}
                   >
                     Cancel
                   </Button>
@@ -912,7 +1249,7 @@ const TaskBoard: React.FC = () => {
                   />
                 </>
               )}
-              
+
               <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold' }}>
                 Description
               </Typography>
@@ -945,7 +1282,7 @@ const TaskBoard: React.FC = () => {
                   value={editedTask.analysis}
                   onChange={(e) => setEditedTask({ ...editedTask, analysis: e.target.value })}
                   placeholder="Enter task analysis"
-                  sx={{ 
+                  sx={{
                     mb: 3,
                     '& .MuiInputBase-input': {
                       fontFamily: 'monospace',
@@ -960,10 +1297,10 @@ const TaskBoard: React.FC = () => {
                     paragraph
                     sx={{
                       whiteSpace: 'pre-wrap',
-                      bgcolor: '#f5f5f5',
-                      color: '#1a1a1a',
+                      bgcolor: alpha(theme.palette.background.default, 0.5),
+                      color: theme.palette.text.primary,
                       p: 2,
-                      borderRadius: 1,
+                      borderRadius: 2,
                       fontFamily: 'monospace',
                       mb: 3
                     }}
@@ -982,36 +1319,36 @@ const TaskBoard: React.FC = () => {
                   <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', mt: 3 }}>
                     Stage Results
                   </Typography>
-                  <Box sx={{ 
-                    bgcolor: '#f9fafb', 
-                    p: 2, 
-                    borderRadius: 1, 
-                    border: '1px solid #e0e0e0',
+                  <Box sx={{
+                    bgcolor: alpha(theme.palette.background.default, 0.3),
+                    p: 2,
+                    borderRadius: 2,
+                    border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
                     mb: 3,
                     maxHeight: '300px',
                     overflowY: 'auto'
                   }}>
                     {selectedTask.stage_results.map((result, index) => (
-                      <Box 
-                        key={index} 
-                        sx={{ 
+                      <Box
+                        key={index}
+                        sx={{
                           mb: index < selectedTask.stage_results!.length - 1 ? 2 : 0,
                           pb: index < selectedTask.stage_results!.length - 1 ? 2 : 0,
-                          borderBottom: index < selectedTask.stage_results!.length - 1 ? '1px solid #e0e0e0' : 'none'
+                          borderBottom: index < selectedTask.stage_results!.length - 1 ? `1px solid ${alpha(theme.palette.divider, 0.1)}` : 'none'
                         }}
                       >
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                          <Chip 
-                            label={result.status} 
-                            size="small" 
-                            sx={{ 
-                              bgcolor: result.status === 'Done' ? '#4caf50' : 
-                                      result.status === 'In Progress' ? '#ff9800' : 
-                                      result.status === 'Testing' ? '#9c27b0' : 
-                                      result.status === 'Analysis' ? '#2196f3' : '#757575',
+                          <Chip
+                            label={result.status}
+                            size="small"
+                            sx={{
+                              bgcolor: result.status === 'Done' ? theme.palette.success.main :
+                                      result.status === 'In Progress' ? theme.palette.warning.main :
+                                      result.status === 'Testing' ? theme.palette.secondary.main :
+                                      result.status === 'Analysis' ? theme.palette.info.main : theme.palette.grey[600],
                               color: 'white',
                               fontWeight: 'bold'
-                            }} 
+                            }}
                           />
                           <Typography variant="caption" color="text.secondary">
                             {new Date(result.timestamp).toLocaleString()}
@@ -1036,11 +1373,11 @@ const TaskBoard: React.FC = () => {
                   <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'bold', mt: 3 }}>
                     Testing Environment URLs
                   </Typography>
-                  <Box sx={{ 
-                    bgcolor: '#f3e5f5', 
-                    p: 2, 
-                    borderRadius: 1, 
-                    border: '1px solid #e1bee7',
+                  <Box sx={{
+                    bgcolor: alpha(theme.palette.secondary.main, 0.1),
+                    p: 2,
+                    borderRadius: 2,
+                    border: `1px solid ${alpha(theme.palette.secondary.main, 0.3)}`,
                     mb: 3
                   }}>
                     {Object.entries(selectedTask.testing_urls).map(([env, url]) => (
@@ -1055,16 +1392,16 @@ const TaskBoard: React.FC = () => {
                             href={url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            sx={{ ml: 1 }}
+                            sx={{ ml: 1, borderRadius: 2 }}
                           >
                             Open
                           </Button>
                         </Box>
-                        <Typography 
-                          variant="body2" 
-                          color="text.secondary" 
-                          sx={{ 
-                            fontFamily: 'monospace', 
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{
+                            fontFamily: 'monospace',
                             fontSize: '0.75rem',
                             wordBreak: 'break-all'
                           }}
@@ -1130,8 +1467,8 @@ const TaskBoard: React.FC = () => {
                         variant="outlined"
                         startIcon={transition.icon}
                         onClick={() => handleStatusTransition(
-                          selectedTask, 
-                          transition.status, 
+                          selectedTask,
+                          transition.status,
                           transition.requiresConfirmation,
                           transition.description
                         )}
@@ -1139,6 +1476,7 @@ const TaskBoard: React.FC = () => {
                         sx={{
                           textTransform: 'none',
                           mb: 1,
+                          borderRadius: 2,
                           '&:hover': {
                             backgroundColor: 'primary.main',
                             color: 'white',
@@ -1172,7 +1510,7 @@ const TaskBoard: React.FC = () => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
           {selectedTask?.status === 'PR' && (
             <Button
               variant="contained"
@@ -1182,34 +1520,34 @@ const TaskBoard: React.FC = () => {
                 try {
                   // Get active sessions to find session for this task
                   const sessionsResponse = await fetch(`http://localhost:3333/api/sessions/embedded/active`);
-                  
+
                   if (!sessionsResponse.ok) {
                     throw new Error(`HTTP error! status: ${sessionsResponse.status}`);
                   }
-                  
+
                   const sessionsData = await sessionsResponse.json();
-                  
+
                   // Extract sessions array from response object
                   const sessions = sessionsData.sessions || [];
-                  
+
                   // Ensure sessions is an array
                   if (!Array.isArray(sessions)) {
                     throw new Error('Sessions response does not contain a valid sessions array');
                   }
-                  
+
                   const session = sessions.find((s: any) => s.task_id === selectedTask.id);
-                  
+
                   if (session) {
                     // Connect to WebSocket and send /merge command
                     const ws = new WebSocket(`ws://localhost:3333/api/sessions/embedded/${session.session_id}/ws`);
-                    
+
                     ws.onopen = () => {
                       // Send /merge command with task ID
                       ws.send(JSON.stringify({
                         type: 'input',
                         content: `/merge ${selectedTask.id}\r`
                       }));
-                      
+
                       // Close WebSocket after sending
                       setTimeout(() => {
                         ws.close();
@@ -1218,38 +1556,40 @@ const TaskBoard: React.FC = () => {
                         window.location.reload();
                       }, 1000);
                     };
-                    
+
                     ws.onerror = (error) => {
                       console.error('WebSocket error:', error);
-                      setSnackbar({ 
-                        open: true, 
-                        message: 'Failed to send /merge command. Please check if Claude session is active.', 
-                        severity: 'error' 
+                      setSnackbar({
+                        open: true,
+                        message: 'Failed to send /merge command. Please check if Claude session is active.',
+                        severity: 'error'
                       });
                     };
                   } else {
-                    setSnackbar({ 
-                      open: true, 
-                      message: 'No active Claude session found for this task. Please start a session first.', 
-                      severity: 'warning' 
+                    setSnackbar({
+                      open: true,
+                      message: 'No active Claude session found for this task. Please start a session first.',
+                      severity: 'warning'
                     });
                   }
                 } catch (error) {
                   console.error('Failed to send merge command:', error);
                   const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-                  setSnackbar({ 
-                    open: true, 
-                    message: `Failed to send merge command: ${errorMessage}`, 
-                    severity: 'error' 
+                  setSnackbar({
+                    open: true,
+                    message: `Failed to send merge command: ${errorMessage}`,
+                    severity: 'error'
                   });
                 }
               }}
-              sx={{ mr: 'auto' }}
+              sx={{ mr: 'auto', borderRadius: 2 }}
             >
               Complete Task (Merge PR)
             </Button>
           )}
-          <Button onClick={() => setTaskDetailsOpen(false)}>Close</Button>
+          <Button onClick={() => setTaskDetailsOpen(false)} variant="contained" sx={{ borderRadius: 2 }}>
+            Close
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

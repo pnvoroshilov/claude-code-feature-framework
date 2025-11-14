@@ -15,13 +15,19 @@ import {
   TextField,
   Alert,
   Chip,
-  Tab,
-  Tabs,
   CircularProgress,
   IconButton,
   Tooltip,
+  ToggleButtonGroup,
+  ToggleButton,
+  Stack,
+  Container,
   alpha,
   useTheme,
+  Divider,
+  Badge,
+  InputAdornment,
+  Paper,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -29,8 +35,12 @@ import InfoIcon from '@mui/icons-material/Info';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
 import EditIcon from '@mui/icons-material/Edit';
+import SearchIcon from '@mui/icons-material/Search';
 import CodeIcon from '@mui/icons-material/Code';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CategoryIcon from '@mui/icons-material/Category';
+import BuildIcon from '@mui/icons-material/Build';
 import axios from 'axios';
 import { useProject } from '../context/ProjectContext';
 import CodeEditorDialog from '../components/CodeEditorDialog';
@@ -68,10 +78,13 @@ interface SkillsResponse {
   favorites: Skill[];
 }
 
+type FilterType = 'all' | 'default' | 'custom' | 'favorite' | 'enabled';
+
 const Skills: React.FC = () => {
   const { selectedProject } = useProject();
   const theme = useTheme();
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [skills, setSkills] = useState<SkillsResponse>({
     enabled: [],
     available_default: [],
@@ -81,6 +94,8 @@ const Skills: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [viewSkillDialogOpen, setViewSkillDialogOpen] = useState(false);
+  const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [newSkillName, setNewSkillName] = useState('');
   const [newSkillDescription, setNewSkillDescription] = useState('');
   const [creating, setCreating] = useState(false);
@@ -219,857 +234,561 @@ const Skills: React.FC = () => {
     }
   };
 
-  const SkillCard: React.FC<{ skill: Skill; showToggle?: boolean; showDelete?: boolean }> = ({
+  const handleViewSkill = (skill: Skill) => {
+    setSelectedSkill(skill);
+    setViewSkillDialogOpen(true);
+  };
+
+  // Filter skills based on active filter and search query
+  const getFilteredSkills = (): Skill[] => {
+    let filtered: Skill[] = [];
+
+    switch (activeFilter) {
+      case 'default':
+        filtered = skills.available_default;
+        break;
+      case 'custom':
+        filtered = skills.custom;
+        break;
+      case 'favorite':
+        filtered = skills.favorites;
+        break;
+      case 'enabled':
+        filtered = skills.enabled;
+        break;
+      case 'all':
+      default:
+        const allSkills = [
+          ...skills.available_default,
+          ...skills.custom,
+        ];
+        filtered = allSkills.filter(
+          (skill, index, self) => self.findIndex(s => s.id === skill.id && s.skill_type === skill.skill_type) === index
+        );
+    }
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (skill) =>
+          skill.name.toLowerCase().includes(query) ||
+          skill.description.toLowerCase().includes(query) ||
+          skill.category.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  };
+
+  const filteredSkills = getFilteredSkills();
+
+  // Statistics
+  const stats = {
+    total: skills.available_default.length + skills.custom.length,
+    enabled: skills.enabled.length,
+    favorites: skills.favorites.length,
+    custom: skills.custom.length,
+  };
+
+  const SkillCard: React.FC<{
+    skill: Skill;
+    showToggle?: boolean;
+    showDelete?: boolean;
+    showSaveToFavorites?: boolean;
+    showRemoveFromFavorites?: boolean;
+  }> = ({
     skill,
     showToggle = false,
     showDelete = false,
-  }) => {
-    const getCategoryColor = (category: string) => {
-      const colors: Record<string, string> = {
-        'project': theme.palette.primary.main,
-        'managed': theme.palette.secondary.main,
-        'development': theme.palette.info.main,
-        'testing': theme.palette.success.main,
-        'documentation': theme.palette.warning.main,
-      };
-      return colors[category.toLowerCase()] || theme.palette.grey[500];
-    };
-
-    const getCategoryGradient = (category: string) => {
-      const color = getCategoryColor(category);
-      return `linear-gradient(135deg, ${alpha(color, 0.15)} 0%, ${alpha(color, 0.05)} 100%)`;
-    };
-
-    return (
-      <Card
+    showSaveToFavorites = false,
+    showRemoveFromFavorites = false,
+  }) => (
+    <Card
+      sx={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+        overflow: 'visible',
+        background: theme.palette.mode === 'dark'
+          ? `linear-gradient(145deg, ${alpha(theme.palette.background.paper, 0.9)}, ${alpha(theme.palette.background.paper, 0.95)})`
+          : theme.palette.background.paper,
+        border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: theme.palette.mode === 'dark'
+            ? `0 12px 24px -6px ${alpha(theme.palette.primary.main, 0.3)}`
+            : `0 12px 24px -6px ${alpha(theme.palette.primary.main, 0.15)}`,
+          border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
+        },
+      }}
+    >
+      {/* Status indicator bar */}
+      <Box
         sx={{
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'relative',
-          overflow: 'visible',
-          transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-          background: skill.is_favorite
-            ? `linear-gradient(135deg, ${alpha(theme.palette.warning.main, 0.08)} 0%, ${alpha(theme.palette.background.paper, 1)} 50%, ${alpha(theme.palette.warning.light, 0.05)} 100%)`
-            : `linear-gradient(135deg, ${theme.palette.background.paper} 0%, ${alpha(theme.palette.background.paper, 0.95)} 100%)`,
-          border: skill.is_favorite
-            ? `2px solid ${alpha(theme.palette.warning.main, 0.4)}`
-            : `1px solid ${alpha(theme.palette.divider, 0.12)}`,
-          borderRadius: '16px',
-          boxShadow: skill.is_favorite
-            ? `0 8px 32px ${alpha(theme.palette.warning.main, 0.2)}, 0 2px 8px ${alpha(theme.palette.common.black, 0.05)}`
-            : `0 4px 16px ${alpha(theme.palette.common.black, 0.04)}, 0 1px 4px ${alpha(theme.palette.common.black, 0.02)}`,
-          backdropFilter: 'blur(8px)',
-          '&:hover': {
-            transform: 'translateY(-8px) scale(1.01)',
-            boxShadow: skill.is_favorite
-              ? `0 16px 48px ${alpha(theme.palette.warning.main, 0.3)}, 0 4px 16px ${alpha(theme.palette.common.black, 0.1)}`
-              : `0 12px 40px ${alpha(theme.palette.primary.main, 0.15)}, 0 4px 12px ${alpha(theme.palette.common.black, 0.08)}`,
-            border: `2px solid ${alpha(theme.palette.primary.main, 0.5)}`,
-            background: skill.is_favorite
-              ? `linear-gradient(135deg, ${alpha(theme.palette.warning.main, 0.12)} 0%, ${alpha(theme.palette.background.paper, 1)} 50%, ${alpha(theme.palette.warning.light, 0.08)} 100%)`
-              : `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.03)} 0%, ${theme.palette.background.paper} 100%)`,
-          },
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '4px',
-            background: getCategoryGradient(skill.category),
-            borderRadius: '16px 16px 0 0',
-            opacity: 0.8,
-          },
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 4,
+          background: skill.is_enabled
+            ? `linear-gradient(90deg, ${theme.palette.success.main}, ${theme.palette.success.light})`
+            : `linear-gradient(90deg, ${theme.palette.grey[600]}, ${theme.palette.grey[400]})`,
+          borderTopLeftRadius: 12,
+          borderTopRightRadius: 12,
         }}
-      >
-        {skill.is_favorite && (
-          <Box
-            sx={{
-              position: 'absolute',
-              top: -12,
-              right: 20,
-              background: `linear-gradient(135deg, ${theme.palette.warning.main} 0%, ${theme.palette.warning.light} 100%)`,
-              borderRadius: '12px',
-              padding: '6px 16px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.75,
-              boxShadow: `0 6px 20px ${alpha(theme.palette.warning.main, 0.5)}, 0 2px 8px ${alpha(theme.palette.common.black, 0.15)}`,
-              zIndex: 1,
-              animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-              '@keyframes pulse': {
-                '0%, 100%': {
-                  opacity: 1,
-                  transform: 'scale(1)',
-                },
-                '50%': {
-                  opacity: 0.9,
-                  transform: 'scale(1.05)',
-                },
-              },
-            }}
-          >
-            <AutoAwesomeIcon sx={{ fontSize: 16, color: 'white', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }} />
-            <Typography variant="caption" sx={{ color: 'white', fontWeight: 700, fontSize: '0.75rem', letterSpacing: '0.5px' }}>
-              FAVORITE
-            </Typography>
-          </Box>
-        )}
+      />
 
-        <CardContent sx={{ flexGrow: 1, p: 3.5, pt: skill.is_favorite ? 4 : 3.5 }}>
-          <Box display="flex" justifyContent="space-between" alignItems="start" mb={2.5}>
+      <CardContent sx={{ flexGrow: 1, pt: 3 }}>
+        {/* Header with icon and actions */}
+        <Box display="flex" justifyContent="space-between" alignItems="start" mb={2}>
+          <Box display="flex" alignItems="start" gap={1.5} flexGrow={1}>
+            <Box
+              sx={{
+                width: 48,
+                height: 48,
+                borderRadius: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.2)}, ${alpha(theme.palette.primary.light, 0.1)})`,
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+              }}
+            >
+              <CodeIcon sx={{ color: theme.palette.primary.main, fontSize: 28 }} />
+            </Box>
             <Box flexGrow={1}>
               <Typography
                 variant="h6"
                 component="div"
-                gutterBottom
                 sx={{
-                  fontWeight: 700,
-                  fontSize: '1.25rem',
-                  mb: 1.5,
-                  lineHeight: 1.3,
-                  background: `linear-gradient(135deg, ${theme.palette.text.primary} 0%, ${alpha(theme.palette.primary.main, 0.9)} 100%)`,
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  letterSpacing: '-0.02em',
+                  fontWeight: 600,
+                  fontSize: '1.1rem',
+                  mb: 0.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
                 }}
               >
                 {skill.name}
+                {skill.is_enabled && (
+                  <Tooltip title="Enabled">
+                    <CheckCircleIcon sx={{ fontSize: 18, color: theme.palette.success.main }} />
+                  </Tooltip>
+                )}
               </Typography>
-              <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
+              <Stack direction="row" spacing={0.5} flexWrap="wrap">
                 <Chip
                   label={skill.category}
                   size="small"
-                  icon={<CodeIcon sx={{ fontSize: 14 }} />}
+                  icon={<CategoryIcon sx={{ fontSize: 14 }} />}
                   sx={{
-                    background: getCategoryGradient(skill.category),
-                    border: `1.5px solid ${alpha(getCategoryColor(skill.category), 0.4)}`,
-                    color: getCategoryColor(skill.category),
-                    fontWeight: 700,
+                    height: 22,
                     fontSize: '0.7rem',
-                    height: 26,
-                    borderRadius: '8px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    transition: 'all 0.3s',
-                    '& .MuiChip-icon': {
-                      color: getCategoryColor(skill.category),
-                    },
-                    '&:hover': {
-                      background: `linear-gradient(135deg, ${alpha(getCategoryColor(skill.category), 0.25)} 0%, ${alpha(getCategoryColor(skill.category), 0.1)} 100%)`,
-                      transform: 'scale(1.05)',
-                    },
+                    fontWeight: 500,
+                    background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.15)}, ${alpha(theme.palette.primary.main, 0.05)})`,
+                    border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                    color: theme.palette.primary.main,
                   }}
                 />
-                {skill.skill_type === 'custom' && (
-                  <Chip
-                    label="Custom"
-                    size="small"
-                    sx={{
-                      height: 26,
-                      fontSize: '0.7rem',
-                      fontWeight: 700,
-                      borderRadius: '8px',
-                      background: `linear-gradient(135deg, ${alpha(theme.palette.secondary.main, 0.15)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`,
-                      border: `1.5px solid ${alpha(theme.palette.secondary.main, 0.4)}`,
-                      color: theme.palette.secondary.main,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                    }}
-                  />
-                )}
-              </Box>
-            </Box>
-            <Box display="flex" gap={0.5} alignItems="center" ml={1.5} flexShrink={0}>
-              {skill.status && skill.status !== 'active' && (
                 <Chip
-                  label={skill.status}
+                  label={skill.skill_type === 'default' ? 'Default' : 'Custom'}
                   size="small"
-                  color={skill.status === 'creating' ? 'info' : 'error'}
                   sx={{
-                    height: 26,
+                    height: 22,
                     fontSize: '0.7rem',
-                    fontWeight: 700,
-                    borderRadius: '8px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
+                    fontWeight: 500,
+                    background: skill.skill_type === 'default'
+                      ? `linear-gradient(135deg, ${alpha(theme.palette.success.main, 0.15)}, ${alpha(theme.palette.success.main, 0.05)})`
+                      : `linear-gradient(135deg, ${alpha(theme.palette.info.main, 0.15)}, ${alpha(theme.palette.info.main, 0.05)})`,
+                    border: `1px solid ${alpha(
+                      skill.skill_type === 'default' ? theme.palette.success.main : theme.palette.info.main,
+                      0.2
+                    )}`,
+                    color: skill.skill_type === 'default' ? theme.palette.success.main : theme.palette.info.main,
                   }}
                 />
-              )}
-              <Tooltip
-                title={skill.is_favorite ? 'Remove from favorites' : 'Add to favorites'}
-                arrow
-                placement="top"
-              >
+              </Stack>
+            </Box>
+          </Box>
+
+          {/* Action buttons */}
+          <Stack direction="row" spacing={0.5}>
+            {showSaveToFavorites && (
+              <Tooltip title="Add to Favorites">
                 <IconButton
                   size="small"
+                  onClick={() => handleSaveToFavorites(skill.id, skill.skill_type)}
                   sx={{
-                    width: 36,
-                    height: 36,
-                    color: skill.is_favorite ? theme.palette.warning.main : theme.palette.action.disabled,
-                    transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                    background: skill.is_favorite
-                      ? alpha(theme.palette.warning.main, 0.1)
-                      : 'transparent',
+                    color: theme.palette.warning.main,
                     '&:hover': {
-                      color: theme.palette.warning.main,
-                      transform: 'scale(1.2) rotate(15deg)',
-                      background: alpha(theme.palette.warning.main, 0.15),
+                      background: alpha(theme.palette.warning.main, 0.1),
                     },
                   }}
-                  onClick={() => {
-                    if (skill.is_favorite) {
-                      handleRemoveFromFavorites(skill.id, skill.skill_type);
+                >
+                  <StarBorderIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            {showRemoveFromFavorites && (
+              <Tooltip title="Remove from Favorites">
+                <IconButton
+                  size="small"
+                  onClick={() => handleRemoveFromFavorites(skill.id, skill.skill_type)}
+                  sx={{
+                    color: theme.palette.warning.main,
+                    '&:hover': {
+                      background: alpha(theme.palette.warning.main, 0.1),
+                    },
+                  }}
+                >
+                  <StarIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Tooltip title="Edit skill code">
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setEditingSkill(skill);
+                  setEditDialogOpen(true);
+                }}
+                sx={{
+                  color: theme.palette.primary.main,
+                  '&:hover': {
+                    background: alpha(theme.palette.primary.main, 0.1),
+                  },
+                }}
+              >
+                <EditIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            {showDelete && skill.skill_type === 'custom' && (
+              <Tooltip title="Delete custom skill">
+                <IconButton
+                  size="small"
+                  onClick={() => handleDeleteSkill(skill.id)}
+                  sx={{
+                    color: theme.palette.error.main,
+                    '&:hover': {
+                      background: alpha(theme.palette.error.main, 0.1),
+                    },
+                  }}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Tooltip title="View details">
+              <IconButton
+                size="small"
+                onClick={() => handleViewSkill(skill)}
+                sx={{
+                  color: theme.palette.info.main,
+                  '&:hover': {
+                    background: alpha(theme.palette.info.main, 0.1),
+                  },
+                }}
+              >
+                <InfoIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        </Box>
+
+        {/* Description */}
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{
+            mb: 2,
+            lineHeight: 1.6,
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
+          {skill.description}
+        </Typography>
+
+        <Divider sx={{ my: 2 }} />
+
+        {/* Metadata */}
+        <Stack spacing={1}>
+          {skill.status && skill.status !== 'active' && (
+            <Chip
+              label={skill.status}
+              size="small"
+              color={skill.status === 'creating' ? 'info' : 'error'}
+              sx={{
+                height: 22,
+                fontSize: '0.7rem',
+                fontWeight: 500,
+                width: 'fit-content',
+              }}
+            />
+          )}
+        </Stack>
+
+        {/* Toggle switch */}
+        {showToggle && (
+          <Box mt={2}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={skill.is_enabled}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      handleEnableSkill(skill.id, skill.skill_type);
                     } else {
-                      handleSaveToFavorites(skill.id, skill.skill_type);
+                      handleDisableSkill(skill.id, skill.skill_type);
                     }
                   }}
-                >
-                  {skill.is_favorite ? <StarIcon /> : <StarBorderIcon />}
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Edit skill code" arrow placement="top">
-                <IconButton
-                  size="small"
-                  sx={{
-                    width: 36,
-                    height: 36,
-                    color: theme.palette.primary.main,
-                    transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                    '&:hover': {
-                      transform: 'scale(1.2)',
-                      background: alpha(theme.palette.primary.main, 0.15),
-                    },
-                  }}
-                  onClick={() => {
-                    setEditingSkill(skill);
-                    setEditDialogOpen(true);
-                  }}
-                >
-                  <EditIcon />
-                </IconButton>
-              </Tooltip>
-              {showDelete && (
-                <Tooltip title="Delete skill" arrow placement="top">
-                  <IconButton
-                    size="small"
-                    sx={{
-                      width: 36,
-                      height: 36,
-                      color: theme.palette.error.main,
-                      transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                      '&:hover': {
-                        transform: 'scale(1.2)',
-                        background: alpha(theme.palette.error.main, 0.15),
-                      },
-                    }}
-                    onClick={() => handleDeleteSkill(skill.id)}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </Box>
+                  disabled={skill.status === 'creating'}
+                  color="primary"
+                />
+              }
+              label={
+                <Typography variant="body2" fontWeight={500}>
+                  {skill.is_enabled ? 'Enabled' : 'Disabled'}
+                </Typography>
+              }
+            />
           </Box>
-
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            paragraph
-            sx={{
-              lineHeight: 1.8,
-              mb: 2.5,
-              fontSize: '0.9rem',
-              letterSpacing: '0.01em',
-            }}
-          >
-            {skill.description}
-          </Typography>
-
-          {showToggle && (
-            <Box
-              sx={{
-                mt: 'auto',
-                pt: 2.5,
-                borderTop: `1px solid ${alpha(theme.palette.divider, 0.15)}`,
-              }}
-            >
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={skill.is_enabled}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        handleEnableSkill(skill.id, skill.skill_type);
-                      } else {
-                        handleDisableSkill(skill.id, skill.skill_type);
-                      }
-                    }}
-                    disabled={skill.status === 'creating'}
-                    sx={{
-                      '& .MuiSwitch-switchBase.Mui-checked': {
-                        color: theme.palette.success.main,
-                      },
-                      '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                        backgroundColor: theme.palette.success.main,
-                      },
-                      '& .MuiSwitch-track': {
-                        borderRadius: 12,
-                      },
-                      '& .MuiSwitch-thumb': {
-                        boxShadow: `0 2px 8px ${alpha(theme.palette.common.black, 0.2)}`,
-                      },
-                    }}
-                  />
-                }
-                label={
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      fontWeight: 600,
-                      fontSize: '0.85rem',
-                      letterSpacing: '0.02em',
-                      color: skill.is_enabled ? theme.palette.success.main : theme.palette.text.secondary,
-                      transition: 'all 0.3s',
-                    }}
-                  >
-                    {skill.is_enabled ? '✓ Enabled' : 'Enable Skill'}
-                  </Typography>
-                }
-              />
-            </Box>
-          )}
-        </CardContent>
-      </Card>
-    );
-  };
-
-  if (loading) {
-    return (
-      <Box
-        display="flex"
-        flexDirection="column"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="400px"
-        gap={3}
-      >
-        <Box
-          sx={{
-            position: 'relative',
-            width: 80,
-            height: 80,
-          }}
-        >
-          <CircularProgress
-            size={80}
-            thickness={3}
-            sx={{
-              color: theme.palette.primary.main,
-              position: 'absolute',
-              animationDuration: '1.5s',
-            }}
-          />
-          <Box
-            sx={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: 48,
-              height: 48,
-              borderRadius: '50%',
-              background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.2)} 0%, ${alpha(theme.palette.secondary.main, 0.2)} 100%)`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <CodeIcon sx={{ fontSize: 28, color: theme.palette.primary.main }} />
-          </Box>
-        </Box>
-        <Typography
-          variant="h6"
-          sx={{
-            fontWeight: 600,
-            color: theme.palette.text.secondary,
-            letterSpacing: '0.02em',
-          }}
-        >
-          Loading Skills...
-        </Typography>
-      </Box>
-    );
-  }
+        )}
+      </CardContent>
+    </Card>
+  );
 
   return (
-    <Box>
-      {/* Header Section */}
-      <Box
-        sx={{
-          mb: 4,
-          p: 4,
-          borderRadius: 3,
-          background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.secondary.main, 0.1)} 50%, ${alpha(theme.palette.primary.main, 0.05)} 100%)`,
-          border: `1px solid ${alpha(theme.palette.divider, 0.15)}`,
-          position: 'relative',
-          overflow: 'hidden',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: `radial-gradient(circle at top right, ${alpha(theme.palette.secondary.main, 0.1)} 0%, transparent 60%)`,
-            pointerEvents: 'none',
-          },
-        }}
-      >
-        <Box display="flex" justifyContent="space-between" alignItems="center" position="relative" zIndex={1}>
-          <Box>
-            <Typography
-              variant="h3"
+    <Box sx={{ minHeight: '100vh', pb: 4 }}>
+      <Container maxWidth="xl">
+        {/* Hero Header */}
+        <Box py={4}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
+            <Box>
+              <Typography
+                variant="h3"
+                component="h1"
+                sx={{
+                  fontWeight: 700,
+                  background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  mb: 1,
+                }}
+              >
+                Skills Management
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Manage and configure Claude Code skills for your project
+              </Typography>
+            </Box>
+            <Button
+              variant="contained"
+              size="large"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateDialogOpen(true)}
+              disabled={!selectedProject?.id}
               sx={{
-                fontWeight: 800,
-                mb: 1.5,
-                background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-                backgroundClip: 'text',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                letterSpacing: '-0.03em',
-                fontSize: { xs: '2rem', md: '2.5rem' },
+                borderRadius: 2,
+                px: 3,
+                py: 1.5,
+                background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                boxShadow: `0 8px 16px ${alpha(theme.palette.primary.main, 0.3)}`,
+                '&:hover': {
+                  background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
+                  transform: 'translateY(-2px)',
+                  boxShadow: `0 12px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
+                },
+                '&:disabled': {
+                  background: theme.palette.action.disabledBackground,
+                  boxShadow: 'none',
+                },
               }}
             >
-              Skills Management
-            </Typography>
-            <Typography
-              variant="body1"
-              sx={{
-                color: theme.palette.text.secondary,
-                fontSize: '1rem',
-                letterSpacing: '0.01em',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-              }}
-            >
-              <CodeIcon sx={{ fontSize: 18 }} />
-              Manage and configure your Claude Code skills
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            size="large"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateDialogOpen(true)}
-            disabled={!selectedProject?.id}
+              Create Custom Skill
+            </Button>
+          </Stack>
+
+          {/* Statistics Cards */}
+          <Grid container spacing={2} mb={3}>
+            {[
+              { label: 'Total Skills', value: stats.total, color: theme.palette.primary.main },
+              { label: 'Enabled', value: stats.enabled, color: theme.palette.success.main },
+              { label: 'Favorites', value: stats.favorites, color: theme.palette.warning.main },
+              { label: 'Custom', value: stats.custom, color: theme.palette.info.main },
+            ].map((stat) => (
+              <Grid item xs={12} sm={6} md={3} key={stat.label}>
+                <Paper
+                  sx={{
+                    p: 2.5,
+                    borderRadius: 2,
+                    background: `linear-gradient(145deg, ${alpha(stat.color, 0.05)}, ${alpha(stat.color, 0.02)})`,
+                    border: `1px solid ${alpha(stat.color, 0.15)}`,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: `0 8px 16px ${alpha(stat.color, 0.2)}`,
+                    },
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    {stat.label}
+                  </Typography>
+                  <Typography variant="h3" sx={{ fontWeight: 700, color: stat.color }}>
+                    {stat.value}
+                  </Typography>
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+
+          {error && (
+            <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setError(null)}>
+              {error}
+            </Alert>
+          )}
+
+          {!selectedProject?.id && (
+            <Alert severity="warning" sx={{ mb: 3, borderRadius: 2 }}>
+              No active project found. Please go to Projects and activate a project first.
+            </Alert>
+          )}
+
+          {/* Search and Filter Bar */}
+          <Paper
             sx={{
-              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
-              boxShadow: `0 6px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
-              transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+              p: 2,
+              mb: 3,
               borderRadius: 2,
-              px: 3,
-              py: 1.5,
-              fontSize: '1rem',
-              fontWeight: 700,
-              letterSpacing: '0.02em',
-              textTransform: 'none',
-              '&:hover': {
-                background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.main} 100%)`,
-                boxShadow: `0 8px 28px ${alpha(theme.palette.primary.main, 0.6)}`,
-                transform: 'translateY(-3px) scale(1.02)',
-              },
-              '&:disabled': {
-                background: theme.palette.action.disabledBackground,
-                boxShadow: 'none',
-              },
+              background: alpha(theme.palette.background.paper, 0.8),
+              backdropFilter: 'blur(10px)',
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
             }}
           >
-            Create Custom Skill
-          </Button>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+              {/* Search */}
+              <TextField
+                fullWidth
+                placeholder="Search skills by name, description, or category..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                  },
+                }}
+              />
+
+              {/* Filter Toggle */}
+              <ToggleButtonGroup
+                value={activeFilter}
+                exclusive
+                onChange={(e, newFilter) => {
+                  if (newFilter !== null) {
+                    setActiveFilter(newFilter);
+                  }
+                }}
+                sx={{
+                  flexShrink: 0,
+                  '& .MuiToggleButton-root': {
+                    borderRadius: 2,
+                    px: 2,
+                    py: 1,
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    '&.Mui-selected': {
+                      background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                      color: theme.palette.primary.contrastText,
+                      '&:hover': {
+                        background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
+                      },
+                    },
+                  },
+                }}
+              >
+                <ToggleButton value="all">
+                  All <Badge badgeContent={stats.total} color="primary" sx={{ ml: 1 }} />
+                </ToggleButton>
+                <ToggleButton value="default">
+                  Default <Badge badgeContent={skills.available_default.length} color="success" sx={{ ml: 1 }} />
+                </ToggleButton>
+                <ToggleButton value="custom">
+                  Custom <Badge badgeContent={stats.custom} color="info" sx={{ ml: 1 }} />
+                </ToggleButton>
+                <ToggleButton value="favorite">
+                  Favorites <Badge badgeContent={stats.favorites} color="warning" sx={{ ml: 1 }} />
+                </ToggleButton>
+                <ToggleButton value="enabled">
+                  Enabled <Badge badgeContent={stats.enabled} color="success" sx={{ ml: 1 }} />
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Stack>
+          </Paper>
         </Box>
-      </Box>
 
-      {error && (
-        <Alert
-          severity="error"
-          sx={{
-            mb: 2,
-            borderRadius: 2,
-            border: `1px solid ${alpha(theme.palette.error.main, 0.3)}`,
-          }}
-          onClose={() => setError(null)}
-        >
-          {error}
-        </Alert>
-      )}
-
-      {!selectedProject?.id && (
-        <Alert
-          severity="warning"
-          sx={{
-            mb: 2,
-            borderRadius: 2,
-            border: `1px solid ${alpha(theme.palette.warning.main, 0.3)}`,
-          }}
-        >
-          No active project found. Please go to Projects and activate a project first.
-        </Alert>
-      )}
-
-      {/* Tabs Section */}
-      <Box
-        sx={{
-          mb: 4,
-          borderRadius: 3,
-          background: `linear-gradient(135deg, ${alpha(theme.palette.background.paper, 0.8)} 0%, ${alpha(theme.palette.background.paper, 0.6)} 100%)`,
-          backdropFilter: 'blur(20px)',
-          border: `1px solid ${alpha(theme.palette.divider, 0.15)}`,
-          boxShadow: `0 4px 16px ${alpha(theme.palette.common.black, 0.04)}`,
-          overflow: 'hidden',
-        }}
-      >
-        <Tabs
-          value={activeTab}
-          onChange={(_, newValue) => setActiveTab(newValue)}
-          sx={{
-            '& .MuiTabs-indicator': {
-              height: 4,
-              borderRadius: '4px 4px 0 0',
-              background: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`,
-              boxShadow: `0 -2px 12px ${alpha(theme.palette.primary.main, 0.4)}`,
-            },
-            '& .MuiTab-root': {
-              textTransform: 'none',
-              fontWeight: 700,
-              fontSize: '1rem',
-              minHeight: 64,
-              transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-              px: 3,
-              '&:hover': {
-                background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.secondary.main, 0.05)} 100%)`,
-                transform: 'translateY(-2px)',
-              },
-              '&.Mui-selected': {
-                color: theme.palette.primary.main,
-                background: `linear-gradient(180deg, ${alpha(theme.palette.primary.main, 0.08)} 0%, transparent 100%)`,
-              },
-            },
-          }}
-        >
-          <Tab
-            label={
-              <Box display="flex" alignItems="center" gap={1.5}>
-                <Typography sx={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '0.01em' }}>
-                  Default Skills
-                </Typography>
-                <Chip
-                  label={skills.available_default.length}
-                  size="small"
+        {/* Skills Grid */}
+        {loading ? (
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+            <CircularProgress size={48} />
+          </Box>
+        ) : (
+          <Grid container spacing={3}>
+            {filteredSkills.length === 0 ? (
+              <Grid item xs={12}>
+                <Paper
                   sx={{
-                    height: 24,
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    borderRadius: '8px',
-                    background: activeTab === 0
-                      ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.3)} 0%, ${alpha(theme.palette.primary.main, 0.2)} 100%)`
-                      : alpha(theme.palette.action.active, 0.12),
-                    border: activeTab === 0
-                      ? `1.5px solid ${alpha(theme.palette.primary.main, 0.4)}`
-                      : 'none',
-                    transition: 'all 0.3s',
+                    p: 6,
+                    textAlign: 'center',
+                    borderRadius: 2,
+                    background: alpha(theme.palette.background.paper, 0.5),
                   }}
-                />
-              </Box>
-            }
-          />
-          <Tab
-            label={
-              <Box display="flex" alignItems="center" gap={1.5}>
-                <Typography sx={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '0.01em' }}>
-                  Custom Skills
-                </Typography>
-                <Chip
-                  label={skills.custom.length}
-                  size="small"
-                  sx={{
-                    height: 24,
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    borderRadius: '8px',
-                    background: activeTab === 1
-                      ? `linear-gradient(135deg, ${alpha(theme.palette.secondary.main, 0.3)} 0%, ${alpha(theme.palette.secondary.main, 0.2)} 100%)`
-                      : alpha(theme.palette.action.active, 0.12),
-                    border: activeTab === 1
-                      ? `1.5px solid ${alpha(theme.palette.secondary.main, 0.4)}`
-                      : 'none',
-                    transition: 'all 0.3s',
-                  }}
-                />
-              </Box>
-            }
-          />
-          <Tab
-            label={
-              <Box display="flex" alignItems="center" gap={1.5}>
-                <Typography sx={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '0.01em' }}>
-                  Enabled Skills
-                </Typography>
-                <Chip
-                  label={skills.enabled.length}
-                  size="small"
-                  sx={{
-                    height: 24,
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    borderRadius: '8px',
-                    background: activeTab === 2
-                      ? `linear-gradient(135deg, ${alpha(theme.palette.success.main, 0.3)} 0%, ${alpha(theme.palette.success.main, 0.2)} 100%)`
-                      : alpha(theme.palette.action.active, 0.12),
-                    border: activeTab === 2
-                      ? `1.5px solid ${alpha(theme.palette.success.main, 0.4)}`
-                      : 'none',
-                    transition: 'all 0.3s',
-                  }}
-                />
-              </Box>
-            }
-          />
-          <Tab
-            label={
-              <Box display="flex" alignItems="center" gap={1.5}>
-                <StarIcon
-                  sx={{
-                    fontSize: 20,
-                    color: activeTab === 3 ? theme.palette.warning.main : theme.palette.action.active,
-                    transition: 'all 0.3s',
-                  }}
-                />
-                <Typography sx={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '0.01em' }}>
-                  Favorites
-                </Typography>
-                <Chip
-                  label={skills.favorites.length}
-                  size="small"
-                  sx={{
-                    height: 24,
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    borderRadius: '8px',
-                    background: activeTab === 3
-                      ? `linear-gradient(135deg, ${alpha(theme.palette.warning.main, 0.3)} 0%, ${alpha(theme.palette.warning.main, 0.2)} 100%)`
-                      : alpha(theme.palette.action.active, 0.12),
-                    border: activeTab === 3
-                      ? `1.5px solid ${alpha(theme.palette.warning.main, 0.4)}`
-                      : 'none',
-                    transition: 'all 0.3s',
-                  }}
-                />
-              </Box>
-            }
-          />
-        </Tabs>
-      </Box>
-
-      {/* Default Skills Tab */}
-      {activeTab === 0 && (
-        <Grid container spacing={3} sx={{
-          '& .MuiGrid-item': {
-            animation: 'fadeInUp 0.4s ease-out',
-            '@keyframes fadeInUp': {
-              from: {
-                opacity: 0,
-                transform: 'translateY(20px)',
-              },
-              to: {
-                opacity: 1,
-                transform: 'translateY(0)',
-              },
-            },
-          },
-        }}>
-          {skills.available_default.length === 0 ? (
-            <Grid item xs={12}>
-              <Alert
-                severity="info"
-                sx={{
-                  borderRadius: 3,
-                  background: `linear-gradient(135deg, ${alpha(theme.palette.info.main, 0.08)} 0%, ${alpha(theme.palette.info.light, 0.05)} 100%)`,
-                  border: `2px solid ${alpha(theme.palette.info.main, 0.2)}`,
-                  boxShadow: `0 4px 16px ${alpha(theme.palette.info.main, 0.1)}`,
-                  '& .MuiAlert-icon': {
-                    fontSize: 28,
-                  },
-                }}
-              >
-                <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5 }}>
-                  No Default Skills Available
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Skills will be automatically seeded on backend startup. Please restart the backend service.
-                </Typography>
-              </Alert>
-            </Grid>
-          ) : (
-            skills.available_default.map((skill) => (
-              <Grid item xs={12} md={6} lg={4} key={skill.id}>
-                <SkillCard skill={skill} showToggle={true} />
+                >
+                  <CodeIcon sx={{ fontSize: 64, color: theme.palette.text.disabled, mb: 2 }} />
+                  <Typography variant="h6" gutterBottom>
+                    No skills found
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" mb={3}>
+                    {searchQuery
+                      ? 'Try adjusting your search query'
+                      : activeFilter !== 'all'
+                      ? 'Try changing the filter or create a custom skill'
+                      : 'Create a custom skill to get started'}
+                  </Typography>
+                  {!searchQuery && selectedProject?.id && (
+                    <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateDialogOpen(true)}>
+                      Create Custom Skill
+                    </Button>
+                  )}
+                </Paper>
               </Grid>
-            ))
-          )}
-        </Grid>
-      )}
-
-      {/* Custom Skills Tab */}
-      {activeTab === 1 && (
-        <Grid container spacing={3} sx={{
-          '& .MuiGrid-item': {
-            animation: 'fadeInUp 0.4s ease-out',
-            '@keyframes fadeInUp': {
-              from: {
-                opacity: 0,
-                transform: 'translateY(20px)',
-              },
-              to: {
-                opacity: 1,
-                transform: 'translateY(0)',
-              },
-            },
-          },
-        }}>
-          {skills.custom.length === 0 ? (
-            <Grid item xs={12}>
-              <Alert
-                severity="info"
-                sx={{
-                  borderRadius: 3,
-                  background: `linear-gradient(135deg, ${alpha(theme.palette.secondary.main, 0.08)} 0%, ${alpha(theme.palette.secondary.light, 0.05)} 100%)`,
-                  border: `2px solid ${alpha(theme.palette.secondary.main, 0.2)}`,
-                  boxShadow: `0 4px 16px ${alpha(theme.palette.secondary.main, 0.1)}`,
-                  '& .MuiAlert-icon': {
-                    fontSize: 28,
-                  },
-                }}
-              >
-                <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5 }}>
-                  No Custom Skills Created
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Click the "Create Custom Skill" button above to add your own custom skills to the project.
-                </Typography>
-              </Alert>
-            </Grid>
-          ) : (
-            skills.custom.map((skill) => (
-              <Grid item xs={12} md={6} lg={4} key={skill.id}>
-                <SkillCard skill={skill} showToggle={true} showDelete={true} />
-              </Grid>
-            ))
-          )}
-        </Grid>
-      )}
-
-      {/* Enabled Skills Tab */}
-      {activeTab === 2 && (
-        <Grid container spacing={3} sx={{
-          '& .MuiGrid-item': {
-            animation: 'fadeInUp 0.4s ease-out',
-            '@keyframes fadeInUp': {
-              from: {
-                opacity: 0,
-                transform: 'translateY(20px)',
-              },
-              to: {
-                opacity: 1,
-                transform: 'translateY(0)',
-              },
-            },
-          },
-        }}>
-          {skills.enabled.length === 0 ? (
-            <Grid item xs={12}>
-              <Alert
-                severity="info"
-                sx={{
-                  borderRadius: 3,
-                  background: `linear-gradient(135deg, ${alpha(theme.palette.success.main, 0.08)} 0%, ${alpha(theme.palette.success.light, 0.05)} 100%)`,
-                  border: `2px solid ${alpha(theme.palette.success.main, 0.2)}`,
-                  boxShadow: `0 4px 16px ${alpha(theme.palette.success.main, 0.1)}`,
-                  '& .MuiAlert-icon': {
-                    fontSize: 28,
-                  },
-                }}
-              >
-                <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5 }}>
-                  No Skills Enabled
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Enable default or custom skills from their respective tabs to see them here.
-                </Typography>
-              </Alert>
-            </Grid>
-          ) : (
-            skills.enabled.map((skill) => (
-              <Grid item xs={12} md={6} lg={4} key={skill.id}>
-                <SkillCard skill={skill} showToggle={true} />
-              </Grid>
-            ))
-          )}
-        </Grid>
-      )}
-
-      {/* Favorites Tab */}
-      {activeTab === 3 && (
-        <Grid container spacing={3} sx={{
-          '& .MuiGrid-item': {
-            animation: 'fadeInUp 0.4s ease-out',
-            '@keyframes fadeInUp': {
-              from: {
-                opacity: 0,
-                transform: 'translateY(20px)',
-              },
-              to: {
-                opacity: 1,
-                transform: 'translateY(0)',
-              },
-            },
-          },
-        }}>
-          {skills.favorites.length === 0 ? (
-            <Grid item xs={12}>
-              <Alert
-                severity="info"
-                icon={<StarBorderIcon sx={{ fontSize: 28 }} />}
-                sx={{
-                  borderRadius: 3,
-                  background: `linear-gradient(135deg, ${alpha(theme.palette.warning.main, 0.08)} 0%, ${alpha(theme.palette.warning.light, 0.05)} 100%)`,
-                  border: `2px solid ${alpha(theme.palette.warning.main, 0.2)}`,
-                  boxShadow: `0 4px 16px ${alpha(theme.palette.warning.main, 0.1)}`,
-                  '& .MuiAlert-icon': {
-                    fontSize: 28,
-                  },
-                }}
-              >
-                <Typography variant="body1" sx={{ fontWeight: 600, mb: 0.5 }}>
-                  No Favorite Skills Yet
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Click the star icon on any skill card to add it to your favorites for quick access.
-                </Typography>
-              </Alert>
-            </Grid>
-          ) : (
-            skills.favorites.map((skill) => (
-              <Grid item xs={12} md={6} lg={4} key={`${skill.skill_type}-${skill.id}`}>
-                <SkillCard skill={skill} showToggle={true} />
-              </Grid>
-            ))
-          )}
-        </Grid>
-      )}
+            ) : (
+              filteredSkills.map((skill) => (
+                <Grid item xs={12} sm={6} lg={4} key={`${skill.skill_type}-${skill.id}`}>
+                  <SkillCard
+                    skill={skill}
+                    showToggle={true}
+                    showDelete={skill.skill_type === 'custom' && activeFilter !== 'enabled'}
+                    showSaveToFavorites={!skill.is_favorite && activeFilter !== 'enabled' && activeFilter !== 'favorite'}
+                    showRemoveFromFavorites={skill.is_favorite && activeFilter !== 'enabled'}
+                  />
+                </Grid>
+              ))
+            )}
+          </Grid>
+        )}
+      </Container>
 
       {/* Create Custom Skill Dialog */}
       <Dialog
@@ -1079,197 +798,175 @@ const Skills: React.FC = () => {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 4,
-            background: `linear-gradient(135deg, ${alpha(theme.palette.background.paper, 0.98)} 0%, ${alpha(theme.palette.background.paper, 1)} 100%)`,
-            backdropFilter: 'blur(20px)',
-            boxShadow: `0 24px 48px ${alpha(theme.palette.common.black, 0.2)}`,
+            borderRadius: 3,
+            background: theme.palette.background.paper,
           },
         }}
       >
-        <DialogTitle
-          sx={{
-            background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.secondary.main, 0.1)} 50%, ${alpha(theme.palette.primary.main, 0.05)} 100%)`,
-            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.15)}`,
-            pb: 3,
-            pt: 3,
-          }}
-        >
-          <Box display="flex" alignItems="center" gap={2}>
-            <Box
+        <DialogTitle sx={{ pb: 1 }}>
+          <Typography variant="h5" fontWeight={600}>
+            Create Custom Skill
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Define a new specialized skill for your project
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} mt={2}>
+            <TextField
+              autoFocus
+              label="Skill Name"
+              value={newSkillName}
+              onChange={(e) => setNewSkillName(e.target.value)}
+              fullWidth
+              required
+              placeholder="e.g., Database Migration Helper"
+              helperText="A descriptive name for your custom skill"
+            />
+            <TextField
+              label="Skill Description"
+              value={newSkillDescription}
+              onChange={(e) => setNewSkillDescription(e.target.value)}
+              fullWidth
+              required
+              multiline
+              rows={4}
+              placeholder="e.g., Specialized in database schema design and migration management"
+              helperText="Describe what this skill does and when to use it"
+            />
+            <Alert
+              severity="info"
+              icon={<InfoIcon />}
               sx={{
-                width: 56,
-                height: 56,
-                borderRadius: 3,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
-                boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.4)}`,
+                borderRadius: 2,
+                '& .MuiAlert-message': {
+                  fontSize: '0.875rem',
+                },
               }}
             >
-              <AddIcon sx={{ color: 'white', fontSize: 32 }} />
-            </Box>
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 800, mb: 0.5, letterSpacing: '-0.02em' }}>
-                Create Custom Skill
-              </Typography>
-              <Typography variant="body2" sx={{ color: theme.palette.text.secondary, fontSize: '0.95rem' }}>
-                Add a new skill to your project
-              </Typography>
-            </Box>
-          </Box>
-        </DialogTitle>
-        <DialogContent sx={{ mt: 3, px: 3, pb: 2 }}>
-          <Alert
-            severity="info"
-            icon={<InfoIcon sx={{ fontSize: 24 }} />}
-            sx={{
-              mb: 3,
-              borderRadius: 2.5,
-              background: `linear-gradient(135deg, ${alpha(theme.palette.info.main, 0.08)} 0%, ${alpha(theme.palette.info.light, 0.05)} 100%)`,
-              border: `2px solid ${alpha(theme.palette.info.main, 0.25)}`,
-              boxShadow: `0 4px 12px ${alpha(theme.palette.info.main, 0.1)}`,
-            }}
-          >
-            <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
-              About Skill Creation
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
-              This will create a new skill using Claude Code's /createSkill command.
-              The skill will be created in your project's .claude/skills/ directory.
-            </Typography>
-          </Alert>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Skill Name"
-            placeholder="e.g., Database Migration Helper"
-            fullWidth
-            variant="outlined"
-            value={newSkillName}
-            onChange={(e) => setNewSkillName(e.target.value)}
-            disabled={creating}
-            helperText="Choose a descriptive name for your skill"
-            sx={{
-              mb: 2.5,
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2.5,
-                fontSize: '1rem',
-                '& fieldset': {
-                  borderWidth: 2,
-                  borderColor: alpha(theme.palette.divider, 0.2),
-                },
-                '&:hover fieldset': {
-                  borderColor: theme.palette.primary.main,
-                },
-                '&.Mui-focused fieldset': {
-                  borderWidth: 2.5,
-                  borderColor: theme.palette.primary.main,
-                },
-              },
-              '& .MuiInputLabel-root': {
-                fontWeight: 600,
-              },
-            }}
-          />
-          <TextField
-            margin="dense"
-            label="Description"
-            placeholder="Describe what this skill does and when to use it..."
-            fullWidth
-            multiline
-            rows={5}
-            variant="outlined"
-            value={newSkillDescription}
-            onChange={(e) => setNewSkillDescription(e.target.value)}
-            disabled={creating}
-            helperText={`${newSkillDescription.length}/2000 characters - Provide a clear description of the skill's purpose and usage`}
-            error={newSkillDescription.length > 2000}
-            inputProps={{ maxLength: 2000 }}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 2.5,
-                fontSize: '1rem',
-                '& fieldset': {
-                  borderWidth: 2,
-                  borderColor: alpha(theme.palette.divider, 0.2),
-                },
-                '&:hover fieldset': {
-                  borderColor: theme.palette.primary.main,
-                },
-                '&.Mui-focused fieldset': {
-                  borderWidth: 2.5,
-                  borderColor: theme.palette.primary.main,
-                },
-              },
-              '& .MuiInputLabel-root': {
-                fontWeight: 600,
-              },
-            }}
-          />
+              This will create a new skill using Claude Code's /createSkill command. The skill will be created in your project's .claude/skills/ directory.
+            </Alert>
+          </Stack>
         </DialogContent>
-        <DialogActions
-          sx={{
-            p: 3,
-            pt: 2.5,
-            borderTop: `1px solid ${alpha(theme.palette.divider, 0.15)}`,
-            gap: 1.5,
-          }}
-        >
-          <Button
-            onClick={() => setCreateDialogOpen(false)}
-            disabled={creating}
-            size="large"
-            sx={{
-              borderRadius: 2.5,
-              textTransform: 'none',
-              fontWeight: 700,
-              fontSize: '1rem',
-              px: 3,
-              py: 1.25,
-              color: theme.palette.text.secondary,
-              '&:hover': {
-                background: alpha(theme.palette.action.active, 0.08),
-              },
-            }}
-          >
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={() => setCreateDialogOpen(false)} disabled={creating} sx={{ borderRadius: 2 }}>
             Cancel
           </Button>
           <Button
             onClick={handleCreateSkill}
             variant="contained"
-            size="large"
-            disabled={!newSkillName || !newSkillDescription || creating}
+            disabled={creating || !newSkillName || !newSkillDescription}
             sx={{
-              borderRadius: 2.5,
-              textTransform: 'none',
-              fontWeight: 700,
-              fontSize: '1rem',
-              px: 4,
-              py: 1.25,
-              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
-              boxShadow: `0 6px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
-              minWidth: 120,
-              transition: 'all 0.3s',
-              '&:hover': {
-                background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.main} 100%)`,
-                boxShadow: `0 8px 28px ${alpha(theme.palette.primary.main, 0.6)}`,
-                transform: 'translateY(-2px)',
-              },
-              '&:disabled': {
-                background: theme.palette.action.disabledBackground,
-                boxShadow: 'none',
-              },
+              borderRadius: 2,
+              px: 3,
+              background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
             }}
           >
-            {creating ? (
-              <Box display="flex" alignItems="center" gap={1.5}>
-                <CircularProgress size={20} sx={{ color: 'white' }} />
-                <span>Creating...</span>
+            {creating ? <CircularProgress size={24} /> : 'Create Skill'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* View Skill Details Dialog */}
+      <Dialog
+        open={viewSkillDialogOpen}
+        onClose={() => setViewSkillDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            background: theme.palette.background.paper,
+          },
+        }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Typography variant="h5" fontWeight={600}>
+            Skill Details
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {selectedSkill && (
+            <Stack spacing={3} mt={2}>
+              {/* Header */}
+              <Box display="flex" alignItems="start" gap={2}>
+                <Box
+                  sx={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.2)}, ${alpha(theme.palette.primary.light, 0.1)})`,
+                    border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                  }}
+                >
+                  <CodeIcon sx={{ color: theme.palette.primary.main, fontSize: 36 }} />
+                </Box>
+                <Box flexGrow={1}>
+                  <Typography variant="h5" fontWeight={600} gutterBottom>
+                    {selectedSkill.name}
+                  </Typography>
+                  <Stack direction="row" spacing={1}>
+                    <Chip label={selectedSkill.category} size="small" color="primary" />
+                    <Chip
+                      label={selectedSkill.skill_type === 'default' ? 'Default' : 'Custom'}
+                      size="small"
+                      color={selectedSkill.skill_type === 'default' ? 'success' : 'info'}
+                    />
+                    {selectedSkill.is_enabled && (
+                      <Chip label="Enabled" size="small" color="success" icon={<CheckCircleIcon />} />
+                    )}
+                    {selectedSkill.is_favorite && (
+                      <Chip label="Favorite" size="small" color="warning" icon={<StarIcon />} />
+                    )}
+                  </Stack>
+                </Box>
               </Box>
-            ) : (
-              'Create Skill'
-            )}
+
+              <Divider />
+
+              {/* Description */}
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Description
+                </Typography>
+                <Typography variant="body1">{selectedSkill.description}</Typography>
+              </Box>
+
+              {/* File Path */}
+              {selectedSkill.file_path && (
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    File Path
+                  </Typography>
+                  <Typography variant="body2" fontFamily="monospace" sx={{ background: alpha(theme.palette.primary.main, 0.05), p: 1, borderRadius: 1 }}>
+                    {selectedSkill.file_path}
+                  </Typography>
+                </Box>
+              )}
+
+              {/* Metadata */}
+              <Box>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Created: {new Date(selectedSkill.created_at).toLocaleString()}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Last Updated: {new Date(selectedSkill.updated_at).toLocaleString()}
+                </Typography>
+                {selectedSkill.created_by && (
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    Created By: {selectedSkill.created_by}
+                  </Typography>
+                )}
+              </Box>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={() => setViewSkillDialogOpen(false)} variant="contained" sx={{ borderRadius: 2 }}>
+            Close
           </Button>
         </DialogActions>
       </Dialog>
