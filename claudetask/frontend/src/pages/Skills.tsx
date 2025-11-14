@@ -38,6 +38,14 @@ import CodeEditorDialog from '../components/CodeEditorDialog';
 // Remove /api suffix if present, since we add it manually in request paths
 const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:3333').replace(/\/api$/, '');
 
+// Utility to format error messages from API responses
+const formatErrorMessage = (err: any): string => {
+  const detail = err.response?.data?.detail;
+  if (!detail) return err.message || 'Unknown error';
+  if (typeof detail === 'string') return detail;
+  return JSON.stringify(detail);
+};
+
 interface Skill {
   id: number;
   name: string;
@@ -97,7 +105,7 @@ const Skills: React.FC = () => {
       );
       setSkills(response.data);
     } catch (err: any) {
-      setError('Failed to fetch skills: ' + (err.response?.data?.detail || err.message));
+      setError('Failed to fetch skills: ' + formatErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -112,7 +120,7 @@ const Skills: React.FC = () => {
       );
       await fetchSkills(); // Refresh skills list
     } catch (err: any) {
-      setError('Failed to enable skill: ' + (err.response?.data?.detail || err.message));
+      setError('Failed to enable skill: ' + formatErrorMessage(err));
     }
   };
 
@@ -125,7 +133,7 @@ const Skills: React.FC = () => {
       );
       await fetchSkills(); // Refresh skills list
     } catch (err: any) {
-      setError('Failed to disable skill: ' + (err.response?.data?.detail || err.message));
+      setError('Failed to disable skill: ' + formatErrorMessage(err));
     }
   };
 
@@ -147,7 +155,7 @@ const Skills: React.FC = () => {
       setNewSkillDescription('');
       await fetchSkills(); // Refresh skills list
     } catch (err: any) {
-      setError('Failed to create skill: ' + (err.response?.data?.detail || err.message));
+      setError('Failed to create skill: ' + formatErrorMessage(err));
     } finally {
       setCreating(false);
     }
@@ -163,7 +171,7 @@ const Skills: React.FC = () => {
       );
       await fetchSkills(); // Refresh skills list
     } catch (err: any) {
-      setError('Failed to delete skill: ' + (err.response?.data?.detail || err.message));
+      setError('Failed to delete skill: ' + formatErrorMessage(err));
     }
   };
 
@@ -183,7 +191,7 @@ const Skills: React.FC = () => {
       );
       await fetchSkills(); // Refresh skills list
     } catch (err: any) {
-      setError('Failed to save to favorites: ' + (err.response?.data?.detail || err.message));
+      setError('Failed to save to favorites: ' + formatErrorMessage(err));
     }
   };
 
@@ -203,7 +211,7 @@ const Skills: React.FC = () => {
       );
       await fetchSkills(); // Refresh skills list
     } catch (err: any) {
-      setError('Failed to remove from favorites: ' + (err.response?.data?.detail || err.message));
+      setError('Failed to remove from favorites: ' + formatErrorMessage(err));
     }
   };
 
@@ -1171,7 +1179,9 @@ const Skills: React.FC = () => {
             value={newSkillDescription}
             onChange={(e) => setNewSkillDescription(e.target.value)}
             disabled={creating}
-            helperText="Provide a clear description of the skill's purpose and usage"
+            helperText={`${newSkillDescription.length}/2000 characters - Provide a clear description of the skill's purpose and usage`}
+            error={newSkillDescription.length > 2000}
+            inputProps={{ maxLength: 2000 }}
             sx={{
               '& .MuiOutlinedInput-root': {
                 borderRadius: 2.5,

@@ -171,16 +171,22 @@ class SkillCreationService:
         - Command injection (;, &&, ||, |, `, $(), etc.)
         - Escape sequences that could break terminal
         - Control characters
-        """
-        # Remove control characters
-        sanitized = ''.join(char for char in user_input if ord(char) >= 32)
 
-        # Remove shell metacharacters
-        dangerous_chars = [';', '&', '|', '`', '$', '(', ')', '<', '>', '\n', '\r']
+        Note: Allows Unicode characters (Cyrillic, Chinese, etc.)
+        """
+        # Remove control characters but allow Unicode printable characters
+        # Keep characters with ord >= 32 (includes ASCII printable + Unicode)
+        sanitized = ''.join(char for char in user_input if ord(char) >= 32 or char in ['\t'])
+
+        # Remove shell metacharacters (but NOT Unicode text)
+        dangerous_chars = [';', '&', '|', '`', '$', '(', ')', '<', '>']
         for char in dangerous_chars:
             sanitized = sanitized.replace(char, '')
 
-        return sanitized
+        # Remove literal newlines and carriage returns (but preserve as spaces)
+        sanitized = sanitized.replace('\n', ' ').replace('\r', ' ')
+
+        return sanitized.strip()
 
     def validate_skill_name(self, name: str) -> bool:
         """
@@ -188,10 +194,13 @@ class SkillCreationService:
         - Path traversal (../, ../../, etc.)
         - Command injection (; &, |, etc.)
         - Special characters that could break file systems
+
+        Allows Unicode characters (Cyrillic, Chinese, etc.)
         """
         import re
-        # Only allow alphanumeric, hyphens, underscores, spaces
-        if not re.match(r'^[a-zA-Z0-9-_\s]+$', name):
+
+        # Check if name is not empty
+        if not name or not name.strip():
             return False
 
         # Check length
@@ -200,6 +209,11 @@ class SkillCreationService:
 
         # Prevent path traversal
         if ".." in name or "/" in name or "\\" in name:
+            return False
+
+        # Prevent shell metacharacters and dangerous chars
+        dangerous_chars = [';', '&', '|', '`', '$', '(', ')', '<', '>', '\n', '\r']
+        if any(char in name for char in dangerous_chars):
             return False
 
         return True

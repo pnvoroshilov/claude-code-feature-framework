@@ -239,22 +239,33 @@ class EditorService:
         return bool(re.match(r'^[a-zA-Z0-9\s\-]+$', agent_name))
 
     def validate_skill_name(self, skill_name: str) -> bool:
-        """Validate skill name format"""
-        if not skill_name:
+        """Validate skill name format - allows Unicode characters"""
+        if not skill_name or not skill_name.strip():
             return False
-        # Allow letters, numbers, hyphens, and spaces
-        import re
-        return bool(re.match(r'^[a-zA-Z0-9\s\-]+$', skill_name))
+
+        # Check length
+        if len(skill_name) < 3 or len(skill_name) > 100:
+            return False
+
+        # Prevent path traversal and dangerous characters
+        dangerous_chars = [';', '&', '|', '`', '$', '(', ')', '<', '>', '\n', '\r', '..', '/', '\\']
+        if any(char in skill_name for char in dangerous_chars):
+            return False
+
+        return True
 
     def sanitize_instructions(self, instructions: str) -> str:
-        """Sanitize edit instructions to prevent command injection"""
+        """Sanitize edit instructions to prevent command injection - allows Unicode"""
         if not instructions:
             return ""
 
-        # Remove any shell-dangerous characters
-        # Keep only alphanumeric, spaces, and safe punctuation
-        import re
-        sanitized = re.sub(r'[`$\\;|&<>]', '', instructions)
+        # Remove control characters but allow Unicode printable
+        sanitized = ''.join(char for char in instructions if ord(char) >= 32 or char in ['\t', '\n'])
+
+        # Remove shell-dangerous characters
+        dangerous_chars = [';', '&', '|', '`', '$', '<', '>']
+        for char in dangerous_chars:
+            sanitized = sanitized.replace(char, '')
 
         # Limit length
         max_length = 1000
@@ -309,13 +320,21 @@ class EditorService:
             file_name = re.sub(r'[^\w\s-]', '', skill_name.lower())
             file_name = re.sub(r'[\s_]+', '-', file_name)
 
-            skill_file = Path(project_path) / ".claude" / "skills" / f"{file_name}.md"
+            skills_dir = Path(project_path) / ".claude" / "skills"
 
-            if not skill_file.exists():
-                raise FileNotFoundError(f"Skill file not found: {skill_file}")
+            # Try directory format first (multi-file skill package)
+            skill_dir_file = skills_dir / file_name / "SKILL.md"
+            if skill_dir_file.exists():
+                with open(skill_dir_file, 'r', encoding='utf-8') as f:
+                    return f.read()
 
-            with open(skill_file, 'r', encoding='utf-8') as f:
-                return f.read()
+            # Try direct file format (single file skill)
+            skill_file = skills_dir / f"{file_name}.md"
+            if skill_file.exists():
+                with open(skill_file, 'r', encoding='utf-8') as f:
+                    return f.read()
+
+            raise FileNotFoundError(f"Skill file not found: tried {skill_dir_file} and {skill_file}")
 
         except Exception as e:
             logger.error(f"Failed to read skill content: {e}", exc_info=True)

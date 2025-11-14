@@ -158,22 +158,58 @@ This skill will be automatically invoked by Claude Code when relevant to your ta
             return False
 
     async def read_skill_content(self, project_path: str, skill_file_name: str) -> Optional[str]:
-        """Read skill file content"""
+        """Read skill file content
+
+        Supports both formats:
+        - Direct .md file: skills/skill-name.md
+        - Directory with SKILL.md: skills/skill-name/SKILL.md
+        """
         try:
-            file_path = os.path.join(project_path, ".claude", "skills", skill_file_name)
+            skills_dir = os.path.join(project_path, ".claude", "skills")
 
-            async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
-                content = await f.read()
+            # Remove .md extension if present to get base name
+            base_name = skill_file_name.replace('.md', '')
 
-            return content
+            # Try directory format first (multi-file skill package)
+            dir_path = os.path.join(skills_dir, base_name, "SKILL.md")
+            if os.path.exists(dir_path):
+                async with aiofiles.open(dir_path, 'r', encoding='utf-8') as f:
+                    content = await f.read()
+                return content
+
+            # Try direct file format (single file skill)
+            file_path = os.path.join(skills_dir, skill_file_name)
+            if os.path.exists(file_path):
+                async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
+                    content = await f.read()
+                return content
+
+            logger.error(f"Skill file not found: tried {dir_path} and {file_path}")
+            return None
 
         except Exception as e:
             logger.error(f"Failed to read skill file: {e}", exc_info=True)
             return None
 
     async def skill_exists_in_project(self, project_path: str, skill_file_name: str) -> bool:
-        """Check if skill file exists in project"""
-        file_path = os.path.join(project_path, ".claude", "skills", skill_file_name)
+        """Check if skill file exists in project
+
+        Supports both formats:
+        - Direct .md file: skills/skill-name.md
+        - Directory with SKILL.md: skills/skill-name/SKILL.md
+        """
+        skills_dir = os.path.join(project_path, ".claude", "skills")
+
+        # Remove .md extension if present to get base name
+        base_name = skill_file_name.replace('.md', '')
+
+        # Check directory format first (multi-file skill package)
+        dir_path = os.path.join(skills_dir, base_name, "SKILL.md")
+        if os.path.exists(dir_path):
+            return True
+
+        # Check direct file format (single file skill)
+        file_path = os.path.join(skills_dir, skill_file_name)
         return os.path.exists(file_path)
 
     def _get_framework_skills_dir(self) -> str:

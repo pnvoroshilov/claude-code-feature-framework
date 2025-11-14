@@ -233,7 +233,7 @@ class ConnectionStatus(BaseModel):
 # Skill Schemas
 class SkillBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=100)
-    description: str = Field(..., min_length=10, max_length=500)
+    description: str = Field(..., min_length=10, max_length=2000)
 
 
 class SkillCreate(SkillBase):
