@@ -523,7 +523,7 @@ const Hooks: React.FC = () => {
   }
 
   return (
-    <Box>
+    <Box sx={{ maxWidth: '1400px', margin: '0 auto', width: '100%' }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4">Hooks Management</Typography>
         <Button
@@ -557,7 +557,7 @@ const Hooks: React.FC = () => {
 
       {/* Enabled Hooks Tab */}
       {activeTab === 0 && (
-        <Grid container spacing={3}>
+        <Grid container spacing={2} sx={{ maxWidth: '100%' }}>
           {hooks.enabled.length === 0 ? (
             <Grid item xs={12}>
               <Alert severity="info">
@@ -566,7 +566,7 @@ const Hooks: React.FC = () => {
             </Grid>
           ) : (
             hooks.enabled.map((hook) => (
-              <Grid item xs={12} md={6} key={`enabled-${hook.id}`}>
+              <Grid item xs={12} sm={6} lg={6} key={`enabled-${hook.id}`}>
                 <HookCard hook={hook} showToggle={true} showEdit={false} showDelete={false} />
               </Grid>
             ))
@@ -576,7 +576,7 @@ const Hooks: React.FC = () => {
 
       {/* Default Hooks Tab */}
       {activeTab === 1 && (
-        <Grid container spacing={3}>
+        <Grid container spacing={2} sx={{ maxWidth: '100%' }}>
           {hooks.available_default.length === 0 ? (
             <Grid item xs={12}>
               <Alert severity="info">
@@ -585,7 +585,7 @@ const Hooks: React.FC = () => {
             </Grid>
           ) : (
             hooks.available_default.map((hook) => (
-              <Grid item xs={12} md={6} key={`default-${hook.id}`}>
+              <Grid item xs={12} sm={6} lg={6} key={`default-${hook.id}`}>
                 <HookCard hook={hook} showToggle={true} showEdit={false} showDelete={false} />
               </Grid>
             ))
@@ -595,7 +595,7 @@ const Hooks: React.FC = () => {
 
       {/* Custom Hooks Tab */}
       {activeTab === 2 && (
-        <Grid container spacing={3}>
+        <Grid container spacing={2} sx={{ maxWidth: '100%' }}>
           {hooks.custom.length === 0 ? (
             <Grid item xs={12}>
               <Alert severity="info">
@@ -604,7 +604,7 @@ const Hooks: React.FC = () => {
             </Grid>
           ) : (
             hooks.custom.map((hook) => (
-              <Grid item xs={12} md={6} key={`custom-${hook.id}`}>
+              <Grid item xs={12} sm={6} lg={6} key={`custom-${hook.id}`}>
                 <HookCard hook={hook} showToggle={true} showEdit={false} showDelete={false} />
               </Grid>
             ))
@@ -614,7 +614,7 @@ const Hooks: React.FC = () => {
 
       {/* Favorites Tab */}
       {activeTab === 3 && (
-        <Grid container spacing={3}>
+        <Grid container spacing={2} sx={{ maxWidth: '100%' }}>
           {hooks.favorites.length === 0 ? (
             <Grid item xs={12}>
               <Alert severity="info">
@@ -623,7 +623,7 @@ const Hooks: React.FC = () => {
             </Grid>
           ) : (
             hooks.favorites.map((hook) => (
-              <Grid item xs={12} md={6} key={`${hook.hook_type}-${hook.id}`}>
+              <Grid item xs={12} sm={6} lg={6} key={`${hook.hook_type}-${hook.id}`}>
                 <HookCard hook={hook} showToggle={true} showEdit={false} showDelete={false} />
               </Grid>
             ))
