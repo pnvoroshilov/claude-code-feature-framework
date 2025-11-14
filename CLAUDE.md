@@ -16,6 +16,32 @@
 - ✅ **Simplified task management** - Focus on getting work done
 - ✅ **No worktrees, no version control complexity**
 
+## Your approach:
+1. When working on tasks, work directly in the main branch
+2. Don't create branches or worktrees
+3. Don't follow the full development workflow
+4. Focus on completing tasks efficiently
+5. Task statuses: Only use Backlog, In Progress, and Done
+
+---
+
+
+
+# 🎯 PROJECT MODE: SIMPLE
+
+**This project is configured in SIMPLE mode.**
+
+## Task Workflow (3 Columns)
+- **Backlog**: Tasks waiting to be started
+- **In Progress**: Tasks currently being worked on
+- **Done**: Completed tasks
+
+## What this means:
+- ✅ **NO Git workflow** - Direct work, no branches, no PRs
+- ✅ **NO complex statuses** - Just Backlog → In Progress → Done
+- ✅ **Simplified task management** - Focus on getting work done
+- ✅ **No worktrees, no version control complexity**
+
 ## 🔴 CRITICAL: SIMPLE Mode Status Rules
 
 **⚠️ IN SIMPLE MODE, IGNORE ALL INSTRUCTIONS ABOUT:**
@@ -1302,3 +1328,4 @@ Remember: **YOU ARE PURE ORCHESTRATOR - DELEGATE EVERYTHING TECHNICAL TO CORRECT
 - **Test Command**: Not configured
 - **Build Command**: Not configured
 - **Lint Command**: Not configured
+Test change to trigger hook
