@@ -1,6 +1,7 @@
 """Service for managing skills"""
 
 import os
+import re
 import logging
 import asyncio
 from typing import List, Optional, Dict, Any
@@ -125,9 +126,9 @@ class SkillService:
             favorites=favorites
         )
 
-    async def enable_skill(self, project_id: str, skill_id: int) -> SkillInDB:
+    async def enable_skill(self, project_id: str, skill_id: int, skill_type: str = "default") -> SkillInDB:
         """
-        Enable a default skill by copying it to project
+        Enable a skill by copying it to project
 
         Process:
         1. Validate skill exists
@@ -140,11 +141,24 @@ class SkillService:
         if not project:
             raise ValueError(f"Project {project_id} not found")
 
-        # Get skill (assume default for now, can extend to custom)
-        skill_result = await self.db.execute(
-            select(DefaultSkill).where(DefaultSkill.id == skill_id)
-        )
-        skill = skill_result.scalar_one_or_none()
+        # Get skill based on skill_type
+        if skill_type == "default":
+            skill_result = await self.db.execute(
+                select(DefaultSkill).where(DefaultSkill.id == skill_id)
+            )
+            skill = skill_result.scalar_one_or_none()
+            source_type = "default"
+        else:
+            skill_result = await self.db.execute(
+                select(CustomSkill).where(
+                    and_(
+                        CustomSkill.id == skill_id,
+                        CustomSkill.project_id == project_id
+                    )
+                )
+            )
+            skill = skill_result.scalar_one_or_none()
+            source_type = "custom"
 
         if not skill:
             raise ValueError(f"Skill {skill_id} not found")
@@ -155,7 +169,7 @@ class SkillService:
                 and_(
                     ProjectSkill.project_id == project_id,
                     ProjectSkill.skill_id == skill_id,
-                    ProjectSkill.skill_type == "default"
+                    ProjectSkill.skill_type == skill_type
                 )
             )
         )
@@ -166,7 +180,7 @@ class SkillService:
         success = await self.file_service.copy_skill_to_project(
             project_path=project.path,
             skill_file_name=skill.file_name,
-            source_type="default"
+            source_type=source_type
         )
 
         if not success:
@@ -176,7 +190,7 @@ class SkillService:
         project_skill = ProjectSkill(
             project_id=project_id,
             skill_id=skill_id,
-            skill_type="default",
+            skill_type=skill_type,
             enabled_at=datetime.utcnow(),
             enabled_by="user"
         )
@@ -185,9 +199,9 @@ class SkillService:
 
         logger.info(f"Enabled skill {skill.name} for project {project_id}")
 
-        return self._to_skill_dto(skill, "default", True, project.path)
+        return self._to_skill_dto(skill, skill_type, True, project.path)
 
-    async def disable_skill(self, project_id: str, skill_id: int):
+    async def disable_skill(self, project_id: str, skill_id: int, skill_type: str = "default"):
         """
         Disable a skill by removing it from project
 
@@ -201,12 +215,13 @@ class SkillService:
         if not project:
             raise ValueError(f"Project {project_id} not found")
 
-        # Get project_skill record
+        # Get project_skill record (with skill_type to avoid multiple rows)
         result = await self.db.execute(
             select(ProjectSkill).where(
                 and_(
                     ProjectSkill.project_id == project_id,
-                    ProjectSkill.skill_id == skill_id
+                    ProjectSkill.skill_id == skill_id,
+                    ProjectSkill.skill_type == skill_type
                 )
             )
         )
@@ -338,9 +353,26 @@ class SkillService:
                 custom_skill = skill_result.scalar_one_or_none()
 
                 if custom_skill:
+                    # Detect actual file structure created by Skills Creator
+                    actual_file_name = await self._detect_skill_file_structure(
+                        project_path=project.path,
+                        skill_name=custom_skill.name
+                    )
+
+                    # Update file_name if different from initial guess
+                    if actual_file_name and actual_file_name != custom_skill.file_name:
+                        logger.info(f"Updating skill file_name from {custom_skill.file_name} to {actual_file_name}")
+                        custom_skill.file_name = actual_file_name
+
                     custom_skill.status = "active"
                     custom_skill.content = result.get("content", "")
                     custom_skill.updated_at = datetime.utcnow()
+
+                    # Archive custom skill to .claudetask/custom-skills/ for persistence
+                    await self.file_service.archive_custom_skill(
+                        project_path=project.path,
+                        skill_file_name=custom_skill.file_name
+                    )
 
                     # Enable skill immediately
                     project_skill = ProjectSkill(
@@ -432,8 +464,8 @@ class SkillService:
         if project_skill:
             await self.db.delete(project_skill)
 
-        # Delete skill file
-        await self.file_service.delete_skill_from_project(
+        # Permanently delete skill files (from both .claude/skills/ and .claudetask/skills/)
+        await self.file_service.permanently_delete_custom_skill(
             project_path=project.path,
             skill_file_name=custom_skill.file_name
         )
@@ -442,7 +474,154 @@ class SkillService:
         await self.db.delete(custom_skill)
         await self.db.commit()
 
-        logger.info(f"Deleted custom skill {custom_skill.name} from project {project_id}")
+        logger.info(f"Permanently deleted custom skill {custom_skill.name} from project {project_id}")
+
+    async def update_custom_skill_status(
+        self,
+        project_id: str,
+        skill_id: int,
+        status: str,
+        error_message: str | None = None
+    ):
+        """
+        Update custom skill status and archive it
+
+        This is called by MCP tools after skill creation is complete.
+        Process:
+        1. Update skill status in database
+        2. Archive skill to .claudetask/custom-skills/
+        3. Enable skill if status is "active"
+        """
+        # Get project
+        project = await self._get_project(project_id)
+        if not project:
+            raise ValueError(f"Project {project_id} not found")
+
+        # Get custom skill
+        result = await self.db.execute(
+            select(CustomSkill).where(
+                and_(
+                    CustomSkill.id == skill_id,
+                    CustomSkill.project_id == project_id
+                )
+            )
+        )
+        custom_skill = result.scalar_one_or_none()
+
+        if not custom_skill:
+            raise ValueError(f"Custom skill {skill_id} not found for project {project_id}")
+
+        # Update status
+        custom_skill.status = status
+        if error_message:
+            custom_skill.error_message = error_message
+        custom_skill.updated_at = datetime.utcnow()
+
+        # If status is active, archive and enable
+        if status == "active":
+            # Archive to .claudetask/skills/
+            await self.file_service.archive_custom_skill(
+                project_path=project.path,
+                skill_file_name=custom_skill.file_name
+            )
+
+            # Enable skill (add to project_skills if not already enabled)
+            existing = await self.db.execute(
+                select(ProjectSkill).where(
+                    and_(
+                        ProjectSkill.project_id == project_id,
+                        ProjectSkill.skill_id == skill_id,
+                        ProjectSkill.skill_type == "custom"
+                    )
+                )
+            )
+
+            if not existing.scalar_one_or_none():
+                project_skill = ProjectSkill(
+                    project_id=project_id,
+                    skill_id=skill_id,
+                    skill_type="custom",
+                    enabled_at=datetime.utcnow(),
+                    enabled_by="user"
+                )
+                self.db.add(project_skill)
+
+        await self.db.commit()
+
+        logger.info(f"Updated custom skill {custom_skill.name} status to '{status}' for project {project_id}")
+
+    async def update_custom_skill_content(
+        self,
+        project_id: str,
+        skill_id: int,
+        new_content: str
+    ):
+        """
+        Update custom skill content through UI
+
+        This is called when user edits skill content through the UI.
+        Process:
+        1. Update skill content in database
+        2. Update archive in .claudetask/custom-skills/
+        3. If skill is enabled, update .claude/skills/ as well
+
+        Args:
+            project_id: Project ID
+            skill_id: Custom skill ID
+            new_content: New skill content
+        """
+        # Get project
+        project = await self._get_project(project_id)
+        if not project:
+            raise ValueError(f"Project {project_id} not found")
+
+        # Get custom skill
+        result = await self.db.execute(
+            select(CustomSkill).where(
+                and_(
+                    CustomSkill.id == skill_id,
+                    CustomSkill.project_id == project_id
+                )
+            )
+        )
+        custom_skill = result.scalar_one_or_none()
+
+        if not custom_skill:
+            raise ValueError(f"Custom skill {skill_id} not found for project {project_id}")
+
+        # Update content in database
+        custom_skill.content = new_content
+        custom_skill.updated_at = datetime.utcnow()
+        await self.db.commit()
+
+        # Update archive in .claudetask/custom-skills/
+        await self.file_service.update_skill_content_in_archive(
+            project_path=project.path,
+            skill_file_name=custom_skill.file_name,
+            new_content=new_content
+        )
+
+        # Check if skill is enabled
+        enabled_result = await self.db.execute(
+            select(ProjectSkill).where(
+                and_(
+                    ProjectSkill.project_id == project_id,
+                    ProjectSkill.skill_id == skill_id,
+                    ProjectSkill.skill_type == "custom"
+                )
+            )
+        )
+        is_enabled = enabled_result.scalar_one_or_none() is not None
+
+        # If enabled, also update .claude/skills/
+        if is_enabled:
+            await self.file_service.copy_skill_to_project(
+                project_path=project.path,
+                skill_file_name=custom_skill.file_name,
+                source_type="custom"
+            )
+
+        logger.info(f"Updated custom skill {custom_skill.name} content for project {project_id}")
 
     async def get_default_skills(self) -> List[SkillInDB]:
         """Get all default skills catalog"""
@@ -671,9 +850,48 @@ class SkillService:
 
     def _generate_skill_file_name(self, skill_name: str) -> str:
         """Generate file name from skill name"""
-        import re
         # Convert to lowercase, replace spaces with hyphens
         file_name = skill_name.lower().replace(" ", "-")
         # Remove special characters
         file_name = re.sub(r'[^a-z0-9-_]', '', file_name)
         return f"{file_name}.md"
+
+    async def _detect_skill_file_structure(self, project_path: str, skill_name: str) -> str:
+        """
+        Detect actual file structure created by Skills Creator
+
+        Skills Creator can create either:
+        - Simple file: skill-name.md
+        - Directory structure: skill-name/SKILL.md (with examples/, resources/, templates/)
+
+        Args:
+            project_path: Project root path
+            skill_name: Name of the skill
+
+        Returns:
+            Actual file_name that matches the created structure
+        """
+        # Generate expected base name
+        base_name = skill_name.lower().replace(" ", "-")
+        base_name = re.sub(r'[^a-z0-9-_]', '', base_name)
+
+        skills_dir = os.path.join(project_path, ".claude", "skills")
+
+        # Check for directory-based skill (comprehensive package)
+        dir_path = os.path.join(skills_dir, base_name)
+        if os.path.exists(dir_path) and os.path.isdir(dir_path):
+            # Check if SKILL.md exists in directory
+            skill_md_path = os.path.join(dir_path, "SKILL.md")
+            if os.path.exists(skill_md_path):
+                logger.info(f"Detected directory-based skill: {base_name}/SKILL.md")
+                return f"{base_name}/SKILL.md"
+
+        # Check for simple file-based skill
+        file_path = os.path.join(skills_dir, f"{base_name}.md")
+        if os.path.exists(file_path):
+            logger.info(f"Detected file-based skill: {base_name}.md")
+            return f"{base_name}.md"
+
+        # Fallback to generated name if nothing found
+        logger.warning(f"Could not detect skill structure for {skill_name}, using default: {base_name}.md")
+        return f"{base_name}.md"

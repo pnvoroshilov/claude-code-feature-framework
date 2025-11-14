@@ -277,9 +277,46 @@ Before completing agent creation:
 - [ ] File saved in `.claude/agents/` directory
 - [ ] Agent name matches filename (agent-name.md)
 
+## Complete Session (MANDATORY - 2 STEPS!)
+
+**🔴 CRITICAL**: After agent file is created, you MUST follow these steps in ORDER:
+
+### Step 1: Update Subagent Status (FIRST!)
+**Before completing session**, update subagent status in database and archive it:
+```
+Use mcp__claudetask__update_custom_subagent_status tool
+Arguments: {
+  "subagent_type": "[agent-name]",
+  "status": "active"
+}
+```
+This will:
+- Update subagent status to "active" in database
+- Archive subagent to `.claudetask/agents/` for persistence
+- Enable subagent for the project
+- **CRITICAL**: Without this, subagent won't be tracked and can't be disabled!
+
+### Step 2: Stop Creation Session (LAST!)
+**After status is updated**, stop the agent creation session:
+```
+Use mcp__claudetask__complete_skill_creation_session tool
+Arguments: { "session_id": "skill-creation-[name]-[timestamp]" }
+```
+This will:
+- Send `/exit` to Claude terminal
+- Stop the Claude process gracefully
+- Clean up the session
+
+**⚠️ IMPORTANT ORDER**:
+1. ✅ FIRST: `update_custom_subagent_status` - Archive and activate
+2. ✅ THEN: `complete_skill_creation_session` - Clean up
+3. ❌ **NEVER reverse this order** - status must be updated before session closes
+
+**Without these steps**: The process will run for 30 minutes until timeout, and subagent status will remain "creating"!
+
 ## Completion Report Format
 
-After creating an agent, provide this summary:
+After session is completed, provide this summary:
 
 ```
 ✅ Agent Created Successfully
@@ -290,6 +327,11 @@ Description: [one-line description]
 Tools: [tool list]
 Core Capabilities: [count] capabilities defined
 Workflow Steps: [count] steps documented
+
+🎯 Status:
+- ✅ Agent archived to `.claudetask/agents/` for persistence
+- ✅ Agent enabled and ready to use
+- ✅ Can be disabled/re-enabled from UI without data loss
 
 Ready to use with:
 Task tool with subagent_type="[agent-name]":

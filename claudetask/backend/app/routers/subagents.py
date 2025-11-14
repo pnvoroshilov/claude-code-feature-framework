@@ -203,3 +203,35 @@ async def remove_from_favorites(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to remove subagent from favorites: {str(e)}")
+
+
+@router.patch("/{subagent_id}/status")
+async def update_subagent_status(
+    project_id: str,
+    subagent_id: int,
+    status_update: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update custom subagent status and archive it
+
+    Process:
+    1. Update subagent status in database
+    2. Archive subagent to .claudetask/agents/ for persistence
+    3. Enable subagent if status is "active"
+
+    This endpoint is called by MCP tools after subagent creation is complete.
+    """
+    try:
+        service = SubagentService(db)
+        await service.update_custom_subagent_status(
+            project_id=project_id,
+            subagent_id=subagent_id,
+            status=status_update.get("status"),
+            error_message=status_update.get("error_message")
+        )
+        return {"success": True, "message": "Subagent status updated and archived successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update subagent status: {str(e)}")

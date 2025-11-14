@@ -24,12 +24,12 @@ class SkillFileService:
         source_type: str = "default"
     ) -> bool:
         """
-        Copy skill file from framework-assets to project
+        Copy skill file from framework-assets or custom archive to project
 
         Args:
             project_path: Path to project root
             skill_file_name: Name of skill file (e.g., "business-requirements-analysis.md")
-            source_type: "default" (from framework-assets) or "custom" (already in project)
+            source_type: "default" (from framework-assets) or "custom" (from .claudetask/custom-skills/)
 
         Returns:
             True if successful, False otherwise
@@ -50,8 +50,16 @@ class SkillFileService:
                     source_path = os.path.join(self.framework_skills_dir, skill_file_name)
                     logger.info(f"Detected single-file skill: source_path={source_path}")
             else:
-                # For custom skills, source is same as destination (already created)
-                return True
+                # For custom skills, source is in .claudetask/custom-skills/ (archive)
+                archive_dir = os.path.join(project_path, ".claudetask", "custom-skills")
+                if '/' in skill_file_name:
+                    # Directory-based custom skill
+                    skill_dir = skill_file_name.split('/')[0]
+                    source_path = os.path.join(archive_dir, skill_dir)
+                else:
+                    # Single file custom skill
+                    source_path = os.path.join(archive_dir, skill_file_name)
+                logger.info(f"Custom skill source from archive: source_path={source_path}")
 
             # Destination path
             dest_dir = os.path.join(project_path, ".claude", "skills")
@@ -117,7 +125,10 @@ This skill will be automatically invoked by Claude Code when relevant to your ta
         skill_file_name: str
     ) -> bool:
         """
-        Delete skill file or directory from project's .claude/skills/
+        Delete skill file or directory from project's .claude/skills/ (active skills)
+
+        NOTE: This only removes from .claude/skills/ (active directory).
+        For custom skills, the original remains in .claudetask/skills/ (archive).
 
         Args:
             project_path: Path to project root
@@ -155,6 +166,168 @@ This skill will be automatically invoked by Claude Code when relevant to your ta
 
         except Exception as e:
             logger.error(f"Failed to delete skill file: {e}", exc_info=True)
+            return False
+
+    async def archive_custom_skill(
+        self,
+        project_path: str,
+        skill_file_name: str
+    ) -> bool:
+        """
+        Archive custom skill to .claudetask/custom-skills/ for persistent storage
+
+        This creates a backup of custom skills so they can be re-enabled later.
+        Called after skill creation is complete.
+
+        Args:
+            project_path: Path to project root
+            skill_file_name: Name of skill file (e.g., "my-custom-skill.md")
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Source: .claude/skills/
+            source_dir = os.path.join(project_path, ".claude", "skills")
+
+            # Destination: .claudetask/custom-skills/
+            archive_dir = os.path.join(project_path, ".claudetask", "custom-skills")
+            os.makedirs(archive_dir, exist_ok=True)
+
+            if '/' in skill_file_name:
+                # Directory-based skill
+                skill_dir = skill_file_name.split('/')[0]
+                source_path = os.path.join(source_dir, skill_dir)
+                dest_path = os.path.join(archive_dir, skill_dir)
+
+                # Remove old archive if exists
+                if os.path.exists(dest_path):
+                    shutil.rmtree(dest_path)
+
+                # Copy to archive
+                if os.path.exists(source_path):
+                    shutil.copytree(source_path, dest_path)
+                    logger.info(f"Archived custom skill directory to .claudetask/custom-skills/: {skill_dir}")
+                    return True
+                else:
+                    logger.warning(f"Source skill directory not found: {source_path}")
+                    return False
+            else:
+                # Single file skill
+                source_path = os.path.join(source_dir, skill_file_name)
+                dest_path = os.path.join(archive_dir, skill_file_name)
+
+                if os.path.exists(source_path):
+                    shutil.copy2(source_path, dest_path)
+                    logger.info(f"Archived custom skill file to .claudetask/custom-skills/: {skill_file_name}")
+                    return True
+                else:
+                    logger.warning(f"Source skill file not found: {source_path}")
+                    return False
+
+        except Exception as e:
+            logger.error(f"Failed to archive custom skill: {e}", exc_info=True)
+            return False
+
+    async def update_skill_content_in_archive(
+        self,
+        project_path: str,
+        skill_file_name: str,
+        new_content: str
+    ) -> bool:
+        """
+        Update skill content in archive (.claudetask/custom-skills/)
+
+        This is called when user edits skill content through UI.
+        Updates the archived copy so it can be re-enabled later with new content.
+
+        Args:
+            project_path: Path to project root
+            skill_file_name: Name of skill file (e.g., "my-skill.md" or "my-skill/SKILL.md")
+            new_content: New skill content to write
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Archive directory: .claudetask/custom-skills/
+            archive_dir = os.path.join(project_path, ".claudetask", "custom-skills")
+            os.makedirs(archive_dir, exist_ok=True)
+
+            if '/' in skill_file_name:
+                # Directory-based skill (e.g., "ui-web-designer-hub/SKILL.md")
+                # Extract directory and file parts
+                parts = skill_file_name.split('/')
+                skill_dir = parts[0]
+                file_in_dir = parts[1] if len(parts) > 1 else "SKILL.md"
+                
+                # Full path to file in archive
+                archive_file_path = os.path.join(archive_dir, skill_dir, file_in_dir)
+                
+                # Ensure directory exists
+                os.makedirs(os.path.dirname(archive_file_path), exist_ok=True)
+            else:
+                # Single file skill
+                archive_file_path = os.path.join(archive_dir, skill_file_name)
+
+            # Write new content to archive
+            async with aiofiles.open(archive_file_path, 'w', encoding='utf-8') as f:
+                await f.write(new_content)
+
+            logger.info(f"Updated skill content in archive: {archive_file_path}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to update skill content in archive: {e}", exc_info=True)
+            return False
+
+    async def permanently_delete_custom_skill(
+        self,
+        project_path: str,
+        skill_file_name: str
+    ) -> bool:
+        """
+        Permanently delete custom skill from both .claude/skills/ and .claudetask/custom-skills/
+
+        This is used when user explicitly deletes a custom skill (not just disables).
+
+        Args:
+            project_path: Path to project root
+            skill_file_name: Name of skill file to delete
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            success = True
+
+            # Delete from active skills (.claude/skills/)
+            if not await self.delete_skill_from_project(project_path, skill_file_name):
+                success = False
+
+            # Delete from archive (.claudetask/custom-skills/)
+            archive_dir = os.path.join(project_path, ".claudetask", "custom-skills")
+
+            if '/' in skill_file_name:
+                # Directory-based skill
+                skill_dir = skill_file_name.split('/')[0]
+                archive_path = os.path.join(archive_dir, skill_dir)
+
+                if os.path.exists(archive_path):
+                    shutil.rmtree(archive_path)
+                    logger.info(f"Permanently deleted skill archive: {archive_path}")
+            else:
+                # Single file skill
+                archive_path = os.path.join(archive_dir, skill_file_name)
+
+                if os.path.exists(archive_path):
+                    os.remove(archive_path)
+                    logger.info(f"Permanently deleted skill archive: {archive_path}")
+
+            return success
+
+        except Exception as e:
+            logger.error(f"Failed to permanently delete custom skill: {e}", exc_info=True)
             return False
 
     async def read_skill_content(self, project_path: str, skill_file_name: str) -> Optional[str]:

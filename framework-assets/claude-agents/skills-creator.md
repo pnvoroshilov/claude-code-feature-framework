@@ -767,21 +767,41 @@ Create 4+ resource files using Write tool:
    - Code style consistent
    - Formatting consistent
 
-### Phase 8: Complete Session (MANDATORY)
-**🔴 CRITICAL**: After all files are created, you MUST stop the skill creation session:
+### Phase 8: Complete Session (MANDATORY - 2 STEPS!)
+**🔴 CRITICAL**: After all files are created, you MUST follow these steps in ORDER:
 
-1. **Get current session ID from environment/logs**
-2. **Call MCP tool**:
-   ```
-   Use mcp__claudetask__complete_skill_creation_session tool
-   Arguments: { "session_id": "skill-creation-[name]-[timestamp]" }
-   ```
-   This will:
-   - Send `/exit` to Claude terminal
-   - Stop the Claude process gracefully
-   - Clean up the session
+#### Step 1: Update Skill Status (FIRST!)
+**Before completing session**, update skill status in database and archive it:
+```
+Use mcp__claudetask__update_custom_skill_status tool
+Arguments: {
+  "skill_name": "[skill-name-kebab-case]",
+  "status": "active"
+}
+```
+This will:
+- Update skill status to "active" in database
+- Archive skill to `.claudetask/skills/` for persistence
+- Enable skill for the project
+- **CRITICAL**: Without this, skill won't be tracked and can't be disabled!
 
-3. **Without this step**: The process will run for 30 minutes until timeout!
+#### Step 2: Stop Creation Session (LAST!)
+**After status is updated**, stop the skill creation session:
+```
+Use mcp__claudetask__complete_skill_creation_session tool
+Arguments: { "session_id": "skill-creation-[name]-[timestamp]" }
+```
+This will:
+- Send `/exit` to Claude terminal
+- Stop the Claude process gracefully
+- Clean up the session
+
+**⚠️ IMPORTANT ORDER**:
+1. ✅ FIRST: `update_custom_skill_status` - Archive and activate
+2. ✅ THEN: `complete_skill_creation_session` - Clean up
+3. ❌ **NEVER reverse this order** - status must be updated before session closes
+
+**Without these steps**: The process will run for 30 minutes until timeout, and skill status will remain "creating"!
 
 ### Phase 9: Completion Report
 After session is completed, provide detailed report to user:
@@ -815,8 +835,10 @@ After session is completed, provide detailed report to user:
    ├── templates/ ([COUNT] templates)
    └── resources/ ([COUNT] resource files)
 
-🎯 **How to Use**:
-   - ✅ Skill is automatically available (no restart needed)
+🎯 **Status**:
+   - ✅ Skill archived to `.claudetask/skills/` for persistence
+   - ✅ Skill enabled and ready to use (no restart needed)
+   - ✅ Can be disabled/re-enabled from UI without data loss
    - ✅ Auto-activates on trigger keywords: [list keywords]
    - Start with SKILL.md for overview and decision guide
    - Explore docs/ for deep understanding

@@ -150,13 +150,16 @@ class SubagentService:
 
         # Copy subagent file to project
         subagent_config = None
+        source_type = "default"
         if subagent_kind == "custom":
             subagent_config = subagent.config
+            source_type = "custom"
 
         success = await self.file_service.copy_subagent_to_project(
             project_path=project.path,
             subagent_type=subagent.subagent_type,
-            subagent_config=subagent_config
+            subagent_config=subagent_config,
+            source_type=source_type
         )
 
         if not success:
@@ -334,6 +337,12 @@ class SubagentService:
                     custom_subagent.config = result.get("content", "")
                     custom_subagent.updated_at = datetime.utcnow()
 
+                    # Archive custom subagent to .claudetask/agents/ for persistence
+                    await self.file_service.archive_custom_subagent(
+                        project_path=project.path,
+                        subagent_type=custom_subagent.subagent_type
+                    )
+
                     # Enable subagent immediately
                     project_subagent = ProjectSubagent(
                         project_id=project_id,
@@ -410,14 +419,14 @@ class SubagentService:
         if not custom_subagent:
             raise ValueError(f"Custom subagent {subagent_id} not found for project {project_id}")
 
-        # Delete agent file from project's .claude/agents/ directory
-        success = await self.file_service.delete_subagent_from_project(
+        # Permanently delete agent file from both .claude/agents/ and .claudetask/agents/
+        success = await self.file_service.permanently_delete_custom_subagent(
             project_path=project.path,
             subagent_type=custom_subagent.subagent_type
         )
 
         if not success:
-            logger.warning(f"Failed to delete subagent file from project (may not exist)")
+            logger.warning(f"Failed to permanently delete subagent files (may not exist)")
 
         # Remove from project_subagents if enabled
         enabled_result = await self.db.execute(
@@ -438,6 +447,80 @@ class SubagentService:
         await self.db.commit()
 
         logger.info(f"Deleted custom subagent {custom_subagent.name} from project {project_id}")
+
+    async def update_custom_subagent_status(
+        self,
+        project_id: str,
+        subagent_id: int,
+        status: str,
+        error_message: str | None = None
+    ):
+        """
+        Update custom subagent status and archive it
+
+        This is called by MCP tools after subagent creation is complete.
+        Process:
+        1. Update subagent status in database
+        2. Archive subagent to .claudetask/agents/
+        3. Enable subagent if status is "active"
+        """
+        # Get project
+        project = await self._get_project(project_id)
+        if not project:
+            raise ValueError(f"Project {project_id} not found")
+
+        # Get custom subagent
+        result = await self.db.execute(
+            select(CustomSubagent).where(
+                and_(
+                    CustomSubagent.id == subagent_id,
+                    CustomSubagent.project_id == project_id
+                )
+            )
+        )
+        custom_subagent = result.scalar_one_or_none()
+
+        if not custom_subagent:
+            raise ValueError(f"Custom subagent {subagent_id} not found for project {project_id}")
+
+        # Update status
+        custom_subagent.status = status
+        if error_message:
+            custom_subagent.error_message = error_message
+        custom_subagent.updated_at = datetime.utcnow()
+
+        # If status is active, archive and enable
+        if status == "active":
+            # Archive to .claudetask/agents/
+            await self.file_service.archive_custom_subagent(
+                project_path=project.path,
+                subagent_type=custom_subagent.subagent_type
+            )
+
+            # Enable subagent (add to project_subagents if not already enabled)
+            existing = await self.db.execute(
+                select(ProjectSubagent).where(
+                    and_(
+                        ProjectSubagent.project_id == project_id,
+                        ProjectSubagent.subagent_id == subagent_id,
+                        ProjectSubagent.subagent_kind == "custom"
+                    )
+                )
+            )
+
+            if not existing.scalar_one_or_none():
+                project_subagent = ProjectSubagent(
+                    project_id=project_id,
+                    subagent_id=subagent_id,
+                    subagent_kind="custom",
+                    enabled_at=datetime.utcnow(),
+                    enabled_by="user"
+                )
+                self.db.add(project_subagent)
+
+        await self.db.commit()
+
+        logger.info(f"Updated custom subagent {custom_subagent.name} status to '{status}' for project {project_id}")
 
     async def sync_enabled_subagents_after_framework_update(
         self,

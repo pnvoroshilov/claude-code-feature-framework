@@ -111,12 +111,14 @@ const Skills: React.FC = () => {
     }
   };
 
-  const handleEnableSkill = async (skillId: number) => {
+  const handleEnableSkill = async (skillId: number, skillType: 'default' | 'custom') => {
     if (!selectedProject?.id) return;
 
     try {
       await axios.post(
-        `${API_BASE_URL}/api/projects/${selectedProject.id}/skills/enable/${skillId}`
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/skills/enable/${skillId}`,
+        null,
+        { params: { skill_type: skillType } }
       );
       await fetchSkills(); // Refresh skills list
     } catch (err: any) {
@@ -124,12 +126,14 @@ const Skills: React.FC = () => {
     }
   };
 
-  const handleDisableSkill = async (skillId: number) => {
+  const handleDisableSkill = async (skillId: number, skillType: 'default' | 'custom') => {
     if (!selectedProject?.id) return;
 
     try {
       await axios.post(
-        `${API_BASE_URL}/api/projects/${selectedProject.id}/skills/disable/${skillId}`
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/skills/disable/${skillId}`,
+        null,
+        { params: { skill_type: skillType } }
       );
       await fetchSkills(); // Refresh skills list
     } catch (err: any) {
@@ -498,9 +502,9 @@ const Skills: React.FC = () => {
                     checked={skill.is_enabled}
                     onChange={(e) => {
                       if (e.target.checked) {
-                        handleEnableSkill(skill.id);
+                        handleEnableSkill(skill.id, skill.skill_type);
                       } else {
-                        handleDisableSkill(skill.id);
+                        handleDisableSkill(skill.id, skill.skill_type);
                       }
                     }}
                     disabled={skill.status === 'creating'}

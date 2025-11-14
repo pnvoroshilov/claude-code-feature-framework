@@ -27,17 +27,17 @@ from rag import RAGService, RAGConfig
 
 class ClaudeTaskMCPServer:
     """MCP Server for ClaudeTask integration"""
-    
+
     def __init__(self, project_id: str, project_path: str, server_url: str = "http://localhost:3333"):
         self.project_id = project_id
         self.project_path = project_path
         self.server_url = server_url.rstrip("/")
         self.server = Server("claudetask")
-        
+
         # Initialize logger
         import logging
         self.logger = logging.getLogger(__name__)
-        
+
         # Available local agents (verified to exist in framework-assets/claude-agents/)
         self.available_agents = [
             "ai-implementation-expert",
@@ -59,7 +59,7 @@ class ClaudeTaskMCPServer:
             "ux-ui-researcher",
             "web-tester"
         ]
-        
+
         # Agent mapping for task types and statuses with intelligent specialization
         self.agent_mappings = {
             "Feature": {
@@ -183,7 +183,7 @@ class ClaudeTaskMCPServer:
                 "Code Review": "fullstack-code-reviewer"
             }
         }
-        
+
         # Status progression flow
         self.status_flow = [
             "Backlog", "Analysis", "Ready", "In Progress",
@@ -202,7 +202,35 @@ class ClaudeTaskMCPServer:
 
         # Setup tool handlers
         self._setup_tools()
-        
+
+    async def _get_active_project_id(self) -> str:
+        """Fetch the current active project ID from backend
+
+        This method is called on every MCP tool invocation to ensure we're always
+        using the currently active project, not a cached value.
+
+        Returns:
+            str: The active project ID, or the default project_id if fetch fails
+        """
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                url = f"{self.server_url}/api/projects/active"
+                self.logger.debug(f"Fetching active project from: {url}")
+                response = await client.get(url)
+
+                if response.status_code == 200:
+                    active_project = response.json()
+                    active_id = active_project["id"]
+                    active_path = active_project["path"]
+                    self.logger.debug(f"Active project: {active_id} ({active_path})")
+                    return active_id
+                else:
+                    self.logger.warning(f"Failed to fetch active project (status {response.status_code}), using fallback: {self.project_id}")
+                    return self.project_id
+        except Exception as e:
+            self.logger.warning(f"Error fetching active project: {e}, using fallback: {self.project_id}")
+            return self.project_id
+
     def _setup_tools(self):
         """Setup MCP tools"""
         
@@ -610,6 +638,52 @@ class ClaudeTaskMCPServer:
                         },
                         "required": ["session_id"]
                     }
+                ),
+                types.Tool(
+                    name="update_custom_skill_status",
+                    description="Update custom skill status and archive it after creation. Call this AFTER skill files are created and BEFORE completing the session. This ensures the skill is properly tracked and can be enabled/disabled.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "skill_name": {
+                                "type": "string",
+                                "description": "Name of the skill (e.g., 'ui-designer-hubspot')"
+                            },
+                            "status": {
+                                "type": "string",
+                                "enum": ["active", "failed"],
+                                "description": "New status for the skill"
+                            },
+                            "error_message": {
+                                "type": "string",
+                                "description": "Optional error message if status is 'failed'"
+                            }
+                        },
+                        "required": ["skill_name", "status"]
+                    }
+                ),
+                types.Tool(
+                    name="update_custom_subagent_status",
+                    description="Update custom subagent status and archive it after creation. Call this AFTER subagent files are created and BEFORE completing the session.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "subagent_type": {
+                                "type": "string",
+                                "description": "Type/name of the subagent (e.g., 'my-custom-agent')"
+                            },
+                            "status": {
+                                "type": "string",
+                                "enum": ["active", "failed"],
+                                "description": "New status for the subagent"
+                            },
+                            "error_message": {
+                                "type": "string",
+                                "description": "Optional error message if status is 'failed'"
+                            }
+                        },
+                        "required": ["subagent_type", "status"]
+                    }
                 )
             ]
 
@@ -712,6 +786,18 @@ class ClaudeTaskMCPServer:
                 elif name == "complete_skill_creation_session":
                     return await self._complete_skill_creation_session(
                         arguments["session_id"]
+                    )
+                elif name == "update_custom_skill_status":
+                    return await self._update_custom_skill_status(
+                        arguments["skill_name"],
+                        arguments["status"],
+                        arguments.get("error_message")
+                    )
+                elif name == "update_custom_subagent_status":
+                    return await self._update_custom_subagent_status(
+                        arguments["subagent_type"],
+                        arguments["status"],
+                        arguments.get("error_message")
                     )
                 else:
                     raise ValueError(f"Unknown tool: {name}")
@@ -2692,6 +2778,150 @@ Total chunks: {result['total_chunks']}"""
                 return [types.TextContent(
                     type="text",
                     text=f"❌ Error completing session: {str(e)}"
+                )]
+
+    async def _update_custom_skill_status(
+        self,
+        skill_name: str,
+        status: str,
+        error_message: str | None = None
+    ) -> list[types.TextContent]:
+        """Update custom skill status and archive it"""
+        # Get current active project (not cached - always fresh)
+        project_id = await self._get_active_project_id()
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                self.logger.info(f"Updating skill status: {skill_name} -> {status}")
+                self.logger.info(f"Using active project_id: {project_id}")
+
+                # Find skill by name
+                url = f"{self.server_url}/api/projects/{project_id}/skills/"
+                self.logger.info(f"Fetching skills from: {url}")
+                response = await client.get(url)
+
+                if response.status_code != 200:
+                    error_text = f"❌ Failed to get skills: {response.status_code}\nURL: {url}\nResponse: {response.text}"
+                    self.logger.error(error_text)
+                    return [types.TextContent(
+                        type="text",
+                        text=error_text
+                    )]
+
+                skills_data = response.json()
+                custom_skills = skills_data.get("custom", [])
+
+                # Find skill by name
+                skill = None
+                for s in custom_skills:
+                    if s["name"] == skill_name:
+                        skill = s
+                        break
+
+                if not skill:
+                    return [types.TextContent(
+                        type="text",
+                        text=f"❌ Skill '{skill_name}' not found"
+                    )]
+
+                skill_id = skill["id"]
+
+                # Update skill status via backend API
+                update_response = await client.patch(
+                    f"{self.server_url}/api/projects/{project_id}/skills/{skill_id}/status",
+                    json={
+                        "status": status,
+                        "error_message": error_message
+                    }
+                )
+
+                if update_response.status_code == 200:
+                    return [types.TextContent(
+                        type="text",
+                        text=f"✅ Skill '{skill_name}' status updated to '{status}' and archived successfully"
+                    )]
+                else:
+                    return [types.TextContent(
+                        type="text",
+                        text=f"❌ Failed to update skill status: {update_response.status_code}\n{update_response.text}"
+                    )]
+
+            except Exception as e:
+                self.logger.error(f"Error updating skill status: {e}")
+                return [types.TextContent(
+                    type="text",
+                    text=f"❌ Error updating skill status: {str(e)}"
+                )]
+
+    async def _update_custom_subagent_status(
+        self,
+        subagent_type: str,
+        status: str,
+        error_message: str | None = None
+    ) -> list[types.TextContent]:
+        """Update custom subagent status and archive it"""
+        # Get current active project (not cached - always fresh)
+        project_id = await self._get_active_project_id()
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                self.logger.info(f"Updating subagent status: {subagent_type} -> {status}")
+                self.logger.info(f"Using active project_id: {project_id}")
+
+                # Find subagent by type
+                response = await client.get(
+                    f"{self.server_url}/api/projects/{project_id}/subagents/"
+                )
+
+                if response.status_code != 200:
+                    return [types.TextContent(
+                        type="text",
+                        text=f"❌ Failed to get subagents: {response.status_code}"
+                    )]
+
+                subagents_data = response.json()
+                custom_subagents = subagents_data.get("custom", [])
+
+                # Find subagent by type
+                subagent = None
+                for s in custom_subagents:
+                    if s["subagent_type"] == subagent_type:
+                        subagent = s
+                        break
+
+                if not subagent:
+                    return [types.TextContent(
+                        type="text",
+                        text=f"❌ Subagent '{subagent_type}' not found"
+                    )]
+
+                subagent_id = subagent["id"]
+
+                # Update subagent status via backend API
+                update_response = await client.patch(
+                    f"{self.server_url}/api/projects/{project_id}/subagents/{subagent_id}/status",
+                    json={
+                        "status": status,
+                        "error_message": error_message
+                    }
+                )
+
+                if update_response.status_code == 200:
+                    return [types.TextContent(
+                        type="text",
+                        text=f"✅ Subagent '{subagent_type}' status updated to '{status}' and archived successfully"
+                    )]
+                else:
+                    return [types.TextContent(
+                        type="text",
+                        text=f"❌ Failed to update subagent status: {update_response.status_code}\n{update_response.text}"
+                    )]
+
+            except Exception as e:
+                self.logger.error(f"Error updating subagent status: {e}")
+                return [types.TextContent(
+                    type="text",
+                    text=f"❌ Error updating subagent status: {str(e)}"
                 )]
 
     async def run(self):

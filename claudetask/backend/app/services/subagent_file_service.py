@@ -21,7 +21,8 @@ class SubagentFileService:
         self,
         project_path: str,
         subagent_type: str,
-        subagent_config: Optional[str] = None
+        subagent_config: Optional[str] = None,
+        source_type: str = "default"
     ) -> bool:
         """
         Copy or create subagent file in project's .claude/agents/
@@ -30,12 +31,13 @@ class SubagentFileService:
             project_path: Path to project root
             subagent_type: Type identifier of subagent (e.g., "frontend-developer")
             subagent_config: Optional custom configuration content
+            source_type: "default" (from framework-assets) or "custom" (from .claudetask/agents/)
 
         Returns:
             True if successful, False otherwise
         """
         try:
-            logger.info(f"copy_subagent_to_project: project_path={project_path}, subagent_type={subagent_type}")
+            logger.info(f"copy_subagent_to_project: project_path={project_path}, subagent_type={subagent_type}, source_type={source_type}")
 
             # Destination path
             dest_dir = os.path.join(project_path, ".claude", "agents")
@@ -52,8 +54,15 @@ class SubagentFileService:
                 logger.info(f"Created custom subagent file at {dest_path}")
                 return True
 
-            # Check if source exists in framework-assets
-            source_path = os.path.join(self.framework_subagents_dir, file_name)
+            # Determine source path based on source_type
+            if source_type == "default":
+                # Check if source exists in framework-assets
+                source_path = os.path.join(self.framework_subagents_dir, file_name)
+            else:
+                # For custom subagents, source is in .claudetask/agents/ (archive)
+                archive_dir = os.path.join(project_path, ".claudetask", "agents")
+                source_path = os.path.join(archive_dir, file_name)
+                logger.info(f"Custom subagent source from archive: source_path={source_path}")
 
             if os.path.exists(source_path):
                 # Copy from framework-assets
@@ -94,7 +103,10 @@ subagent_type="{subagent_type}"
         subagent_type: str
     ) -> bool:
         """
-        Delete subagent file from project's .claude/agents/
+        Delete subagent file from project's .claude/agents/ (active agents)
+
+        NOTE: This only removes from .claude/agents/ (active directory).
+        For custom subagents, the original remains in .claudetask/agents/ (archive).
 
         Args:
             project_path: Path to project root
@@ -118,6 +130,86 @@ subagent_type="{subagent_type}"
 
         except Exception as e:
             logger.error(f"Error deleting subagent from project: {e}")
+            return False
+
+    async def archive_custom_subagent(
+        self,
+        project_path: str,
+        subagent_type: str
+    ) -> bool:
+        """
+        Archive custom subagent to .claudetask/agents/ for persistent storage
+
+        This creates a backup of custom subagents so they can be re-enabled later.
+        Called after subagent creation is complete.
+
+        Args:
+            project_path: Path to project root
+            subagent_type: Type identifier of subagent (e.g., "my-custom-agent")
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Source: .claude/agents/
+            source_dir = os.path.join(project_path, ".claude", "agents")
+            file_name = f"{subagent_type}.md"
+            source_path = os.path.join(source_dir, file_name)
+
+            # Destination: .claudetask/agents/
+            archive_dir = os.path.join(project_path, ".claudetask", "agents")
+            os.makedirs(archive_dir, exist_ok=True)
+            dest_path = os.path.join(archive_dir, file_name)
+
+            if os.path.exists(source_path):
+                shutil.copy2(source_path, dest_path)
+                logger.info(f"Archived custom subagent: {subagent_type}")
+                return True
+            else:
+                logger.warning(f"Source subagent file not found: {source_path}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Failed to archive custom subagent: {e}", exc_info=True)
+            return False
+
+    async def permanently_delete_custom_subagent(
+        self,
+        project_path: str,
+        subagent_type: str
+    ) -> bool:
+        """
+        Permanently delete custom subagent from both .claude/agents/ and .claudetask/agents/
+
+        This is used when user explicitly deletes a custom subagent (not just disables).
+
+        Args:
+            project_path: Path to project root
+            subagent_type: Type identifier of subagent to delete
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            success = True
+
+            # Delete from active agents (.claude/agents/)
+            if not await self.delete_subagent_from_project(project_path, subagent_type):
+                success = False
+
+            # Delete from archive (.claudetask/agents/)
+            archive_dir = os.path.join(project_path, ".claudetask", "agents")
+            file_name = f"{subagent_type}.md"
+            archive_path = os.path.join(archive_dir, file_name)
+
+            if os.path.exists(archive_path):
+                os.remove(archive_path)
+                logger.info(f"Permanently deleted subagent archive: {archive_path}")
+
+            return success
+
+        except Exception as e:
+            logger.error(f"Failed to permanently delete custom subagent: {e}", exc_info=True)
             return False
 
     def _get_framework_subagents_dir(self) -> str:

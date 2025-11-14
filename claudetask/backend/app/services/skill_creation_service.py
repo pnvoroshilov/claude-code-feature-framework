@@ -123,12 +123,21 @@ class SkillCreationService:
                 with open(skill_path, 'r', encoding='utf-8') as f:
                     content = f.read()
 
-            return {
-                "success": skill_path is not None,
-                "skill_path": skill_path,
-                "content": content,
-                "timeout": True
-            }
+            if skill_path is not None:
+                return {
+                    "success": True,
+                    "skill_path": skill_path,
+                    "content": content,
+                    "timeout": True
+                }
+            else:
+                return {
+                    "success": False,
+                    "skill_path": None,
+                    "content": None,
+                    "timeout": True,
+                    "error": f"Skill creation timed out after {timeout}s. No skill file was created."
+                }
 
         except Exception as e:
             logger.error(f"Error creating skill via CLI: {e}", exc_info=True)

@@ -35,15 +35,13 @@ Task tool with subagent_type=documentation-updater-agent:
 
 🔴 **YOUR TASK**:
 Follow your autonomous documentation update workflow:
-1. Analyze ONLY recent changes pushed to main branch (git log origin/main..HEAD, git diff origin/main..HEAD)
-2. Identify what documentation needs updating based ONLY on these changes
-3. Update existing documentation files (overwrite if needed) ONLY for changed code
-4. Create new documentation ONLY for new features/components in the recent commits
-5. Delete documentation ONLY for features/components removed in recent commits
-6. Ensure consistency across updated documentation
-7. Validate all links and references in updated files
-
-⚠️ **CRITICAL**: Only update documentation for code changes in the most recent commits since last sync with origin/main. Do NOT update documentation for unchanged code!
+1. Analyze recent changes (git log, git diff)
+2. Identify what documentation needs updating
+3. Update existing documentation files (overwrite if needed)
+4. Create new documentation for new features/components
+5. Delete documentation for removed features/components
+6. Ensure consistency across all documentation
+7. Validate all links and references
 
 📁 **DOCUMENTATION STRUCTURE**:
 All documentation is stored in `docs/` directory with the following structure:

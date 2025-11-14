@@ -37,20 +37,21 @@ async def get_project_skills(
 async def enable_skill(
     project_id: str,
     skill_id: int,
+    skill_type: str = "default",  # Add skill_type parameter with default value
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Enable a default skill by copying it to project's .claude/skills/
+    Enable a skill by copying it to project's .claude/skills/
 
     Process:
-    1. Validate skill exists in default_skills table
-    2. Copy skill file from framework-assets/claude-skills/ to project
+    1. Validate skill exists (default_skills or custom_skills table)
+    2. Copy skill file to project's .claude/skills/
     3. Insert record into project_skills junction table
     4. Return enabled skill details
     """
     try:
         service = SkillService(db)
-        return await service.enable_skill(project_id, skill_id)
+        return await service.enable_skill(project_id, skill_id, skill_type)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
@@ -63,6 +64,7 @@ async def enable_skill(
 async def disable_skill(
     project_id: str,
     skill_id: int,
+    skill_type: str = "default",  # Add skill_type parameter with default value
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -75,7 +77,7 @@ async def disable_skill(
     """
     try:
         service = SkillService(db)
-        await service.disable_skill(project_id, skill_id)
+        await service.disable_skill(project_id, skill_id, skill_type)
         return {"success": True, "message": "Skill disabled successfully"}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -235,3 +237,70 @@ async def remove_from_favorites(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to remove from favorites: {str(e)}")
+
+
+@router.patch("/{skill_id}/status")
+async def update_skill_status(
+    project_id: str,
+    skill_id: int,
+    status_update: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update custom skill status and archive it
+
+    Process:
+    1. Update skill status in database
+    2. Archive skill to .claudetask/custom-skills/ for persistence
+    3. Enable skill if status is "active"
+
+    This endpoint is called by MCP tools after skill creation is complete.
+    """
+    try:
+        service = SkillService(db)
+        await service.update_custom_skill_status(
+            project_id=project_id,
+            skill_id=skill_id,
+            status=status_update.get("status"),
+            error_message=status_update.get("error_message")
+        )
+        return {"success": True, "message": "Skill status updated and archived successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update skill status: {str(e)}")
+
+
+@router.put("/{skill_id}/content")
+async def update_skill_content(
+    project_id: str,
+    skill_id: int,
+    content_update: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update custom skill content through UI
+
+    Process:
+    1. Update skill content in database
+    2. Update archive in .claudetask/custom-skills/
+    3. If skill is enabled, update .claude/skills/ as well
+
+    This endpoint is called when user edits skill content through the UI.
+    """
+    try:
+        new_content = content_update.get("content")
+        if not new_content:
+            raise ValueError("Content is required")
+
+        service = SkillService(db)
+        await service.update_custom_skill_content(
+            project_id=project_id,
+            skill_id=skill_id,
+            new_content=new_content
+        )
+        return {"success": True, "message": "Skill content updated successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update skill content: {str(e)}")
