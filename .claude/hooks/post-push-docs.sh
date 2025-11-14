@@ -63,27 +63,13 @@ if echo "$BASH_CMD" | grep -qE '(git merge|gh pr merge|git pull.*origin.*(main|m
 
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✓ Main branch update detected - triggering /update-documentation" >> "$LOGFILE"
 
-        # Output special command trigger for Claude
-        # This format will be recognized by Claude as an instruction to execute
-        cat << 'EOF'
+        # Create marker file for UserPromptSubmit hook to detect
+        MARKER_FILE="$LOGDIR/.docs-update-pending"
+        echo "$(date '+%Y-%m-%d %H:%M:%S')" > "$MARKER_FILE"
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🔔 POST-PUSH HOOK: AUTO-DOCUMENTATION UPDATE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-📚 Main branch has been updated with new commits.
-
-🤖 EXECUTING AUTOMATIC ACTION: /update-documentation
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-CLAUDE_COMMAND_TRIGGER: /update-documentation
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-EOF
-
-        # Log the trigger
-        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Command trigger sent to Claude: /update-documentation" >> "$LOGFILE"
+        # Log the marker creation
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Created documentation update marker at: $MARKER_FILE" >> "$LOGFILE"
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Next user prompt will trigger /update-documentation" >> "$LOGFILE"
 
         # Remove lock file
         rm -f "$LOCKFILE"

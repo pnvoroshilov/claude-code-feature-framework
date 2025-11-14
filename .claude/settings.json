@@ -1,0 +1,48 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/post-push-docs.sh"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/inject-docs-update.sh"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v osascript &> /dev/null; then osascript -e 'display notification \"Claude needs your input\" with title \"Claude Code\"'; elif command -v notify-send &> /dev/null; then notify-send 'Claude Code' 'Claude needs your input'; fi"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v osascript &> /dev/null; then osascript -e 'display notification \"Task completed\" with title \"Claude Code\"'; elif command -v notify-send &> /dev/null; then notify-send 'Claude Code' 'Task completed'; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
