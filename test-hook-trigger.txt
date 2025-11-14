@@ -1,10 +1,12 @@
 This is a test file to trigger the post-push hook.
 Created at: 2025-11-14 06:57:15
-Updated at: 2025-11-14 07:02:00
+Updated at: 2025-11-14 07:04:30
 Purpose: Test if the improved hook triggers correctly on git push with changes.
 
 Hook improvements:
-1. Fixed $TOOL_INPUT variable reading
+1. Created separate hook script (.claude/hooks/post-push-docs.sh)
 2. Added lockfile mechanism to prevent recursion
 3. Added [skip-hook] tag detection in commit messages
 4. Better error handling and logging
+5. Using PostToolUse with Bash(git*) matcher
+6. Script receives command via arguments
