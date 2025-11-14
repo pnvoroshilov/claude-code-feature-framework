@@ -168,7 +168,36 @@ Links to related component documentation.
 # Ensure code examples are valid and current
 ```
 
-### Phase 5: Completion Report
+### Phase 5: Commit Changes (CRITICAL: Prevent Hook Recursion)
+
+**🔴 IMPORTANT: Always add `[skip-hook]` tag to prevent recursion**
+
+When committing documentation changes, you MUST include `[skip-hook]` in the commit message to prevent the post-merge hook from triggering again (which would cause infinite recursion).
+
+```bash
+# Commit documentation changes with skip-hook tag
+git add docs/
+git commit -m "docs: Update documentation after code changes [skip-hook]"
+git push origin main
+```
+
+**Why `[skip-hook]` is required:**
+- The post-merge hook automatically triggers documentation updates
+- Without `[skip-hook]`, your commit would trigger the hook again
+- This would create infinite loop: push → hook → update → push → hook → ...
+- The hook checks for `[skip-hook]` tag and skips execution if found
+
+**Commit message format:**
+```
+docs: <brief description of changes> [skip-hook]
+
+Examples:
+- docs: Update API specification after endpoint changes [skip-hook]
+- docs: Add TaskCard component documentation [skip-hook]
+- docs: Update database schema documentation [skip-hook]
+```
+
+### Phase 6: Completion Report
 
 **Provide structured output:**
 ```
@@ -191,6 +220,7 @@ Links to related component documentation.
 - Total files created: 2
 - Total files deleted: 1
 - Documentation is current as of: [commit hash]
+- Committed with [skip-hook] tag to prevent recursion
 
 ⚠️ WARNINGS:
 - [Any issues or recommendations]
