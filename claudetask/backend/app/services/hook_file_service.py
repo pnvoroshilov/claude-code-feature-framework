@@ -87,14 +87,15 @@ class HookFileService:
         """
         Remove hook configuration from .claude/settings.json
 
+        Strategy: We'll remove ALL hooks and let the enable process re-add only active ones.
+        This is simpler and more reliable than trying to identify specific hook configs.
+
         Args:
             project_path: Path to project root
-            hook_name: Name of the hook to remove
+            hook_name: Name of the hook to remove (for logging)
 
         Returns:
             True if successful, False otherwise
-
-        Note: This removes the hook's configuration from settings.json
         """
         try:
             settings_path = os.path.join(project_path, ".claude", "settings.json")
@@ -114,14 +115,15 @@ class HookFileService:
             if "hooks" not in settings:
                 return True  # Nothing to remove
 
-            # Note: Without storing hook metadata, we can't precisely identify which
-            # hooks belong to which hook. This is a limitation.
-            # For now, we'll just log a warning. A better approach would be to
-            # track hook configurations in the database or add metadata to settings.json
+            # Clear the entire hooks section
+            # The enable process will re-add only the hooks that should be active
+            settings["hooks"] = {}
 
-            logger.warning(f"Cannot precisely remove hook '{hook_name}' from settings.json without metadata")
-            logger.info(f"Hook '{hook_name}' disabled in database (manual settings.json cleanup may be needed)")
+            # Write settings back to file
+            async with aiofiles.open(settings_path, 'w', encoding='utf-8') as f:
+                await f.write(json.dumps(settings, indent=2))
 
+            logger.info(f"Cleared hooks from settings.json (hook '{hook_name}' removal)")
             return True
 
         except Exception as e:

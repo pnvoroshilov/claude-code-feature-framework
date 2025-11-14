@@ -122,7 +122,13 @@ const Hooks: React.FC = () => {
     setError(null);
     try {
       const response = await axios.get<HooksResponse>(
-        `${API_BASE_URL}/api/projects/${selectedProject.id}/hooks/`
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/hooks/?t=${Date.now()}`,
+        {
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        }
       );
       setHooks(response.data);
     } catch (err: any) {
@@ -325,12 +331,28 @@ const Hooks: React.FC = () => {
     const [expandedSetup, setExpandedSetup] = useState(false);
     const [expandedConfig, setExpandedConfig] = useState(false);
 
+    // Check if hook data is valid
+    if (!hook || !hook.name) {
+      return null;
+    }
+
     return (
-      <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <CardContent sx={{ flexGrow: 1 }}>
+      <Card
+        sx={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          transition: 'all 0.3s ease',
+          '&:hover': {
+            transform: 'translateY(-4px)',
+            boxShadow: 6,
+          }
+        }}
+      >
+        <CardContent sx={{ flexGrow: 1, py: 2, px: 2 }}>
           <Box display="flex" justifyContent="space-between" alignItems="start" mb={1}>
-            <Box flexGrow={1}>
-              <Typography variant="h6" component="div" gutterBottom>
+          <Box flexGrow={1}>
+              <Typography variant="subtitle1" component="div" fontWeight="600" gutterBottom sx={{ mb: 0.5 }}>
                 {hook.name}
               </Typography>
               <Chip
@@ -338,7 +360,7 @@ const Hooks: React.FC = () => {
                 size="small"
                 color={getCategoryColor(hook.category)}
                 variant="outlined"
-                sx={{ mb: 1 }}
+                sx={{ height: '20px', fontSize: '0.7rem' }}
               />
             </Box>
             <Box display="flex" gap={1} alignItems="center">
@@ -387,19 +409,19 @@ const Hooks: React.FC = () => {
             </Box>
           </Box>
 
-          <Typography variant="body2" color="text.secondary" paragraph>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, fontSize: '0.875rem', lineHeight: 1.4 }}>
             {hook.description}
           </Typography>
 
           {/* Dependencies */}
           {hook.dependencies && hook.dependencies.length > 0 && (
-            <Box mb={2}>
-              <Typography variant="caption" color="text.secondary" fontWeight="bold">
+            <Box mb={1}>
+              <Typography variant="caption" color="text.secondary" fontWeight="bold" sx={{ fontSize: '0.7rem' }}>
                 Dependencies:
               </Typography>
               <Box display="flex" gap={0.5} flexWrap="wrap" mt={0.5}>
                 {hook.dependencies.map((dep, idx) => (
-                  <Chip key={idx} label={dep} size="small" variant="outlined" />
+                  <Chip key={idx} label={dep} size="small" variant="outlined" sx={{ height: '18px', fontSize: '0.65rem' }} />
                 ))}
               </Box>
             </Box>
@@ -407,26 +429,28 @@ const Hooks: React.FC = () => {
 
           {/* Setup Instructions */}
           {hook.setup_instructions && (
-            <Box mb={2}>
+            <Box mb={1}>
               <Button
                 size="small"
                 onClick={() => setExpandedSetup(!expandedSetup)}
                 endIcon={expandedSetup ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                sx={{ textTransform: 'none', p: 0 }}
+                sx={{ textTransform: 'none', p: 0, fontSize: '0.75rem', minHeight: 0 }}
               >
-                Setup Instructions
+                Setup
               </Button>
               <Collapse in={expandedSetup}>
                 <Box
                   sx={{
-                    mt: 1,
-                    p: 1.5,
+                    mt: 0.5,
+                    p: 1,
                     bgcolor: 'grey.100',
                     borderRadius: 1,
-                    fontSize: '0.875rem',
+                    fontSize: '0.75rem',
                     fontFamily: 'monospace',
                     whiteSpace: 'pre-wrap',
                     overflowX: 'auto',
+                    maxHeight: '150px',
+                    overflow: 'auto',
                   }}
                 >
                   {hook.setup_instructions}
@@ -436,27 +460,29 @@ const Hooks: React.FC = () => {
           )}
 
           {/* Hook Configuration */}
-          <Box mb={2}>
+          <Box mb={1}>
             <Button
               size="small"
               onClick={() => setExpandedConfig(!expandedConfig)}
               endIcon={expandedConfig ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-              sx={{ textTransform: 'none', p: 0 }}
+              sx={{ textTransform: 'none', p: 0, fontSize: '0.75rem', minHeight: 0 }}
             >
-              Hook Configuration
+              Config
             </Button>
             <Collapse in={expandedConfig}>
               <Box
                 sx={{
-                  mt: 1,
-                  p: 1.5,
+                  mt: 0.5,
+                  p: 1,
                   bgcolor: 'grey.900',
                   color: 'grey.100',
                   borderRadius: 1,
-                  fontSize: '0.875rem',
+                  fontSize: '0.7rem',
                   fontFamily: 'monospace',
                   whiteSpace: 'pre',
                   overflowX: 'auto',
+                  maxHeight: '200px',
+                  overflow: 'auto',
                 }}
               >
                 {JSON.stringify(hook.hook_config, null, 2)}
@@ -540,8 +566,8 @@ const Hooks: React.FC = () => {
             </Grid>
           ) : (
             hooks.enabled.map((hook) => (
-              <Grid item xs={12} md={6} lg={4} key={hook.id}>
-                <HookCard hook={hook} showToggle={true} showEdit={true} showDelete={hook.hook_type === 'custom'} />
+              <Grid item xs={12} md={6} key={`enabled-${hook.id}`}>
+                <HookCard hook={hook} showToggle={true} showEdit={false} showDelete={false} />
               </Grid>
             ))
           )}
@@ -559,8 +585,8 @@ const Hooks: React.FC = () => {
             </Grid>
           ) : (
             hooks.available_default.map((hook) => (
-              <Grid item xs={12} md={6} lg={4} key={hook.id}>
-                <HookCard hook={hook} showToggle={true} showEdit={true} />
+              <Grid item xs={12} md={6} key={`default-${hook.id}`}>
+                <HookCard hook={hook} showToggle={true} showEdit={false} showDelete={false} />
               </Grid>
             ))
           )}
@@ -578,8 +604,8 @@ const Hooks: React.FC = () => {
             </Grid>
           ) : (
             hooks.custom.map((hook) => (
-              <Grid item xs={12} md={6} lg={4} key={hook.id}>
-                <HookCard hook={hook} showToggle={true} showDelete={true} showEdit={true} />
+              <Grid item xs={12} md={6} key={`custom-${hook.id}`}>
+                <HookCard hook={hook} showToggle={true} showEdit={false} showDelete={false} />
               </Grid>
             ))
           )}
@@ -597,8 +623,8 @@ const Hooks: React.FC = () => {
             </Grid>
           ) : (
             hooks.favorites.map((hook) => (
-              <Grid item xs={12} md={6} lg={4} key={`${hook.hook_type}-${hook.id}`}>
-                <HookCard hook={hook} showToggle={true} showEdit={true} showDelete={hook.hook_type === 'custom'} />
+              <Grid item xs={12} md={6} key={`${hook.hook_type}-${hook.id}`}>
+                <HookCard hook={hook} showToggle={true} showEdit={false} showDelete={false} />
               </Grid>
             ))
           )}

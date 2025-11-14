@@ -149,7 +149,7 @@ class HookService:
         if not hook:
             raise ValueError(f"Hook {hook_id} not found")
 
-        # Check if already enabled
+        # Check if already enabled (idempotent - return success if already enabled)
         existing = await self.db.execute(
             select(ProjectHook).where(
                 and_(
@@ -159,8 +159,10 @@ class HookService:
                 )
             )
         )
-        if existing.scalar_one_or_none():
-            raise ValueError(f"Hook already enabled for project")
+        existing_hook = existing.scalar_one_or_none()
+        if existing_hook:
+            logger.info(f"Hook {hook.name} already enabled for project {project_id}")
+            return self._to_hook_dto(hook, "default", True)
 
         # Apply hook to settings.json
         success = await self.file_service.apply_hook_to_settings(
@@ -459,18 +461,8 @@ class HookService:
 
             # If enabled, update settings.json
             if project_hook:
-                # Remove old config using OLD name
-                await self.file_service.remove_hook_from_settings(
-                    project_path=project.path,
-                    hook_name=old_hook_name
-                )
-
-                # Apply new config using NEW name
-                await self.file_service.apply_hook_to_settings(
-                    project_path=project.path,
-                    hook_name=custom_hook.name,
-                    hook_config=custom_hook.hook_config
-                )
+                # Rebuild entire settings.json from all enabled hooks
+                await self._rebuild_settings_json(project_id, project.path)
 
             await self.db.commit()
             await self.db.refresh(custom_hook)
@@ -512,18 +504,8 @@ class HookService:
 
             # If enabled, update settings.json
             if project_hook:
-                # Remove old config using OLD name
-                await self.file_service.remove_hook_from_settings(
-                    project_path=project.path,
-                    hook_name=old_hook_name
-                )
-
-                # Apply new config using NEW name
-                await self.file_service.apply_hook_to_settings(
-                    project_path=project.path,
-                    hook_name=default_hook.name,
-                    hook_config=default_hook.hook_config
-                )
+                # Rebuild entire settings.json from all enabled hooks
+                await self._rebuild_settings_json(project_id, project.path)
 
             await self.db.commit()
             await self.db.refresh(default_hook)
@@ -785,3 +767,55 @@ class HookService:
         # Remove special characters
         file_name = re.sub(r'[^a-z0-9-_]', '', file_name)
         return f"{file_name}.json"
+
+    async def _rebuild_settings_json(self, project_id: str, project_path: str):
+        """
+        Rebuild .claude/settings.json from all enabled hooks in database
+
+        This is called when a hook is updated to ensure settings.json reflects
+        the current state of all enabled hooks.
+        """
+        # Get all enabled hooks for this project
+        enabled_hooks_result = await self.db.execute(
+            select(ProjectHook).where(ProjectHook.project_id == project_id)
+        )
+        enabled_project_hooks = enabled_hooks_result.scalars().all()
+
+        # Build complete hooks configuration
+        merged_hooks_config = {}
+
+        for project_hook in enabled_project_hooks:
+            # Get hook configuration
+            if project_hook.hook_type == "default":
+                hook_result = await self.db.execute(
+                    select(DefaultHook).where(DefaultHook.id == project_hook.hook_id)
+                )
+                hook = hook_result.scalar_one_or_none()
+            else:
+                hook_result = await self.db.execute(
+                    select(CustomHook).where(CustomHook.id == project_hook.hook_id)
+                )
+                hook = hook_result.scalar_one_or_none()
+
+            if not hook:
+                continue
+
+            # Merge hook config into merged_hooks_config
+            for event_type, event_hooks in hook.hook_config.items():
+                if event_type not in merged_hooks_config:
+                    merged_hooks_config[event_type] = []
+
+                # Add all matchers from this hook
+                for matcher_config in event_hooks:
+                    # Avoid duplicates by checking matcher name
+                    existing_matchers = [m.get("matcher") for m in merged_hooks_config[event_type]]
+                    if matcher_config.get("matcher") not in existing_matchers:
+                        merged_hooks_config[event_type].append(matcher_config)
+
+        # Apply the merged configuration to settings.json
+        await self.file_service.apply_hooks_to_settings(
+            project_path=project_path,
+            hooks=merged_hooks_config
+        )
+
+        logger.info(f"Rebuilt settings.json for project {project_id} with {len(enabled_project_hooks)} hooks")
