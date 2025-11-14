@@ -567,7 +567,7 @@ const Hooks: React.FC = () => {
           ) : (
             hooks.enabled.map((hook) => (
               <Grid item xs={12} sm={6} lg={6} key={`enabled-${hook.id}`}>
-                <HookCard hook={hook} showToggle={true} showEdit={false} showDelete={false} />
+                <HookCard hook={hook} showToggle={true} showEdit={true} showDelete={false} />
               </Grid>
             ))
           )}
@@ -586,7 +586,7 @@ const Hooks: React.FC = () => {
           ) : (
             hooks.available_default.map((hook) => (
               <Grid item xs={12} sm={6} lg={6} key={`default-${hook.id}`}>
-                <HookCard hook={hook} showToggle={true} showEdit={false} showDelete={false} />
+                <HookCard hook={hook} showToggle={true} showEdit={true} showDelete={false} />
               </Grid>
             ))
           )}
@@ -605,7 +605,7 @@ const Hooks: React.FC = () => {
           ) : (
             hooks.custom.map((hook) => (
               <Grid item xs={12} sm={6} lg={6} key={`custom-${hook.id}`}>
-                <HookCard hook={hook} showToggle={true} showEdit={false} showDelete={false} />
+                <HookCard hook={hook} showToggle={true} showEdit={true} showDelete={true} />
               </Grid>
             ))
           )}
@@ -624,7 +624,7 @@ const Hooks: React.FC = () => {
           ) : (
             hooks.favorites.map((hook) => (
               <Grid item xs={12} sm={6} lg={6} key={`${hook.hook_type}-${hook.id}`}>
-                <HookCard hook={hook} showToggle={true} showEdit={false} showDelete={false} />
+                <HookCard hook={hook} showToggle={true} showEdit={true} showDelete={hook.hook_type === 'custom'} />
               </Grid>
             ))
           )}
