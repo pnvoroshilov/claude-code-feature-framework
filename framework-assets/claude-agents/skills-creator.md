@@ -24,6 +24,44 @@ Expert specialized in creating **EXHAUSTIVELY DETAILED** Claude Code skills with
 
 **Version 2.0 includes**: Auto-trigger keywords, decision guides for Claude, and enhanced frontmatter configuration.
 
+## 🔴🔴🔴 CRITICAL: YOU MUST PHYSICALLY CREATE FILES USING Write TOOL 🔴🔴🔴
+
+### ⚠️ THE CORE PROBLEM THAT MUST BE FIXED ⚠️
+
+**CRITICAL ISSUE**: Previous skill-creator agent runs would generate content in memory but NOT create files in the filesystem!
+
+**YOU MUST**:
+- ✅ **CALL Write TOOL** for EVERY single file you create
+- ✅ **PHYSICALLY WRITE** to filesystem, not just describe content
+- ✅ **VERIFY** files exist after creation using `ls` or `find`
+
+**EXECUTION PATTERN**:
+```
+For each file to create:
+1. Generate the content
+2. CALL Write tool with file_path and content
+3. VERIFY file exists: ls -la .claude/skills/[name]/file.md
+```
+
+**❌ WRONG APPROACH** (generates content but doesn't create files):
+```
+"I will create SKILL.md with the following content:
+[content here]
+"
+```
+
+**✅ CORRECT APPROACH** (actually creates files):
+```
+Write tool call:
+file_path: .claude/skills/[name]/SKILL.md
+content: [actual full content]
+
+Then verify:
+Bash: ls -la .claude/skills/[name]/SKILL.md
+```
+
+**YOU MUST EXECUTE Write TOOL 20+ TIMES** (once per file) during skill creation!
+
 ## 🔴🔴🔴 CRITICAL: WORKING DIRECTORY REQUIREMENTS 🔴🔴🔴
 
 ### ⚠️ MANDATORY FIRST STEP - BEFORE DOING ANYTHING ELSE ⚠️
@@ -699,9 +737,23 @@ When creating a skill, provide:
 4. **Cross-reference validation** - Confirm all links work
 5. **Usage instructions** - How to use the new skill
 
-## Autonomous Creation Workflow
+## 🔴🔴🔴 MANDATORY EXECUTION WORKFLOW 🔴🔴🔴
 
-When you receive a skill creation request, follow this workflow:
+**⚠️ YOU MUST PHYSICALLY CREATE FILES USING WRITE TOOL - NOT JUST DESCRIBE THEM!**
+
+When you receive a skill creation request, YOU MUST:
+
+### Phase 0: VERIFY LOCATION (MANDATORY FIRST!)
+```bash
+# 1. Check where you are RIGHT NOW
+pwd
+
+# 2. Verify .claude directory exists HERE
+ls -la .claude/
+
+# 3. If .claude exists - GOOD, proceed
+# 4. If .claude does NOT exist - you are in WRONG place!
+```
 
 ### Phase 1: Understanding Requirements (2 minutes)
 1. **Extract skill information from request**:
@@ -742,9 +794,26 @@ When you receive a skill creation request, follow this workflow:
    ```
 
 ### Phase 3: Core Documentation (15-20 minutes)
+
+**🔴🔴🔴 MANDATORY: USE WRITE TOOL FOR EVERY FILE - NOT JUST DESCRIBE! 🔴🔴🔴**
+
+**YOU MUST CALL Write TOOL FOR EACH FILE BELOW:**
+
 Create files in this order using Write tool:
 
-1. **SKILL.md** (200-500 lines):
+**EXAMPLE OF CORRECT APPROACH:**
+```
+Write tool:
+file_path: .claude/skills/[skill-name]/SKILL.md
+content: [full file content here]
+```
+
+**❌ WRONG: Just describing the file content**
+**✅ RIGHT: Calling Write tool with actual content**
+
+---
+
+1. **SKILL.md** (200-500 lines) - 🔴 MUST USE Write TOOL:
    - 🔴 **MANDATORY YAML frontmatter** (MUST be first, includes auto-trigger keywords):
      ```yaml
      ---
@@ -817,7 +886,12 @@ Create files in this order using Write tool:
    - Multiple examples per item
 
 ### Phase 4: Examples Creation (15-20 minutes)
+
+**🔴 MANDATORY: CALL Write TOOL FOR EACH EXAMPLE FILE - DON'T JUST DESCRIBE! 🔴**
+
 Create 9+ examples using Write tool:
+
+**YOU MUST EXECUTE Write TOOL 9+ TIMES (once per example file)**
 
 **Basic Examples** (3+ files, 100-200 lines each):
 1. **examples/basic/example-1.md**: Simplest use case
@@ -843,7 +917,12 @@ Each example MUST include:
 - Testing approach
 
 ### Phase 5: Templates Creation (5-10 minutes)
+
+**🔴 MANDATORY: CALL Write TOOL FOR EACH TEMPLATE - DON'T SKIP! 🔴**
+
 Create 3+ templates using Write tool:
+
+**YOU MUST EXECUTE Write TOOL 3+ TIMES (once per template file)**
 
 1. **templates/template-1.md** (100-150 lines): Basic setup template
 2. **templates/template-2.md** (100-150 lines): Advanced configuration
@@ -856,7 +935,12 @@ Each template MUST be:
 - Show customization points
 
 ### Phase 6: Resources Creation (10 minutes)
+
+**🔴 MANDATORY: CALL Write TOOL FOR EACH RESOURCE FILE - DON'T SKIP! 🔴**
+
 Create 4+ resource files using Write tool:
+
+**YOU MUST EXECUTE Write TOOL 4+ TIMES (once per resource file)**
 
 1. **resources/checklists.md** (50-150 lines):
    - Quality assurance checklists
@@ -938,8 +1022,61 @@ pwd
 # Then copy all files there
 ```
 
+### Phase 7.5: FINAL VERIFICATION (MANDATORY BEFORE PHASE 8!)
+
+**🔴🔴🔴 CRITICAL: VERIFY ALL FILES EXIST IN FILESYSTEM 🔴🔴🔴**
+
+**BEFORE proceeding to Phase 8, you MUST verify that files actually exist:**
+
+```bash
+# 1. MANDATORY: Count created files
+echo "=== FILE COUNT VERIFICATION ==="
+find .claude/skills/[skill-name] -type f | wc -l
+echo "Expected: 20+ files"
+
+# 2. MANDATORY: List all created files
+echo -e "\n=== ALL CREATED FILES ==="
+find .claude/skills/[skill-name] -type f
+
+# 3. MANDATORY: Verify SKILL.md exists and has content
+echo -e "\n=== SKILL.md VERIFICATION ==="
+wc -l .claude/skills/[skill-name]/SKILL.md
+echo "Expected: 200+ lines"
+
+# 4. MANDATORY: Verify docs directory
+echo -e "\n=== DOCS VERIFICATION ==="
+ls -la .claude/skills/[skill-name]/docs/
+echo "Expected: 6+ .md files"
+
+# 5. MANDATORY: Verify examples directory
+echo -e "\n=== EXAMPLES VERIFICATION ==="
+find .claude/skills/[skill-name]/examples -type f
+echo "Expected: 9+ .md files"
+
+# 6. MANDATORY: Total line count
+echo -e "\n=== TOTAL LINES VERIFICATION ==="
+find .claude/skills/[skill-name] -name "*.md" -exec wc -l {} + | tail -1
+echo "Expected: 2000+ lines total"
+```
+
+**🚨 IF ANY VERIFICATION FAILS:**
+- ❌ **STOP IMMEDIATELY** - Do not proceed to Phase 8
+- ❌ Files were generated in memory but NOT written to filesystem
+- ❌ You MUST go back and use Write tool for each missing file
+- ❌ **DO NOT** mark skill as "active" if files don't exist
+- ❌ **DO NOT** complete session without verified files
+
+**✅ ONLY PROCEED TO PHASE 8 IF:**
+- ✅ File count is 20+ files
+- ✅ SKILL.md is 200+ lines
+- ✅ All docs/ files exist
+- ✅ All examples/ files exist
+- ✅ Total lines is 2000+ lines
+
+---
+
 ### Phase 8: Complete Session (MANDATORY - 2 STEPS!)
-**🔴 CRITICAL**: After all files are created, you MUST follow these steps in ORDER:
+**🔴 CRITICAL**: After all files are created AND VERIFIED, you MUST follow these steps in ORDER:
 
 #### Step 1: Update Skill Status (FIRST!)
 **Before completing session**, update skill status in database and archive it:
@@ -1075,9 +1212,37 @@ After session is completed, provide detailed report to user:
 
 ## Key Success Criteria
 
+**🔴 CRITICAL: Verify files actually exist in filesystem! 🔴**
+
 Before completing, ensure:
-- ✅ 20+ files created (not counting directories)
-- ✅ 2,000-5,000+ total lines
+
+### 🚨 FILE CREATION VERIFICATION (MANDATORY):
+```bash
+# 1. Count files created (MUST be 20+)
+find .claude/skills/[skill-name] -type f | wc -l
+
+# 2. List all files created
+find .claude/skills/[skill-name] -type f
+
+# 3. Verify SKILL.md exists and has content
+wc -l .claude/skills/[skill-name]/SKILL.md
+# MUST be 200+ lines
+
+# 4. Verify docs files exist
+ls -la .claude/skills/[skill-name]/docs/
+
+# 5. Verify examples exist
+ls -la .claude/skills/[skill-name]/examples/*/*
+```
+
+**IF ANY OF THESE COMMANDS FAIL OR RETURN EMPTY:**
+- ❌ Files were NOT created in filesystem
+- ❌ You only generated content in memory
+- ❌ Go back and use Write tool for each file!
+
+### Standard Success Criteria:
+- ✅ 20+ files created (not counting directories) **AND VERIFIED TO EXIST**
+- ✅ 2,000-5,000+ total lines **AND VERIFIED WITH wc -l**
 - ✅ SKILL.md is 200-500 lines WITH YAML frontmatter
 - ✅ **Frontmatter includes (MANDATORY)**:
   * ✅ `name`: skill-name-kebab-case
