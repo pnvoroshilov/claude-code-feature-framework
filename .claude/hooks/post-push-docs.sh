@@ -51,10 +51,11 @@ if echo "$BASH_CMD" | grep -qE '(git merge|gh pr merge|git pull.*origin.*(main|m
 
     # Only trigger on main/master branch
     if [ "$CURRENT_BRANCH" = "main" ] || [ "$CURRENT_BRANCH" = "master" ]; then
-        # Check for [skip-hook] tag in last commit
-        LAST_COMMIT_MSG=$(git log -1 --pretty=%B 2>/dev/null)
-        if echo "$LAST_COMMIT_MSG" | grep -q '\[skip-hook\]'; then
-            echo "[$(date '+%Y-%m-%d %H:%M:%S')] [skip-hook] tag detected, skipping" >> "$LOGFILE"
+        # Check for [skip-hook] tag in FIRST LINE of last commit message
+        # This prevents false positives when [skip-hook] appears in commit body
+        COMMIT_FIRST_LINE=$(git log -1 --pretty=%s 2>/dev/null)
+        if echo "$COMMIT_FIRST_LINE" | grep -q '\[skip-hook\]'; then
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] [skip-hook] tag detected in commit title, skipping" >> "$LOGFILE"
             exit 0
         fi
 

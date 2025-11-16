@@ -87,7 +87,7 @@ chmod +x .claude/hooks/post-push-docs.sh
 | Project path contains spaces | v2.0.0 automatically URL-encodes paths |
 | API call fails | Check backend is running: `curl http://localhost:3333/health` |
 | Hook triggers recursively | Delete lock file: `rm .claude/logs/hooks/.hook-running` |
-| Need to skip for specific commit | Add `[skip-hook]` to commit message |
+| Need to skip for specific commit | Add `[skip-hook]` to commit **title** (first line) |
 
 **How It Works:**
 1. Detects git push/merge/pull to main/master
