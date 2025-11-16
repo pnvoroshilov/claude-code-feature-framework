@@ -8,6 +8,7 @@ This directory contains auto-generated and maintained documentation for the Clau
 API documentation including OpenAPI specifications and endpoint details.
 - `api-specification.yaml` - Complete OpenAPI 3.0 specification
 - `endpoints/*.md` - Detailed documentation for individual API endpoints
+  - `claude-sessions.md` - Claude Code session management and hook integration API
 
 ### `/components/`
 React component documentation with props, usage examples, and patterns.
@@ -18,12 +19,14 @@ React component documentation with props, usage examples, and patterns.
 System architecture, design decisions, and database schema.
 - `overview.md` - High-level system architecture
 - `database-design.md` - Database schema and relationships
+- `hooks-system.md` - Hooks system architecture and script file workflow
 - `adr/*.md` - Architecture Decision Records (ADRs)
 
 ### `/deployment/`
 Setup and deployment guides for local development and production.
 - `setup.md` - Local development environment setup
 - `production.md` - Production deployment instructions
+- `database-migrations.md` - Database migration guide and history
 
 ### `/claudetask/`
 ClaudeTask framework documentation and workflow guides.
@@ -66,9 +69,12 @@ To manually trigger documentation update:
 Start with:
 1. `architecture/overview.md` - Understand the system
 2. `deployment/setup.md` - Set up development environment
-3. `api/api-specification.yaml` - Browse available APIs
-4. `components/README.md` - Explore UI components
-5. `claudetask/workflow.md` - Learn task management workflow
+3. `deployment/database-migrations.md` - Database schema evolution
+4. `architecture/hooks-system.md` - Hooks system and automation
+5. `api/endpoints/claude-sessions.md` - Claude session management API
+6. `api/api-specification.yaml` - Browse available APIs
+7. `components/README.md` - Explore UI components
+8. `claudetask/workflow.md` - Learn task management workflow
 
 ## 🔧 Technology Stack
 
