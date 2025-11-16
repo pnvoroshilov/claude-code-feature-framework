@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
-  Paper, 
-  Typography, 
+import {
+  Box,
+  Paper,
+  Typography,
   Table,
   TableBody,
   TableCell,
@@ -17,8 +17,6 @@ import {
   DialogContent,
   Tabs,
   Tab,
-  Card,
-  CardContent,
   Grid,
   List,
   ListItem,
@@ -26,7 +24,11 @@ import {
   ListItemIcon,
   Divider,
   LinearProgress,
-  Alert
+  Alert,
+  Container,
+  alpha,
+  useTheme,
+  Stack
 } from '@mui/material';
 import {
   PlayArrow as PlayIcon,
@@ -111,6 +113,7 @@ const getStatusIcon = (status: ClaudeSession['status']) => {
 };
 
 export default function ClaudeSessions() {
+  const theme = useTheme();
   const [sessions, setSessions] = useState<ClaudeSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState<ClaudeSession | null>(null);
@@ -202,92 +205,164 @@ export default function ClaudeSessions() {
   const completedSessions = sessions.filter(s => s.status === 'completed');
 
   return (
-    <Box>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h4" component="h1">
-          Claude Sessions
-        </Typography>
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon />}
-          onClick={fetchSessions}
-        >
-          Refresh
-        </Button>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      {/* Header Section */}
+      <Box sx={{ mb: 5 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+          <Box>
+            <Typography
+              variant="h3"
+              component="h1"
+              sx={{
+                fontWeight: 700,
+                background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                mb: 1,
+              }}
+            >
+              Claude Sessions
+            </Typography>
+            <Typography
+              variant="body1"
+              sx={{
+                color: alpha(theme.palette.text.secondary, 0.8),
+                maxWidth: '600px',
+              }}
+            >
+              Monitor and manage Claude Code autonomous sessions for your tasks
+            </Typography>
+          </Box>
+          <Button
+            variant="contained"
+            startIcon={<RefreshIcon />}
+            onClick={fetchSessions}
+            sx={{
+              background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+              color: '#fff',
+              fontWeight: 600,
+              textTransform: 'none',
+              px: 3,
+              py: 1.5,
+              borderRadius: 2,
+              boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
+                transform: 'translateY(-2px)',
+                boxShadow: `0 6px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
+              },
+            }}
+          >
+            Refresh
+          </Button>
+        </Box>
       </Box>
 
       {/* Active Sessions Summary */}
       {activeSessions.length > 0 && (
-        <Alert severity="info" sx={{ mb: 2 }}>
+        <Alert
+          severity="info"
+          sx={{
+            mb: 3,
+            backgroundColor: alpha(theme.palette.info.main, 0.1),
+            border: `1px solid ${alpha(theme.palette.info.main, 0.3)}`,
+            borderRadius: 2,
+            '& .MuiAlert-icon': { color: theme.palette.info.main },
+          }}
+        >
           {activeSessions.length} active session{activeSessions.length > 1 ? 's' : ''} running
         </Alert>
       )}
 
       {/* Statistics Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Total Sessions
-              </Typography>
-              <Typography variant="h5" component="div">
-                {sessions.length}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Active
-              </Typography>
-              <Typography variant="h5" component="div" color="success.main">
-                {activeSessions.length}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Completed
-              </Typography>
-              <Typography variant="h5" component="div" color="primary.main">
-                {completedSessions.length}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                With Errors
-              </Typography>
-              <Typography variant="h5" component="div" color="error.main">
-                {sessions.filter(s => s.status === 'error').length}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {[
+          { label: 'Total Sessions', value: sessions.length, color: theme.palette.primary.main, icon: <HistoryIcon /> },
+          { label: 'Active', value: activeSessions.length, color: theme.palette.success.main, icon: <PlayIcon /> },
+          { label: 'Completed', value: completedSessions.length, color: theme.palette.info.main, icon: <CompleteIcon /> },
+          { label: 'With Errors', value: sessions.filter(s => s.status === 'error').length, color: theme.palette.error.main, icon: <ErrorIcon /> },
+        ].map((stat, index) => (
+          <Grid item xs={12} sm={6} md={3} key={index}>
+            <Paper
+              sx={{
+                p: 2.5,
+                borderRadius: 2,
+                background: `linear-gradient(145deg, ${alpha(stat.color, 0.05)}, ${alpha(stat.color, 0.02)})`,
+                border: `1px solid ${alpha(stat.color, 0.15)}`,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: `0 8px 24px ${alpha(stat.color, 0.2)}`,
+                  border: `1px solid ${alpha(stat.color, 0.3)}`,
+                },
+              }}
+            >
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Box
+                  sx={{
+                    p: 1.5,
+                    borderRadius: 2,
+                    background: `linear-gradient(135deg, ${alpha(stat.color, 0.2)}, ${alpha(stat.color, 0.1)})`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {React.cloneElement(stat.icon, { sx: { color: stat.color, fontSize: 28 } })}
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: alpha(theme.palette.text.secondary, 0.7),
+                      fontWeight: 500,
+                      mb: 0.5,
+                    }}
+                  >
+                    {stat.label}
+                  </Typography>
+                  <Typography
+                    variant="h4"
+                    sx={{
+                      fontWeight: 700,
+                      color: stat.color,
+                    }}
+                  >
+                    {stat.value}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Paper>
+          </Grid>
+        ))}
       </Grid>
 
       {/* Sessions Table */}
-      <TableContainer component={Paper}>
-        {loading && <LinearProgress />}
+      <TableContainer
+        component={Paper}
+        sx={{
+          borderRadius: 2,
+          background: alpha(theme.palette.background.paper, 0.6),
+          border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          overflow: 'hidden',
+        }}
+      >
+        {loading && <LinearProgress sx={{ backgroundColor: alpha(theme.palette.primary.main, 0.1) }} />}
         <Table>
           <TableHead>
-            <TableRow>
-              <TableCell>Task</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Working Directory</TableCell>
-              <TableCell>Messages</TableCell>
-              <TableCell>Duration</TableCell>
-              <TableCell>Started</TableCell>
-              <TableCell align="right">Actions</TableCell>
+            <TableRow
+              sx={{
+                background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.08)}, ${alpha(theme.palette.primary.main, 0.02)})`,
+              }}
+            >
+              <TableCell sx={{ fontWeight: 600, color: theme.palette.text.primary }}>Task</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: theme.palette.text.primary }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: theme.palette.text.primary }}>Working Directory</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: theme.palette.text.primary }}>Messages</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: theme.palette.text.primary }}>Duration</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: theme.palette.text.primary }}>Started</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -301,7 +376,16 @@ export default function ClaudeSessions() {
               </TableRow>
             ) : (
               sessions.map((session) => (
-                <TableRow key={session.id} hover>
+                <TableRow
+                  key={session.id}
+                  sx={{
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.primary.main, 0.04),
+                    },
+                  }}
+                >
                   <TableCell>
                     <Typography variant="body2">
                       {session.task_title || `Task #${session.task_id}`}
@@ -512,6 +596,6 @@ export default function ClaudeSessions() {
           </>
         )}
       </Dialog>
-    </Box>
+    </Container>
   );
 }

@@ -25,7 +25,6 @@ import {
   alpha,
   useTheme,
   Divider,
-  Badge,
   InputAdornment,
   Paper,
   MenuItem,
@@ -45,6 +44,7 @@ import CategoryIcon from '@mui/icons-material/Category';
 import CodeIcon from '@mui/icons-material/Code';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import InfoIcon from '@mui/icons-material/Info';
+import CloseIcon from '@mui/icons-material/Close';
 import axios from 'axios';
 import { useProject } from '../context/ProjectContext';
 
@@ -806,15 +806,14 @@ const Hooks: React.FC = () => {
           {/* Search and Filter Bar */}
           <Paper
             sx={{
-              p: 2,
+              p: 3,
               mb: 3,
               borderRadius: 2,
-              background: alpha(theme.palette.background.paper, 0.8),
-              backdropFilter: 'blur(10px)',
-              border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+              background: alpha(theme.palette.background.paper, 0.6),
+              border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
             }}
           >
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+            <Stack spacing={3}>
               {/* Search */}
               <TextField
                 fullWidth
@@ -824,60 +823,87 @@ const Hooks: React.FC = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <SearchIcon color="action" />
+                      <SearchIcon sx={{ color: alpha(theme.palette.text.secondary, 0.5) }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: searchQuery && (
+                    <InputAdornment position="end">
+                      <IconButton
+                        size="small"
+                        onClick={() => setSearchQuery('')}
+                        sx={{ color: alpha(theme.palette.text.secondary, 0.5) }}
+                      >
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
                     </InputAdornment>
                   ),
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    backgroundColor: alpha(theme.palette.background.default, 0.5),
                     borderRadius: 2,
+                    '& fieldset': {
+                      borderColor: alpha(theme.palette.divider, 0.1),
+                    },
+                    '&:hover fieldset': {
+                      borderColor: alpha(theme.palette.primary.main, 0.3),
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: theme.palette.primary.main,
+                    },
                   },
                 }}
               />
 
-              {/* Filter Toggle */}
-              <ToggleButtonGroup
-                value={activeFilter}
-                exclusive
-                onChange={(e, newFilter) => {
-                  if (newFilter !== null) {
-                    setActiveFilter(newFilter);
-                  }
-                }}
-                sx={{
-                  flexShrink: 0,
-                  '& .MuiToggleButton-root': {
-                    borderRadius: 2,
-                    px: 2,
-                    py: 1,
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    '&.Mui-selected': {
-                      background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-                      color: theme.palette.primary.contrastText,
+              {/* Filter Toggles */}
+              <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                <ToggleButtonGroup
+                  value={activeFilter}
+                  exclusive
+                  onChange={(_, newFilter) => newFilter && setActiveFilter(newFilter)}
+                  aria-label="hook filter"
+                  sx={{
+                    '& .MuiToggleButton-root': {
+                      color: alpha(theme.palette.text.secondary, 0.7),
+                      borderColor: alpha(theme.palette.divider, 0.1),
+                      textTransform: 'none',
+                      fontWeight: 500,
+                      px: 3,
+                      py: 1,
+                      borderRadius: 2,
                       '&:hover': {
-                        background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
+                        backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                        borderColor: alpha(theme.palette.primary.main, 0.3),
+                      },
+                      '&.Mui-selected': {
+                        background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.2)}, ${alpha(theme.palette.primary.main, 0.1)})`,
+                        color: theme.palette.primary.main,
+                        borderColor: alpha(theme.palette.primary.main, 0.5),
+                        fontWeight: 600,
+                        '&:hover': {
+                          background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.3)}, ${alpha(theme.palette.primary.main, 0.15)})`,
+                        },
                       },
                     },
-                  },
-                }}
-              >
-                <ToggleButton value="all">
-                  All <Badge badgeContent={stats.total} color="primary" sx={{ ml: 1 }} />
-                </ToggleButton>
-                <ToggleButton value="default">
-                  Default <Badge badgeContent={hooks.available_default.length} color="success" sx={{ ml: 1 }} />
-                </ToggleButton>
-                <ToggleButton value="custom">
-                  Custom <Badge badgeContent={stats.custom} color="info" sx={{ ml: 1 }} />
-                </ToggleButton>
-                <ToggleButton value="favorite">
-                  Favorites <Badge badgeContent={stats.favorites} color="warning" sx={{ ml: 1 }} />
-                </ToggleButton>
-                <ToggleButton value="enabled">
-                  Enabled <Badge badgeContent={stats.enabled} color="success" sx={{ ml: 1 }} />
-                </ToggleButton>
-              </ToggleButtonGroup>
+                  }}
+                >
+                  <ToggleButton value="all" aria-label="all">
+                    All ({stats.total})
+                  </ToggleButton>
+                  <ToggleButton value="default" aria-label="default">
+                    Default ({hooks.available_default.length})
+                  </ToggleButton>
+                  <ToggleButton value="custom" aria-label="custom">
+                    Custom ({stats.custom})
+                  </ToggleButton>
+                  <ToggleButton value="favorite" aria-label="favorite">
+                    Favorites ({stats.favorites})
+                  </ToggleButton>
+                  <ToggleButton value="enabled" aria-label="enabled">
+                    Enabled ({stats.enabled})
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
             </Stack>
           </Paper>
         </Box>
