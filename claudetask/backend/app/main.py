@@ -3,6 +3,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List, Optional
@@ -1636,6 +1637,16 @@ async def get_websocket_status(project_id: str):
         "total_connections": task_websocket_manager.get_connection_count(),
         "connected_projects": task_websocket_manager.get_connected_projects()
     }
+
+
+# Mount static files for frontend
+frontend_build_path = Path(__file__).parent.parent.parent / "frontend" / "build"
+if frontend_build_path.exists():
+    app.mount("/static", StaticFiles(directory=str(frontend_build_path / "static")), name="static")
+    app.mount("/", StaticFiles(directory=str(frontend_build_path), html=True), name="frontend")
+    logger.info(f"Serving frontend from: {frontend_build_path}")
+else:
+    logger.warning(f"Frontend build directory not found: {frontend_build_path}")
 
 
 if __name__ == "__main__":

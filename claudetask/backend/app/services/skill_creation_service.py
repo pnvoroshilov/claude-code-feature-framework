@@ -4,9 +4,42 @@ import os
 import asyncio
 import logging
 from typing import Dict, Any
+from datetime import datetime
+from pathlib import Path
 from .claude_terminal_service import ClaudeTerminalSession
 
+# Setup logger with file handler for skill creation
 logger = logging.getLogger(__name__)
+
+# Create logs directory if it doesn't exist
+def setup_skill_creation_logger():
+    """Setup file handler for skill creation logs"""
+    # Get project root (4 levels up from this file)
+    backend_dir = Path(__file__).parent.parent.parent
+    logs_dir = backend_dir / "logs" / "skill_creation"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create file handler with daily rotation
+    log_file = logs_dir / f"skill_creation_{datetime.now().strftime('%Y%m%d')}.log"
+    file_handler = logging.FileHandler(log_file, encoding='utf-8')
+    file_handler.setLevel(logging.DEBUG)
+
+    # Create formatter with detailed info
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
+    )
+    file_handler.setFormatter(formatter)
+
+    # Add handler to logger if not already added
+    if not any(isinstance(h, logging.FileHandler) for h in logger.handlers):
+        logger.addHandler(file_handler)
+        logger.setLevel(logging.DEBUG)
+
+    return log_file
+
+# Initialize logger on module load
+skill_creation_log_file = setup_skill_creation_logger()
+logger.info(f"Skill creation logger initialized. Log file: {skill_creation_log_file}")
 
 
 class SkillCreationService:
@@ -51,7 +84,16 @@ class SkillCreationService:
             # Create session ID
             session_id = f"skill-creation-{skill_name}-{asyncio.get_event_loop().time()}"
 
+            logger.info(f"=" * 80)
+            logger.info(f"Starting skill creation process")
+            logger.info(f"Skill name: {skill_name}")
+            logger.info(f"Description: {skill_description}")
+            logger.info(f"Project path: {project_path}")
+            logger.info(f"Session ID: {session_id}")
+            logger.info(f"=" * 80)
+
             # Start Claude terminal session
+            logger.debug(f"Creating ClaudeTerminalSession instance")
             session = ClaudeTerminalSession(
                 session_id=session_id,
                 task_id=0,  # No task associated
@@ -59,88 +101,160 @@ class SkillCreationService:
                 skip_permissions=True  # Use dangerous mode for skill creation (directory already trusted)
             )
 
-            if not await session.start():
+            logger.debug(f"Starting Claude terminal session...")
+            session_started = await session.start()
+
+            if not session_started:
+                error_msg = "Failed to start Claude terminal session"
+                logger.error(error_msg)
                 return {
                     "success": False,
-                    "error": "Failed to start Claude terminal session"
+                    "error": error_msg
                 }
 
-            logger.info(f"Started Claude session {session_id} for skill creation")
+            logger.info(f"✓ Claude session {session_id} started successfully")
 
             # Claude already initialized in session.start() with 5 second delay
             # No additional wait needed here
 
             # Handle MCP server selection prompt (if appears)
             # Send Enter to confirm default selection and proceed
+            logger.debug("Sending Enter key to handle MCP prompt")
             await session.send_key("enter")
-            logger.info("Sent Enter key to handle MCP prompt")
+            logger.info("✓ Sent Enter key to handle MCP prompt")
 
             # Wait a bit for prompt to process
+            logger.debug("Waiting 1 second for prompt to process")
             await asyncio.sleep(1)
 
             # Send /create-skill command with arguments
             # Format: /create-skill "Skill Name" "Skill Description"
             command = f'/create-skill "{skill_name}" "{skill_description}"'
+            logger.info(f"Preparing to send command: {command}")
 
             await session.send_input(command)
-            logger.info(f"Sent command: {command}")
+            logger.info(f"✓ Command sent to Claude session")
 
             # Ensure command is executed by sending Enter key
+            logger.debug("Waiting 0.5 seconds before sending Enter")
             await asyncio.sleep(0.5)
             await session.send_key("enter")
-            logger.info("Sent Enter to execute command")
+            logger.info("✓ Enter key sent to execute command")
 
             # Session will run until agent calls MCP complete_skill_creation_session
             # or timeout is reached (30 minutes)
-            logger.info(f"Skill creation session {session_id} started")
-            logger.info(f"Session will be stopped by agent via MCP or after 30 minute timeout")
+            logger.info(f"{'='*80}")
+            logger.info(f"Skill creation session {session_id} is now running")
+            logger.info(f"Waiting for agent to complete skill creation...")
+            logger.info(f"Will check for skill files every 10 seconds")
+            logger.info(f"Timeout: 30 minutes (1800 seconds)")
+            logger.info(f"Agent should call mcp__claudetask__complete_skill_creation_session when done")
+            logger.info(f"{'='*80}")
 
             # Wait for timeout (30 minutes = 1800 seconds)
-            # Agent should call mcp__claudetask__complete_skill_creation_session before timeout
+            # BUT check for skill files every 10 seconds
             timeout = 1800
-            await asyncio.sleep(timeout)
+            check_interval = 10  # Check every 10 seconds
+            elapsed = 0
 
-            # If we reach here, timeout occurred - stop session
-            logger.warning(f"Skill creation session {session_id} timed out after {timeout}s")
-            await session.stop()
-
-            # Try to find created skill files
             skill_dir_name = self._generate_skill_dir_name(skill_name)
             skill_dir_path = os.path.join(project_path, ".claude", "skills", skill_dir_name)
             skill_file_path = os.path.join(skill_dir_path, "SKILL.md")
             legacy_file_name = self._generate_skill_file_name(skill_name)
             legacy_file_path = os.path.join(project_path, ".claude", "skills", legacy_file_name)
 
-            # Check if skill was created
+            skill_created = False
+
+            # Periodically check for skill files
+            while elapsed < timeout:
+                await asyncio.sleep(check_interval)
+                elapsed += check_interval
+
+                # Check if skill files were created
+                if os.path.exists(skill_file_path) or os.path.exists(legacy_file_path):
+                    logger.info(f"{'='*80}")
+                    logger.info(f"✓ SKILL FILES DETECTED after {elapsed}s!")
+                    logger.info(f"Skill creation completed successfully")
+                    logger.info(f"Stopping session...")
+                    logger.info(f"{'='*80}")
+                    skill_created = True
+                    break
+
+                # Log progress every 60 seconds
+                if elapsed % 60 == 0:
+                    remaining = timeout - elapsed
+                    logger.debug(f"Progress: {elapsed}s elapsed, {remaining}s remaining (session: {session_id})")
+
+            # Stop session
+            if not skill_created:
+                # Timeout occurred
+                logger.warning(f"{'='*80}")
+                logger.warning(f"TIMEOUT: Skill creation session {session_id} timed out after {timeout}s")
+                logger.warning(f"Agent did not complete skill creation within 30 minutes")
+                logger.warning(f"Stopping session...")
+                logger.warning(f"{'='*80}")
+
+            await session.stop()
+            logger.info(f"✓ Session stopped (skill_created={skill_created})")
+
+            # Read skill file content if created
             skill_path = None
             content = None
-            if os.path.exists(skill_file_path):
-                skill_path = skill_file_path
-                with open(skill_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-            elif os.path.exists(legacy_file_path):
-                skill_path = legacy_file_path
-                with open(skill_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
 
-            if skill_path is not None:
-                return {
-                    "success": True,
-                    "skill_path": skill_path,
-                    "content": content,
-                    "timeout": True
-                }
-            else:
-                return {
-                    "success": False,
-                    "skill_path": None,
-                    "content": None,
-                    "timeout": True,
-                    "error": f"Skill creation timed out after {timeout}s. No skill file was created."
-                }
+            if skill_created:
+                # Files already exist - we checked in the loop
+                logger.info("Reading skill file content...")
+                logger.debug(f"Checking multi-file skill path: {skill_file_path}")
+                logger.debug(f"Checking legacy skill path: {legacy_file_path}")
+
+                if os.path.exists(skill_file_path):
+                    skill_path = skill_file_path
+                    logger.info(f"✓ Found multi-file skill at: {skill_file_path}")
+                    with open(skill_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    logger.debug(f"Skill file size: {len(content)} characters")
+                elif os.path.exists(legacy_file_path):
+                    skill_path = legacy_file_path
+                    logger.info(f"✓ Found legacy skill at: {legacy_file_path}")
+                    with open(skill_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    logger.debug(f"Skill file size: {len(content)} characters")
+
+                if skill_path:
+                    logger.info(f"{'='*80}")
+                    logger.info(f"SUCCESS: Skill created successfully")
+                    logger.info(f"Skill path: {skill_path}")
+                    logger.info(f"Content length: {len(content)} characters")
+                    logger.info(f"Time taken: {elapsed}s")
+                    logger.info(f"{'='*80}")
+                    return {
+                        "success": True,
+                        "skill_path": skill_path,
+                        "content": content,
+                        "timeout": False
+                    }
+                else:
+                    # Files disappeared between detection and reading (race condition)
+                    logger.error("ERROR: Skill files disappeared after detection!")
+
+            # If we're here, skill was not created or files disappeared
+            error_msg = f"Skill creation {'timed out' if not skill_created else 'failed'} after {elapsed}s. No skill file was created."
+            logger.error(f"{'='*80}")
+            logger.error(f"FAILED: {error_msg}")
+            logger.error(f"{'='*80}")
+            return {
+                "success": False,
+                "skill_path": None,
+                "content": None,
+                "timeout": not skill_created,
+                "error": error_msg
+            }
 
         except Exception as e:
-            logger.error(f"Error creating skill via CLI: {e}", exc_info=True)
+            logger.error(f"{'='*80}")
+            logger.error(f"EXCEPTION in skill creation via CLI")
+            logger.error(f"Error: {e}", exc_info=True)
+            logger.error(f"{'='*80}")
 
             # Ensure session is stopped
             if session:

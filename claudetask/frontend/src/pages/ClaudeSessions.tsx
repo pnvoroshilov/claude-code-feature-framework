@@ -533,28 +533,68 @@ export default function ClaudeSessions() {
               </TabPanel>
 
               <TabPanel value={tabValue} index={1}>
-                <List>
+                <List sx={{ maxHeight: '600px', overflow: 'auto' }}>
                   {selectedSession.messages?.length ? (
                     selectedSession.messages.map((msg, idx) => (
                       <React.Fragment key={idx}>
-                        <ListItem alignItems="flex-start">
-                          <ListItemIcon>
-                            {msg.role === 'user' ? '👤' : '🤖'}
-                          </ListItemIcon>
-                          <ListItemText
-                            primary={msg.role === 'user' ? 'User' : 'Claude'}
-                            secondary={
-                              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                                {msg.content}
-                              </Typography>
-                            }
-                          />
+                        <ListItem
+                          alignItems="flex-start"
+                          sx={{
+                            flexDirection: 'column',
+                            alignItems: 'stretch',
+                            py: 2,
+                            gap: 1,
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Box sx={{ fontSize: '1.5rem' }}>
+                              {msg.role === 'user' ? '👤' : '🤖'}
+                            </Box>
+                            <Typography
+                              variant="subtitle2"
+                              sx={{
+                                fontWeight: 600,
+                                color: msg.role === 'user' ? theme.palette.primary.main : theme.palette.success.main
+                              }}
+                            >
+                              {msg.role === 'user' ? 'User' : 'Claude'}
+                            </Typography>
+                          </Box>
+                          <Paper
+                            sx={{
+                              p: 2,
+                              bgcolor: msg.role === 'user'
+                                ? alpha(theme.palette.primary.main, 0.05)
+                                : alpha(theme.palette.success.main, 0.05),
+                              border: `1px solid ${
+                                msg.role === 'user'
+                                  ? alpha(theme.palette.primary.main, 0.2)
+                                  : alpha(theme.palette.success.main, 0.2)
+                              }`,
+                              borderRadius: 2,
+                            }}
+                          >
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word',
+                                fontFamily: msg.content?.includes('```') ? 'monospace' : 'inherit',
+                                fontSize: '0.9rem',
+                                lineHeight: 1.6,
+                              }}
+                            >
+                              {typeof msg.content === 'string'
+                                ? msg.content
+                                : JSON.stringify(msg.content, null, 2)}
+                            </Typography>
+                          </Paper>
                         </ListItem>
-                        {idx < selectedSession.messages!.length - 1 && <Divider />}
+                        {idx < selectedSession.messages!.length - 1 && <Divider sx={{ my: 1 }} />}
                       </React.Fragment>
                     ))
                   ) : (
-                    <Typography color="textSecondary" align="center">
+                    <Typography color="textSecondary" align="center" sx={{ py: 4 }}>
                       No messages yet
                     </Typography>
                   )}

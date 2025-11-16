@@ -329,31 +329,53 @@ class SkillService:
         This is step 2 of 2 for custom skill creation.
         """
         try:
+            logger.info(f"{'='*80}")
+            logger.info(f"Background task started: execute_skill_creation_cli")
+            logger.info(f"Project ID: {project_id}")
+            logger.info(f"Skill ID: {skill_id}")
+            logger.info(f"Skill Name: {skill_name}")
+            logger.info(f"{'='*80}")
+
             # Get project
+            logger.debug(f"Getting project {project_id} from database")
             project = await self._get_project(project_id)
             if not project:
-                raise ValueError(f"Project {project_id} not found")
+                error_msg = f"Project {project_id} not found"
+                logger.error(error_msg)
+                raise ValueError(error_msg)
+
+            logger.info(f"✓ Project found: {project.name} at {project.path}")
 
             # Sanitize inputs
+            logger.debug("Sanitizing user inputs")
             safe_name = self.creation_service.sanitize_skill_input(skill_name)
             safe_description = self.creation_service.sanitize_skill_input(skill_description)
+            logger.info(f"✓ Inputs sanitized: name='{safe_name}', description length={len(safe_description)}")
 
             # Execute CLI command
+            logger.info("Calling create_skill_via_claude_cli...")
             result = await self.creation_service.create_skill_via_claude_cli(
                 project_path=project.path,
                 skill_name=safe_name,
                 skill_description=safe_description
             )
+            logger.info(f"✓ create_skill_via_claude_cli returned: success={result.get('success')}")
 
             if result["success"]:
+                logger.info("Skill creation succeeded - updating database")
+
                 # Update skill status to active
+                logger.debug(f"Fetching skill {skill_id} from database")
                 skill_result = await self.db.execute(
                     select(CustomSkill).where(CustomSkill.id == skill_id)
                 )
                 custom_skill = skill_result.scalar_one_or_none()
 
                 if custom_skill:
+                    logger.info(f"✓ Found skill record in database")
+
                     # Detect actual file structure created by Skills Creator
+                    logger.debug("Detecting skill file structure")
                     actual_file_name = await self._detect_skill_file_structure(
                         project_path=project.path,
                         skill_name=custom_skill.name
@@ -361,20 +383,29 @@ class SkillService:
 
                     # Update file_name if different from initial guess
                     if actual_file_name and actual_file_name != custom_skill.file_name:
-                        logger.info(f"Updating skill file_name from {custom_skill.file_name} to {actual_file_name}")
+                        logger.info(f"✓ Updating skill file_name from {custom_skill.file_name} to {actual_file_name}")
                         custom_skill.file_name = actual_file_name
+                    else:
+                        logger.debug(f"File name unchanged: {custom_skill.file_name}")
 
+                    logger.info("Updating skill status to 'active'")
                     custom_skill.status = "active"
                     custom_skill.content = result.get("content", "")
                     custom_skill.updated_at = datetime.utcnow()
 
                     # Archive custom skill to .claudetask/custom-skills/ for persistence
-                    await self.file_service.archive_custom_skill(
+                    logger.info("Archiving custom skill for persistence")
+                    archive_success = await self.file_service.archive_custom_skill(
                         project_path=project.path,
                         skill_file_name=custom_skill.file_name
                     )
+                    if archive_success:
+                        logger.info("✓ Skill archived successfully")
+                    else:
+                        logger.warning("⚠️ Skill archiving failed (non-critical - skill still works)")
 
                     # Enable skill immediately
+                    logger.info("Enabling skill for project")
                     project_skill = ProjectSkill(
                         project_id=project_id,
                         skill_id=skill_id,
@@ -384,10 +415,20 @@ class SkillService:
                     )
                     self.db.add(project_skill)
 
+                    logger.debug("Committing database changes")
                     await self.db.commit()
 
-                    logger.info(f"Successfully created custom skill {skill_name} for project {project_id}")
+                    logger.info(f"{'='*80}")
+                    logger.info(f"✓ SUCCESS: Custom skill '{skill_name}' created for project {project_id}")
+                    logger.info(f"Skill ID: {skill_id}")
+                    logger.info(f"File: {custom_skill.file_name}")
+                    logger.info(f"Status: active")
+                    logger.info(f"{'='*80}")
+                else:
+                    logger.error(f"Skill {skill_id} not found in database after creation")
             else:
+                logger.warning("Skill creation failed - updating status to 'failed'")
+
                 # Update skill status to failed
                 skill_result = await self.db.execute(
                     select(CustomSkill).where(CustomSkill.id == skill_id)
@@ -395,12 +436,22 @@ class SkillService:
                 custom_skill = skill_result.scalar_one_or_none()
 
                 if custom_skill:
+                    error_msg = result.get("error", "Unknown error")
+                    logger.error(f"Updating skill {skill_id} to failed status")
+                    logger.error(f"Error message: {error_msg}")
+
                     custom_skill.status = "failed"
-                    custom_skill.error_message = result.get("error", "Unknown error")
+                    custom_skill.error_message = error_msg
                     custom_skill.updated_at = datetime.utcnow()
                     await self.db.commit()
 
-                    logger.error(f"Failed to create custom skill {skill_name}: {result.get('error')}")
+                    logger.error(f"{'='*80}")
+                    logger.error(f"✗ FAILED: Custom skill '{skill_name}' creation failed")
+                    logger.error(f"Skill ID: {skill_id}")
+                    logger.error(f"Error: {error_msg}")
+                    logger.error(f"{'='*80}")
+                else:
+                    logger.error(f"Skill {skill_id} not found in database to update failure status")
 
         except Exception as e:
             logger.error(f"Exception in skill creation CLI execution: {e}", exc_info=True)

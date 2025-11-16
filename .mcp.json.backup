@@ -1,12 +1,5 @@
 {
   "mcpServers": {
-    "playwright": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@playwright/mcp@latest"
-      ]
-    },
     "serena": {
       "type": "stdio",
       "command": "uvx",
