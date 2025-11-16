@@ -1,7 +1,12 @@
 {
   "name": "Post-Merge Documentation Update",
-  "description": "Automatically updates project documentation after merging to main branch or pushing to main",
+  "description": "Automatically updates project documentation after merging to main branch or pushing to main (with URL encoding for paths with spaces)",
   "category": "version-control",
+  "version": "2.0.0",
+  "changelog": {
+    "2.0.0": "Added URL encoding for project paths with spaces, switched to backend API instead of direct CLI invocation, improved logging and error handling",
+    "1.0.0": "Initial version with inline command"
+  },
   "hook_config": {
     "PostToolUse": [
       {
@@ -9,12 +14,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "LOGFILE=\".claude/logs/hooks/post-merge-doc-$(date +%Y%m%d).log\"; mkdir -p .claude/logs/hooks; BASH_CMD=$(echo '$TOOL_INPUT' | jq -r '.command // empty'); echo \"[$(date '+%Y-%m-%d %H:%M:%S')] Hook triggered. Command: $BASH_CMD\" >> \"$LOGFILE\"; if echo \"$BASH_CMD\" | grep -qE '(git merge|gh pr merge|git pull.*origin.*(main|master)|git push.*origin.*(main|master))'; then CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown'); echo \"[$(date '+%Y-%m-%d %H:%M:%S')] Git command detected. Branch: $CURRENT_BRANCH\" >> \"$LOGFILE\"; if [ \"$CURRENT_BRANCH\" = \"main\" ] || [ \"$CURRENT_BRANCH\" = \"master\" ]; then echo \"[$(date '+%Y-%m-%d %H:%M:%S')] ✓ Main branch update detected - triggering /update-documentation\" >> \"$LOGFILE\"; echo '✓ Main branch update detected - triggering documentation update via /update-documentation' && (claude --dangerously-skip-permissions /update-documentation 2>&1 | tee -a \"$LOGFILE\" || echo \"[$(date '+%Y-%m-%d %H:%M:%S')] ✗ Failed to trigger /update-documentation\" >> \"$LOGFILE\"); else echo \"[$(date '+%Y-%m-%d %H:%M:%S')] Not on main branch, skipping\" >> \"$LOGFILE\"; fi; else echo \"[$(date '+%Y-%m-%d %H:%M:%S')] Not a merge/push/pull command, skipping\" >> \"$LOGFILE\"; fi"
+            "command": ".claude/hooks/post-push-docs.sh"
           }
         ]
       }
     ]
   },
-  "setup_instructions": "This hook automatically triggers documentation updates after merging to main, pulling from main, or pushing to main. It detects git merge, pull, and push commands targeting main/master branch and invokes the /update-documentation slash command, which delegates to the documentation-updater-agent. All hook activity is logged to .claude/logs/hooks/post-merge-doc-YYYYMMDD.log with timestamps. Requirements: 1) /update-documentation slash command must exist in framework-assets/claude-commands/, 2) documentation-updater-agent must exist in framework-assets/claude-agents/, 3) Documentation stored in docs/ directory will be managed (overwritten, created, or deleted as needed).",
-  "dependencies": ["git", "jq", "claude CLI (optional for auto-trigger)"]
+  "script_file": "post-push-docs.sh",
+  "setup_instructions": "This hook automatically triggers documentation updates after merging to main, pulling from main, or pushing to main.\n\n🔴 KEY IMPROVEMENTS IN v2.0.0:\n- URL encoding for project paths with spaces (e.g., '/Users/name/Start Up/Project')\n- Backend API integration for better session management\n- Lock file mechanism to prevent recursion\n- Enhanced logging with debug information\n- Support for [skip-hook] commit tag to bypass hook\n\nSETUP STEPS:\n1. Copy post-push-docs.sh to .claude/hooks/post-push-docs.sh\n2. Make script executable: chmod +x .claude/hooks/post-push-docs.sh\n3. Add hook configuration to .claude/settings.json\n4. Ensure backend API is running on localhost:3333\n\nREQUIREMENTS:\n- /update-documentation slash command must exist\n- documentation-updater-agent must exist\n- Backend API server running (claudetask backend)\n- jq command-line tool for JSON parsing and URL encoding\n\nFEATURES:\n- Detects git merge, pull, and push to main/master\n- URL-encodes project directory path (handles spaces and special characters)\n- Calls backend API to execute /update-documentation\n- Comprehensive logging to .claude/logs/hooks/\n- Lock file prevents recursive hook invocation\n- Visual notifications to stderr\n- Fallback marker file for manual trigger",
+  "dependencies": ["git", "jq", "curl", "claudetask backend API (localhost:3333)"],
+  "troubleshooting": {
+    "paths_with_spaces": "If your project path contains spaces (e.g., '/Users/name/Start Up/Project'), this hook uses jq to URL-encode the path before passing to the API. The encoded path will be logged for verification.",
+    "api_connection": "Hook requires claudetask backend running on localhost:3333. If API call fails, a marker file is created at .claude/logs/hooks/.docs-update-pending for manual recovery.",
+    "recursion_prevention": "Lock file at .claude/logs/hooks/.hook-running prevents recursive hook invocation. If hook gets stuck, manually delete this file.",
+    "skip_hook": "Add [skip-hook] to commit message to bypass documentation update for that commit."
+  }
 }

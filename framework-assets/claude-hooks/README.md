@@ -38,6 +38,64 @@ Hooks are shell commands that execute at specific points in Claude Code's workfl
 **Use Case:** Automatic version control, change tracking
 **Dependencies:** git, jq
 
+### 6. Post-Merge Documentation Update (v2.0.0) 🆕
+**Category:** Version Control
+**Description:** Automatically triggers documentation updates after pushing/merging to main branch
+**Use Case:** Keep documentation in sync with code changes
+**Dependencies:** git, jq, curl, claudetask backend API
+
+**🔴 Key Features (v2.0.0):**
+- ✅ URL encoding for project paths with spaces (e.g., `/Users/name/Start Up/Project`)
+- ✅ Backend API integration for better session management
+- ✅ Lock file mechanism to prevent recursion
+- ✅ Enhanced logging with debug information
+- ✅ Support for `[skip-hook]` commit tag to bypass hook
+- ✅ Fallback marker file for manual recovery
+
+**Setup:**
+```bash
+# 1. Copy hook script to project
+cp framework-assets/claude-hooks/post-push-docs.sh .claude/hooks/
+
+# 2. Make executable
+chmod +x .claude/hooks/post-push-docs.sh
+
+# 3. Add to .claude/settings.json
+{
+  "hooks": {
+    "PostToolUse": [{
+      "matcher": "Bash",
+      "hooks": [{
+        "type": "command",
+        "command": ".claude/hooks/post-push-docs.sh"
+      }]
+    }]
+  }
+}
+```
+
+**Requirements:**
+- ClaudeTask backend API running on `localhost:3333`
+- `/update-documentation` slash command
+- `documentation-updater-agent` agent
+- `jq` for URL encoding
+
+**Troubleshooting:**
+
+| Problem | Solution |
+|---------|----------|
+| Project path contains spaces | v2.0.0 automatically URL-encodes paths |
+| API call fails | Check backend is running: `curl http://localhost:3333/health` |
+| Hook triggers recursively | Delete lock file: `rm .claude/logs/hooks/.hook-running` |
+| Need to skip for specific commit | Add `[skip-hook]` to commit message |
+
+**How It Works:**
+1. Detects git push/merge/pull to main/master
+2. URL-encodes project directory path (handles spaces)
+3. Calls backend API: `POST /api/claude-sessions/execute-command`
+4. Triggers `/update-documentation` command
+5. Logs all activity to `.claude/logs/hooks/post-merge-doc-*.log`
+
 ## Hook Configuration Format
 
 Each hook is stored as a JSON file with the following structure:
