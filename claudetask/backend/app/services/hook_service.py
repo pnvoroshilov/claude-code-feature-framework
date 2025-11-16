@@ -164,6 +164,15 @@ class HookService:
             logger.info(f"Hook {hook.name} already enabled for project {project_id}")
             return self._to_hook_dto(hook, "default", True)
 
+        # Copy script file if hook uses separate script (e.g., post-push-docs.sh)
+        if hasattr(hook, 'script_file') and hook.script_file:
+            script_copy_success = await self.file_service.copy_hook_script(
+                project_path=project.path,
+                script_file_name=hook.script_file
+            )
+            if not script_copy_success:
+                logger.warning(f"Failed to copy script file {hook.script_file}, but continuing with hook activation")
+
         # Apply hook to settings.json
         success = await self.file_service.apply_hook_to_settings(
             project_path=project.path,

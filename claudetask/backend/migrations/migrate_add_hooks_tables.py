@@ -29,6 +29,7 @@ def load_default_hooks():
                     'description': hook_data['description'],
                     'category': hook_data['category'],
                     'file_name': hook_file.name,
+                    'script_file': hook_data.get('script_file'),  # Optional separate script file
                     'hook_config': json.dumps(hook_data['hook_config']),
                     'setup_instructions': hook_data.get('setup_instructions', ''),
                     'dependencies': json.dumps(hook_data.get('dependencies', []))
@@ -69,9 +70,9 @@ def migrate():
 
         if default_hooks:
             cursor.executemany('''
-                INSERT INTO default_hooks (name, description, category, file_name, hook_config,
+                INSERT INTO default_hooks (name, description, category, file_name, script_file, hook_config,
                                           setup_instructions, dependencies, is_active, is_favorite)
-                VALUES (:name, :description, :category, :file_name, :hook_config,
+                VALUES (:name, :description, :category, :file_name, :script_file, :hook_config,
                         :setup_instructions, :dependencies, 1, 0)
             ''', default_hooks)
 

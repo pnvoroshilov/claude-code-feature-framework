@@ -303,6 +303,52 @@ class HookFileService:
             logger.error(f"Failed to apply hooks to settings.json: {e}", exc_info=True)
             return False
 
+    async def copy_hook_script(
+        self,
+        project_path: str,
+        script_file_name: str
+    ) -> bool:
+        """
+        Copy hook script file from framework to project .claude/hooks/
+
+        Args:
+            project_path: Path to project root
+            script_file_name: Name of script file (e.g., "post-push-docs.sh")
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Source: framework-assets/claude-hooks/SCRIPT_FILE
+            source_path = os.path.join(self.framework_hooks_dir, script_file_name)
+
+            # Destination: project/.claude/hooks/SCRIPT_FILE
+            hooks_dir = os.path.join(project_path, ".claude", "hooks")
+            os.makedirs(hooks_dir, exist_ok=True)
+            dest_path = os.path.join(hooks_dir, script_file_name)
+
+            # Check if source exists
+            if not os.path.exists(source_path):
+                logger.error(f"Hook script not found in framework: {source_path}")
+                return False
+
+            # Copy file
+            async with aiofiles.open(source_path, 'r', encoding='utf-8') as source_file:
+                content = await source_file.read()
+
+            async with aiofiles.open(dest_path, 'w', encoding='utf-8') as dest_file:
+                await dest_file.write(content)
+
+            # Make script executable (important for shell scripts)
+            os.chmod(dest_path, 0o755)
+
+            logger.info(f"Copied hook script {script_file_name} to {dest_path}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to copy hook script: {e}", exc_info=True)
+            return False
+
     def _get_framework_hooks_dir(self) -> str:
         """Get path to framework-assets/claude-hooks/"""
         # Navigate up from services directory to framework root

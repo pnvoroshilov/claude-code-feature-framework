@@ -348,6 +348,7 @@ class DefaultHook(Base):
     description = Column(Text, nullable=False)
     category = Column(String(50), nullable=False)  # e.g., "logging", "formatting", "notifications", "security", "version-control"
     file_name = Column(String(100), nullable=False)
+    script_file = Column(String(100), nullable=True)  # Optional separate script file (e.g., post-push-docs.sh)
     hook_config = Column(JSON, nullable=False)  # Hook configuration JSON (events, matchers, commands)
     setup_instructions = Column(Text, nullable=True)
     dependencies = Column(JSON, nullable=True)  # List of required dependencies (jq, git, prettier, etc.)
@@ -367,6 +368,7 @@ class CustomHook(Base):
     description = Column(Text, nullable=False)
     category = Column(String(50), nullable=False)
     file_name = Column(String(100), nullable=False)
+    script_file = Column(String(100), nullable=True)  # Optional separate script file (e.g., custom-hook.sh)
     hook_config = Column(JSON, nullable=False)  # Hook configuration JSON
     setup_instructions = Column(Text, nullable=True)
     dependencies = Column(JSON, nullable=True)
