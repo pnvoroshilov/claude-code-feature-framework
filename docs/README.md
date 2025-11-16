@@ -17,8 +17,11 @@ React component documentation with props, usage examples, and patterns.
 
 **Components:**
 - `README.md` - Component index and architecture overview
-- `ClaudeSessions.md` - Session management UI with enhanced message display
-- `Skills.md` - Skills management interface
+- `ClaudeSessions.md` - Embedded task session management UI with enhanced message display
+- `ClaudeCodeSessions.md` - Native Claude Code session analytics and browsing interface
+- `Hooks.md` - Hooks management UI for automated shell command configuration
+- `Subagents.md` - Subagent management UI for specialized AI assistants
+- `Skills.md` - Skills management interface for extended capabilities
 
 ### `/architecture/`
 System architecture, design decisions, and database schema.

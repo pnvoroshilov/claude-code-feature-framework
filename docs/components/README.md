@@ -7,37 +7,80 @@ This directory contains documentation for React components in the ClaudeTask Fra
 ### Session Management
 
 #### [ClaudeSessions](./ClaudeSessions.md)
-Comprehensive interface for managing and monitoring Claude Code sessions.
+Comprehensive interface for managing and monitoring embedded Claude Code task sessions.
 
 **Features:**
-- Browse sessions by project
+- Browse sessions by project and task
 - Enhanced message display with color-coded bubbles
-- Active session monitoring
+- Active session monitoring with real-time updates
 - Session detail views with tabs (Info, Messages, Tools, Timeline)
-- Process termination capabilities
+- Process termination and command execution capabilities
 
 **Location:** `claudetask/frontend/src/pages/ClaudeSessions.tsx`
 
 **Status:** Active, Recently Updated (v2.0.0)
 
-### Task Management
+#### [ClaudeCodeSessions](./ClaudeCodeSessions.md)
+Advanced analytics and browsing interface for Claude Code native session files (.jsonl).
+
+**Features:**
+- Multi-project session discovery
+- Advanced statistics and analytics
+- Tool usage patterns and insights
+- Error tracking and debugging
+- Content-based session search
+- Detailed message history inspection
+
+**Location:** `claudetask/frontend/src/pages/ClaudeCodeSessions.tsx`
+
+**Status:** Active, Full Analytics Suite
+
+### Framework Management
+
+#### [Hooks](./Hooks.md)
+Hooks management interface for configuring automated shell commands at workflow trigger points.
+
+**Features:**
+- Browse and enable default framework hooks
+- Create custom project-specific hooks
+- Category-based organization and filtering
+- JSON hook configuration editor
+- Dependency management
+- Favorite hooks for quick access
+
+**Location:** `claudetask/frontend/src/pages/Hooks.tsx`
+
+**Status:** Active, Core Framework Feature
+
+#### [Subagents](./Subagents.md)
+Subagent management interface for specialized AI assistants with focused expertise.
+
+**Features:**
+- Browse default framework subagents by category
+- Create custom project-specific subagents
+- View subagent markdown definitions
+- Enable/disable subagents per project
+- Edit custom subagent instructions
+- Mark favorites for task delegation
+
+**Location:** `claudetask/frontend/src/pages/Subagents.tsx`
+
+**Status:** Active, Agent Delegation System
 
 #### [Skills](./Skills.md)
 Skills management interface for creating and managing Claude Code skills.
 
 **Features:**
-- Browse available skills
-- Create new skills via dedicated agent
-- View skill details and implementation
+- Browse available skills library
+- Create new skills via skills-creator agent
+- View skill implementation code
 - Enable/disable skills for projects
+- Update skill status and metadata
+- Archive unused skills
 
 **Location:** `claudetask/frontend/src/pages/Skills.tsx`
 
-**Status:** Active
-
-### Other Components
-
-Additional component documentation will be added as components are created or updated.
+**Status:** Active, Extended Capabilities System
 
 ## Component Architecture
 
@@ -110,25 +153,25 @@ claudetask/frontend/src/
 
 ### 1. Session & Process Management
 Components for managing Claude Code sessions and processes:
-- ClaudeSessions - Session browsing and monitoring
-- ClaudeCodeSessions - Alternative session view
+- **ClaudeSessions** - Embedded task session management with real-time monitoring
+- **ClaudeCodeSessions** - Native Claude Code session analytics and browsing
 
 ### 2. Framework Management
 Components for managing framework features:
-- Skills - Skill creation and management
-- Hooks - Hook configuration
-- Subagents - Subagent management
+- **Hooks** - Automated shell command configuration at workflow trigger points
+- **Subagents** - Specialized AI assistant management and delegation
+- **Skills** - Extended capability creation and management
 
 ### 3. Task Management
 Components for task and project management:
-- Tasks - Task board and details
-- Projects - Project configuration
+- **Tasks** - Task board and details (to be documented)
+- **Projects** - Project configuration (to be documented)
 
 ### 4. Shared Components
 Reusable components used across the application:
-- Common UI elements
-- Forms and inputs
-- Layout components
+- **CodeEditorDialog** - Markdown/code editing dialog
+- **Common UI elements** - Buttons, cards, layouts
+- **Forms and inputs** - Reusable form components
 
 ## Styling Guidelines
 
@@ -286,5 +329,17 @@ When adding or updating components:
 ---
 
 **Last Updated**: 2025-11-16
-**Total Components Documented**: 2
+**Total Components Documented**: 5
 **Documentation Status**: Active maintenance
+
+## Component Documentation Index
+
+| Component | Category | Status | Documentation |
+|-----------|----------|--------|---------------|
+| ClaudeSessions | Session Management | Active | [View](./ClaudeSessions.md) |
+| ClaudeCodeSessions | Session Management | Active | [View](./ClaudeCodeSessions.md) |
+| Hooks | Framework Management | Active | [View](./Hooks.md) |
+| Subagents | Framework Management | Active | [View](./Subagents.md) |
+| Skills | Framework Management | Active | [View](./Skills.md) |
+| Tasks | Task Management | Pending | To be documented |
+| Projects | Task Management | Pending | To be documented |
