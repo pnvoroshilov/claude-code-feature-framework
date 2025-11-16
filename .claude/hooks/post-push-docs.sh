@@ -67,10 +67,15 @@ if echo "$BASH_CMD" | grep -qE '(git merge|gh pr merge|git pull.*origin.*(main|m
         API_URL="http://localhost:3333/api/claude-sessions/execute-command"
         COMMAND="/update-documentation"
 
+        # URL encode project directory (handle spaces and special characters)
+        PROJECT_DIR_ENCODED=$(printf %s "$PROJECT_ROOT" | jq -sRr @uri)
+
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] Calling API to execute command: $COMMAND" >> "$LOGFILE"
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Project dir: $PROJECT_ROOT" >> "$LOGFILE"
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] Project dir encoded: $PROJECT_DIR_ENCODED" >> "$LOGFILE"
 
         # Make API call
-        API_RESPONSE=$(curl -s -X POST "$API_URL?command=${COMMAND}&project_dir=${PROJECT_ROOT}" \
+        API_RESPONSE=$(curl -s -X POST "$API_URL?command=${COMMAND}&project_dir=${PROJECT_DIR_ENCODED}" \
             -H "Content-Type: application/json" \
             2>&1)
 
