@@ -223,6 +223,8 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 1. **Session Detection**: Checks if a Claude session already exists for the project
 2. **Session Creation**: If no active session, creates a new embedded session using `pexpect`
+   - Creates session with `task_id=0` to indicate hook-triggered session
+   - Hook sessions skip `/start-feature` command (no task initialization)
 3. **Command Execution**: Sends the slash command to Claude's stdin
 4. **Response**: Returns session info immediately (command executes asynchronously)
 
@@ -250,7 +252,9 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 - Session remains active for command execution
 - Supports both new session creation and reusing existing sessions
 - Includes initialization delay (2 seconds) for new sessions
+- Hook sessions (task_id=0) skip task initialization to prevent `/start-feature` from running
 - Sends Enter key after command to execute it
+- Session working directory set to `project_dir` parameter
 
 **Security Considerations:**
 
