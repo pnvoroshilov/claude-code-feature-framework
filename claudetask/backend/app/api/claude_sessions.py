@@ -138,14 +138,14 @@ async def get_session_details(
                             else:
                                 content = entry.get("content", "")
 
-                            # Convert content to string if it's a list/dict
-                            if isinstance(content, (list, dict)):
-                                content = str(content)
+                            # Keep content as-is (don't convert to string if it's structured)
+                            # This preserves the original structure for proper display
 
                             messages.append({
                                 "type": entry_type,
                                 "timestamp": entry.get("timestamp"),
-                                "content": content[:1000],  # Limit content length
+                                "content": content,  # NO LIMIT - show full content
+                                "role": "user" if entry_type == "user" else "assistant",
                                 "uuid": entry.get("uuid"),
                                 "parent_uuid": entry.get("parentUuid")
                             })
@@ -322,19 +322,20 @@ async def execute_claude_command(
     Execute a Claude Code slash command in the project's Claude terminal
 
     This endpoint allows external scripts (like git hooks) to trigger
-    Claude Code commands programmatically.
+    Claude Code commands programmatically by launching an embedded Claude session.
 
     Args:
         command: Slash command to execute (e.g., /update-documentation)
         project_dir: Optional project directory path
 
     Returns:
-        Execution status and command output
+        Execution status and session info
     """
     try:
-        import subprocess
         import os
         from pathlib import Path
+        from app.services.real_claude_service import real_claude_service
+        import uuid
 
         # Validate command format
         if not command.startswith('/'):
@@ -351,63 +352,69 @@ async def execute_claude_command(
         # Log the command execution
         logger.info(f"Executing Claude command: {command} in {project_dir}")
 
-        # Execute command by writing to Claude stdin
-        # This simulates typing the command in Claude terminal
-        try:
-            # Check if Claude Code is running with this project
-            result = subprocess.run(
-                ["ps", "aux"],
-                capture_output=True,
-                text=True,
-                timeout=5
+        # Check if there's already an active session for this project
+        active_session = None
+        for session_id, session in real_claude_service.sessions.items():
+            if session.root_project_dir == str(project_path):
+                active_session = session
+                logger.info(f"Found existing session {session_id} for project {project_dir}")
+                break
+
+        # If no active session, create a new one
+        if not active_session:
+            # Generate a unique session ID for this command execution
+            session_id = f"hook-{uuid.uuid4().hex[:8]}"
+
+            logger.info(f"Creating new Claude session {session_id} for hook command execution")
+
+            # Create new session (uses pexpect to spawn Claude process)
+            result = await real_claude_service.create_session(
+                task_id=0,  # Special task ID for hook-triggered sessions
+                project_path=str(project_path),
+                session_id=session_id,
+                root_project_path=str(project_path),
+                db_session=None  # No DB tracking for hook sessions
             )
 
-            # Find Claude process for this project
-            claude_pid = None
-            for line in result.stdout.split('\n'):
-                if 'claude' in line.lower() and str(project_dir) in line:
-                    parts = line.split()
-                    if len(parts) > 1:
-                        claude_pid = parts[1]
-                        break
+            if not result.get("success"):
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to create Claude session: {result.get('error')}"
+                )
 
-            if not claude_pid:
-                # Alternative: Use AppleScript on macOS to send command to Claude terminal
-                if os.system('command -v osascript &> /dev/null') == 0:
-                    # Write command to a temporary file that Claude can read
-                    cmd_file = project_path / ".claude" / "logs" / "command_queue.txt"
-                    cmd_file.parent.mkdir(parents=True, exist_ok=True)
+            active_session = real_claude_service.get_session(session_id)
 
-                    with open(cmd_file, 'w') as f:
-                        f.write(f"{command}\n")
+            # Wait a moment for Claude to initialize
+            import asyncio
+            await asyncio.sleep(2)
+        else:
+            session_id = active_session.session_id
 
-                    logger.info(f"Command queued in {cmd_file}")
+        # Send the command to the active Claude session
+        # This uses pexpect to write to Claude's stdin
+        success = await real_claude_service.send_input(session_id, command)
 
-                    return {
-                        "success": True,
-                        "message": f"Command {command} queued for execution",
-                        "command": command,
-                        "queue_file": str(cmd_file),
-                        "note": "Command will be picked up by Claude Code on next prompt"
-                    }
-                else:
-                    raise HTTPException(
-                        status_code=503,
-                        detail="No active Claude Code session found for this project"
-                    )
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to send command to Claude session"
+            )
 
-            return {
-                "success": True,
-                "message": f"Command {command} sent to Claude Code (PID: {claude_pid})",
-                "command": command,
-                "pid": claude_pid
-            }
+        # Send Enter key to execute the command
+        import asyncio
+        await asyncio.sleep(0.2)
+        await real_claude_service.send_input(session_id, "\r")
 
-        except subprocess.TimeoutExpired:
-            raise HTTPException(status_code=504, detail="Command execution timed out")
-        except Exception as e:
-            logger.error(f"Failed to execute command: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to execute command: {str(e)}")
+        logger.info(f"Successfully sent command '{command}' to Claude session {session_id}")
+
+        return {
+            "success": True,
+            "message": f"Command {command} sent to Claude Code session",
+            "command": command,
+            "session_id": session_id,
+            "pid": active_session.child.pid if active_session.child else None,
+            "note": "Command is being executed in embedded Claude session"
+        }
 
     except HTTPException:
         raise
