@@ -29,15 +29,18 @@ Provides a comprehensive interface for:
 - Monitor working directory and command
 - Kill sessions gracefully
 
-### 3. Enhanced Message Display (v2.0)
+### 3. Enhanced Message Display (v2.1)
 
-**Recent UI Improvements:**
-- Color-coded message bubbles (blue for user, green for Claude)
-- Improved message formatting with proper whitespace handling
-- Code block support with monospace font detection
-- Scrollable message history (max 600px height)
-- Visual separation between messages with dividers
-- Better spacing and padding for readability
+**Recent UI Improvements (v2.1):**
+- **Structured Content Rendering**: Proper handling of Claude API message format
+- **Tool Use Display**: Highlighted tool invocations with blue info boxes
+- **Tool Result Display**: Highlighted tool results with green success boxes
+- **Smart Content Parsing**: Detects and renders text blocks, tool_use, and tool_result blocks
+- **Array Content Support**: Handles Claude API array-based content format
+- **Color-coded message bubbles**: Blue for user, green for Claude responses
+- **Improved overflow handling**: Word-break and overflow-wrap for long content
+- **Scrollable results**: Tool results limited to 400px height with scrolling
+- **Better spacing**: Consistent padding and margins throughout
 
 **Message Display Features:**
 ```tsx
@@ -50,6 +53,18 @@ Provides a comprehensive interface for:
 // Claude messages: Green-themed bubble
 <Paper sx={{
   bgcolor: alpha(theme.palette.success.main, 0.05),
+  border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`,
+}}>
+
+// Tool use blocks: Info-themed box
+<Box sx={{
+  bgcolor: alpha(theme.palette.info.main, 0.08),
+  border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
+}}>
+
+// Tool result blocks: Success-themed box
+<Box sx={{
+  bgcolor: alpha(theme.palette.success.main, 0.08),
   border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`,
 }}>
 ```
@@ -154,14 +169,90 @@ function App() {
 - Left-aligned avatar (🤖)
 - Semi-transparent background
 - Bordered bubble design
+- **Structured content parsing** for Claude API format
 
-### Code Detection
+### Content Type Rendering
+
+The component intelligently handles different content formats:
+
+#### 1. Simple String Content
 ```tsx
-sx={{
-  fontFamily: msg.content?.includes('```') ? 'monospace' : 'inherit',
-  fontSize: '0.9rem',
-  lineHeight: 1.6,
-}}
+// Direct text display
+if (typeof content === 'string') {
+  return content;
+}
+```
+
+#### 2. Claude API Array Format
+```tsx
+// Handles array of content blocks
+if (Array.isArray(content)) {
+  content.map((block) => {
+    // Render based on block.type
+  });
+}
+```
+
+#### 3. Text Blocks
+```tsx
+if (block.type === 'text') {
+  return <div>{block.text}</div>;
+}
+```
+
+#### 4. Tool Use Blocks
+```tsx
+if (block.type === 'tool_use') {
+  return (
+    <Box sx={{
+      bgcolor: alpha(theme.palette.info.main, 0.08),
+      border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`
+    }}>
+      <Typography variant="caption" sx={{ fontWeight: 600, color: theme.palette.info.main }}>
+        🔧 Tool: {block.name}
+      </Typography>
+      <pre>{JSON.stringify(block.input, null, 2)}</pre>
+    </Box>
+  );
+}
+```
+
+#### 5. Tool Result Blocks
+```tsx
+if (block.type === 'tool_result') {
+  const resultContent = typeof block.content === 'string'
+    ? block.content
+    : Array.isArray(block.content) && block.content[0]?.type === 'text'
+    ? block.content[0].text
+    : JSON.stringify(block.content, null, 2);
+
+  return (
+    <Box sx={{
+      bgcolor: alpha(theme.palette.success.main, 0.08),
+      border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`,
+      maxHeight: '400px',
+      overflow: 'auto'
+    }}>
+      <Typography variant="caption" sx={{ fontWeight: 600, color: theme.palette.success.main }}>
+        ✅ Tool Result
+      </Typography>
+      <div>{resultContent}</div>
+    </Box>
+  );
+}
+```
+
+#### 6. Object with Text Property
+```tsx
+if (content && typeof content === 'object' && 'text' in content) {
+  return content.text;
+}
+```
+
+#### 7. Fallback (Unknown Format)
+```tsx
+// Stringify unknown content
+return <pre>{JSON.stringify(content, null, 2)}</pre>;
 ```
 
 ## Active Sessions View
@@ -290,4 +381,4 @@ curl http://localhost:3333/api/claude-sessions/active-sessions
 ---
 
 **Last Updated**: 2025-11-16
-**Version**: 2.0.0 (Enhanced message display)
+**Version**: 2.1.0 (Structured content rendering with tool use/result display)

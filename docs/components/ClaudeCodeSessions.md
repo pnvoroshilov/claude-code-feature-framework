@@ -123,10 +123,39 @@ interface ClaudeCodeSession {
 - User messages (blue theme)
 - Assistant messages (green theme)
 - Timestamp for each message
-- Full content display (no truncation)
+- **Full content display** (no truncation - shows complete messages)
+- **Smart content parsing** for Claude API format
 - Scrollable message list
 
-**Message Display:**
+**Message Content Handling:**
+
+The component intelligently parses different content formats:
+
+```tsx
+// 1. String content - display as-is
+if (typeof content === 'string') {
+  return content;
+}
+
+// 2. Array content (Claude API format) - extract text blocks
+if (Array.isArray(content)) {
+  const textContent = content
+    .filter(block => block.type === 'text')
+    .map(block => block.text)
+    .join('\n');
+  return textContent;
+}
+
+// 3. Object with text property - extract text
+if (content && typeof content === 'object' && 'text' in content) {
+  return content.text;
+}
+
+// 4. Fallback - stringify
+return JSON.stringify(content, null, 2);
+```
+
+**Message Display Styling:**
 ```tsx
 // User message styling
 <Paper sx={{
@@ -138,7 +167,7 @@ interface ClaudeCodeSession {
   <Typography variant="caption" color="primary.main">
     User • {timestamp}
   </Typography>
-  <Typography>{message.content}</Typography>
+  <Typography>{parsedContent}</Typography>
 </Paper>
 
 // Claude message styling
@@ -151,7 +180,7 @@ interface ClaudeCodeSession {
   <Typography variant="caption" color="success.main">
     Claude • {timestamp}
   </Typography>
-  <Typography>{message.content}</Typography>
+  <Typography>{parsedContent}</Typography>
 </Paper>
 ```
 
@@ -463,3 +492,8 @@ Claude Code stores sessions in JSONL (JSON Lines) format:
 - [ClaudeSessions Component](./ClaudeSessions.md) - Task-based session management
 - [Claude Sessions API](../api/endpoints/claude-sessions.md) - API documentation
 - [Session File Format](../architecture/session-format.md) - JSONL structure details
+
+---
+
+**Last Updated**: 2025-11-16
+**Version**: 2.1.0 (Smart content parsing with full message display)

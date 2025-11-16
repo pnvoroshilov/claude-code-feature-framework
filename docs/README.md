@@ -17,7 +17,7 @@ React component documentation with props, usage examples, and patterns.
 
 **Components:**
 - `README.md` - Component index and architecture overview
-- `ClaudeSessions.md` - Embedded task session management UI with enhanced message display
+- `ClaudeSessions.md` - Embedded task session management UI with structured content rendering (v2.1)
 - `ClaudeCodeSessions.md` - Native Claude Code session analytics and browsing interface
 - `Hooks.md` - Hooks management UI for automated shell command configuration
 - `Subagents.md` - Subagent management UI for specialized AI assistants
@@ -144,7 +144,11 @@ To manually trigger documentation update:
 ## Recent Updates
 
 **Latest Changes (2025-11-16):**
-- ✅ Enhanced ClaudeSessions UI with color-coded message bubbles
+- ✅ **Enhanced ClaudeSessions UI v2.1**: Structured content rendering for Claude API format
+  - Tool use blocks displayed with blue info boxes
+  - Tool result blocks displayed with green success boxes
+  - Smart content parsing for text, tool_use, and tool_result blocks
+  - Improved overflow handling with scrollable tool results
 - ✅ Fixed hook-triggered sessions to skip /start-feature command
 - ✅ Added task_id=0 support for hook sessions
 - ✅ Improved message display formatting and scrolling
@@ -242,9 +246,9 @@ New documentation is automatically created when:
 - [ ] Performance optimization guides
 
 **Documentation Metrics:**
-- Total files: 15 active, 3 archived
+- Total files: 16 active, 3 archived
 - API endpoints documented: 3
-- Components documented: 2
+- Components documented: 5
 - Last full update: 2025-11-16
 - Auto-update status: Active and operational
 
