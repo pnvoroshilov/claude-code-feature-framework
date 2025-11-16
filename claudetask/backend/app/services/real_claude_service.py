@@ -213,7 +213,13 @@ class RealClaudeSession:
         try:
             # Wait 2 seconds for Claude to fully initialize
             await asyncio.sleep(2)
-            
+
+            # Skip task initialization for hook sessions (task_id = 0)
+            # Hook sessions should only execute the command sent via API, not /start-feature
+            if self.task_id == 0:
+                logger.info("Skipping /start-feature for hook session (task_id=0)")
+                return
+
             # First, provide context about the worktree location
             if self.working_dir != self.root_project_dir:
                 context_message = f"You are working on Task #{self.task_id}. The worktree for this task is located at: {self.working_dir}\n"
@@ -221,7 +227,7 @@ class RealClaudeSession:
                 context_message += "All your file operations should be relative to this worktree path.\n"
                 await self.send_input(context_message)
                 await asyncio.sleep(0.5)
-            
+
             # Send the /start-feature command with task ID
             task_command = f"/start-feature {self.task_id}"
             await self.send_input(task_command)
