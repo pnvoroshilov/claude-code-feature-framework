@@ -168,18 +168,31 @@ Links to related component documentation.
 # Ensure code examples are valid and current
 ```
 
-### Phase 5: Commit Changes (CRITICAL: Prevent Hook Recursion)
+### Phase 5: Commit and Push Changes (CRITICAL: Prevent Hook Recursion)
 
-**🔴 IMPORTANT: Always add `[skip-hook]` tag to prevent recursion**
+**🔴🔴🔴 MANDATORY: You MUST complete ALL 3 steps below! 🔴🔴🔴**
 
-When committing documentation changes, you MUST include `[skip-hook]` in the commit message to prevent the post-merge hook from triggering again (which would cause infinite recursion).
+When committing documentation changes, you MUST:
+1. ✅ Add `[skip-hook]` tag to prevent recursion
+2. ✅ Commit changes locally
+3. ✅ **PUSH to origin immediately** (DO NOT skip this step!)
 
 ```bash
-# Commit documentation changes with skip-hook tag
+# Step 1: Stage documentation changes
 git add docs/
+
+# Step 2: Commit with [skip-hook] tag (prevents infinite loop)
 git commit -m "docs: Update documentation after code changes [skip-hook]"
+
+# Step 3: 🔴 MANDATORY - Push to origin RIGHT NOW
 git push origin main
 ```
+
+**⚠️ CRITICAL: You MUST execute `git push origin main`**
+- ❌ DO NOT skip the push step
+- ❌ DO NOT only commit locally
+- ✅ ALWAYS push to origin after committing
+- ✅ This ensures documentation is immediately available to the team
 
 **Why `[skip-hook]` is required:**
 - The post-merge hook automatically triggers documentation updates
