@@ -756,11 +756,31 @@ ls -la .claude/
 ```
 
 ### Phase 1: Understanding Requirements (2 minutes)
+
+**🔴 CRITICAL: USE EXACT SKILL NAME FROM COMMAND - NO CHANGES! 🔴**
+
 1. **Extract skill information from request**:
-   - Skill name (e.g., "Python FastAPI Development")
+   - **Skill name**: EXACTLY as provided in `/create-skill "[NAME]"` command
+     * ⚠️ **DO NOT** change, modify, or expand the name
+     * ⚠️ **DO NOT** convert to "kebab-case" or any other format
+     * ⚠️ **USE EXACT NAME** - if user says "tailw", use "tailw" (NOT "tailwind-css")
+     * ✅ **ONLY** convert to lowercase and replace spaces with hyphens for directory name
    - Skill description (what it covers)
    - Domain/technology (what this addresses)
-   - Target skill path: `.claude/skills/[skill-name-kebab-case]/`
+   - Target skill path: `.claude/skills/[exact-skill-name]/`
+
+**EXAMPLES:**
+- Command: `/create-skill "tailw" "..."` → Directory: `.claude/skills/tailw/`
+- Command: `/create-skill "Python FastAPI" "..."` → Directory: `.claude/skills/python-fastapi/`
+- Command: `/create-skill "my skill" "..."` → Directory: `.claude/skills/my-skill/`
+
+**❌ WRONG** (changing user's name):
+- User: "tailw" → You: "tailwind-css" ❌ NO!
+- User: "api" → You: "api-development" ❌ NO!
+
+**✅ CORRECT** (using exact name):
+- User: "tailw" → You: "tailw" ✅ YES!
+- User: "api" → You: "api" ✅ YES!
 
 2. **Plan the skill structure**:
    - List all directories to create
@@ -771,9 +791,13 @@ ls -la .claude/
 ### Phase 2: Directory Structure Creation (1 minute)
 
 **🔴 PATH REQUIREMENT**:
-- ✅ **ALWAYS** create in: `.claude/skills/[skill-name-kebab-case]/`
+- ✅ **ALWAYS** create in: `.claude/skills/[exact-skill-name]/`
+- ✅ **USE EXACT NAME** from command (only lowercase + hyphens for spaces)
 - ❌ **NEVER** create in: `framework-assets/claude-skills/`
+- ❌ **NEVER** change or expand the skill name
 - ✅ Valid for both: Framework skills (ClaudeTask) AND User project skills
+
+**REMINDER**: If command was `/create-skill "tailw"`, directory is `.claude/skills/tailw/` (NOT tailwind-css!)
 
 1. **Verify working directory** (MANDATORY):
    ```bash
@@ -817,7 +841,8 @@ content: [full file content here]
    - 🔴 **MANDATORY YAML frontmatter** (MUST be first, includes auto-trigger keywords):
      ```yaml
      ---
-     name: skill-name-kebab-case
+     name: exact-skill-name  # 🔴 MUST match command name EXACTLY!
+     # Example: if command was "tailw", use "tailw" (NOT "tailwind-css")
      description: Use for [tasks]. Brief description including WHEN to use
      version: 1.0.0
      tags: [category, technology, domain, purpose, keyword1, keyword2]
@@ -1083,9 +1108,11 @@ echo "Expected: 2000+ lines total"
 ```
 Use mcp__claudetask__update_custom_skill_status tool
 Arguments: {
-  "skill_name": "[skill-name-kebab-case]",
+  "skill_name": "[exact-skill-name]",  # 🔴 Use EXACT name from command!
   "status": "active"
 }
+
+Example: If command was "tailw", use "tailw" (NOT "tailwind-css")
 ```
 This will:
 - Update skill status to "active" in database
@@ -1159,7 +1186,49 @@ After session is completed, provide detailed report to user:
 
 ## Example: Complete Skill Creation
 
-**Request**: "Create a skill for Python FastAPI development"
+### Example 1: Short Skill Name (User's Exact Name)
+
+**Request**: `/create-skill "tailw" "Tailwind CSS usage skill"`
+
+**🔴 CRITICAL - Use EXACT name "tailw":**
+
+1. **Understand** (Phase 1):
+   - Name: **"tailw"** (EXACT as provided - DO NOT change to "tailwind-css"!)
+   - Path: `.claude/skills/tailw/`
+   - Description: Tailwind CSS usage skill
+   - Topics: Utilities, responsive design, customization, components
+
+2. **Create Structure** (Phase 2):
+   ```bash
+   # Use EXACT name "tailw" - DO NOT expand it!
+   mkdir -p .claude/skills/tailw/{docs,examples/{basic,intermediate,advanced},templates,resources}
+   ```
+
+3. **SKILL.md frontmatter** (Phase 3):
+   ```yaml
+   ---
+   name: tailw  # EXACT name from command!
+   description: Tailwind CSS usage and best practices
+   version: 1.0.0
+   tags: [css, tailwind, styling, frontend, utilities]
+   category: Development
+   auto_trigger_keywords:
+     - tailwind
+     - tailw
+     - utility-first css
+     - responsive design
+     - tailwind classes
+   when_to_use: "When working with Tailwind CSS styling and utilities"
+   ---
+   ```
+
+**✅ Result**: Skill created at `.claude/skills/tailw/SKILL.md` with name "tailw"
+
+---
+
+### Example 2: Full Skill Name
+
+**Request**: `/create-skill "Python FastAPI Development" "FastAPI backend skill"`
 
 **Your Response Process**:
 
@@ -1245,7 +1314,7 @@ ls -la .claude/skills/[skill-name]/examples/*/*
 - ✅ 2,000-5,000+ total lines **AND VERIFIED WITH wc -l**
 - ✅ SKILL.md is 200-500 lines WITH YAML frontmatter
 - ✅ **Frontmatter includes (MANDATORY)**:
-  * ✅ `name`: skill-name-kebab-case
+  * ✅ `name`: EXACT skill name from command (e.g., "tailw" if command was "tailw")
   * ✅ `description`: Including WHEN to use (with keywords)
   * ✅ `version`: 1.0.0
   * ✅ `tags`: 5-10 relevant tags
