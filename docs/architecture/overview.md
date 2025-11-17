@@ -140,12 +140,14 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 ```
 
 ### Claude Session Flow
+
+#### Task-Based Session Flow
 ```
 1. User starts working on a task
    ↓
 2. Frontend → POST /api/sessions (create session)
    ↓
-3. Backend launches Claude Code CLI
+3. Backend launches Claude Code CLI with task_id
    ↓
 4. Session status: idle → initializing → active
    ↓
@@ -159,6 +161,29 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
    ↓
 9. Session status: completed
 ```
+
+#### Hook-Triggered Session Flow
+```
+1. Git hook triggers (e.g., post-push)
+   ↓
+2. Hook script → POST /api/claude-sessions/execute-command
+   ↓
+3. Backend creates session with task_id=0 (hook session)
+   ↓
+4. Session initialization: skips /start-feature command
+   ↓
+5. Backend sends slash command to Claude stdin
+   ↓
+6. Claude executes command asynchronously
+   ↓
+7. Session remains active for command execution
+   ↓
+8. Results saved with [skip-hook] tag to prevent recursion
+```
+
+**Key Differences:**
+- **Task Sessions** (`task_id > 0`): Include `/start-feature` initialization for task context
+- **Hook Sessions** (`task_id = 0`): Skip task initialization, execute only the provided command
 
 ## Database Schema
 
@@ -261,4 +286,4 @@ The framework is designed for extensibility:
 
 ---
 
-Last updated: 2025-11-14
+Last updated: 2025-11-18
