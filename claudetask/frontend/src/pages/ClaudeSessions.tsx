@@ -574,20 +574,73 @@ export default function ClaudeSessions() {
                               borderRadius: 2,
                             }}
                           >
-                            <Typography
-                              variant="body2"
+                            <Box
                               sx={{
                                 whiteSpace: 'pre-wrap',
                                 wordBreak: 'break-word',
-                                fontFamily: msg.content?.includes('```') ? 'monospace' : 'inherit',
+                                overflowWrap: 'break-word',
                                 fontSize: '0.9rem',
                                 lineHeight: 1.6,
                               }}
                             >
-                              {typeof msg.content === 'string'
-                                ? msg.content
-                                : JSON.stringify(msg.content, null, 2)}
-                            </Typography>
+                              {(() => {
+                                const content = msg.content;
+
+                                // If content is a simple string
+                                if (typeof content === 'string') {
+                                  return content;
+                                }
+
+                                // If content is an array (Claude API format)
+                                if (Array.isArray(content)) {
+                                  return content.map((block: any, i: number) => {
+                                    if (block.type === 'text') {
+                                      return <div key={i} style={{ marginBottom: '8px' }}>{block.text}</div>;
+                                    }
+                                    if (block.type === 'tool_use') {
+                                      return (
+                                        <Box key={i} sx={{ mt: 1, p: 1.5, bgcolor: alpha(theme.palette.info.main, 0.08), borderRadius: 1, border: `1px solid ${alpha(theme.palette.info.main, 0.2)}` }}>
+                                          <Typography variant="caption" sx={{ fontWeight: 600, color: theme.palette.info.main, display: 'block', mb: 0.5 }}>
+                                            🔧 Tool: {block.name}
+                                          </Typography>
+                                          <pre style={{ margin: 0, fontSize: '0.75rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflow: 'auto' }}>
+                                            {JSON.stringify(block.input, null, 2)}
+                                          </pre>
+                                        </Box>
+                                      );
+                                    }
+                                    if (block.type === 'tool_result') {
+                                      const resultContent = typeof block.content === 'string'
+                                        ? block.content
+                                        : Array.isArray(block.content) && block.content[0]?.type === 'text'
+                                        ? block.content[0].text
+                                        : JSON.stringify(block.content, null, 2);
+
+                                      return (
+                                        <Box key={i} sx={{ mt: 1, p: 1.5, bgcolor: alpha(theme.palette.success.main, 0.08), borderRadius: 1, border: `1px solid ${alpha(theme.palette.success.main, 0.2)}` }}>
+                                          <Typography variant="caption" sx={{ fontWeight: 600, color: theme.palette.success.main, display: 'block', mb: 0.5 }}>
+                                            ✅ Tool Result
+                                          </Typography>
+                                          <div style={{ fontSize: '0.85rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflow: 'auto', maxHeight: '400px' }}>
+                                            {resultContent}
+                                          </div>
+                                        </Box>
+                                      );
+                                    }
+                                    // Unknown block type
+                                    return <div key={i} style={{ marginTop: '8px' }}>{JSON.stringify(block, null, 2)}</div>;
+                                  });
+                                }
+
+                                // If content has a 'text' property
+                                if (content && typeof content === 'object' && 'text' in content) {
+                                  return (content as any).text;
+                                }
+
+                                // Fallback: stringify the entire object
+                                return <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{JSON.stringify(content, null, 2)}</pre>;
+                              })()}
+                            </Box>
                           </Paper>
                         </ListItem>
                         {idx < selectedSession.messages!.length - 1 && <Divider sx={{ my: 1 }} />}

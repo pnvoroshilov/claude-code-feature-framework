@@ -1159,8 +1159,31 @@ export default function ClaudeCodeSessions() {
                                   color: '#94a3b8',
                                 }}
                               >
-                                {msg.content.substring(0, 500)}
-                                {msg.content.length > 500 && '...'}
+                                {(() => {
+                                  const content: any = msg.content;
+
+                                  // Handle string content - SHOW FULL CONTENT
+                                  if (typeof content === 'string') {
+                                    return content;
+                                  }
+
+                                  // Handle array content (Claude API format) - SHOW FULL CONTENT
+                                  if (Array.isArray(content)) {
+                                    const textContent = (content as any[])
+                                      .filter((block: any) => block.type === 'text')
+                                      .map((block: any) => block.text)
+                                      .join('\n');
+                                    return textContent;
+                                  }
+
+                                  // Handle object with text property - SHOW FULL CONTENT
+                                  if (content && typeof content === 'object' && 'text' in content) {
+                                    return (content as any).text;
+                                  }
+
+                                  // Fallback: stringify - SHOW FULL CONTENT
+                                  return JSON.stringify(content, null, 2);
+                                })()}
                               </Typography>
                             }
                           />
