@@ -459,6 +459,391 @@ Same filtering rules as browse endpoint:
 
 ---
 
+### 5. Create File or Directory
+
+Create a new file or directory in the project.
+
+#### Request
+
+```http
+POST /api/projects/{project_id}/files/create
+Content-Type: application/json
+```
+
+**Parameters:**
+
+| Parameter | Type | Location | Required | Description |
+|-----------|------|----------|----------|-------------|
+| `project_id` | string | Path | Yes | Project UUID |
+| `path` | string | Body | Yes | Relative path for new item |
+| `type` | string | Body | Yes | Item type: "file" or "directory" |
+| `content` | string | Body | No | Initial file content (files only, default: "") |
+
+**Request Body:**
+
+```json
+{
+  "path": "src/utils/helper.ts",
+  "type": "file",
+  "content": "// Helper utilities\nexport const helper = () => {};"
+}
+```
+
+**Example:**
+```bash
+curl -X POST http://localhost:3333/api/projects/abc-123/files/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "path": "src/utils/helper.ts",
+    "type": "file",
+    "content": "// New file"
+  }'
+```
+
+#### Response
+
+**Success (200 OK):**
+
+```json
+{
+  "success": true,
+  "path": "src/utils/helper.ts",
+  "type": "file",
+  "message": "File created successfully"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | boolean | Operation success indicator |
+| `path` | string | Relative path of created item |
+| `type` | string | Type of item created ("file" or "directory") |
+| `message` | string | Success message |
+
+**Error Responses:**
+
+```json
+// Project not found (404)
+{
+  "detail": "Project abc-123 not found"
+}
+
+// Access denied (403)
+{
+  "detail": "Access denied"
+}
+
+// Item already exists (409)
+{
+  "detail": "File already exists"
+}
+
+// Invalid type (400)
+{
+  "detail": "Invalid type. Must be 'file' or 'directory'"
+}
+
+// Server error (500)
+{
+  "detail": "Failed to create file: <error_details>"
+}
+```
+
+**Behavior:**
+
+- **Parent directories**: Created automatically if they don't exist
+- **File creation**: Creates empty file or file with provided content
+- **Directory creation**: Creates directory and any necessary parent directories
+- **Encoding**: Files always created with UTF-8 encoding
+
+---
+
+### 6. Rename File or Directory
+
+Rename or move a file or directory within the project.
+
+#### Request
+
+```http
+POST /api/projects/{project_id}/files/rename
+Content-Type: application/json
+```
+
+**Parameters:**
+
+| Parameter | Type | Location | Required | Description |
+|-----------|------|----------|----------|-------------|
+| `project_id` | string | Path | Yes | Project UUID |
+| `old_path` | string | Body | Yes | Current relative path |
+| `new_path` | string | Body | Yes | New relative path |
+
+**Request Body:**
+
+```json
+{
+  "old_path": "src/component.tsx",
+  "new_path": "src/components/Component.tsx"
+}
+```
+
+**Example:**
+```bash
+curl -X POST http://localhost:3333/api/projects/abc-123/files/rename \
+  -H "Content-Type: application/json" \
+  -d '{
+    "old_path": "src/old-name.ts",
+    "new_path": "src/new-name.ts"
+  }'
+```
+
+#### Response
+
+**Success (200 OK):**
+
+```json
+{
+  "success": true,
+  "old_path": "src/component.tsx",
+  "new_path": "src/components/Component.tsx",
+  "message": "Renamed successfully"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | boolean | Operation success indicator |
+| `old_path` | string | Original path |
+| `new_path` | string | New path after rename |
+| `message` | string | Success message |
+
+**Error Responses:**
+
+```json
+// Project not found (404)
+{
+  "detail": "Project abc-123 not found"
+}
+
+// Source not found (404)
+{
+  "detail": "File or directory not found"
+}
+
+// Access denied (403)
+{
+  "detail": "Access denied"
+}
+
+// Destination exists (409)
+{
+  "detail": "Destination already exists"
+}
+
+// Server error (500)
+{
+  "detail": "Failed to rename: <error_details>"
+}
+```
+
+**Behavior:**
+
+- **Move operation**: Can move files/directories to different paths
+- **Parent directories**: Created for new path if they don't exist
+- **Atomic operation**: Rename is atomic (all or nothing)
+- **Preserves content**: File content and directory structure preserved
+
+---
+
+### 7. Delete File or Directory
+
+Delete a file or directory (including all contents if directory).
+
+#### Request
+
+```http
+POST /api/projects/{project_id}/files/delete
+Content-Type: application/json
+```
+
+**Parameters:**
+
+| Parameter | Type | Location | Required | Description |
+|-----------|------|----------|----------|-------------|
+| `project_id` | string | Path | Yes | Project UUID |
+| `path` | string | Body | Yes | Relative path to delete |
+
+**Request Body:**
+
+```json
+{
+  "path": "src/old-component.tsx"
+}
+```
+
+**Example:**
+```bash
+curl -X POST http://localhost:3333/api/projects/abc-123/files/delete \
+  -H "Content-Type: application/json" \
+  -d '{
+    "path": "src/old-file.ts"
+  }'
+```
+
+#### Response
+
+**Success (200 OK):**
+
+```json
+{
+  "success": true,
+  "path": "src/old-component.tsx",
+  "message": "File deleted successfully"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | boolean | Operation success indicator |
+| `path` | string | Path that was deleted |
+| `message` | string | Success message |
+
+**Error Responses:**
+
+```json
+// Project not found (404)
+{
+  "detail": "Project abc-123 not found"
+}
+
+// Path not found (404)
+{
+  "detail": "File or directory not found"
+}
+
+// Access denied (403)
+{
+  "detail": "Access denied"
+}
+
+// Server error (500)
+{
+  "detail": "Failed to delete: <error_details>"
+}
+```
+
+**Behavior:**
+
+- **File deletion**: Removes file immediately
+- **Directory deletion**: Recursively removes directory and all contents
+- **Permanent**: No recycle bin or trash (deletion is permanent)
+- **No confirmation**: Backend does not prompt for confirmation (handled by frontend)
+
+---
+
+### 8. Copy File or Directory
+
+Copy a file or directory to a new location within the project.
+
+#### Request
+
+```http
+POST /api/projects/{project_id}/files/copy
+Content-Type: application/json
+```
+
+**Parameters:**
+
+| Parameter | Type | Location | Required | Description |
+|-----------|------|----------|----------|-------------|
+| `project_id` | string | Path | Yes | Project UUID |
+| `source_path` | string | Body | Yes | Source relative path |
+| `destination_path` | string | Body | Yes | Destination relative path |
+
+**Request Body:**
+
+```json
+{
+  "source_path": "src/template.tsx",
+  "destination_path": "src/components/NewComponent.tsx"
+}
+```
+
+**Example:**
+```bash
+curl -X POST http://localhost:3333/api/projects/abc-123/files/copy \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_path": "src/component.tsx",
+    "destination_path": "src/component_copy.tsx"
+  }'
+```
+
+#### Response
+
+**Success (200 OK):**
+
+```json
+{
+  "success": true,
+  "source_path": "src/template.tsx",
+  "destination_path": "src/components/NewComponent.tsx",
+  "message": "File copied successfully"
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | boolean | Operation success indicator |
+| `source_path` | string | Source path |
+| `destination_path` | string | Destination path |
+| `message` | string | Success message |
+
+**Error Responses:**
+
+```json
+// Project not found (404)
+{
+  "detail": "Project abc-123 not found"
+}
+
+// Source not found (404)
+{
+  "detail": "Source not found"
+}
+
+// Access denied (403)
+{
+  "detail": "Access denied"
+}
+
+// Destination exists (409)
+{
+  "detail": "Destination already exists"
+}
+
+// Server error (500)
+{
+  "detail": "Failed to copy: <error_details>"
+}
+```
+
+**Behavior:**
+
+- **File copy**: Copies file content and metadata (timestamps, permissions)
+- **Directory copy**: Recursively copies directory and all contents
+- **Parent directories**: Created for destination if they don't exist
+- **Metadata preservation**: Uses `shutil.copy2()` to preserve timestamps
+
+---
+
 ## Data Models
 
 ### FileItem
@@ -517,6 +902,42 @@ interface FileSaveRequest {
 }
 ```
 
+### FileCreateRequest
+
+```typescript
+interface FileCreateRequest {
+  path: string;           // Relative path for new item
+  type: 'file' | 'directory';
+  content?: string;       // Initial content (files only)
+}
+```
+
+### FileRenameRequest
+
+```typescript
+interface FileRenameRequest {
+  old_path: string;       // Current relative path
+  new_path: string;       // New relative path
+}
+```
+
+### FileDeleteRequest
+
+```typescript
+interface FileDeleteRequest {
+  path: string;           // Relative path to delete
+}
+```
+
+### FileCopyRequest
+
+```typescript
+interface FileCopyRequest {
+  source_path: string;    // Source relative path
+  destination_path: string; // Destination relative path
+}
+```
+
 ### FileTreeNode
 
 ```typescript
@@ -534,9 +955,10 @@ interface FileTreeNode {
 | HTTP Status | Error Code | Description |
 |-------------|------------|-------------|
 | 200 | OK | Request successful |
-| 400 | Bad Request | Invalid request (e.g., path is not a file/directory) |
+| 400 | Bad Request | Invalid request (e.g., path is not a file/directory, invalid type) |
 | 403 | Forbidden | Access denied or path traversal attempt |
 | 404 | Not Found | Project, file, or path not found |
+| 409 | Conflict | Resource already exists (create, rename, copy operations) |
 | 413 | Payload Too Large | File exceeds 10MB limit |
 | 415 | Unsupported Media Type | Binary file cannot be read as text |
 | 500 | Internal Server Error | Server-side error occurred |
@@ -637,6 +1059,98 @@ const saveFileContent = async (
 };
 ```
 
+#### Create File or Directory
+
+```typescript
+import { createFileOrDirectory } from '../services/api';
+
+const createNewFile = async (projectId: string, filePath: string) => {
+  try {
+    const response = await createFileOrDirectory(
+      projectId,
+      filePath,
+      'file',
+      '// New file content'
+    );
+    console.log('Created:', response.message);
+    return response;
+  } catch (error) {
+    console.error('Failed to create file:', error);
+    throw error;
+  }
+};
+
+const createNewDirectory = async (projectId: string, dirPath: string) => {
+  try {
+    const response = await createFileOrDirectory(projectId, dirPath, 'directory');
+    console.log('Created:', response.message);
+    return response;
+  } catch (error) {
+    console.error('Failed to create directory:', error);
+    throw error;
+  }
+};
+```
+
+#### Rename File or Directory
+
+```typescript
+import { renameFileOrDirectory } from '../services/api';
+
+const renameItem = async (
+  projectId: string,
+  oldPath: string,
+  newPath: string
+) => {
+  try {
+    const response = await renameFileOrDirectory(projectId, oldPath, newPath);
+    console.log('Renamed:', response.message);
+    return response;
+  } catch (error) {
+    console.error('Failed to rename:', error);
+    throw error;
+  }
+};
+```
+
+#### Delete File or Directory
+
+```typescript
+import { deleteFileOrDirectory } from '../services/api';
+
+const deleteItem = async (projectId: string, path: string) => {
+  try {
+    const response = await deleteFileOrDirectory(projectId, path);
+    console.log('Deleted:', response.message);
+    return response;
+  } catch (error) {
+    console.error('Failed to delete:', error);
+    throw error;
+  }
+};
+```
+
+#### Copy File or Directory
+
+```typescript
+import { copyFileOrDirectory } from '../services/api';
+
+const copyItem = async (
+  projectId: string,
+  sourcePath: string,
+  destPath: string
+) => {
+  try {
+    const response = await copyFileOrDirectory(projectId, sourcePath, destPath);
+    console.log('Copied:', response.message);
+    return response;
+  } catch (error) {
+    console.error('Failed to copy:', error);
+    throw error;
+  }
+};
+```
+
 ### cURL Examples
 
 #### Browse Root Directory
@@ -672,6 +1186,61 @@ curl -X POST http://localhost:3333/api/projects/abc-123/files/save \
 
 ```bash
 curl "http://localhost:3333/api/projects/abc-123/files/tree?max_depth=2"
+```
+
+#### Create File
+
+```bash
+curl -X POST http://localhost:3333/api/projects/abc-123/files/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "path": "src/new-file.ts",
+    "type": "file",
+    "content": "// New TypeScript file"
+  }'
+```
+
+#### Create Directory
+
+```bash
+curl -X POST http://localhost:3333/api/projects/abc-123/files/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "path": "src/new-directory",
+    "type": "directory"
+  }'
+```
+
+#### Rename File
+
+```bash
+curl -X POST http://localhost:3333/api/projects/abc-123/files/rename \
+  -H "Content-Type: application/json" \
+  -d '{
+    "old_path": "src/old-name.ts",
+    "new_path": "src/new-name.ts"
+  }'
+```
+
+#### Delete File
+
+```bash
+curl -X POST http://localhost:3333/api/projects/abc-123/files/delete \
+  -H "Content-Type: application/json" \
+  -d '{
+    "path": "src/file-to-delete.ts"
+  }'
+```
+
+#### Copy File
+
+```bash
+curl -X POST http://localhost:3333/api/projects/abc-123/files/copy \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_path": "src/template.ts",
+    "destination_path": "src/new-file.ts"
+  }'
 ```
 
 ## Performance Considerations
@@ -711,8 +1280,24 @@ For production deployment, consider:
 - [Project Management API](./projects.md)
 - [Architecture Overview](../../architecture/overview.md)
 
+## API Version History
+
+### Version 2.0 - File Management Operations (2025-11-18)
+- Added `POST /create` - Create files and directories
+- Added `POST /rename` - Rename/move files and directories
+- Added `POST /delete` - Delete files and directories
+- Added `POST /copy` - Copy files and directories
+- Added HTTP 409 Conflict status for resource conflicts
+- Enhanced security validation for all new operations
+
+### Version 1.0 - Initial Release
+- Browse files endpoint
+- Read file endpoint
+- Save file endpoint
+- Get file tree endpoint
+
 ---
 
 **Last Updated**: 2025-11-18
-**API Version**: 1.0.0
+**API Version**: 2.0.0
 **Backend Router**: `claudetask/backend/app/routers/file_browser.py`

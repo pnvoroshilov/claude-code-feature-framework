@@ -9,6 +9,7 @@ API documentation including OpenAPI specifications and endpoint details.
 
 **Endpoints:**
 - `endpoints/claude-sessions.md` - Claude Code session management and hook integration API
+- `endpoints/file-browser.md` - File browser API with comprehensive file management (v2.0)
 - `endpoints/skills.md` - Skills management API
 - `endpoints/rag-indexing.md` - RAG codebase indexing API
 
@@ -17,6 +18,7 @@ React component documentation with props, usage examples, and patterns.
 
 **Components:**
 - `README.md` - Component index and architecture overview
+- `FileBrowser.md` - GitHub-style file browser with complete file management (v2.0)
 - `ClaudeSessions.md` - Embedded task session management UI with structured content rendering (v2.1)
 - `ClaudeCodeSessions.md` - Native Claude Code session analytics and browsing interface
 - `Hooks.md` - Hooks management UI for automated shell command configuration
@@ -143,15 +145,25 @@ To manually trigger documentation update:
 
 ## Recent Updates
 
-**Latest Changes (2025-11-16):**
+**Latest Changes (2025-11-18):**
+- ✅ **FileBrowser v2.0**: Comprehensive file management system
+  - Create files and directories with modal dialogs
+  - Rename files and directories with validation
+  - Delete files and directories with confirmation
+  - Copy/paste files and directories with clipboard support
+  - Context menu for right-click operations
+  - Auto-generated unique names for paste operations
+  - Enhanced API with 4 new endpoints: create, rename, delete, copy
+- ✅ **API v2.0**: File management endpoints
+  - `POST /files/create` - Create files and directories
+  - `POST /files/rename` - Rename/move files and directories
+  - `POST /files/delete` - Delete files and directories
+  - `POST /files/copy` - Copy files and directories
+
+**Previous Updates (2025-11-16):**
 - ✅ **Enhanced ClaudeSessions UI v2.1**: Structured content rendering for Claude API format
-  - Tool use blocks displayed with blue info boxes
-  - Tool result blocks displayed with green success boxes
-  - Smart content parsing for text, tool_use, and tool_result blocks
-  - Improved overflow handling with scrollable tool results
 - ✅ Fixed hook-triggered sessions to skip /start-feature command
 - ✅ Added task_id=0 support for hook sessions
-- ✅ Improved message display formatting and scrolling
 - ✅ Updated hooks system documentation with script_file workflow
 - ✅ Documented database migration 004 (script_file support)
 
@@ -246,15 +258,15 @@ New documentation is automatically created when:
 - [ ] Performance optimization guides
 
 **Documentation Metrics:**
-- Total files: 16 active, 3 archived
-- API endpoints documented: 3
-- Components documented: 5
-- Last full update: 2025-11-16
+- Total files: 18 active, 3 archived
+- API endpoints documented: 4 (including 8 total endpoints)
+- Components documented: 6
+- Last full update: 2025-11-18
 - Auto-update status: Active and operational
 
 ---
 
 **Documentation System Status:** ✅ Active
-**Last Auto-Update:** 2025-11-16
+**Last Auto-Update:** 2025-11-18
 **Auto-Update Trigger:** Post-merge hook with [skip-hook] prevention
 **Maintainer:** documentation-updater-agent

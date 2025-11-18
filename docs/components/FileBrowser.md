@@ -16,7 +16,9 @@ FileBrowser is a GitHub-style file browser and code editor component that allows
 - **File System Navigation**: Browse directories and files within project scope
 - **Code Editor**: Monaco Editor integration for syntax-highlighted code editing
 - **Markdown Preview**: Live preview mode for markdown files with GitHub-flavored markdown support
-- **File Operations**: Read and save file contents with real-time change detection
+- **File Operations**: Complete file management including create, read, save, rename, delete, and copy
+- **Context Menu**: Right-click context menu for file and directory operations
+- **Clipboard Support**: Copy and paste files and directories
 - **Breadcrumb Navigation**: Easy navigation through directory hierarchy
 - **Security**: Path traversal protection and project-scope enforcement
 
@@ -26,7 +28,9 @@ FileBrowser is a GitHub-style file browser and code editor component that allows
 - **File Type Icons**: Visual indicators for directories and files
 - **File Metadata**: Size, modification time, and extension display
 - **Loading States**: Smooth loading indicators for async operations
-- **Success/Error Notifications**: User feedback for save operations
+- **Success/Error Notifications**: User feedback for all file operations
+- **Modal Dialogs**: Confirmation dialogs for create, rename, and delete operations
+- **Context Menus**: Right-click menus for quick file operations
 
 ### Code Editing
 - **Syntax Highlighting**: Supports 15+ programming languages
@@ -66,6 +70,22 @@ const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
 // UI state
 const [saveError, setSaveError] = useState<string | null>(null);
 const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+
+// Context menu state
+const [contextMenu, setContextMenu] = useState<{
+  mouseX: number;
+  mouseY: number;
+  item: FileItem | null;
+} | null>(null);
+
+// Dialog states
+const [createDialog, setCreateDialog] = useState<{ open: boolean; type: 'file' | 'directory' | null }>({ open: false, type: null });
+const [renameDialog, setRenameDialog] = useState<{ open: boolean; item: FileItem | null }>({ open: false, item: null });
+const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; item: FileItem | null }>({ open: false, item: null });
+const [newItemName, setNewItemName] = useState('');
+
+// Clipboard state
+const [clipboard, setClipboard] = useState<{ type: 'copy' | 'cut'; item: FileItem } | null>(null);
 ```
 
 ### React Query Integration
@@ -86,6 +106,41 @@ const { data: fileData, isLoading: isLoadingFile } = useQuery(
 // Save file mutation
 const saveMutation = useMutation(
   () => saveFile(projectId!, selectedFile!, fileContent)
+);
+
+// Create file or directory mutation
+const createMutation = useMutation(
+  ({ path, type, content }: { path: string; type: 'file' | 'directory'; content?: string }) =>
+    createFileOrDirectory(projectId!, path, type, content),
+  {
+    onSuccess: () => refetch()
+  }
+);
+
+// Rename mutation
+const renameMutation = useMutation(
+  ({ oldPath, newPath }: { oldPath: string; newPath: string }) =>
+    renameFileOrDirectory(projectId!, oldPath, newPath),
+  {
+    onSuccess: () => refetch()
+  }
+);
+
+// Delete mutation
+const deleteMutation = useMutation(
+  (path: string) => deleteFileOrDirectory(projectId!, path),
+  {
+    onSuccess: () => refetch()
+  }
+);
+
+// Copy mutation
+const copyMutation = useMutation(
+  ({ sourcePath, destPath }: { sourcePath: string; destPath: string }) =>
+    copyFileOrDirectory(projectId!, sourcePath, destPath),
+  {
+    onSuccess: () => refetch()
+  }
 );
 ```
 
@@ -132,6 +187,69 @@ Response: {
   success: boolean;
   path: string;
   size: number;
+  message: string;
+}
+```
+
+#### 4. Create File or Directory
+```typescript
+POST /api/projects/{projectId}/files/create
+Body: {
+  path: string;
+  type: 'file' | 'directory';
+  content?: string;
+}
+
+Response: {
+  success: boolean;
+  path: string;
+  type: string;
+  message: string;
+}
+```
+
+#### 5. Rename File or Directory
+```typescript
+POST /api/projects/{projectId}/files/rename
+Body: {
+  old_path: string;
+  new_path: string;
+}
+
+Response: {
+  success: boolean;
+  old_path: string;
+  new_path: string;
+  message: string;
+}
+```
+
+#### 6. Delete File or Directory
+```typescript
+POST /api/projects/{projectId}/files/delete
+Body: {
+  path: string;
+}
+
+Response: {
+  success: boolean;
+  path: string;
+  message: string;
+}
+```
+
+#### 7. Copy File or Directory
+```typescript
+POST /api/projects/{projectId}/files/copy
+Body: {
+  source_path: string;
+  destination_path: string;
+}
+
+Response: {
+  success: boolean;
+  source_path: string;
+  destination_path: string;
   message: string;
 }
 ```
@@ -311,6 +429,14 @@ sx={{
 7. **Save Changes**: User clicks Save button to persist changes
 8. **Preview Markdown**: User toggles to preview mode for markdown files
 
+### File Management Flow
+
+1. **Create New File/Directory**: Right-click in file list → Select "New File" or "New Folder" → Enter name → Confirm
+2. **Rename Item**: Right-click on file/directory → Select "Rename" → Enter new name → Confirm
+3. **Delete Item**: Right-click on file/directory → Select "Delete" → Confirm deletion
+4. **Copy Item**: Right-click on file/directory → Select "Copy" → Navigate to destination → Right-click → Select "Paste"
+5. **Auto-naming**: Paste operations automatically generate unique names (e.g., "file_copy", "file_copy_2", etc.)
+
 ### Keyboard Shortcuts
 
 - **Ctrl/Cmd + S**: Save file (Monaco Editor built-in)
@@ -382,7 +508,9 @@ try {
   "remark-gfm": "^4.0.0",
   "rehype-highlight": "^7.0.0",
   "highlight.js": "^11.9.0",
-  "react-query": "^3.39.3"
+  "react-query": "^3.39.3",
+  "@mui/material": "^5.x.x",
+  "@mui/icons-material": "^5.x.x"
 }
 ```
 
@@ -392,7 +520,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from pathlib import Path
 import mimetypes
+import shutil
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 ```
 
 ## Performance Optimizations
@@ -442,20 +572,29 @@ setTimeout(() => setSaveError(null), 5000);
 )}
 ```
 
+## Completed Features
+
+### Recently Implemented (v2.0)
+- [x] File/directory creation with modal dialogs
+- [x] File/directory deletion with confirmation
+- [x] File/directory rename with validation
+- [x] File/directory copy with clipboard
+- [x] Context menu for file operations
+- [x] Auto-generated unique names for paste operations
+- [x] Right-click context menus
+
 ## Future Enhancements
 
 ### Planned Features
-- [ ] File upload support
-- [ ] File/directory creation
-- [ ] File/directory deletion
-- [ ] File/directory rename
+- [ ] File upload support (drag and drop)
 - [ ] Multi-file editing (tabs)
 - [ ] Search within files
 - [ ] Git diff visualization
-- [ ] File tree view (recursive)
+- [ ] File tree view (recursive sidebar)
 - [ ] Syntax validation
 - [ ] Auto-formatting
 - [ ] Collaborative editing
+- [ ] File move (drag and drop)
 
 ### Potential Improvements
 - [ ] WebSocket for real-time file watching
@@ -525,6 +664,15 @@ setTimeout(() => setSaveError(null), 5000);
 - [ ] Edit file content
 - [ ] Save changes successfully
 - [ ] Cancel unsaved changes
+- [ ] Create new file
+- [ ] Create new directory
+- [ ] Rename file
+- [ ] Rename directory
+- [ ] Delete file
+- [ ] Delete directory
+- [ ] Copy file
+- [ ] Copy directory
+- [ ] Paste with auto-generated unique name
 
 #### Editor Features
 - [ ] Syntax highlighting works for different languages
@@ -580,11 +728,28 @@ const filteredItems = browseData?.items.filter(item =>
 );
 ```
 
+## Recent Changes
+
+### Version 2.0 - Comprehensive File Management (2025-11-18)
+- Added file and directory creation with modal dialogs
+- Implemented rename functionality with validation
+- Added delete operations with confirmation dialogs
+- Implemented copy/paste with clipboard support
+- Added context menus for right-click operations
+- Auto-generated unique names for paste operations to prevent conflicts
+- Enhanced user feedback with success/error notifications for all operations
+
+### Version 1.0 - Initial Release
+- GitHub-style file browser
+- Monaco Editor integration
+- Markdown preview mode
+- Basic file read/save operations
+
 ---
 
 **Last Updated**: 2025-11-18
-**Version**: 1.0.0
-**Status**: Active - New Feature
+**Version**: 2.0.0
+**Status**: Active - Feature Complete
 **Related Documentation**:
 - [File Browser API Endpoints](../api/endpoints/file-browser.md)
 - [Project Manager Component](./ProjectManager.md)

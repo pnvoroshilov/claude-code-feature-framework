@@ -38,13 +38,17 @@ Advanced analytics and browsing interface for Claude Code native session files (
 ### Project Management
 
 #### [FileBrowser](./FileBrowser.md)
-GitHub-style file browser and code editor for browsing and editing project files directly in the web interface.
+GitHub-style file browser and code editor with comprehensive file management capabilities.
 
 **Features:**
+- Complete file management: create, read, save, rename, delete, copy
 - File system navigation within project scope
 - Monaco Editor integration with syntax highlighting
 - Markdown preview mode with GitHub-flavored markdown
-- File read and save operations
+- Context menu for right-click operations
+- Copy/paste with clipboard support
+- Auto-generated unique names for paste operations
+- Modal dialogs for file operations
 - Breadcrumb navigation
 - Security with path traversal protection
 - Support for 15+ programming languages
@@ -52,7 +56,7 @@ GitHub-style file browser and code editor for browsing and editing project files
 
 **Location:** `claudetask/frontend/src/pages/FileBrowser.tsx`
 
-**Status:** Active, New Feature (v1.0.0)
+**Status:** Active, Feature Complete (v2.0.0)
 
 ### Framework Management
 
