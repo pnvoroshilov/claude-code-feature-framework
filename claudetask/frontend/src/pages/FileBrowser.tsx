@@ -21,6 +21,7 @@ import {
   Chip,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
 } from '@mui/material';
 import {
   Folder as FolderIcon,
@@ -199,125 +200,162 @@ const FileBrowser: React.FC = () => {
         backgroundColor: theme.palette.background.paper,
         borderBottom: `1px solid ${theme.palette.divider}`,
       }}>
-        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
-          <IconButton
-            onClick={() => navigate('/projects')}
-            size="small"
-            sx={{
-              color: theme.palette.text.secondary,
-              '&:hover': {
-                backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                color: theme.palette.primary.main,
-              }
-            }}
-          >
-            <ArrowBackIcon />
-          </IconButton>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: theme.palette.text.primary }}>
-            {browseData?.project_name || 'File Browser'}
-          </Typography>
-          {selectedFile && (
-            <Chip
-              label={selectedFile.split('/').pop()}
+        {/* Single line: Back button + Project name + Breadcrumbs + File actions */}
+        <Stack direction="row" alignItems="center" spacing={1}>
+          {/* Left: Back button + Project name */}
+          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexShrink: 0 }}>
+            <IconButton
+              onClick={() => navigate('/projects')}
               size="small"
               sx={{
-                backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                color: theme.palette.primary.main,
-                fontWeight: 600,
+                color: theme.palette.text.secondary,
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                  color: theme.palette.primary.main,
+                }
               }}
-            />
+            >
+              <ArrowBackIcon fontSize="small" />
+            </IconButton>
+            <Typography
+              variant="subtitle1"
+              sx={{
+                fontWeight: 600,
+                color: theme.palette.text.primary,
+                whiteSpace: 'nowrap',
+                fontSize: '0.95rem',
+                maxWidth: '180px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {browseData?.project_name || 'File Browser'}
+            </Typography>
+          </Stack>
+
+          {/* Middle: Breadcrumbs */}
+          <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden', ml: 1 }}>
+            <Breadcrumbs
+              separator={<NavigateNextIcon fontSize="small" />}
+              sx={{
+                '& .MuiBreadcrumbs-ol': {
+                  flexWrap: 'nowrap',
+                }
+              }}
+            >
+              {browseData?.breadcrumbs.map((crumb, index) => (
+                <Link
+                  key={index}
+                  component="button"
+                  variant="body2"
+                  onClick={() => handleNavigate(crumb.path)}
+                  sx={{
+                    color: theme.palette.text.secondary,
+                    textDecoration: 'none',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    maxWidth: '80px',
+                    '&:hover': {
+                      color: theme.palette.primary.main,
+                      textDecoration: 'underline',
+                    }
+                  }}
+                >
+                  {index === 0 ? <HomeIcon sx={{ fontSize: 12, mr: 0.3, verticalAlign: 'middle' }} /> : null}
+                  {crumb.name}
+                </Link>
+              ))}
+            </Breadcrumbs>
+          </Box>
+
+          {/* Right: File actions (only when file is open) */}
+          {selectedFile && (
+            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexShrink: 0, ml: 1 }}>
+              {/* View mode toggle for Markdown files */}
+              {isMarkdownFile(selectedFile) && (
+                <ToggleButtonGroup
+                  value={viewMode}
+                  exclusive
+                  onChange={(e, newMode) => {
+                    if (newMode !== null) {
+                      setViewMode(newMode);
+                    }
+                  }}
+                  size="small"
+                >
+                  <ToggleButton value="edit" sx={{ px: 1, py: 0.4, fontSize: '0.8rem' }}>
+                    <CodeIcon sx={{ mr: 0.3, fontSize: 14 }} />
+                    Edit
+                  </ToggleButton>
+                  <ToggleButton value="preview" sx={{ px: 1, py: 0.4, fontSize: '0.8rem' }}>
+                    <VisibilityIcon sx={{ mr: 0.3, fontSize: 14 }} />
+                    Preview
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              )}
+
+              {hasUnsavedChanges && (
+                <Chip
+                  label="Unsaved"
+                  color="warning"
+                  size="small"
+                  sx={{ height: 22, fontSize: '0.75rem' }}
+                />
+              )}
+
+              <Tooltip title={saveMutation.isLoading ? 'Saving...' : 'Save'}>
+                <span>
+                  <IconButton
+                    onClick={() => saveMutation.mutate()}
+                    disabled={!hasUnsavedChanges || saveMutation.isLoading}
+                    size="small"
+                    color="primary"
+                    sx={{
+                      bgcolor: hasUnsavedChanges ? theme.palette.primary.main : 'transparent',
+                      color: hasUnsavedChanges ? 'white' : theme.palette.action.disabled,
+                      '&:hover': {
+                        bgcolor: hasUnsavedChanges ? theme.palette.primary.dark : 'transparent',
+                      },
+                      '&.Mui-disabled': {
+                        bgcolor: 'transparent',
+                      }
+                    }}
+                  >
+                    <SaveIcon sx={{ fontSize: 18 }} />
+                  </IconButton>
+                </span>
+              </Tooltip>
+
+              <Tooltip title="Close file">
+                <IconButton
+                  onClick={() => {
+                    if (hasUnsavedChanges) {
+                      if (window.confirm('You have unsaved changes. Are you sure?')) {
+                        setSelectedFile(null);
+                        setHasUnsavedChanges(false);
+                      }
+                    } else {
+                      setSelectedFile(null);
+                    }
+                  }}
+                  size="small"
+                  sx={{
+                    color: theme.palette.text.secondary,
+                    '&:hover': {
+                      color: theme.palette.error.main,
+                      bgcolor: alpha(theme.palette.error.main, 0.1),
+                    }
+                  }}
+                >
+                  <CloseIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </Tooltip>
+            </Stack>
           )}
         </Stack>
-
-        {/* Breadcrumbs */}
-        <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} sx={{ mb: 1 }}>
-          {browseData?.breadcrumbs.map((crumb, index) => (
-            <Link
-              key={index}
-              component="button"
-              variant="body2"
-              onClick={() => handleNavigate(crumb.path)}
-              sx={{
-                color: theme.palette.text.secondary,
-                textDecoration: 'none',
-                cursor: 'pointer',
-                '&:hover': {
-                  color: theme.palette.primary.main,
-                  textDecoration: 'underline',
-                }
-              }}
-            >
-              {index === 0 ? <HomeIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} /> : null}
-              {crumb.name}
-            </Link>
-          ))}
-        </Breadcrumbs>
-
-        {/* Action buttons when file is open */}
-        {selectedFile && (
-          <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-            {/* View mode toggle for Markdown files */}
-            {isMarkdownFile(selectedFile) && (
-              <ToggleButtonGroup
-                value={viewMode}
-                exclusive
-                onChange={(e, newMode) => {
-                  if (newMode !== null) {
-                    setViewMode(newMode);
-                  }
-                }}
-                size="small"
-                sx={{ mr: 2 }}
-              >
-                <ToggleButton value="edit" sx={{ px: 2 }}>
-                  <CodeIcon sx={{ mr: 1, fontSize: 18 }} />
-                  Edit
-                </ToggleButton>
-                <ToggleButton value="preview" sx={{ px: 2 }}>
-                  <VisibilityIcon sx={{ mr: 1, fontSize: 18 }} />
-                  Preview
-                </ToggleButton>
-              </ToggleButtonGroup>
-            )}
-
-            <Button
-              variant="contained"
-              startIcon={<SaveIcon />}
-              onClick={() => saveMutation.mutate()}
-              disabled={!hasUnsavedChanges || saveMutation.isLoading}
-              sx={{
-                backgroundColor: theme.palette.primary.main,
-                '&:hover': { backgroundColor: theme.palette.primary.dark },
-              }}
-            >
-              {saveMutation.isLoading ? 'Saving...' : 'Save'}
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<CloseIcon />}
-              onClick={() => {
-                if (hasUnsavedChanges) {
-                  if (window.confirm('You have unsaved changes. Are you sure?')) {
-                    setSelectedFile(null);
-                    setHasUnsavedChanges(false);
-                  }
-                } else {
-                  setSelectedFile(null);
-                }
-              }}
-            >
-              Close File
-            </Button>
-            {hasUnsavedChanges && (
-              <Chip
-                label="Unsaved changes"
-                color="warning"
-                size="small"
-                sx={{ alignSelf: 'center' }}
-              />
-            )}
-          </Stack>
-        )}
 
         {/* Alerts */}
         {saveSuccess && (
