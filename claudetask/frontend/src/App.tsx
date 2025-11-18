@@ -19,6 +19,7 @@ import MCPConfigs from './pages/MCPConfigs';
 import Subagents from './pages/Subagents';
 import ProjectInstructions from './pages/ProjectInstructions';
 import Settings from './pages/Settings';
+import FileBrowser from './pages/FileBrowser';
 import { ProjectProvider } from './context/ProjectContext';
 import { ThemeProvider } from './context/ThemeContext';
 
@@ -87,6 +88,7 @@ function App() {
                       <Route path="/" element={<Dashboard />} />
                       <Route path="/setup" element={<ProjectSetup />} />
                       <Route path="/projects" element={<ProjectManager />} />
+                      <Route path="/projects/:projectId/files" element={<FileBrowser />} />
                       <Route path="/tasks" element={<TaskBoard />} />
                       <Route path="/sessions" element={<ClaudeSessions />} />
                       <Route path="/claude-code-sessions" element={<ClaudeCodeSessions />} />

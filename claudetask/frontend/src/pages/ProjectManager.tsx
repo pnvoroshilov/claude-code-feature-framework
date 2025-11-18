@@ -39,9 +39,11 @@ import {
   Refresh as RefreshIcon,
   SystemUpdate as SystemUpdateIcon,
   GitHub as GitHubIcon,
+  Code as CodeIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 import { getProjects, getActiveProject, updateProject, deleteProject, activateProject, updateFramework, Project } from '../services/api';
 
 interface EditProjectDialogProps {
@@ -207,6 +209,7 @@ const EditProjectDialog: React.FC<EditProjectDialogProps> = ({ open, onClose, pr
 
 const ProjectManager: React.FC = () => {
   const theme = useTheme();
+  const navigate = useNavigate();
   const [editDialog, setEditDialog] = useState<{ open: boolean; project: Project | null }>({
     open: false,
     project: null,
@@ -725,6 +728,15 @@ const ProjectManager: React.FC = () => {
           }
         }}
       >
+        <MenuItem onClick={() => {
+          navigate(`/projects/${menuAnchor.project!.id}/files`);
+          handleMenuClose();
+        }}>
+          <ListItemIcon>
+            <CodeIcon fontSize="small" sx={{ color: theme.palette.text.secondary }} />
+          </ListItemIcon>
+          <ListItemText primaryTypographyProps={{ fontWeight: 500 }}>Browse Files</ListItemText>
+        </MenuItem>
         {menuAnchor.project && !menuAnchor.project.is_active && (
           <MenuItem onClick={() => handleActivate(menuAnchor.project!)}>
             <ListItemIcon>

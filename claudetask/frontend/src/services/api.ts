@@ -214,4 +214,53 @@ export const stopClaudeSession = async (sessionId: string): Promise<void> => {
   await api.post(`/sessions/embedded/${sessionId}/stop`);
 };
 
+// File Browser
+export interface FileItem {
+  name: string;
+  path: string;
+  type: 'file' | 'directory';
+  size?: number;
+  modified?: string;
+  extension?: string;
+}
+
+export interface FileBrowserResponse {
+  success: boolean;
+  project_name: string;
+  current_path: string;
+  items: FileItem[];
+  breadcrumbs: Array<{ name: string; path: string }>;
+}
+
+export interface FileContentResponse {
+  success: boolean;
+  path: string;
+  content: string;
+  mime_type: string;
+  size: number;
+  extension?: string;
+}
+
+export const browseFiles = async (projectId: string, path: string = ''): Promise<FileBrowserResponse> => {
+  const response = await api.get(`/projects/${projectId}/files/browse`, {
+    params: { path }
+  });
+  return response.data;
+};
+
+export const readFile = async (projectId: string, path: string): Promise<FileContentResponse> => {
+  const response = await api.get(`/projects/${projectId}/files/read`, {
+    params: { path }
+  });
+  return response.data;
+};
+
+export const saveFile = async (projectId: string, path: string, content: string): Promise<{ success: boolean; message: string }> => {
+  const response = await api.post(`/projects/${projectId}/files/save`, {
+    path,
+    content
+  });
+  return response.data;
+};
+
 export default api;
