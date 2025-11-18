@@ -35,6 +35,25 @@ Advanced analytics and browsing interface for Claude Code native session files (
 
 **Status:** Active, Full Analytics Suite
 
+### Project Management
+
+#### [FileBrowser](./FileBrowser.md)
+GitHub-style file browser and code editor for browsing and editing project files directly in the web interface.
+
+**Features:**
+- File system navigation within project scope
+- Monaco Editor integration with syntax highlighting
+- Markdown preview mode with GitHub-flavored markdown
+- File read and save operations
+- Breadcrumb navigation
+- Security with path traversal protection
+- Support for 15+ programming languages
+- Unsaved changes detection
+
+**Location:** `claudetask/frontend/src/pages/FileBrowser.tsx`
+
+**Status:** Active, New Feature (v1.0.0)
+
 ### Framework Management
 
 #### [Hooks](./Hooks.md)
@@ -156,18 +175,22 @@ Components for managing Claude Code sessions and processes:
 - **ClaudeSessions** - Embedded task session management with real-time monitoring
 - **ClaudeCodeSessions** - Native Claude Code session analytics and browsing
 
-### 2. Framework Management
+### 2. Project Management
+Components for project file and configuration management:
+- **FileBrowser** - GitHub-style file browser and code editor with Monaco Editor integration
+
+### 3. Framework Management
 Components for managing framework features:
 - **Hooks** - Automated shell command configuration at workflow trigger points
 - **Subagents** - Specialized AI assistant management and delegation
 - **Skills** - Extended capability creation and management
 
-### 3. Task Management
+### 4. Task Management
 Components for task and project management:
 - **Tasks** - Task board and details (to be documented)
 - **Projects** - Project configuration (to be documented)
 
-### 4. Shared Components
+### 5. Shared Components
 Reusable components used across the application:
 - **CodeEditorDialog** - Markdown/code editing dialog
 - **Common UI elements** - Buttons, cards, layouts
@@ -328,8 +351,8 @@ When adding or updating components:
 
 ---
 
-**Last Updated**: 2025-11-16
-**Total Components Documented**: 5
+**Last Updated**: 2025-11-18
+**Total Components Documented**: 6
 **Documentation Status**: Active maintenance
 
 ## Component Documentation Index
@@ -338,6 +361,7 @@ When adding or updating components:
 |-----------|----------|--------|---------------|
 | ClaudeSessions | Session Management | Active | [View](./ClaudeSessions.md) |
 | ClaudeCodeSessions | Session Management | Active | [View](./ClaudeCodeSessions.md) |
+| FileBrowser | Project Management | Active (New) | [View](./FileBrowser.md) |
 | Hooks | Framework Management | Active | [View](./Hooks.md) |
 | Subagents | Framework Management | Active | [View](./Subagents.md) |
 | Skills | Framework Management | Active | [View](./Skills.md) |

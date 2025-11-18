@@ -36,10 +36,12 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 ### Frontend
 - **Framework**: React 18 with TypeScript
 - **UI Library**: Material-UI (MUI) v5
-- **State Management**: React Context API
+- **State Management**: React Context API + React Query for server state
 - **HTTP Client**: Axios
 - **Routing**: React Router v6
-- **Code Editor**: Monaco Editor (for editing hooks, skills, agents)
+- **Code Editor**: Monaco Editor (for file browser, hooks, skills, agents)
+- **Markdown Rendering**: react-markdown with GitHub-flavored markdown
+- **Syntax Highlighting**: highlight.js for markdown code blocks
 
 ### Backend
 - **Framework**: FastAPI (Python 3.9+)
@@ -96,6 +98,15 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 - Custom MCP configurations
 - Per-project MCP enablement
 - Integration with .claude/settings.json
+
+### 7. File Browser System
+- GitHub-style file browsing interface
+- Monaco Editor integration for code editing
+- Project-scoped file access
+- Security with path traversal protection
+- Read and write operations with change detection
+- Markdown preview with GitHub-flavored markdown
+- Support for 15+ programming languages
 
 ## Data Flow
 
@@ -185,6 +196,41 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 - **Task Sessions** (`task_id > 0`): Include `/start-feature` initialization for task context
 - **Hook Sessions** (`task_id = 0`): Skip task initialization, execute only the provided command
 
+### File Browser Flow
+```
+1. User navigates to project files
+   ↓
+2. Frontend → GET /api/projects/{id}/files/browse
+   ↓
+3. Backend validates project access and path security
+   ↓
+4. Backend reads directory contents (filtered)
+   ↓
+5. Frontend displays file list with breadcrumbs
+   ↓
+6. User clicks file to open
+   ↓
+7. Frontend → GET /api/projects/{id}/files/read?path={file}
+   ↓
+8. Backend reads file content (UTF-8/Latin-1)
+   ↓
+9. Frontend loads content into Monaco Editor
+   ↓
+10. User edits file content
+   ↓
+11. Frontend → POST /api/projects/{id}/files/save
+   ↓
+12. Backend validates path and writes file
+   ↓
+13. Frontend confirms save success
+```
+
+**Security Features:**
+- **Path Validation**: All paths resolved and checked against project root
+- **Size Limits**: 10MB maximum file size prevents memory issues
+- **Encoding Support**: UTF-8 primary, Latin-1 fallback
+- **Filtered Files**: Hidden files and node_modules automatically excluded
+
 ## Database Schema
 
 The system uses SQLite with the following main tables:
@@ -218,15 +264,16 @@ All endpoints follow REST conventions:
 
 ### Endpoint Organization
 ```
-/api/projects                    # Project management
-/api/projects/{id}/tasks         # Task management
-/api/projects/{id}/hooks         # Hooks management
-/api/projects/{id}/skills        # Skills management
-/api/projects/{id}/mcp-configs   # MCP configurations
-/api/projects/{id}/subagents     # Subagent management
-/api/projects/{id}/instructions  # Custom instructions
-/api/sessions                    # Claude sessions
-/api/editor                      # File editor endpoints
+/api/projects                        # Project management
+/api/projects/{id}/tasks             # Task management
+/api/projects/{id}/hooks             # Hooks management
+/api/projects/{id}/skills            # Skills management
+/api/projects/{id}/mcp-configs       # MCP configurations
+/api/projects/{id}/subagents         # Subagent management
+/api/projects/{id}/instructions      # Custom instructions
+/api/projects/{id}/files             # File browser and editor
+/api/sessions                        # Claude sessions
+/api/editor                          # File editor endpoints (legacy)
 ```
 
 ## Security Considerations
