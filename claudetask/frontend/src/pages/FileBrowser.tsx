@@ -22,6 +22,13 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Tooltip,
+  Menu,
+  MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@mui/material';
 import {
   Folder as FolderIcon,
@@ -33,6 +40,12 @@ import {
   ArrowBack as ArrowBackIcon,
   Visibility as VisibilityIcon,
   Code as CodeIcon,
+  CreateNewFolder as CreateFolderIcon,
+  NoteAdd as CreateFileIcon,
+  Edit as RenameIcon,
+  Delete as DeleteIcon,
+  ContentCopy as CopyIcon,
+  ContentPaste as PasteIcon,
 } from '@mui/icons-material';
 import Editor from '@monaco-editor/react';
 import ReactMarkdown from 'react-markdown';
@@ -40,7 +53,17 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { browseFiles, readFile, saveFile, FileItem, FileBrowserResponse } from '../services/api';
+import {
+  browseFiles,
+  readFile,
+  saveFile,
+  createFileOrDirectory,
+  renameFileOrDirectory,
+  deleteFileOrDirectory,
+  copyFileOrDirectory,
+  FileItem,
+  FileBrowserResponse
+} from '../services/api';
 
 const FileBrowser: React.FC = () => {
   const theme = useTheme();
@@ -56,6 +79,22 @@ const FileBrowser: React.FC = () => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    mouseX: number;
+    mouseY: number;
+    item: FileItem | null;
+  } | null>(null);
+
+  // Dialog states
+  const [createDialog, setCreateDialog] = useState<{ open: boolean; type: 'file' | 'directory' | null }>({ open: false, type: null });
+  const [renameDialog, setRenameDialog] = useState<{ open: boolean; item: FileItem | null }>({ open: false, item: null });
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; item: FileItem | null }>({ open: false, item: null });
+  const [newItemName, setNewItemName] = useState('');
+
+  // Clipboard state
+  const [clipboard, setClipboard] = useState<{ type: 'copy' | 'cut'; item: FileItem } | null>(null);
 
   // Browse files query
   const { data: browseData, isLoading, error, refetch } = useQuery<FileBrowserResponse>(
@@ -102,6 +141,70 @@ const FileBrowser: React.FC = () => {
     }
   );
 
+  // Create file or directory mutation
+  const createMutation = useMutation(
+    ({ path, type, content }: { path: string; type: 'file' | 'directory'; content?: string }) =>
+      createFileOrDirectory(projectId!, path, type, content),
+    {
+      onSuccess: () => {
+        refetch();
+        setCreateDialog({ open: false, type: null });
+        setNewItemName('');
+      },
+      onError: (error: any) => {
+        alert(error.response?.data?.detail || 'Failed to create item');
+      }
+    }
+  );
+
+  // Rename mutation
+  const renameMutation = useMutation(
+    ({ oldPath, newPath }: { oldPath: string; newPath: string }) =>
+      renameFileOrDirectory(projectId!, oldPath, newPath),
+    {
+      onSuccess: () => {
+        refetch();
+        setRenameDialog({ open: false, item: null });
+        setNewItemName('');
+      },
+      onError: (error: any) => {
+        alert(error.response?.data?.detail || 'Failed to rename item');
+      }
+    }
+  );
+
+  // Delete mutation
+  const deleteMutation = useMutation(
+    (path: string) => deleteFileOrDirectory(projectId!, path),
+    {
+      onSuccess: () => {
+        refetch();
+        setDeleteDialog({ open: false, item: null });
+        if (selectedFile === deleteDialog.item?.path) {
+          setSelectedFile(null);
+        }
+      },
+      onError: (error: any) => {
+        alert(error.response?.data?.detail || 'Failed to delete item');
+      }
+    }
+  );
+
+  // Copy mutation
+  const copyMutation = useMutation(
+    ({ sourcePath, destinationPath }: { sourcePath: string; destinationPath: string }) =>
+      copyFileOrDirectory(projectId!, sourcePath, destinationPath),
+    {
+      onSuccess: () => {
+        refetch();
+        setClipboard(null);
+      },
+      onError: (error: any) => {
+        alert(error.response?.data?.detail || 'Failed to copy item');
+      }
+    }
+  );
+
   // Handle content change
   const handleEditorChange = (value: string | undefined) => {
     const newContent = value || '';
@@ -142,6 +245,84 @@ const FileBrowser: React.FC = () => {
     if (!filename) return false;
     const ext = filename.split('.').pop()?.toLowerCase();
     return ext === 'md' || ext === 'markdown';
+  };
+
+  // Context menu handlers
+  const handleContextMenu = (event: React.MouseEvent, item: FileItem) => {
+    event.preventDefault();
+    setContextMenu({
+      mouseX: event.clientX,
+      mouseY: event.clientY,
+      item,
+    });
+  };
+
+  const handleCloseContextMenu = () => {
+    setContextMenu(null);
+  };
+
+  // File operation handlers
+  const handleCreateNew = (type: 'file' | 'directory') => {
+    setCreateDialog({ open: true, type });
+    handleCloseContextMenu();
+  };
+
+  const handleRename = (item: FileItem) => {
+    setRenameDialog({ open: true, item });
+    setNewItemName(item.name);
+    handleCloseContextMenu();
+  };
+
+  const handleDelete = (item: FileItem) => {
+    setDeleteDialog({ open: true, item });
+    handleCloseContextMenu();
+  };
+
+  const handleCopy = (item: FileItem) => {
+    setClipboard({ type: 'copy', item });
+    handleCloseContextMenu();
+  };
+
+  const handlePaste = () => {
+    if (!clipboard) return;
+
+    const sourcePath = clipboard.item.path;
+    const sourcePathParts = sourcePath.split('/');
+    const sourceName = sourcePathParts[sourcePathParts.length - 1];
+
+    // Destination is current path + source file/folder name
+    const destinationPath = currentPath ? `${currentPath}/${sourceName}` : sourceName;
+
+    copyMutation.mutate({ sourcePath, destinationPath });
+    handleCloseContextMenu();
+  };
+
+  // Dialog submit handlers
+  const handleCreateSubmit = () => {
+    if (!newItemName.trim()) return;
+
+    const path = currentPath ? `${currentPath}/${newItemName}` : newItemName;
+    createMutation.mutate({
+      path,
+      type: createDialog.type!,
+      content: createDialog.type === 'file' ? '' : undefined
+    });
+  };
+
+  const handleRenameSubmit = () => {
+    if (!newItemName.trim() || !renameDialog.item) return;
+
+    const oldPath = renameDialog.item.path;
+    const pathParts = oldPath.split('/');
+    pathParts[pathParts.length - 1] = newItemName;
+    const newPath = pathParts.join('/');
+
+    renameMutation.mutate({ oldPath, newPath });
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!deleteDialog.item) return;
+    deleteMutation.mutate(deleteDialog.item.path);
   };
 
   // Get language for Monaco Editor based on file extension
@@ -390,12 +571,85 @@ const FileBrowser: React.FC = () => {
               Failed to load files. Please try again.
             </Alert>
           ) : (
-            <List sx={{ p: 0 }}>
+            <>
+              {/* Toolbar */}
+              <Box sx={{
+                p: 1,
+                borderBottom: `1px solid ${theme.palette.divider}`,
+                backgroundColor: theme.palette.background.paper,
+              }}>
+                <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                  <Tooltip title="New File">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleCreateNew('file')}
+                      sx={{
+                        color: theme.palette.text.secondary,
+                        '&:hover': {
+                          backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                          color: theme.palette.primary.main,
+                        }
+                      }}
+                    >
+                      <CreateFileIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="New Folder">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleCreateNew('directory')}
+                      sx={{
+                        color: theme.palette.text.secondary,
+                        '&:hover': {
+                          backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                          color: theme.palette.primary.main,
+                        }
+                      }}
+                    >
+                      <CreateFolderIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+                  <Tooltip title="Paste">
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={handlePaste}
+                        disabled={!clipboard}
+                        sx={{
+                          color: theme.palette.text.secondary,
+                          '&:hover': {
+                            backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                            color: theme.palette.primary.main,
+                          }
+                        }}
+                      >
+                        <PasteIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  {clipboard && (
+                    <Chip
+                      label={`Copied: ${clipboard.item.name}`}
+                      size="small"
+                      onDelete={() => setClipboard(null)}
+                      sx={{
+                        ml: 1,
+                        height: 24,
+                        fontSize: '0.7rem',
+                      }}
+                    />
+                  )}
+                </Stack>
+              </Box>
+
+              <List sx={{ p: 0 }}>
               {browseData?.items.map((item, index) => (
                 <React.Fragment key={index}>
                   <ListItem disablePadding>
                     <ListItemButton
                       onClick={() => handleItemClick(item)}
+                      onContextMenu={(e) => handleContextMenu(e, item)}
                       selected={selectedFile === item.path && item.type === 'file'}
                       sx={{
                         py: 1.5,
@@ -453,6 +707,7 @@ const FileBrowser: React.FC = () => {
                 </Box>
               )}
             </List>
+            </>
           )}
         </Box>
 
@@ -649,6 +904,140 @@ const FileBrowser: React.FC = () => {
           </Box>
         )}
       </Box>
+
+      {/* Context Menu */}
+      <Menu
+        open={contextMenu !== null}
+        onClose={handleCloseContextMenu}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          contextMenu !== null
+            ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
+            : undefined
+        }
+      >
+        <MenuItem onClick={() => contextMenu?.item && handleRename(contextMenu.item)}>
+          <ListItemIcon>
+            <RenameIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Rename</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => contextMenu?.item && handleCopy(contextMenu.item)}>
+          <ListItemIcon>
+            <CopyIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Copy</ListItemText>
+        </MenuItem>
+        <Divider />
+        <MenuItem
+          onClick={() => contextMenu?.item && handleDelete(contextMenu.item)}
+          sx={{ color: theme.palette.error.main }}
+        >
+          <ListItemIcon>
+            <DeleteIcon fontSize="small" sx={{ color: theme.palette.error.main }} />
+          </ListItemIcon>
+          <ListItemText>Delete</ListItemText>
+        </MenuItem>
+      </Menu>
+
+      {/* Create Dialog */}
+      <Dialog
+        open={createDialog.open}
+        onClose={() => setCreateDialog({ open: false, type: null })}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Create New {createDialog.type === 'file' ? 'File' : 'Folder'}
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Name"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={newItemName}
+            onChange={(e) => setNewItemName(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                handleCreateSubmit();
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateDialog({ open: false, type: null })}>
+            Cancel
+          </Button>
+          <Button onClick={handleCreateSubmit} variant="contained">
+            Create
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Rename Dialog */}
+      <Dialog
+        open={renameDialog.open}
+        onClose={() => setRenameDialog({ open: false, item: null })}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Rename {renameDialog.item?.name}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="New Name"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={newItemName}
+            onChange={(e) => setNewItemName(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                handleRenameSubmit();
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRenameDialog({ open: false, item: null })}>
+            Cancel
+          </Button>
+          <Button onClick={handleRenameSubmit} variant="contained">
+            Rename
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialog.open}
+        onClose={() => setDeleteDialog({ open: false, item: null })}
+        maxWidth="sm"
+      >
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete "{deleteDialog.item?.name}"?
+            {deleteDialog.item?.type === 'directory' && (
+              <Box sx={{ mt: 1, color: theme.palette.warning.main }}>
+                <strong>Warning:</strong> This will delete the directory and all its contents.
+              </Box>
+            )}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialog({ open: false, item: null })}>
+            Cancel
+          </Button>
+          <Button onClick={handleDeleteConfirm} variant="contained" color="error">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

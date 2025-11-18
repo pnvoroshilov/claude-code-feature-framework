@@ -263,4 +263,52 @@ export const saveFile = async (projectId: string, path: string, content: string)
   return response.data;
 };
 
+export const createFileOrDirectory = async (
+  projectId: string,
+  path: string,
+  type: 'file' | 'directory',
+  content: string = ''
+): Promise<{ success: boolean; message: string }> => {
+  const response = await api.post(`/projects/${projectId}/files/create`, {
+    path,
+    type,
+    content
+  });
+  return response.data;
+};
+
+export const renameFileOrDirectory = async (
+  projectId: string,
+  oldPath: string,
+  newPath: string
+): Promise<{ success: boolean; message: string }> => {
+  const response = await api.post(`/projects/${projectId}/files/rename`, {
+    old_path: oldPath,
+    new_path: newPath
+  });
+  return response.data;
+};
+
+export const deleteFileOrDirectory = async (
+  projectId: string,
+  path: string
+): Promise<{ success: boolean; message: string }> => {
+  const response = await api.post(`/projects/${projectId}/files/delete`, {
+    path
+  });
+  return response.data;
+};
+
+export const copyFileOrDirectory = async (
+  projectId: string,
+  sourcePath: string,
+  destinationPath: string
+): Promise<{ success: boolean; message: string }> => {
+  const response = await api.post(`/projects/${projectId}/files/copy`, {
+    source_path: sourcePath,
+    destination_path: destinationPath
+  });
+  return response.data;
+};
+
 export default api;
