@@ -178,9 +178,14 @@ const FileBrowser: React.FC = () => {
     (path: string) => deleteFileOrDirectory(projectId!, path),
     {
       onSuccess: () => {
+        // Capture the deleted item path before clearing dialog
+        const deletedPath = deleteDialog.item?.path;
+
         refetch();
         setDeleteDialog({ open: false, item: null });
-        if (selectedFile === deleteDialog.item?.path) {
+
+        // Clear selected file if it was the deleted one
+        if (selectedFile === deletedPath) {
           setSelectedFile(null);
         }
       },
