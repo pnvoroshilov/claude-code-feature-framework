@@ -61,6 +61,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { getTasks, createTask, updateTask, updateTaskStatus, deleteTask, Task, getActiveSessions, createClaudeSession, sendCommandToSession } from '../services/api';
 import RealTerminal from '../components/RealTerminal';
+import ProjectModeToggle from '../components/ProjectModeToggle';
 import { useProject } from '../context/ProjectContext';
 
 // Simple mode: Only 3 columns
@@ -746,6 +747,9 @@ const TaskBoard: React.FC = () => {
 
   return (
     <Box sx={{ minHeight: '100vh', pb: 4 }}>
+      {/* Project Mode Toggle */}
+      <ProjectModeToggle />
+
       <Container maxWidth="xl">
         {/* Hero Header */}
         <Box py={4}>

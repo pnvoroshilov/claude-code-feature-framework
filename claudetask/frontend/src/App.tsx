@@ -6,7 +6,6 @@ import { ReactQueryDevtools } from 'react-query/devtools';
 
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
-import ProjectModeToggle from './components/ProjectModeToggle';
 import Dashboard from './pages/Dashboard';
 import ProjectSetup from './pages/ProjectSetup';
 import ProjectManager from './pages/ProjectManager';
@@ -65,41 +64,32 @@ function App() {
                   onClose={handleSidebarClose}
                 />
                 <Box
+                  component="main"
                   sx={{
                     flexGrow: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
+                    bgcolor: 'background.default',
+                    pt: { xs: 2, sm: 3 },
+                    pr: { xs: 2, sm: 3 },
+                    pb: { xs: 2, sm: 3 },
+                    pl: 0,
+                    minHeight: 'calc(100vh - 64px)',
                   }}
                 >
-                  <ProjectModeToggle />
-                  <Box
-                    component="main"
-                    sx={{
-                      flexGrow: 1,
-                      bgcolor: 'background.default',
-                      pt: { xs: 2, sm: 3 },
-                      pr: { xs: 2, sm: 3 },
-                      pb: { xs: 2, sm: 3 },
-                      pl: 0,
-                      minHeight: 'calc(100vh - 112px)',
-                    }}
-                  >
-                    <Routes>
-                      <Route path="/" element={<Dashboard />} />
-                      <Route path="/setup" element={<ProjectSetup />} />
-                      <Route path="/projects" element={<ProjectManager />} />
-                      <Route path="/projects/:projectId/files" element={<FileBrowser />} />
-                      <Route path="/tasks" element={<TaskBoard />} />
-                      <Route path="/sessions" element={<ClaudeSessions />} />
-                      <Route path="/claude-code-sessions" element={<ClaudeCodeSessions />} />
-                      <Route path="/skills" element={<Skills />} />
-                      <Route path="/hooks" element={<Hooks />} />
-                      <Route path="/mcp-configs" element={<MCPConfigs />} />
-                      <Route path="/subagents" element={<Subagents />} />
-                      <Route path="/instructions" element={<ProjectInstructions />} />
-                      <Route path="/settings" element={<Settings />} />
-                    </Routes>
-                  </Box>
+                  <Routes>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/setup" element={<ProjectSetup />} />
+                    <Route path="/projects" element={<ProjectManager />} />
+                    <Route path="/projects/:projectId/files" element={<FileBrowser />} />
+                    <Route path="/tasks" element={<TaskBoard />} />
+                    <Route path="/sessions" element={<ClaudeSessions />} />
+                    <Route path="/claude-code-sessions" element={<ClaudeCodeSessions />} />
+                    <Route path="/skills" element={<Skills />} />
+                    <Route path="/hooks" element={<Hooks />} />
+                    <Route path="/mcp-configs" element={<MCPConfigs />} />
+                    <Route path="/subagents" element={<Subagents />} />
+                    <Route path="/instructions" element={<ProjectInstructions />} />
+                    <Route path="/settings" element={<Settings />} />
+                  </Routes>
                 </Box>
               </Box>
             </Box>

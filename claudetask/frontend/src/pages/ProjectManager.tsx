@@ -556,7 +556,16 @@ const ProjectManager: React.FC = () => {
               </TableRow>
             ) : (
               projects.map((project) => (
-                <TableRow key={project.id}>
+                <TableRow
+                  key={project.id}
+                  onClick={() => navigate(`/projects/${project.id}/files`)}
+                  sx={{
+                    cursor: 'pointer',
+                    '&:hover': {
+                      backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                    }
+                  }}
+                >
                   <TableCell>
                     <Stack direction="row" spacing={1.5} alignItems="center">
                       <Box sx={{
@@ -676,7 +685,10 @@ const ProjectManager: React.FC = () => {
                   </TableCell>
                   <TableCell align="right">
                     <IconButton
-                      onClick={(e) => handleMenuClick(e, project)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMenuClick(e, project);
+                      }}
                       size="small"
                       sx={{
                         color: theme.palette.text.secondary,
