@@ -290,8 +290,31 @@ const FileBrowser: React.FC = () => {
     const sourcePathParts = sourcePath.split('/');
     const sourceName = sourcePathParts[sourcePathParts.length - 1];
 
-    // Destination is current path + source file/folder name
-    const destinationPath = currentPath ? `${currentPath}/${sourceName}` : sourceName;
+    // Generate unique name if file/folder already exists in current directory
+    let destinationName = sourceName;
+    let counter = 1;
+
+    // Check if name already exists in current directory
+    const existingNames = browseData?.items.map(item => item.name) || [];
+
+    // Parse name and extension
+    const lastDotIndex = sourceName.lastIndexOf('.');
+    const hasExtension = lastDotIndex > 0 && clipboard.item.type === 'file';
+    const baseName = hasExtension ? sourceName.substring(0, lastDotIndex) : sourceName;
+    const extension = hasExtension ? sourceName.substring(lastDotIndex) : '';
+
+    // Find unique name
+    while (existingNames.includes(destinationName)) {
+      if (hasExtension) {
+        destinationName = `${baseName} (${counter})${extension}`;
+      } else {
+        destinationName = `${baseName} (${counter})`;
+      }
+      counter++;
+    }
+
+    // Build full destination path
+    const destinationPath = currentPath ? `${currentPath}/${destinationName}` : destinationName;
 
     copyMutation.mutate({ sourcePath, destinationPath });
     handleCloseContextMenu();
