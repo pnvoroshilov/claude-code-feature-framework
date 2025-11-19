@@ -456,7 +456,7 @@ const FileBrowser: React.FC = () => {
               flexGrow: 1,
               flexShrink: 1,
               minWidth: 0,
-              maxWidth: '60%',
+              maxWidth: '80%',
               overflow: 'hidden',
               ml: 1,
             }}
