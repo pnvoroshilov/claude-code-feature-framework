@@ -18,12 +18,13 @@ FileBrowser is a GitHub-style file browser and code editor component that allows
 - **Markdown Preview**: Live preview mode for markdown files with GitHub-flavored markdown support
 - **File Operations**: Complete file management including create, read, save, rename, delete, and copy
 - **Context Menu**: Right-click context menu for file and directory operations
-- **Clipboard Support**: Copy and paste files and directories
+- **Clipboard Support**: Copy and paste files and directories with auto-generated unique names
 - **Breadcrumb Navigation**: Easy navigation through directory hierarchy
 - **Security**: Path traversal protection and project-scope enforcement
 
 ### User Interface
-- **Compact Header**: Single-line header with back button, project name, breadcrumbs, and actions
+- **Compact Single-Line Header**: Optimized header layout with back button, project name, breadcrumbs, and file actions aligned on one line
+- **Responsive Layout**: Smart visibility toggles ensure buttons don't wrap or disappear when files are opened
 - **Dual-Pane Layout**: File list on left, editor/preview on right
 - **File Type Icons**: Visual indicators for directories and files
 - **File Metadata**: Size, modification time, and extension display
@@ -31,6 +32,7 @@ FileBrowser is a GitHub-style file browser and code editor component that allows
 - **Success/Error Notifications**: User feedback for all file operations
 - **Modal Dialogs**: Confirmation dialogs for create, rename, and delete operations
 - **Context Menus**: Right-click menus for quick file operations
+- **Stable Editor Panel**: Fixed-width editor panel that maintains layout consistency
 
 ### Code Editing
 - **Syntax Highlighting**: Supports 15+ programming languages
@@ -130,7 +132,13 @@ const renameMutation = useMutation(
 const deleteMutation = useMutation(
   (path: string) => deleteFileOrDirectory(projectId!, path),
   {
-    onSuccess: () => refetch()
+    onSuccess: () => {
+      refetch();
+      // Clear selected file if it was deleted
+      if (selectedFile === path) {
+        setSelectedFile(null);
+      }
+    }
   }
 );
 
@@ -329,52 +337,105 @@ The following are automatically hidden from file browser:
 ### Layout Structure
 
 ```
-┌─────────────────────────────────────────────────────┐
-│ Header (Compact Single Line)                        │
-│ [← Back] [Project Name] / path / to / file          │
-│                          [Save Button] [Preview/Edit]│
-├──────────────────┬──────────────────────────────────┤
-│                  │                                   │
-│  File List       │  Editor / Preview                │
-│  (Left Panel)    │  (Right Panel)                   │
-│                  │                                   │
-│  📁 src          │  ┌────────────────────────────┐ │
-│  📁 docs         │  │                            │ │
-│  📄 README.md    │  │  Monaco Editor             │ │
-│  📄 package.json │  │  or                        │ │
-│                  │  │  Markdown Preview          │ │
-│                  │  │                            │ │
-│                  │  └────────────────────────────┘ │
-│                  │                                   │
-└──────────────────┴──────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ Header (Single Compact Line)                                │
+│ [← Back] [Project Name] / path / to / file  [Save] [Edit/Preview] │
+├────────────────────┬────────────────────────────────────────┤
+│                    │                                         │
+│  File List         │  Editor / Preview                      │
+│  (Left Panel)      │  (Right Panel - Fixed Width)           │
+│                    │                                         │
+│  📁 src            │  ┌──────────────────────────────────┐  │
+│  📁 docs           │  │                                  │  │
+│  📄 README.md      │  │  Monaco Editor                   │  │
+│  📄 package.json   │  │  or                              │  │
+│                    │  │  Markdown Preview                │  │
+│                    │  │                                  │  │
+│                    │  └──────────────────────────────────┘  │
+│                    │                                         │
+└────────────────────┴────────────────────────────────────────┘
 ```
+
+### Header Layout Details
+
+The header uses a sophisticated flex layout to ensure all elements remain visible and properly aligned:
+
+```tsx
+<Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: 'nowrap' }}>
+  {/* Left section: Back button + Project name + Breadcrumbs */}
+  <Stack direction="row" sx={{ flexGrow: 1, minWidth: 0, overflow: 'hidden' }}>
+    {/* Fixed width elements */}
+    <IconButton>Back</IconButton>
+    <Typography>Project Name</Typography>
+
+    {/* Flexible breadcrumbs with overflow handling */}
+    <Box sx={{ flexShrink: 1, minWidth: 0 }}>
+      <Breadcrumbs maxWidth="80px" />
+    </Box>
+  </Stack>
+
+  {/* Right section: File actions with visibility toggle */}
+  <Stack
+    sx={{
+      flexShrink: 0,
+      minWidth: selectedFile ? 'fit-content' : '200px',
+      visibility: selectedFile ? 'visible' : 'hidden',
+      opacity: selectedFile ? 1 : 0,
+      transition: 'opacity 0.2s',
+    }}
+  >
+    {/* Edit/Preview toggle, Unsaved chip, Save button */}
+  </Stack>
+</Stack>
+```
+
+**Key Layout Features:**
+- **No Wrapping**: `flexWrap: 'nowrap'` ensures all elements stay on one line
+- **Smart Visibility**: File actions use visibility toggle instead of conditional rendering to maintain consistent layout
+- **Minimum Width**: Button container has minimum width when hidden to prevent layout shifts
+- **Smooth Transitions**: Opacity transitions for better UX
+- **Fixed Editor Width**: Editor panel maintains consistent width regardless of file selection state
 
 ### Component Hierarchy
 
 ```
 FileBrowser
 ├── Header (Box)
-│   ├── Back Button (IconButton)
-│   ├── Project Name (Typography)
-│   ├── Breadcrumbs (Breadcrumbs)
-│   ├── Save Button (Button)
-│   └── View Mode Toggle (ToggleButtonGroup)
+│   └── Stack (Single row, no wrap)
+│       ├── Left Section (Stack - flexGrow: 1)
+│       │   ├── Back Button (IconButton)
+│       │   ├── Project Name (Typography)
+│       │   └── Breadcrumbs (Box with overflow handling)
+│       └── Right Section (Stack - flexShrink: 0)
+│           ├── View Mode Toggle (ToggleButtonGroup)
+│           ├── Unsaved Chip (Chip)
+│           └── Save Button (Button)
 ├── Main Content (Grid)
 │   ├── File List (Grid item - 4 columns)
 │   │   ├── Loading State (CircularProgress)
 │   │   ├── Error State (Alert)
 │   │   └── File Items (List)
-│   │       └── ListItemButton
+│   │       └── ListItemButton (with context menu)
 │   │           ├── Icon (FolderIcon / FileIcon)
 │   │           ├── Name (ListItemText)
 │   │           └── Metadata (Typography)
-│   └── Editor Panel (Grid item - 8 columns)
-│       ├── No File Selected (Alert)
+│   └── Editor Panel (Grid item - 8 columns, fixed width)
+│       ├── No File Selected (Alert - hidden state)
 │       ├── Loading State (CircularProgress)
 │       ├── Edit Mode
 │       │   └── Monaco Editor
 │       └── Preview Mode
 │           └── ReactMarkdown
+├── Context Menu (Menu)
+│   ├── New File (MenuItem)
+│   ├── New Folder (MenuItem)
+│   ├── Rename (MenuItem)
+│   ├── Delete (MenuItem)
+│   ├── Copy (MenuItem)
+│   └── Paste (MenuItem)
+├── Create Dialog (Dialog)
+├── Rename Dialog (Dialog)
+└── Delete Dialog (Dialog)
 ```
 
 ## Styling
@@ -416,6 +477,43 @@ sx={{
 </Grid>
 ```
 
+### Layout Optimizations
+
+**Breadcrumb Overflow Handling:**
+```tsx
+<Breadcrumbs
+  sx={{
+    '& .MuiBreadcrumbs-ol': {
+      flexWrap: 'nowrap',
+    }
+  }}
+>
+  <Link sx={{
+    maxWidth: '80px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  }}>
+    {crumb.name}
+  </Link>
+</Breadcrumbs>
+```
+
+**Button Container Stability:**
+```tsx
+<Stack
+  sx={{
+    // Use visibility toggle instead of conditional rendering
+    visibility: selectedFile ? 'visible' : 'hidden',
+    opacity: selectedFile ? 1 : 0,
+    // Maintain minimum space even when hidden
+    minWidth: selectedFile ? 'fit-content' : '200px',
+    // Prevent shrinking to maintain layout
+    flexShrink: 0,
+  }}
+>
+```
+
 ## User Interactions
 
 ### Navigation Flow
@@ -434,8 +532,9 @@ sx={{
 1. **Create New File/Directory**: Right-click in file list → Select "New File" or "New Folder" → Enter name → Confirm
 2. **Rename Item**: Right-click on file/directory → Select "Rename" → Enter new name → Confirm
 3. **Delete Item**: Right-click on file/directory → Select "Delete" → Confirm deletion
+   - Deleting currently selected file automatically clears the selection and closes the editor
 4. **Copy Item**: Right-click on file/directory → Select "Copy" → Navigate to destination → Right-click → Select "Paste"
-5. **Auto-naming**: Paste operations automatically generate unique names (e.g., "file_copy", "file_copy_2", etc.)
+5. **Auto-naming**: Paste operations automatically generate unique names (e.g., "file.txt" → "file (1).txt" → "file (2).txt")
 
 ### Keyboard Shortcuts
 
@@ -542,6 +641,11 @@ from sqlalchemy import select
 - Large files rejected before content load
 - Binary files detected and rejected early
 
+### Layout Performance
+- Visibility toggles instead of conditional rendering prevent layout reflows
+- Fixed flex properties maintain stable layout dimensions
+- Smooth opacity transitions provide better perceived performance
+
 ## Best Practices
 
 ### Safe File Operations
@@ -558,6 +662,23 @@ const handleNavigate = () => {
 };
 ```
 
+### Safe Delete Operations
+```tsx
+// Clear selection when deleting currently selected file
+const deleteMutation = useMutation(
+  (path: string) => deleteFileOrDirectory(projectId!, path),
+  {
+    onSuccess: () => {
+      refetch();
+      // Prevent editing deleted file
+      if (selectedFile === path) {
+        setSelectedFile(null);
+      }
+    }
+  }
+);
+```
+
 ### Error Recovery
 ```tsx
 // Auto-clear error notifications
@@ -572,9 +693,46 @@ setTimeout(() => setSaveError(null), 5000);
 )}
 ```
 
+## Recent Changes
+
+### Version 2.0.1 - UI/UX Refinements (2025-11-19)
+- Fixed editor panel layout consistency on first file open
+- Improved header button alignment and visibility
+- Replaced conditional rendering with visibility toggles to prevent layout shifts
+- Added minimum width to button container for stable layout
+- Fixed breadcrumb overflow handling with proper truncation
+- Ensured file action buttons never wrap or disappear
+- Added null check for selectedFile in editor component
+- Improved flex layout with proper shrink/grow values
+- Fixed button alignment to right edge with margin adjustments
+- Enhanced delete operation to clear selected file automatically
+
+### Version 2.0 - Comprehensive File Management (2025-11-18)
+- Added file and directory creation with modal dialogs
+- Implemented rename functionality with validation
+- Added delete operations with confirmation dialogs
+- Implemented copy/paste with clipboard support
+- Added context menus for right-click operations
+- Auto-generated unique names for paste operations to prevent conflicts
+- Enhanced user feedback with success/error notifications for all operations
+
+### Version 1.0 - Initial Release
+- GitHub-style file browser
+- Monaco Editor integration
+- Markdown preview mode
+- Basic file read/save operations
+
 ## Completed Features
 
-### Recently Implemented (v2.0)
+### v2.0.1 - UI/UX Improvements
+- [x] Fixed editor panel layout consistency
+- [x] Improved header button alignment and visibility
+- [x] Smart visibility toggles for stable layout
+- [x] Breadcrumb overflow handling
+- [x] Auto-clear selection on file delete
+- [x] Null safety checks for editor
+
+### v2.0 - File Management
 - [x] File/directory creation with modal dialogs
 - [x] File/directory deletion with confirmation
 - [x] File/directory rename with validation
@@ -649,6 +807,15 @@ setTimeout(() => setSaveError(null), 5000);
 3. Ensure `remark-gfm` and `rehype-highlight` are loaded
 4. Clear browser cache
 
+### Issue: Buttons Disappearing or Wrapping
+**Symptom**: Header buttons not visible after opening file
+
+**Solutions**:
+1. This was fixed in v2.0.1 with visibility toggles
+2. Ensure you're using the latest version
+3. Clear browser cache if using older version
+4. Check flexbox layout properties haven't been overridden
+
 ## Testing
 
 ### Manual Testing Checklist
@@ -669,7 +836,8 @@ setTimeout(() => setSaveError(null), 5000);
 - [ ] Rename file
 - [ ] Rename directory
 - [ ] Delete file
-- [ ] Delete directory
+- [ ] Delete directory (verify selection clears)
+- [ ] Delete currently selected file (verify editor closes)
 - [ ] Copy file
 - [ ] Copy directory
 - [ ] Paste with auto-generated unique name
@@ -679,6 +847,13 @@ setTimeout(() => setSaveError(null), 5000);
 - [ ] Monaco Editor loads properly
 - [ ] Markdown preview renders correctly
 - [ ] Toggle between edit and preview modes
+
+#### Layout Stability
+- [ ] Header layout remains single line
+- [ ] Buttons don't wrap or disappear when file opens
+- [ ] Breadcrumbs truncate properly with ellipsis
+- [ ] Editor panel maintains consistent width
+- [ ] File actions appear/disappear smoothly
 
 #### Error Handling
 - [ ] Large file rejected gracefully
@@ -691,6 +866,7 @@ setTimeout(() => setSaveError(null), 5000);
 - [ ] Success notifications appear and disappear
 - [ ] Error messages are clear
 - [ ] Responsive on mobile devices
+- [ ] Smooth transitions and animations
 
 ## Code Examples
 
@@ -728,28 +904,34 @@ const filteredItems = browseData?.items.filter(item =>
 );
 ```
 
-## Recent Changes
+### Implementing Stable Layout with Visibility Toggles
 
-### Version 2.0 - Comprehensive File Management (2025-11-18)
-- Added file and directory creation with modal dialogs
-- Implemented rename functionality with validation
-- Added delete operations with confirmation dialogs
-- Implemented copy/paste with clipboard support
-- Added context menus for right-click operations
-- Auto-generated unique names for paste operations to prevent conflicts
-- Enhanced user feedback with success/error notifications for all operations
+```tsx
+// GOOD: Use visibility toggle to maintain layout
+<Stack
+  sx={{
+    visibility: selectedFile ? 'visible' : 'hidden',
+    opacity: selectedFile ? 1 : 0,
+    minWidth: selectedFile ? 'fit-content' : '200px',
+    flexShrink: 0,
+  }}
+>
+  <Button>Save</Button>
+</Stack>
 
-### Version 1.0 - Initial Release
-- GitHub-style file browser
-- Monaco Editor integration
-- Markdown preview mode
-- Basic file read/save operations
+// BAD: Conditional rendering causes layout shifts
+{selectedFile && (
+  <Stack>
+    <Button>Save</Button>
+  </Stack>
+)}
+```
 
 ---
 
-**Last Updated**: 2025-11-18
-**Version**: 2.0.0
-**Status**: Active - Feature Complete
+**Last Updated**: 2025-11-19
+**Version**: 2.0.1
+**Status**: Active - Production Ready
 **Related Documentation**:
 - [File Browser API Endpoints](../api/endpoints/file-browser.md)
 - [Project Manager Component](./ProjectManager.md)

@@ -482,7 +482,7 @@ const FileBrowser: React.FC = () => {
                       whiteSpace: 'nowrap',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
-                      maxWidth: '80px',
+                      maxWidth: '200px',
                       '&:hover': {
                         color: theme.palette.primary.main,
                         textDecoration: 'underline',
