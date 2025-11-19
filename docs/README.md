@@ -18,7 +18,7 @@ React component documentation with props, usage examples, and patterns.
 
 **Components:**
 - `README.md` - Component index and architecture overview
-- `FileBrowser.md` - GitHub-style file browser with complete file management (v2.0)
+- `FileBrowser.md` - GitHub-style file browser with complete file management and layout stability (v2.0.1)
 - `ClaudeSessions.md` - Embedded task session management UI with structured content rendering (v2.1)
 - `ClaudeCodeSessions.md` - Native Claude Code session analytics and browsing interface
 - `Hooks.md` - Hooks management UI for automated shell command configuration
@@ -145,7 +145,18 @@ To manually trigger documentation update:
 
 ## Recent Updates
 
-**Latest Changes (2025-11-18):**
+**Latest Changes (2025-11-19):**
+- ✅ **FileBrowser v2.0.1**: UI/UX refinements and layout stability improvements
+  - Fixed editor panel layout consistency on first file open
+  - Improved header button alignment and visibility
+  - Replaced conditional rendering with visibility toggles to prevent layout shifts
+  - Added minimum width to button container for stable layout
+  - Fixed breadcrumb overflow handling with proper truncation
+  - Ensured file action buttons never wrap or disappear
+  - Enhanced delete operation to auto-clear selected file
+  - Added comprehensive layout documentation with best practices
+
+**Previous Changes (2025-11-18):**
 - ✅ **FileBrowser v2.0**: Comprehensive file management system
   - Create files and directories with modal dialogs
   - Rename files and directories with validation
@@ -160,7 +171,7 @@ To manually trigger documentation update:
   - `POST /files/delete` - Delete files and directories
   - `POST /files/copy` - Copy files and directories
 
-**Previous Updates (2025-11-16):**
+**Earlier Updates (2025-11-16):**
 - ✅ **Enhanced ClaudeSessions UI v2.1**: Structured content rendering for Claude API format
 - ✅ Fixed hook-triggered sessions to skip /start-feature command
 - ✅ Added task_id=0 support for hook sessions
@@ -261,12 +272,12 @@ New documentation is automatically created when:
 - Total files: 18 active, 3 archived
 - API endpoints documented: 4 (including 8 total endpoints)
 - Components documented: 6
-- Last full update: 2025-11-18
+- Last full update: 2025-11-19
 - Auto-update status: Active and operational
 
 ---
 
 **Documentation System Status:** ✅ Active
-**Last Auto-Update:** 2025-11-18
+**Last Auto-Update:** 2025-11-19
 **Auto-Update Trigger:** Post-merge hook with [skip-hook] prevention
 **Maintainer:** documentation-updater-agent

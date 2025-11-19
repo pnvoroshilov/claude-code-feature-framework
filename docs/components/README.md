@@ -38,7 +38,7 @@ Advanced analytics and browsing interface for Claude Code native session files (
 ### Project Management
 
 #### [FileBrowser](./FileBrowser.md)
-GitHub-style file browser and code editor with comprehensive file management capabilities.
+GitHub-style file browser and code editor with comprehensive file management and refined UI/UX.
 
 **Features:**
 - Complete file management: create, read, save, rename, delete, copy
@@ -49,14 +49,17 @@ GitHub-style file browser and code editor with comprehensive file management cap
 - Copy/paste with clipboard support
 - Auto-generated unique names for paste operations
 - Modal dialogs for file operations
-- Breadcrumb navigation
+- Compact single-line header with smart visibility toggles
+- Stable layout with no button wrapping or disappearing
+- Breadcrumb navigation with overflow handling
 - Security with path traversal protection
 - Support for 15+ programming languages
 - Unsaved changes detection
+- Auto-clear selection on file delete
 
 **Location:** `claudetask/frontend/src/pages/FileBrowser.tsx`
 
-**Status:** Active, Feature Complete (v2.0.0)
+**Status:** Active, Production Ready (v2.0.1)
 
 ### Framework Management
 
@@ -355,19 +358,19 @@ When adding or updating components:
 
 ---
 
-**Last Updated**: 2025-11-18
+**Last Updated**: 2025-11-19
 **Total Components Documented**: 6
 **Documentation Status**: Active maintenance
 
 ## Component Documentation Index
 
-| Component | Category | Status | Documentation |
-|-----------|----------|--------|---------------|
-| ClaudeSessions | Session Management | Active | [View](./ClaudeSessions.md) |
-| ClaudeCodeSessions | Session Management | Active | [View](./ClaudeCodeSessions.md) |
-| FileBrowser | Project Management | Active (New) | [View](./FileBrowser.md) |
-| Hooks | Framework Management | Active | [View](./Hooks.md) |
-| Subagents | Framework Management | Active | [View](./Subagents.md) |
-| Skills | Framework Management | Active | [View](./Skills.md) |
-| Tasks | Task Management | Pending | To be documented |
-| Projects | Task Management | Pending | To be documented |
+| Component | Category | Status | Version | Documentation |
+|-----------|----------|--------|---------|---------------|
+| ClaudeSessions | Session Management | Active | v2.1 | [View](./ClaudeSessions.md) |
+| ClaudeCodeSessions | Session Management | Active | v1.0 | [View](./ClaudeCodeSessions.md) |
+| FileBrowser | Project Management | Production Ready | v2.0.1 | [View](./FileBrowser.md) |
+| Hooks | Framework Management | Active | v1.0 | [View](./Hooks.md) |
+| Subagents | Framework Management | Active | v1.0 | [View](./Subagents.md) |
+| Skills | Framework Management | Active | v1.0 | [View](./Skills.md) |
+| Tasks | Task Management | Pending | - | To be documented |
+| Projects | Task Management | Pending | - | To be documented |
