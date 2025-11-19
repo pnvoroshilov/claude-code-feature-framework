@@ -57,8 +57,10 @@ import {
   CalendarToday as CalendarIcon,
   Person as PersonIcon,
   Timeline as TimelineIcon,
+  Folder as FolderIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useNavigate } from 'react-router-dom';
 import { getTasks, createTask, updateTask, updateTaskStatus, deleteTask, Task, getActiveSessions, createClaudeSession, sendCommandToSession } from '../services/api';
 import RealTerminal from '../components/RealTerminal';
 import ProjectModeToggle from '../components/ProjectModeToggle';
@@ -86,6 +88,7 @@ type ViewMode = 'kanban' | 'list';
 
 const TaskBoard: React.FC = () => {
   const theme = useTheme();
+  const navigate = useNavigate();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [taskDetailsOpen, setTaskDetailsOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -780,26 +783,46 @@ const TaskBoard: React.FC = () => {
                 )}
               </Typography>
             </Box>
-            <Button
-              variant="contained"
-              size="large"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateDialogOpen(true)}
-              sx={{
-                borderRadius: 2,
-                px: 3,
-                py: 1.5,
-                background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-                boxShadow: `0 8px 16px ${alpha(theme.palette.primary.main, 0.3)}`,
-                '&:hover': {
-                  background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
-                  transform: 'translateY(-2px)',
-                  boxShadow: `0 12px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
+            <Stack direction="row" spacing={2}>
+              <Button
+                variant="outlined"
+                size="large"
+                startIcon={<FolderIcon />}
+                onClick={() => navigate('/filebrowser')}
+                sx={{
+                  borderRadius: 2,
+                  px: 3,
+                  py: 1.5,
+                  borderWidth: 2,
+                  '&:hover': {
+                    borderWidth: 2,
+                    transform: 'translateY(-2px)',
+                  },
+                }}
+              >
+                File Browser
+              </Button>
+              <Button
+                variant="contained"
+                size="large"
+                startIcon={<AddIcon />}
+                onClick={() => setCreateDialogOpen(true)}
+                sx={{
+                  borderRadius: 2,
+                  px: 3,
+                  py: 1.5,
+                  background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                  boxShadow: `0 8px 16px ${alpha(theme.palette.primary.main, 0.3)}`,
+                  '&:hover': {
+                    background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
+                    transform: 'translateY(-2px)',
+                    boxShadow: `0 12px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
                 },
               }}
             >
               New Task
             </Button>
+          </Stack>
           </Stack>
 
           {/* Statistics Cards */}
