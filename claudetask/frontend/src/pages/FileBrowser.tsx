@@ -498,18 +498,20 @@ const FileBrowser: React.FC = () => {
           </Stack>
 
           {/* Right: File actions (only when file is open) */}
-          {selectedFile && (
-            <Stack
-              direction="row"
-              spacing={0.75}
-              alignItems="center"
-              sx={{
-                flexShrink: 0,
-                flexGrow: 0,
-                flexWrap: 'nowrap',
-                minWidth: 'fit-content',
-              }}
-            >
+          <Stack
+            direction="row"
+            spacing={0.75}
+            alignItems="center"
+            sx={{
+              flexShrink: 0,
+              flexGrow: 0,
+              flexWrap: 'nowrap',
+              minWidth: 'fit-content',
+              visibility: selectedFile ? 'visible' : 'hidden',
+              opacity: selectedFile ? 1 : 0,
+              transition: 'opacity 0.2s ease-in-out',
+            }}
+          >
               {/* View mode toggle for Markdown files */}
               {isMarkdownFile(selectedFile) && (
                 <ToggleButtonGroup
@@ -589,8 +591,7 @@ const FileBrowser: React.FC = () => {
                   <CloseIcon sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
-            </Stack>
-          )}
+          </Stack>
         </Stack>
 
         {/* Alerts */}
