@@ -782,7 +782,7 @@ const FileBrowser: React.FC = () => {
           ) : (
             <>
               {/* Monaco Editor - Show in edit mode or for non-markdown files */}
-              {(viewMode === 'edit' || !isMarkdownFile(selectedFile)) && (
+              {selectedFile && (viewMode === 'edit' || !isMarkdownFile(selectedFile)) && (
                 <Editor
                   height="100%"
                   language={getLanguage(selectedFile)}
