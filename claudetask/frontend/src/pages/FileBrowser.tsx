@@ -410,7 +410,15 @@ const FileBrowser: React.FC = () => {
         borderBottom: `1px solid ${theme.palette.divider}`,
       }}>
         {/* Single line: Back button + Project name + Breadcrumbs + File actions */}
-        <Stack direction="row" alignItems="center" spacing={1}>
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={1}
+          sx={{
+            flexWrap: 'nowrap',
+            overflow: 'hidden',
+          }}
+        >
           {/* Left: Back button + Project name */}
           <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexShrink: 0 }}>
             <IconButton
@@ -443,7 +451,15 @@ const FileBrowser: React.FC = () => {
           </Stack>
 
           {/* Middle: Breadcrumbs */}
-          <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden', ml: 1 }}>
+          <Box
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              overflow: 'hidden',
+              ml: 1,
+              maxWidth: 'calc(100% - 500px)', // Reserve space for buttons
+            }}
+          >
             <Breadcrumbs
               separator={<NavigateNextIcon fontSize="small" />}
               sx={{
@@ -482,7 +498,16 @@ const FileBrowser: React.FC = () => {
 
           {/* Right: File actions (only when file is open) */}
           {selectedFile && (
-            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ flexShrink: 0, ml: 1 }}>
+            <Stack
+              direction="row"
+              spacing={0.75}
+              alignItems="center"
+              sx={{
+                flexShrink: 0,
+                ml: 1,
+                flexWrap: 'nowrap',
+              }}
+            >
               {/* View mode toggle for Markdown files */}
               {isMarkdownFile(selectedFile) && (
                 <ToggleButtonGroup
