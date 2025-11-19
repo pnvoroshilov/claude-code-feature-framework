@@ -1,5 +1,0 @@
-# Hook Test Fri Nov 14 07:05:19 MSK 2025
-Test line for hook debugging
-Debug test Fri Nov 14 07:07:05 MSK 2025
-Test after restart Fri Nov 14 07:08:16 MSK 2025
-Test after full restart Fri Nov 14 07:15:29 MSK 2025
