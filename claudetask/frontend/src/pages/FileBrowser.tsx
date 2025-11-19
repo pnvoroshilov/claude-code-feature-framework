@@ -496,9 +496,6 @@ const FileBrowser: React.FC = () => {
             </Breadcrumbs>
           </Box>
 
-          {/* Spacer to push buttons to the right */}
-          <Box sx={{ flexGrow: 1 }} />
-
           {/* Right: File actions (only when file is open) */}
           {selectedFile && (
             <Stack
@@ -508,7 +505,7 @@ const FileBrowser: React.FC = () => {
               sx={{
                 flexShrink: 0,
                 flexGrow: 0,
-                ml: 1,
+                ml: 'auto',
                 flexWrap: 'nowrap',
                 minWidth: 'fit-content',
               }}
