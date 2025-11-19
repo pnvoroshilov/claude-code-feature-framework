@@ -453,11 +453,11 @@ const FileBrowser: React.FC = () => {
           {/* Middle: Breadcrumbs */}
           <Box
             sx={{
-              flex: 1,
+              flexGrow: 1,
+              flexShrink: 1,
               minWidth: 0,
               overflow: 'hidden',
               ml: 1,
-              maxWidth: 'calc(100% - 500px)', // Reserve space for buttons
             }}
           >
             <Breadcrumbs
@@ -504,8 +504,10 @@ const FileBrowser: React.FC = () => {
               alignItems="center"
               sx={{
                 flexShrink: 0,
+                flexGrow: 0,
                 ml: 1,
                 flexWrap: 'nowrap',
+                minWidth: 'fit-content',
               }}
             >
               {/* View mode toggle for Markdown files */}
