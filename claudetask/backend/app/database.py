@@ -74,7 +74,7 @@ async def seed_default_skills():
             print("Default skills already seeded")
             return
 
-        # Define 11 default skills (from framework-assets/claude-skills)
+        # Define 13 default skills (from framework-assets/claude-skills)
         default_skills = [
             # Existing skill
             DefaultSkill(
@@ -149,6 +149,21 @@ async def seed_default_skills():
                 description="Expert-level React component creation with TypeScript, modern styling, and production-ready patterns",
                 category="Development",
                 file_name="ui-component/skill.md"
+            ),
+            # New skills - TOON Format and UseCase Writer
+            DefaultSkill(
+                name="TOON Format",
+                description="Expert skill for TOON (Token-Optimized Object Notation) format - human-readable structured data with ~40% token reduction vs JSON",
+                category="Documentation",
+                file_name="toon-format/SKILL.md",
+                is_favorite=True
+            ),
+            DefaultSkill(
+                name="UseCase Writer",
+                description="Creates comprehensive UseCases from requirements following UML, Cockburn, and IEEE 830 standards with actors, flows, preconditions, and postconditions",
+                category="Documentation",
+                file_name="usecase-writer/SKILL.md",
+                is_favorite=True
             )
         ]
 
@@ -343,6 +358,52 @@ async def seed_default_skills():
                 skill_type="default",
                 priority=2,
                 reason="Useful for reproducing and testing fixes"
+            ),
+            # Requirements Analyst
+            AgentSkillRecommendation(
+                agent_name="requirements-analyst",
+                skill_id=skills["UseCase Writer"],
+                skill_type="default",
+                priority=1,
+                reason="Core skill for creating detailed UseCases from requirements"
+            ),
+            AgentSkillRecommendation(
+                agent_name="requirements-analyst",
+                skill_id=skills["Business Requirements Analysis"],
+                skill_type="default",
+                priority=1,
+                reason="Essential for requirements gathering and analysis"
+            ),
+            # Business Analyst (additional)
+            AgentSkillRecommendation(
+                agent_name="business-analyst",
+                skill_id=skills["UseCase Writer"],
+                skill_type="default",
+                priority=1,
+                reason="Important for documenting business processes as UseCases"
+            ),
+            # Technical Writer (additional)
+            AgentSkillRecommendation(
+                agent_name="technical-writer",
+                skill_id=skills["TOON Format"],
+                skill_type="default",
+                priority=1,
+                reason="Efficient format for structured technical documentation"
+            ),
+            AgentSkillRecommendation(
+                agent_name="technical-writer",
+                skill_id=skills["UseCase Writer"],
+                skill_type="default",
+                priority=2,
+                reason="Useful for creating functional specifications"
+            ),
+            # Skills Creator (Meta agent)
+            AgentSkillRecommendation(
+                agent_name="skills-creator",
+                skill_id=skills["TOON Format"],
+                skill_type="default",
+                priority=1,
+                reason="Essential for creating token-efficient skill documentation"
             )
         ]
 
