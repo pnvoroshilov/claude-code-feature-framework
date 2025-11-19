@@ -506,6 +506,7 @@ const FileBrowser: React.FC = () => {
                 flexShrink: 0,
                 flexGrow: 0,
                 ml: 'auto',
+                mr: 0,
                 flexWrap: 'nowrap',
                 minWidth: 'fit-content',
               }}
