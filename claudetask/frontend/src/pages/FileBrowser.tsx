@@ -614,10 +614,10 @@ const FileBrowser: React.FC = () => {
         <Box sx={{
           width: selectedFile ? 300 : '100%',
           minWidth: selectedFile ? 300 : undefined,
+          flexShrink: 0,
           overflow: 'auto',
           backgroundColor: theme.palette.background.default,
           borderRight: selectedFile ? `1px solid ${theme.palette.divider}` : 'none',
-          transition: 'width 0.2s ease',
         }}>
           {isLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
@@ -770,10 +770,11 @@ const FileBrowser: React.FC = () => {
 
         {/* Editor/Preview - Only visible when file is selected */}
         <Box sx={{
-          flex: 1,
+          flex: selectedFile ? 1 : 0,
+          width: selectedFile ? undefined : 0,
           overflow: 'hidden',
           backgroundColor: theme.palette.background.paper,
-          display: selectedFile ? 'flex' : 'none',
+          visibility: selectedFile ? 'visible' : 'hidden',
         }}>
           {isLoadingFile ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
