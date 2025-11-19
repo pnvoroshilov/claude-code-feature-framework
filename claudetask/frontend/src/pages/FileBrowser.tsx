@@ -453,7 +453,6 @@ const FileBrowser: React.FC = () => {
           {/* Middle: Breadcrumbs */}
           <Box
             sx={{
-              flexGrow: 1,
               flexShrink: 1,
               minWidth: 0,
               maxWidth: '60%',
@@ -496,6 +495,9 @@ const FileBrowser: React.FC = () => {
               ))}
             </Breadcrumbs>
           </Box>
+
+          {/* Spacer to push buttons to the right */}
+          <Box sx={{ flexGrow: 1 }} />
 
           {/* Right: File actions (only when file is open) */}
           {selectedFile && (
