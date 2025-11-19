@@ -788,7 +788,8 @@ const TaskBoard: React.FC = () => {
                 variant="outlined"
                 size="large"
                 startIcon={<FolderIcon />}
-                onClick={() => navigate('/filebrowser')}
+                onClick={() => project && navigate(`/projects/${project.id}/files`)}
+                disabled={!project}
                 sx={{
                   borderRadius: 2,
                   px: 3,
