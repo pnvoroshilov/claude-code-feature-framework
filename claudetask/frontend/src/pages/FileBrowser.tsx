@@ -506,7 +506,7 @@ const FileBrowser: React.FC = () => {
               flexShrink: 0,
               flexGrow: 0,
               flexWrap: 'nowrap',
-              minWidth: 'fit-content',
+              minWidth: selectedFile ? 'fit-content' : '200px',
               visibility: selectedFile ? 'visible' : 'hidden',
               opacity: selectedFile ? 1 : 0,
               transition: 'opacity 0.2s ease-in-out',
