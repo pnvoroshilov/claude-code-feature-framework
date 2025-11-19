@@ -510,6 +510,7 @@ const FileBrowser: React.FC = () => {
               visibility: selectedFile ? 'visible' : 'hidden',
               opacity: selectedFile ? 1 : 0,
               transition: 'opacity 0.2s ease-in-out',
+              mr: 2,
             }}
           >
               {/* View mode toggle for Markdown files */}
