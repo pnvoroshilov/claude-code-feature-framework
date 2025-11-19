@@ -142,14 +142,52 @@ const deleteMutation = useMutation(
   }
 );
 
-// Copy mutation
+// Copy mutation with auto-generated unique names
 const copyMutation = useMutation(
-  ({ sourcePath, destPath }: { sourcePath: string; destPath: string }) =>
-    copyFileOrDirectory(projectId!, sourcePath, destPath),
+  ({ sourcePath, destinationPath }: { sourcePath: string; destinationPath: string }) =>
+    copyFileOrDirectory(projectId!, sourcePath, destinationPath),
   {
-    onSuccess: () => refetch()
+    onSuccess: () => {
+      refetch();
+      setClipboard(null);
+    }
   }
 );
+
+// Paste handler with unique name generation
+const handlePaste = () => {
+  if (!clipboard) return;
+
+  const sourcePath = clipboard.item.path;
+  const sourcePathParts = sourcePath.split('/');
+  const sourceName = sourcePathParts[sourcePathParts.length - 1];
+
+  // Generate unique name if file/folder already exists
+  let destinationName = sourceName;
+  let counter = 1;
+
+  const existingNames = browseData?.items.map(item => item.name) || [];
+
+  // Parse name and extension
+  const lastDotIndex = sourceName.lastIndexOf('.');
+  const hasExtension = lastDotIndex > 0 && clipboard.item.type === 'file';
+  const baseName = hasExtension ? sourceName.substring(0, lastDotIndex) : sourceName;
+  const extension = hasExtension ? sourceName.substring(lastDotIndex) : '';
+
+  // Find unique name (file.txt → file (1).txt → file (2).txt)
+  while (existingNames.includes(destinationName)) {
+    destinationName = hasExtension
+      ? `${baseName} (${counter})${extension}`
+      : `${baseName} (${counter})`;
+    counter++;
+  }
+
+  const destinationPath = currentPath
+    ? `${currentPath}/${destinationName}`
+    : destinationName;
+
+  copyMutation.mutate({ sourcePath, destinationPath });
+};
 ```
 
 ## API Integration
@@ -489,7 +527,7 @@ sx={{
   }}
 >
   <Link sx={{
-    maxWidth: '80px',
+    maxWidth: '200px',  // Increased from 80px for better visibility
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
@@ -669,9 +707,14 @@ const deleteMutation = useMutation(
   (path: string) => deleteFileOrDirectory(projectId!, path),
   {
     onSuccess: () => {
+      // Capture deleted path BEFORE clearing dialog (prevents null reference)
+      const deletedPath = deleteDialog.item?.path;
+
       refetch();
-      // Prevent editing deleted file
-      if (selectedFile === path) {
+      setDeleteDialog({ open: false, item: null });
+
+      // Clear selected file if it was the deleted one
+      if (selectedFile === deletedPath) {
         setSelectedFile(null);
       }
     }
@@ -696,16 +739,24 @@ setTimeout(() => setSaveError(null), 5000);
 ## Recent Changes
 
 ### Version 2.0.1 - UI/UX Refinements (2025-11-19)
+
+**Latest Update (Current):**
+- Increased breadcrumb maxWidth from 80px to 200px for significantly better visibility
+- Fixed editor panel layout to prevent full-width expansion on first file open
+- Added null check for selectedFile in Editor component to prevent TypeScript errors
+- Improved delete operation with proper null safety - captures deleted path before clearing dialog
+- Enhanced paste operations with auto-generated unique names to prevent conflicts
+
+**Previous v2.0.1 Updates:**
 - Fixed editor panel layout consistency on first file open
 - Improved header button alignment and visibility
 - Replaced conditional rendering with visibility toggles to prevent layout shifts
 - Added minimum width to button container for stable layout
 - Fixed breadcrumb overflow handling with proper truncation
 - Ensured file action buttons never wrap or disappear
-- Added null check for selectedFile in editor component
 - Improved flex layout with proper shrink/grow values
 - Fixed button alignment to right edge with margin adjustments
-- Enhanced delete operation to clear selected file automatically
+- Restructured header layout for better element alignment
 
 ### Version 2.0 - Comprehensive File Management (2025-11-18)
 - Added file and directory creation with modal dialogs

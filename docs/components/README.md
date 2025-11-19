@@ -47,19 +47,20 @@ GitHub-style file browser and code editor with comprehensive file management and
 - Markdown preview mode with GitHub-flavored markdown
 - Context menu for right-click operations
 - Copy/paste with clipboard support
-- Auto-generated unique names for paste operations
+- Auto-generated unique names for paste operations (file.txt → file (1).txt → file (2).txt)
 - Modal dialogs for file operations
 - Compact single-line header with smart visibility toggles
 - Stable layout with no button wrapping or disappearing
-- Breadcrumb navigation with overflow handling
+- Breadcrumb navigation with enhanced visibility (200px maxWidth)
+- Editor panel with consistent layout (no full-width expansion on first open)
+- Null-safe delete operations with automatic selection clearing
 - Security with path traversal protection
 - Support for 15+ programming languages
 - Unsaved changes detection
-- Auto-clear selection on file delete
 
 **Location:** `claudetask/frontend/src/pages/FileBrowser.tsx`
 
-**Status:** Active, Production Ready (v2.0.1)
+**Status:** Active, Production Ready (v2.0.1 - Latest UI/UX Refinements)
 
 ### Framework Management
 

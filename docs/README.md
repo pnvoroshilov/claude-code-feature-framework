@@ -147,13 +147,16 @@ To manually trigger documentation update:
 
 **Latest Changes (2025-11-19):**
 - ✅ **FileBrowser v2.0.1**: UI/UX refinements and layout stability improvements
-  - Fixed editor panel layout consistency on first file open
+  - Increased breadcrumb maxWidth from 80px to 200px for significantly better visibility
+  - Fixed editor panel layout to prevent full-width expansion on first file open
+  - Added null check for selectedFile in Editor component to prevent TypeScript errors
+  - Improved delete operation with proper null safety (captures deleted path before clearing dialog)
+  - Enhanced paste operations with auto-generated unique names to prevent file conflicts
   - Improved header button alignment and visibility
   - Replaced conditional rendering with visibility toggles to prevent layout shifts
   - Added minimum width to button container for stable layout
   - Fixed breadcrumb overflow handling with proper truncation
   - Ensured file action buttons never wrap or disappear
-  - Enhanced delete operation to auto-clear selected file
   - Added comprehensive layout documentation with best practices
 
 **Previous Changes (2025-11-18):**
