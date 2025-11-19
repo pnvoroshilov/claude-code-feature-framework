@@ -769,34 +769,38 @@ const FileBrowser: React.FC = () => {
         </Box>
 
         {/* Editor/Preview - Only visible when file is selected */}
-        {selectedFile && (
-          <Box sx={{ flex: 1, overflow: 'hidden', backgroundColor: theme.palette.background.paper }}>
-            {isLoadingFile ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                <CircularProgress />
-              </Box>
-            ) : (
-              <>
-                {/* Monaco Editor - Show in edit mode or for non-markdown files */}
-                {(viewMode === 'edit' || !isMarkdownFile(selectedFile)) && (
-                  <Editor
-                    height="100%"
-                    language={getLanguage(selectedFile)}
-                    value={fileContent}
-                    onChange={handleEditorChange}
-                    theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
-                    options={{
-                      minimap: { enabled: true },
-                      fontSize: 14,
-                      lineNumbers: 'on',
-                      scrollBeyondLastLine: false,
-                      automaticLayout: true,
-                      tabSize: 2,
-                      wordWrap: 'on',
-                    }}
-                    loading={<CircularProgress />}
-                  />
-                )}
+        <Box sx={{
+          flex: 1,
+          overflow: 'hidden',
+          backgroundColor: theme.palette.background.paper,
+          display: selectedFile ? 'flex' : 'none',
+        }}>
+          {isLoadingFile ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <>
+              {/* Monaco Editor - Show in edit mode or for non-markdown files */}
+              {(viewMode === 'edit' || !isMarkdownFile(selectedFile)) && (
+                <Editor
+                  height="100%"
+                  language={getLanguage(selectedFile)}
+                  value={fileContent}
+                  onChange={handleEditorChange}
+                  theme={theme.palette.mode === 'dark' ? 'vs-dark' : 'light'}
+                  options={{
+                    minimap: { enabled: true },
+                    fontSize: 14,
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    tabSize: 2,
+                    wordWrap: 'on',
+                  }}
+                  loading={<CircularProgress />}
+                />
+              )}
 
                 {/* Markdown Preview - Show only for markdown files in preview mode */}
                 {viewMode === 'preview' && isMarkdownFile(selectedFile) && (
@@ -958,8 +962,7 @@ const FileBrowser: React.FC = () => {
                 )}
               </>
             )}
-          </Box>
-        )}
+        </Box>
       </Box>
 
       {/* Context Menu */}
