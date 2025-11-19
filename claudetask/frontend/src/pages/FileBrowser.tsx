@@ -416,7 +416,7 @@ const FileBrowser: React.FC = () => {
           spacing={1}
           sx={{
             flexWrap: 'nowrap',
-            overflow: 'hidden',
+            width: '100%',
           }}
         >
           {/* Left: Back button + Project name */}
@@ -456,6 +456,7 @@ const FileBrowser: React.FC = () => {
               flexGrow: 1,
               flexShrink: 1,
               minWidth: 0,
+              maxWidth: '60%',
               overflow: 'hidden',
               ml: 1,
             }}
