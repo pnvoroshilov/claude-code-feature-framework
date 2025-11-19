@@ -419,8 +419,10 @@ const FileBrowser: React.FC = () => {
             width: '100%',
           }}
         >
-          {/* Left: Back button + Project name */}
-          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexShrink: 0 }}>
+          {/* Left: Back button + Project name + Breadcrumbs */}
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ flexGrow: 1, minWidth: 0, overflow: 'hidden' }}>
+            {/* Back button + Project name */}
+            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ flexShrink: 0 }}>
             <IconButton
               onClick={() => navigate('/projects')}
               size="small"
@@ -448,53 +450,52 @@ const FileBrowser: React.FC = () => {
             >
               {browseData?.project_name || 'File Browser'}
             </Typography>
-          </Stack>
+            </Stack>
 
-          {/* Middle: Breadcrumbs */}
-          <Box
-            sx={{
-              flexShrink: 1,
-              minWidth: 0,
-              maxWidth: '60%',
-              overflow: 'hidden',
-              ml: 1,
-            }}
-          >
-            <Breadcrumbs
-              separator={<NavigateNextIcon fontSize="small" />}
+            {/* Breadcrumbs */}
+            <Box
               sx={{
-                '& .MuiBreadcrumbs-ol': {
-                  flexWrap: 'nowrap',
-                }
+                flexShrink: 1,
+                minWidth: 0,
+                overflow: 'hidden',
               }}
             >
-              {browseData?.breadcrumbs.map((crumb, index) => (
-                <Link
-                  key={index}
-                  component="button"
-                  variant="body2"
-                  onClick={() => handleNavigate(crumb.path)}
-                  sx={{
-                    color: theme.palette.text.secondary,
-                    textDecoration: 'none',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    maxWidth: '80px',
-                    '&:hover': {
-                      color: theme.palette.primary.main,
-                      textDecoration: 'underline',
-                    }
-                  }}
-                >
-                  {index === 0 ? <HomeIcon sx={{ fontSize: 12, mr: 0.3, verticalAlign: 'middle' }} /> : null}
-                  {crumb.name}
-                </Link>
-              ))}
-            </Breadcrumbs>
-          </Box>
+              <Breadcrumbs
+                separator={<NavigateNextIcon fontSize="small" />}
+                sx={{
+                  '& .MuiBreadcrumbs-ol': {
+                    flexWrap: 'nowrap',
+                  }
+                }}
+              >
+                {browseData?.breadcrumbs.map((crumb, index) => (
+                  <Link
+                    key={index}
+                    component="button"
+                    variant="body2"
+                    onClick={() => handleNavigate(crumb.path)}
+                    sx={{
+                      color: theme.palette.text.secondary,
+                      textDecoration: 'none',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      maxWidth: '80px',
+                      '&:hover': {
+                        color: theme.palette.primary.main,
+                        textDecoration: 'underline',
+                      }
+                    }}
+                  >
+                    {index === 0 ? <HomeIcon sx={{ fontSize: 12, mr: 0.3, verticalAlign: 'middle' }} /> : null}
+                    {crumb.name}
+                  </Link>
+                ))}
+              </Breadcrumbs>
+            </Box>
+          </Stack>
 
           {/* Right: File actions (only when file is open) */}
           {selectedFile && (
@@ -505,8 +506,6 @@ const FileBrowser: React.FC = () => {
               sx={{
                 flexShrink: 0,
                 flexGrow: 0,
-                ml: 'auto',
-                mr: 0,
                 flexWrap: 'nowrap',
                 minWidth: 'fit-content',
               }}
