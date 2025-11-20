@@ -342,8 +342,8 @@ New documentation is automatically created when:
 - Components documented: 7 (FileBrowser, RealTerminal, ClaudeSessions, etc.)
 - Hooks documented: 8 framework hooks (including inject-docs-update)
 - Skills documented: 2 (TOON Format, UseCase Writer)
-- Database migrations documented: 6 complete migrations
-- Last full update: 2025-11-20 20:15
+- Database migrations documented: 7 complete migrations (including hook sync)
+- Last full update: 2025-11-20 22:30
 - Auto-update status: Active and operational
 
 ---

@@ -10,18 +10,22 @@ ClaudeTask uses SQLite database migrations to evolve the schema over time. All m
 
 ```
 claudetask/backend/migrations/
-├── README.md                           # Migration documentation
-├── 001_initial_schema.sql              # SQL: Initial tables
-├── 002_add_skills_subagents.sql        # SQL: Skills and subagents
-├── 003_add_hooks_tables.sql            # SQL: Hooks support
-├── 004_add_script_file_to_hooks.sql    # SQL: Hook script files
-├── 005_add_worktree_enabled.sql        # SQL: Worktree toggle support
-├── 006_add_cascade_delete.sql          # SQL: CASCADE DELETE constraints
-├── migrate_add_hooks_tables.py         # Python: Run migrations 001-003
-├── migrate_add_script_file_to_hooks.py # Python: Run migration 004
-├── migrate_add_worktree_enabled.py     # Python: Run migration 005
-├── migrate_add_cascade_delete.py       # Python: Run migration 006
-└── update_post_merge_hook.py           # Python: Update hook configuration
+├── README.md                              # Migration documentation
+├── README_HOOK_SYNC.md                    # Hook synchronization workflow guide
+├── 001_initial_schema.sql                 # SQL: Initial tables
+├── 002_add_skills_subagents.sql           # SQL: Skills and subagents
+├── 003_add_hooks_tables.sql               # SQL: Hooks support
+├── 004_add_script_file_to_hooks.sql       # SQL: Hook script files
+├── 005_add_worktree_enabled.sql           # SQL: Worktree toggle support
+├── 006_add_cascade_delete.sql             # SQL: CASCADE DELETE constraints
+├── 007_fix_post_merge_hook_config.sql     # SQL: Hook config sync
+├── migrate_add_hooks_tables.py            # Python: Run migrations 001-003
+├── migrate_add_script_file_to_hooks.py    # Python: Run migration 004
+├── migrate_add_worktree_enabled.py        # Python: Run migration 005
+├── migrate_add_cascade_delete.py          # Python: Run migration 006
+├── migrate_fix_post_merge_hook_config.py  # Python: Run migration 007
+├── resync_all_hooks_from_json.py          # Python: Universal hook sync tool
+└── rebuild_project_hooks_settings.py      # Python: Rebuild project settings
 ```
 
 ## Migration History
@@ -218,7 +222,7 @@ await task_websocket_manager.broadcast_message({
 - Provides flexibility while maintaining DEVELOPMENT mode workflow
 - Allows gradual adoption of worktree workflow
 
-### 006: Add CASCADE DELETE to Foreign Keys ⭐ LATEST
+### 006: Add CASCADE DELETE to Foreign Keys
 
 **Created:** 2025-11-20
 **Purpose:** Fix project deletion to properly cascade delete all related records
@@ -301,6 +305,96 @@ SELECT COUNT(*) FROM agents WHERE project_id = 'test-project';    -- Should be 0
 
 Related improvement: Increased project initialization timeout from 10s to 30s to accommodate the directory trust initialization step, which launches a Claude session and waits for user acceptance of the trust prompt.
 
+### 007: Fix Post-Merge Hook Configuration ⭐ LATEST
+
+**Created:** 2025-11-20
+**Purpose:** Fix Post-Merge Documentation hook to use script reference instead of inline command
+
+**Changes:**
+Updates the `hook_config` JSON in `default_hooks` table for the Post-Merge Documentation Update hook.
+
+**Before (v1.0.0 - Inline Command):**
+```json
+{
+  "PostToolUse": [{
+    "matcher": "Bash",
+    "hooks": [{
+      "type": "command",
+      "command": "LOGFILE=\".claude/logs/hooks/post-merge-doc-$(date +%Y%m%d).log\"; mkdir -p .claude/logs/hooks; echo \"[$(date)] Hook triggered\" >> \"$LOGFILE\"; ..."
+    }]
+  }]
+}
+```
+
+**After (v2.0.0 - Script Reference):**
+```json
+{
+  "PostToolUse": [{
+    "matcher": "Bash",
+    "hooks": [{
+      "type": "command",
+      "command": ".claude/hooks/post-push-docs.sh"
+    }]
+  }]
+}
+```
+
+**Key Features:**
+- Updates database hook configuration to reference external script
+- Ensures consistency between database and JSON source files
+- Enables cleaner hook configuration management
+- Supports framework hook synchronization tools
+
+**Root Cause:**
+- Database was seeded with old version of hook JSON files containing inline commands
+- JSON files in `framework-assets/claude-hooks/` were updated with script references
+- Database hooks were not re-synced, causing mismatch
+- When users enabled hooks via UI, they got old inline format from database
+
+**Migration Process:**
+```python
+correct_hook_config = {
+    "PostToolUse": [{
+        "matcher": "Bash",
+        "hooks": [{
+            "type": "command",
+            "command": ".claude/hooks/post-push-docs.sh"
+        }]
+    }]
+}
+
+cursor.execute("""
+    UPDATE default_hooks
+    SET hook_config = ?
+    WHERE name = 'Post-Merge Documentation Update'
+""", (json.dumps(correct_hook_config),))
+```
+
+**Why This Change:**
+- **Problem:** Projects showing hooks with inline bash commands in `.claude/settings.json`
+- **Issue:** Database contained old format, JSON files had new format
+- **Impact:** Users enabling hooks got outdated inline format
+- **Solution:** Update database to match current JSON source files
+- **Benefit:** Consistent hook format across all projects
+
+**Related Tools:**
+- `resync_all_hooks_from_json.py` - Universal hook synchronization from JSON files
+- `rebuild_project_hooks_settings.py` - Rebuild project settings from updated database
+- See `migrations/README_HOOK_SYNC.md` for complete workflow
+
+**Verification:**
+```bash
+# Check database hook config
+sqlite3 data/claudetask.db "SELECT hook_config FROM default_hooks WHERE name = 'Post-Merge Documentation Update';"
+
+# Should show: {"PostToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":".claude/hooks/post-push-docs.sh"}]}]}
+
+# Check project settings
+cat /path/to/project/.claude/settings.json | jq '.hooks.PostToolUse[0].hooks[0].command'
+
+# Should show: ".claude/hooks/post-push-docs.sh"
+```
+
 ## Running Migrations
 
 ### Fresh Database Installation
@@ -323,17 +417,33 @@ python claudetask/backend/migrations/migrate_add_worktree_enabled.py
 # Run migration 006 (CASCADE DELETE support)
 python claudetask/backend/migrations/migrate_add_cascade_delete.py
 
-# Update Post-Merge Documentation hook to v2.0.0
-python claudetask/backend/migrations/update_post_merge_hook.py
+# Run migration 007 (Fix post-merge hook config)
+python claudetask/backend/migrations/migrate_fix_post_merge_hook_config.py
+
+# Alternative: Resync all hooks from JSON (recommended)
+python claudetask/backend/migrations/resync_all_hooks_from_json.py
 ```
 
 ### Incremental Migration (Existing Database)
+
+If you already have a database with migrations 001-006:
+
+```bash
+# Fix post-merge hook configuration
+python claudetask/backend/migrations/migrate_fix_post_merge_hook_config.py
+
+# Or resync all hooks from JSON source (recommended)
+python claudetask/backend/migrations/resync_all_hooks_from_json.py
+```
 
 If you already have a database with migrations 001-005:
 
 ```bash
 # Add CASCADE DELETE to foreign keys
 python claudetask/backend/migrations/migrate_add_cascade_delete.py
+
+# Fix post-merge hook configuration
+python claudetask/backend/migrations/migrate_fix_post_merge_hook_config.py
 ```
 
 If you already have a database with migrations 001-004:
@@ -358,8 +468,8 @@ python claudetask/backend/migrations/migrate_add_worktree_enabled.py
 # Add CASCADE DELETE to foreign keys
 python claudetask/backend/migrations/migrate_add_cascade_delete.py
 
-# Update Post-Merge hook configuration
-python claudetask/backend/migrations/update_post_merge_hook.py
+# Fix post-merge hook configuration
+python claudetask/backend/migrations/migrate_fix_post_merge_hook_config.py
 ```
 
 ### Migration 005 Only
@@ -395,6 +505,40 @@ This script:
 - Migration may take 1-2 minutes for large databases
 - All data is preserved during table recreation
 - Orphaned records are automatically cleaned up
+
+### Migration 007 Only
+
+For databases that need hook configuration sync:
+
+```bash
+# Option 1: Fix only Post-Merge hook (specific fix)
+python claudetask/backend/migrations/migrate_fix_post_merge_hook_config.py
+
+# Option 2: Resync all hooks from JSON source (recommended)
+python claudetask/backend/migrations/resync_all_hooks_from_json.py
+```
+
+**migrate_fix_post_merge_hook_config.py:**
+- Updates only the Post-Merge Documentation Update hook
+- Changes inline command to script reference
+- Idempotent and safe to re-run
+
+**resync_all_hooks_from_json.py** (Recommended):
+- Reads ALL hook JSON files from `framework-assets/claude-hooks/`
+- Updates ALL hooks in database with current JSON data
+- Syncs: hook_config, script_file, description, setup_instructions, dependencies
+- Ensures database matches JSON source files
+- Use after updating any hook JSON file
+
+After re-syncing hooks in database, update affected projects:
+
+```bash
+# Rebuild .claude/settings.json for a specific project
+python claudetask/backend/migrations/rebuild_project_hooks_settings.py <project_id>
+
+# Find project IDs
+sqlite3 data/claudetask.db "SELECT id, name FROM projects;"
+```
 
 ### Migration 004 Only
 
@@ -477,29 +621,127 @@ def migrate():
     print("\n✓ Migration 004 complete")
 ```
 
-### update_post_merge_hook.py
+### migrate_fix_post_merge_hook_config.py
 
-Updates Post-Merge Documentation hook to v2.0.0:
+Migration 007: Fix Post-Merge hook configuration to use script reference:
 
 ```python
-def update_hook():
-    """Update Post-Merge hook with script_file reference"""
+def fix_hook_config():
+    """Update Post-Merge Documentation hook_config to use script reference"""
     conn = get_db_connection()
 
-    # Update hook configuration
-    conn.execute("""
+    correct_hook_config = {
+        "PostToolUse": [{
+            "matcher": "Bash",
+            "hooks": [{
+                "type": "command",
+                "command": ".claude/hooks/post-push-docs.sh"
+            }]
+        }]
+    }
+
+    # Update the hook_config JSON
+    cursor.execute("""
         UPDATE default_hooks
-        SET
-            script_file = 'post-push-docs.sh',
-            version = '2.0.0',
-            description = 'Automatically updates project documentation after merging to main branch (with URL encoding for paths with spaces)',
-            updated_at = CURRENT_TIMESTAMP
+        SET hook_config = ?
         WHERE name = 'Post-Merge Documentation Update'
-    """)
+    """, (json.dumps(correct_hook_config),))
 
     conn.commit()
-    print("✓ Updated Post-Merge hook to v2.0.0")
+    print("✓ Post-Merge Documentation Update hook_config fixed")
 ```
+
+**Key Features:**
+- Updates database hook_config to match JSON source files
+- Changes from inline bash command to script reference
+- Ensures consistency across framework
+
+### resync_all_hooks_from_json.py
+
+Universal hook synchronization tool (recommended for hook updates):
+
+```python
+def resync_hooks():
+    """Resync all hooks from JSON files in framework-assets"""
+    conn = get_db_connection()
+    hooks_dir = "framework-assets/claude-hooks"
+
+    for json_file in os.listdir(hooks_dir):
+        if not json_file.endswith(".json"):
+            continue
+
+        # Read JSON hook definition
+        with open(os.path.join(hooks_dir, json_file), "r") as f:
+            hook_data = json.load(f)
+
+        # Update or insert hook in database
+        conn.execute("""
+            UPDATE default_hooks
+            SET
+                hook_config = ?,
+                script_file = ?,
+                description = ?,
+                setup_instructions = ?,
+                dependencies = ?
+            WHERE file_name = ?
+        """, (
+            json.dumps(hook_data["hook_config"]),
+            hook_data.get("script_file"),
+            hook_data["description"],
+            hook_data.get("setup_instructions"),
+            json.dumps(hook_data.get("dependencies", [])),
+            json_file
+        ))
+
+    conn.commit()
+    print(f"✓ Resynced {len(hooks)} hooks from JSON source")
+```
+
+**When to Use:**
+- After updating any hook JSON file in framework-assets
+- To ensure database matches current hook definitions
+- After framework updates with new hook versions
+- Periodic maintenance to keep hooks synchronized
+
+### rebuild_project_hooks_settings.py
+
+Rebuild project settings.json from database hooks:
+
+```python
+def rebuild_settings(project_id: str):
+    """Rebuild .claude/settings.json from enabled hooks in database"""
+    conn = get_db_connection()
+
+    # Get project path
+    project = conn.execute(
+        "SELECT path FROM projects WHERE id = ?",
+        (project_id,)
+    ).fetchone()
+
+    # Get all enabled hooks for project
+    enabled_hooks = conn.execute("""
+        SELECT h.hook_config
+        FROM project_hooks ph
+        JOIN default_hooks h ON ph.hook_id = h.id
+        WHERE ph.project_id = ? AND ph.hook_type = 'default'
+    """, (project_id,)).fetchall()
+
+    # Merge all hook configs into settings.json
+    merged_config = merge_hook_configs([h[0] for h in enabled_hooks])
+
+    # Write to .claude/settings.json
+    settings_file = os.path.join(project_path, ".claude/settings.json")
+    with open(settings_file, "w") as f:
+        json.dump({"hooks": merged_config}, f, indent=2)
+
+    print(f"✓ Rebuilt settings.json for project {project_id}")
+```
+
+**When to Use:**
+- After running resync_all_hooks_from_json.py
+- When project has wrong hook format in settings.json
+- After manually editing database hooks
+- To propagate hook updates to existing projects
 
 ## Hook Script File Workflow
 
@@ -796,6 +1038,8 @@ When adding new migrations:
 
 ## See Also
 
-- [Hooks System Architecture](../architecture/hooks-system.md)
-- [Database Models](../../claudetask/backend/app/models.py)
-- [Migration README](../../claudetask/backend/migrations/README.md)
+- [Hooks System Architecture](../architecture/hooks-system.md) - Complete hooks system documentation
+- [Hook Synchronization Guide](../../claudetask/backend/migrations/README_HOOK_SYNC.md) - Hook config sync workflow
+- [Framework Updates](../architecture/framework-updates.md) - Framework file synchronization
+- [Database Models](../../claudetask/backend/app/models.py) - SQLAlchemy model definitions
+- [Migration README](../../claudetask/backend/migrations/README.md) - Migration overview
