@@ -168,10 +168,8 @@ class FrameworkUpdateService:
 
                 for hook_file in os.listdir(hooks_source_dir):
                     if hook_file.endswith(".json"):
+                        # Don't copy JSON config files - only read them to generate settings.json
                         source_file = os.path.join(hooks_source_dir, hook_file)
-                        dest_file = os.path.join(hooks_dir, hook_file)
-                        shutil.copy2(source_file, dest_file)
-                        updated_files.append(f".claude/hooks/{hook_file}")
 
                         # Read hook config for settings.json
                         try:

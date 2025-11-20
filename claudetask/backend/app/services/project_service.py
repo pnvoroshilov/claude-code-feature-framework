@@ -659,12 +659,8 @@ build/
         if os.path.exists(hooks_source_dir):
             for hook_file in os.listdir(hooks_source_dir):
                 if hook_file.endswith(".json"):
+                    # Don't copy JSON config files - only read them to generate settings.json
                     source_file = os.path.join(hooks_source_dir, hook_file)
-                    dest_file = os.path.join(hooks_dir, hook_file)
-                    with open(source_file, "r") as src:
-                        with open(dest_file, "w") as dst:
-                            dst.write(src.read())
-                    files_created.append(f".claude/hooks/{hook_file}")
 
                     # Read hook config for settings.json
                     try:
