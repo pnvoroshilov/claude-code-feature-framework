@@ -7,6 +7,9 @@ This directory contains auto-generated and maintained documentation for the Clau
 ### `/api/`
 API documentation including OpenAPI specifications and endpoint details.
 
+**Core Documentation:**
+- `mcp-tools.md` - Complete MCP tool reference with usage patterns and examples
+
 **Endpoints:**
 - `endpoints/claude-sessions.md` - Claude Code session management and hook integration API
 - `endpoints/file-browser.md` - File browser API with comprehensive file management (v2.0)
@@ -129,10 +132,11 @@ To manually trigger documentation update:
 
 1. `architecture/overview.md` - Understand the system architecture
 2. `deployment/database-migrations.md` - Database schema evolution and migration history
-3. `architecture/hooks-system.md` - Hooks system and automation workflow
-4. `api/endpoints/claude-sessions.md` - Claude session management API
-5. `components/README.md` - UI component architecture
-6. `components/ClaudeSessions.md` - Session management interface
+3. `api/mcp-tools.md` - MCP tool reference and usage patterns
+4. `architecture/hooks-system.md` - Hooks system and automation workflow
+5. `api/endpoints/claude-sessions.md` - Claude session management API
+6. `components/README.md` - UI component architecture
+7. `components/ClaudeSessions.md` - Session management interface
 
 ## Technology Stack
 
@@ -155,6 +159,22 @@ To manually trigger documentation update:
 ## Recent Updates
 
 **Latest Changes (2025-11-20):**
+- ✅ **Database Migration 006**: CASCADE DELETE constraints for project deletion
+  - Automatic cascade deletion of all related records
+  - Orphaned record cleanup during migration
+  - Safer and simpler project deletion
+- ✅ **Database Migration 005**: Worktree toggle support
+  - Per-project worktree enable/disable
+  - Dynamic CLAUDE.md generation based on setting
+  - UI toggle in ProjectModeToggle component
+- ✅ **MCP get_project_settings Tool**: Dynamic project configuration access
+  - Read project mode (simple vs development)
+  - Check worktree_enabled status
+  - Access custom instructions dynamically
+  - Single source of truth in database
+- ✅ **Project Initialization**: Increased timeout to 30 seconds
+  - Accommodates directory trust initialization
+  - Better handling of Claude session startup
 - ✅ **RealTerminal v2.1**: WebSocket buffering and smart scroll management
   - User scroll detection prevents auto-scroll interruption
   - Buffered output writes reduce scroll jumping
@@ -293,10 +313,12 @@ New documentation is automatically created when:
 - [ ] Performance optimization guides
 
 **Documentation Metrics:**
-- Total files: 22 active, 3 archived
+- Total files: 23 active, 3 archived
 - API endpoints documented: 4 (including 8 total endpoints)
+- MCP tools documented: 15+ tools with complete reference
 - Components documented: 7 (added RealTerminal v2.1)
 - Skills documented: 2 (TOON Format, UseCase Writer)
+- Database migrations documented: 6 complete migrations
 - Last full update: 2025-11-20
 - Auto-update status: Active and operational
 

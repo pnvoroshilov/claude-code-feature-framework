@@ -16,9 +16,11 @@ claudetask/backend/migrations/
 ├── 003_add_hooks_tables.sql            # SQL: Hooks support
 ├── 004_add_script_file_to_hooks.sql    # SQL: Hook script files
 ├── 005_add_worktree_enabled.sql        # SQL: Worktree toggle support
+├── 006_add_cascade_delete.sql          # SQL: CASCADE DELETE constraints
 ├── migrate_add_hooks_tables.py         # Python: Run migrations 001-003
 ├── migrate_add_script_file_to_hooks.py # Python: Run migration 004
 ├── migrate_add_worktree_enabled.py     # Python: Run migration 005
+├── migrate_add_cascade_delete.py       # Python: Run migration 006
 └── update_post_merge_hook.py           # Python: Update hook configuration
 ```
 
@@ -146,7 +148,7 @@ ALTER TABLE custom_hooks ADD COLUMN script_file VARCHAR(100);
 - Version control for script changes
 - Easier testing and debugging
 
-### 005: Add worktree_enabled to ProjectSettings ⭐ LATEST
+### 005: Add worktree_enabled to ProjectSettings
 
 **Created:** 2025-11-20
 **Purpose:** Enable/disable Git worktrees per project in DEVELOPMENT mode
@@ -216,6 +218,89 @@ await task_websocket_manager.broadcast_message({
 - Provides flexibility while maintaining DEVELOPMENT mode workflow
 - Allows gradual adoption of worktree workflow
 
+### 006: Add CASCADE DELETE to Foreign Keys ⭐ LATEST
+
+**Created:** 2025-11-20
+**Purpose:** Fix project deletion to properly cascade delete all related records
+
+**Changes:**
+Recreate all tables with foreign keys referencing `projects.id` to include `ON DELETE CASCADE`:
+
+**Affected Tables:**
+- `tasks` - Task records
+- `agents` - Agent configurations
+- `project_settings` - Project-specific settings
+- `custom_skills` - Project custom skills
+- `custom_subagents` - Project custom subagents
+- `project_skills` - Project-skill junction
+- `project_mcp_configs` - Project MCP config junction
+- `custom_mcp_configs` - Custom MCP configurations
+- `custom_hooks` - Custom hook definitions
+- `project_hooks` - Project-hook junction
+- `project_subagents` - Project-subagent junction
+- `claude_sessions` - Claude Code session records
+
+**Key Features:**
+- Automatic cascade deletion of all related records when project is deleted
+- Orphaned record cleanup during migration
+- No manual cleanup required in application code
+- Referential integrity maintained
+
+**Migration Process:**
+1. Disable foreign key constraints temporarily
+2. Clean up existing orphaned records
+3. For each table with project_id FK:
+   - Backup data to temporary table
+   - Drop original table
+   - Recreate table with CASCADE DELETE
+   - Restore data from backup
+   - Drop temporary table
+4. Re-enable foreign key constraints
+5. Verify CASCADE DELETE works
+
+**Before Migration:**
+```sql
+-- Manual cleanup required in application code
+DELETE FROM tasks WHERE project_id = ?;
+DELETE FROM agents WHERE project_id = ?;
+DELETE FROM project_settings WHERE project_id = ?;
+-- ... 9 more manual deletes ...
+DELETE FROM projects WHERE id = ?;
+```
+
+**After Migration:**
+```sql
+-- Single delete cascades to all related records
+DELETE FROM projects WHERE id = ?;
+-- All related records automatically deleted!
+```
+
+**Why This Change:**
+- **Problem:** Deleting a project required manual cleanup of 12+ related tables
+- **Risk:** Orphaned records if any delete fails
+- **Complexity:** Application code had to manage cascade logic
+- **Solution:** Database-level CASCADE DELETE ensures automatic cleanup
+- **Benefit:** Safer, simpler, more reliable project deletion
+
+**Testing Verification:**
+```sql
+-- Create test project with related records
+INSERT INTO projects (id, name, path) VALUES ('test-project', 'Test', '/path');
+INSERT INTO tasks (id, project_id, title) VALUES (1, 'test-project', 'Task 1');
+INSERT INTO agents (id, project_id, name) VALUES (1, 'test-project', 'Agent 1');
+
+-- Delete project (should cascade)
+DELETE FROM projects WHERE id = 'test-project';
+
+-- Verify cascade worked
+SELECT COUNT(*) FROM tasks WHERE project_id = 'test-project';     -- Should be 0
+SELECT COUNT(*) FROM agents WHERE project_id = 'test-project';    -- Should be 0
+```
+
+**Project Initialization Timeout:**
+
+Related improvement: Increased project initialization timeout from 10s to 30s to accommodate the directory trust initialization step, which launches a Claude session and waits for user acceptance of the trust prompt.
+
 ## Running Migrations
 
 ### Fresh Database Installation
@@ -235,17 +320,30 @@ python claudetask/backend/migrations/migrate_add_script_file_to_hooks.py
 # Run migration 005 (worktree_enabled support)
 python claudetask/backend/migrations/migrate_add_worktree_enabled.py
 
+# Run migration 006 (CASCADE DELETE support)
+python claudetask/backend/migrations/migrate_add_cascade_delete.py
+
 # Update Post-Merge Documentation hook to v2.0.0
 python claudetask/backend/migrations/update_post_merge_hook.py
 ```
 
 ### Incremental Migration (Existing Database)
 
+If you already have a database with migrations 001-005:
+
+```bash
+# Add CASCADE DELETE to foreign keys
+python claudetask/backend/migrations/migrate_add_cascade_delete.py
+```
+
 If you already have a database with migrations 001-004:
 
 ```bash
 # Add worktree_enabled column to project_settings
 python claudetask/backend/migrations/migrate_add_worktree_enabled.py
+
+# Add CASCADE DELETE to foreign keys
+python claudetask/backend/migrations/migrate_add_cascade_delete.py
 ```
 
 If you have a database with migrations 001-003:
@@ -256,6 +354,9 @@ python claudetask/backend/migrations/migrate_add_script_file_to_hooks.py
 
 # Add worktree_enabled column to project_settings
 python claudetask/backend/migrations/migrate_add_worktree_enabled.py
+
+# Add CASCADE DELETE to foreign keys
+python claudetask/backend/migrations/migrate_add_cascade_delete.py
 
 # Update Post-Merge hook configuration
 python claudetask/backend/migrations/update_post_merge_hook.py
@@ -273,6 +374,27 @@ This script:
 1. Adds `worktree_enabled BOOLEAN DEFAULT 1 NOT NULL` to `project_settings` table
 2. Updates existing records to set `worktree_enabled = 1` (enabled by default)
 3. Handles "duplicate column" errors gracefully (idempotent)
+
+### Migration 006 Only
+
+For databases that need CASCADE DELETE constraints:
+
+```bash
+python claudetask/backend/migrations/migrate_add_cascade_delete.py
+```
+
+This script:
+1. Creates backup of all tables with project_id foreign keys
+2. Recreates tables with `ON DELETE CASCADE` constraint
+3. Restores all data from backups
+4. Cleans up orphaned records (records referencing non-existent projects)
+5. Verifies CASCADE DELETE functionality
+
+**Important Notes:**
+- This migration recreates multiple tables - backup your database first!
+- Migration may take 1-2 minutes for large databases
+- All data is preserved during table recreation
+- Orphaned records are automatically cleaned up
 
 ### Migration 004 Only
 
