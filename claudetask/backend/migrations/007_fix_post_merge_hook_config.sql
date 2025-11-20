@@ -1,0 +1,17 @@
+-- Fix Post-Merge Documentation hook_config to use script reference instead of inline command
+-- This updates the hook_config JSON to use ".claude/hooks/post-push-docs.sh" instead of inline bash
+
+-- The hook_config should be:
+-- {
+--   "PostToolUse": [
+--     {
+--       "matcher": "Bash",
+--       "hooks": [
+--         {
+--           "type": "command",
+--           "command": ".claude/hooks/post-push-docs.sh"
+--         }
+--       ]
+--     }
+--   ]
+-- }
