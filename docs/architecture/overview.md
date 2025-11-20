@@ -424,4 +424,170 @@ The framework is designed for extensibility:
 
 ---
 
-Last updated: 2025-11-20
+## Intelligent Development Workflow (2025-11-21)
+
+The framework now implements a complete intelligent development workflow that guides tasks from inception through deployment using specialized agents and automation.
+
+### Workflow Phases
+
+**7-Phase DEVELOPMENT Mode Workflow**:
+1. **Backlog**: Task creation and prioritization
+2. **Analysis**: Automated requirements and architecture documentation by specialized agents
+3. **In Progress**: Development in isolated git worktrees with automatic context injection
+4. **Testing**: Manual testing with automated test environment setup
+5. **Code Review**: Peer review of task-specific changes only
+6. **Pull Request**: PR creation with comprehensive documentation linking
+7. **Done**: Merge and automatic resource cleanup
+
+### Key Components
+
+#### Slash Commands
+Quick workflow automation commands for triggering agents and managing workflow:
+- `/start-feature [task-id]`: Start analysis phase with requirements-writer and system-architect agents
+- `/start-develop [task-id]`: Begin implementation after analysis complete
+- `/test [task-id]`: Setup test environment (backend + frontend servers) for manual testing
+- `/PR [task-id]`: Create pull request with complete documentation (requirements, architecture, tests)
+- `/merge [task-id]`: Merge PR and cleanup all resources (sessions, processes, ports)
+
+#### Specialized Agents
+
+**Analysis Agents** (automated during `/start-feature`):
+- `requirements-writer`: Creates `Analyse/requirements.md` with:
+  - User stories and acceptance criteria
+  - Business and functional requirements
+  - Non-functional requirements (performance, security)
+  - Constraints and success metrics
+
+- `system-architect`: Creates `Analyse/architecture.md` with:
+  - System component design
+  - Technical implementation approach
+  - Integration points and data flow
+  - Implementation steps and technology stack
+  - Security and performance considerations
+
+**Implementation Agents** (used during development):
+- `frontend-developer`: React/TypeScript UI development
+- `backend-architect`: FastAPI/Python backend development
+- `mobile-react-expert`: Mobile-responsive React components
+- `python-api-expert`: API endpoint and service creation
+- `devops-engineer`: Deployment and infrastructure
+
+**Review and Merge Agents**:
+- `fullstack-code-reviewer`: Code quality, security, and architecture validation
+- `pr-merge-agent`: PR creation, documentation gathering, and merge coordination
+
+#### Git Worktree Management
+
+**Purpose**: Isolated development environments per task (optional in DEVELOPMENT mode)
+
+**Structure**:
+```
+worktrees/
+├── task-1/
+│   ├── Analyse/           # Analysis documentation
+│   │   ├── README.md      # Workflow instructions
+│   │   ├── requirements.md  # Business requirements
+│   │   └── architecture.md  # Technical design
+│   ├── Tests/             # Testing documentation
+│   │   ├── README.md      # Test instructions
+│   │   └── test-plan.md   # Test results
+│   └── [source code]      # Implementation files
+└── task-2/
+    └── ...
+```
+
+**Worktree Features**:
+- Automatic main branch sync before creation
+- Sync with latest main during development
+- Task-specific folders (Analyse/, Tests/) with README templates
+- Feature branch per task: `feature/task-{id}`
+- Clean isolation between parallel tasks
+
+#### Automatic Context Injection
+
+**Enhanced MCP `start_claude_session` (v2.0)**:
+- Automatically reads `requirements.md` and `architecture.md` from task worktree
+- Injects analysis documents into Claude session context
+- Provides complete task understanding to implementation agents
+- Context format:
+  ```
+  Task #42: [Task Title]
+
+  Requirements (from requirements.md):
+  [Business requirements and acceptance criteria]
+
+  Architecture (from architecture.md):
+  [Technical approach and implementation plan]
+
+  Your role: Implement this feature following the requirements and architecture.
+  ```
+
+### Workflow Automation
+
+#### Auto-Transitions
+Tasks automatically progress through certain phases:
+- **Analysis → In Progress**: After requirements.md and architecture.md created by agents
+- **In Progress → Testing**: When implementation detected (commits, agent completion reports)
+
+#### Manual Transitions
+User controls critical workflow transitions:
+- **Backlog → Analysis**: User runs `/start-feature [task-id]`
+- **Testing → Code Review**: User confirms tests pass, updates status manually
+- **Code Review → PR**: User runs `/PR [task-id]` after review approved
+- **PR → Done**: User runs `/merge [task-id]` after PR merged to main
+
+### Resource Management
+
+**Test Environment Setup** (via `/test` command):
+1. Finds available ports for backend and frontend servers
+2. Starts backend: `python -m uvicorn app.main:app --port [FREE_PORT]`
+3. Starts frontend: `PORT=[FREE_PORT] npm start`
+4. **MANDATORY**: Saves testing URLs to task database via `mcp:set_testing_urls`
+5. Creates `Tests/` folder with test-plan.md template and README
+6. Notifies user with direct access URLs
+
+**Cleanup on Completion** (via `/merge` command):
+1. Stops Claude Code session for task
+2. Terminates embedded terminal sessions
+3. Kills test server processes (backend and frontend)
+4. Releases occupied ports
+5. Clears testing URLs from database
+6. Updates task status to "Done"
+7. Optional: Removes task worktree
+
+### Integration with Project Modes
+
+**SIMPLE Mode**:
+- Simplified 3-column workflow (Backlog → In Progress → Done)
+- No analysis phase (no automated agents)
+- No worktrees (work directly in main branch)
+- No test environment automation
+- Direct commits to main branch
+- Faster for solo development and prototypes
+
+**DEVELOPMENT Mode**:
+- Full 7-column workflow with all phases
+- Automated analysis with requirements-writer and system-architect
+- Git worktrees (can be toggled on/off per project)
+- Test environment automation with URL persistence
+- PR workflow with comprehensive documentation
+- Quality gates: testing and code review required
+
+**See**: [Intelligent Workflow Documentation](./intelligent-workflow.md) for complete details, examples, and best practices
+
+---
+
+## Related Documentation
+
+- [Intelligent Workflow](./intelligent-workflow.md) - Complete workflow guide with all 7 phases
+- [Slash Commands](../claudetask/slash-commands.md) - All available workflow automation commands
+- [Project Modes](./project-modes.md) - SIMPLE vs DEVELOPMENT mode workflows
+- [Settings API](../api/endpoints/settings.md) - Project configuration management
+- [MCP Tools](../api/mcp-tools.md) - MCP tool reference including enhanced start_claude_session
+- [Hooks System](./hooks-system.md) - Automation through Claude Code hooks
+- [Framework Updates](./framework-updates.md) - File synchronization system
+- [Database Migrations](../deployment/database-migrations.md) - Schema evolution history
+
+---
+
+Last updated: 2025-11-21

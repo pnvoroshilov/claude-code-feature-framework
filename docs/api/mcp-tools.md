@@ -297,6 +297,55 @@ mcp:stop_session --task_id=42
 
 **Important:** Always call this when task is done to free system resources.
 
+#### `start_claude_session` ⭐ ENHANCED
+Start a Claude Code session with automatic analysis context.
+
+**Parameters:**
+- `task_id` (required): Task ID
+- `working_dir` (optional): Working directory for session
+- `mode` (optional): Session mode (terminal/embedded/websocket)
+
+**Usage:**
+```
+mcp:start_claude_session --task_id=42 --working_dir="worktrees/task-42" --mode="embedded"
+```
+
+**Enhanced Features (v2.0)**:
+- **Automatic Context Injection**: Includes requirements.md and architecture.md in session context
+- **Worktree Detection**: Automatically uses task worktree as working directory
+- **Analysis Documents**: Reads and injects analysis documentation into session
+- **Smart Context**: Provides task-specific context for better agent performance
+
+**Context Provided**:
+```
+Task #42: [Task Title]
+
+Requirements (from requirements.md):
+[Business requirements and acceptance criteria]
+
+Architecture (from architecture.md):
+[Technical approach and implementation plan]
+
+Your role: Implement this feature following the requirements and architecture.
+```
+
+**Benefits**:
+- Agents start with full task context
+- No need to manually read analysis documents
+- Consistent context across all sessions
+- Faster ramp-up time for agents
+
+**Example Response**:
+```json
+{
+  "session_id": "session-uuid",
+  "task_id": 42,
+  "working_dir": "worktrees/task-42",
+  "context": "Task #42: Add continue button...",
+  "status": "active"
+}
+```
+
 ## Tool Usage Patterns
 
 ### Pattern 1: Continuous Task Monitoring
