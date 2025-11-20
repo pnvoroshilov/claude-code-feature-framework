@@ -147,14 +147,35 @@ class FrameworkUpdateService:
             if os.path.exists(commands_source_dir):
                 commands_dest_dir = os.path.join(project_path, ".claude", "commands")
                 os.makedirs(commands_dest_dir, exist_ok=True)
-                
+
                 for command_file in os.listdir(commands_source_dir):
-                    if command_file.endswith(".md"):
+                    if command_file.endswith(".md") and command_file != "README.md":
                         source_file = os.path.join(commands_source_dir, command_file)
                         dest_file = os.path.join(commands_dest_dir, command_file)
                         shutil.copy2(source_file, dest_file)
                         updated_files.append(f".claude/commands/{command_file}")
-            
+
+            # 5. Copy claude-hooks to .claude/
+            hooks_source_dir = os.path.join(framework_path, "framework-assets", "claude-hooks")
+            if os.path.exists(hooks_source_dir):
+                claude_dir = os.path.join(project_path, ".claude")
+                os.makedirs(claude_dir, exist_ok=True)
+
+                for hook_file in os.listdir(hooks_source_dir):
+                    if hook_file.endswith(".json"):
+                        source_file = os.path.join(hooks_source_dir, hook_file)
+                        dest_file = os.path.join(claude_dir, hook_file)
+                        shutil.copy2(source_file, dest_file)
+                        updated_files.append(f".claude/{hook_file}")
+                    elif hook_file.endswith(".sh"):
+                        # Copy shell script hooks and make them executable
+                        source_file = os.path.join(hooks_source_dir, hook_file)
+                        dest_file = os.path.join(claude_dir, hook_file)
+                        shutil.copy2(source_file, dest_file)
+                        # Make script executable
+                        os.chmod(dest_file, 0o755)
+                        updated_files.append(f".claude/{hook_file}")
+
             return {
                 "success": True,
                 "updated_files": updated_files,
