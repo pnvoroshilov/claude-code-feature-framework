@@ -2168,29 +2168,97 @@ Task has been {'merged to main branch' if result.get('merged') else 'prepared fo
                 )]
     
     async def _start_claude_session(self, task_id: int, context: str = "") -> list[types.TextContent]:
-        """Start a Claude session for a task"""
+        """Start a Claude session for a task with automatic context from analysis documents"""
         async with httpx.AsyncClient() as client:
             try:
-                # Start session via API
+                # Get task details to access worktree path
+                task_response = await client.get(f"{self.server_url}/api/tasks/{task_id}")
+                task_response.raise_for_status()
+                task = task_response.json()
+
+                # Build enhanced context from analysis documents
+                enhanced_context = context
+                worktree_path = task.get('worktree_path')
+
+                if worktree_path and os.path.exists(worktree_path):
+                    # Check for requirements.md
+                    requirements_path = os.path.join(worktree_path, "Analyse", "requirements.md")
+                    architecture_path = os.path.join(worktree_path, "Analyse", "architecture.md")
+                    test_plan_path = os.path.join(worktree_path, "Tests", "test-plan.md")
+
+                    analysis_docs = []
+
+                    if os.path.exists(requirements_path):
+                        try:
+                            with open(requirements_path, 'r', encoding='utf-8') as f:
+                                requirements_content = f.read()
+                                analysis_docs.append(f"## 📋 REQUIREMENTS\n\n{requirements_content}")
+                        except Exception as e:
+                            logger.warning(f"Failed to read requirements.md: {e}")
+
+                    if os.path.exists(architecture_path):
+                        try:
+                            with open(architecture_path, 'r', encoding='utf-8') as f:
+                                architecture_content = f.read()
+                                analysis_docs.append(f"## 🏗️ ARCHITECTURE\n\n{architecture_content}")
+                        except Exception as e:
+                            logger.warning(f"Failed to read architecture.md: {e}")
+
+                    if os.path.exists(test_plan_path):
+                        try:
+                            with open(test_plan_path, 'r', encoding='utf-8') as f:
+                                test_plan_content = f.read()
+                                analysis_docs.append(f"## 🧪 TEST PLAN\n\n{test_plan_content}")
+                        except Exception as e:
+                            logger.warning(f"Failed to read test-plan.md: {e}")
+
+                    if analysis_docs:
+                        enhanced_context = f"""# 📚 TASK ANALYSIS DOCUMENTATION
+
+{chr(10).join(analysis_docs)}
+
+---
+
+# 💬 ADDITIONAL CONTEXT
+
+{context if context else "No additional context provided."}
+"""
+
+                # Start session via API with enhanced context
                 response = await client.post(
                     f"{self.server_url}/api/tasks/{task_id}/session/start",
-                    json={"context": context}
+                    json={"context": enhanced_context}
                 )
                 response.raise_for_status()
                 result = response.json()
                 
                 if result.get("success"):
+                    # Check which analysis docs were loaded
+                    docs_loaded = []
+                    if worktree_path and os.path.exists(worktree_path):
+                        if os.path.exists(os.path.join(worktree_path, "Analyse", "requirements.md")):
+                            docs_loaded.append("requirements.md")
+                        if os.path.exists(os.path.join(worktree_path, "Analyse", "architecture.md")):
+                            docs_loaded.append("architecture.md")
+                        if os.path.exists(os.path.join(worktree_path, "Tests", "test-plan.md")):
+                            docs_loaded.append("test-plan.md")
+
+                    docs_status = ""
+                    if docs_loaded:
+                        docs_status = f"\n📚 ANALYSIS DOCS LOADED: {', '.join(docs_loaded)}"
+
                     response_text = f"""🚀 CLAUDE SESSION STARTED - Task #{task_id}
 
 📁 Working Directory: {result.get('session', {}).get('working_dir')}
 🆔 Session ID: {result.get('session', {}).get('id')}
-📊 Status: {result.get('session', {}).get('status')}
+📊 Status: {result.get('session', {}).get('status')}{docs_status}
 
 💡 SESSION FEATURES:
 - Isolated workspace for this task
 - Full access to project codebase
 - MCP tools available for task management
 - Session persists across reconnections
+- Automatic context from analysis documents
 
 🛠️ AVAILABLE COMMANDS:
 - Update status: mcp:update_status {task_id} <status>
