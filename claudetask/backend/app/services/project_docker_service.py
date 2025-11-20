@@ -209,10 +209,16 @@ async def create_project_structure_docker(
         files_created.append(".claudetask/project.json")
 
     # Create worktrees directory ONLY in development mode
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Docker: Project mode: {project_mode} - {'Creating' if project_mode == 'development' else 'Skipping'} worktrees directory")
     if project_mode == 'development':
         worktrees_dir = os.path.join(project_path, "worktrees")
         dfs.create_directory_on_host(worktrees_dir)
         files_created.append("worktrees/")
+        logger.info(f"Docker: Worktrees directory created at: {worktrees_dir}")
+    else:
+        logger.info(f"Docker: Simple mode - worktrees directory NOT created")
 
     return files_created
 

@@ -35,7 +35,9 @@ class ProjectService:
         project_mode: str = 'simple'
     ) -> InitializeProjectResponse:
         """Initialize a new project"""
-        
+
+        logger.info(f"🚀 Initializing project '{project_name}' with mode: {project_mode}")
+
         # Remove trailing slash from project path if present
         project_path = project_path.rstrip('/')
         
@@ -711,10 +713,14 @@ build/
         files_created.append(".claudetask/project.json")
 
         # Create worktrees directory ONLY in development mode
+        logger.info(f"Project mode: {project_mode} - {'Creating' if project_mode == 'development' else 'Skipping'} worktrees directory")
         if project_mode == 'development':
             worktrees_dir = os.path.join(project_path, "worktrees")
             os.makedirs(worktrees_dir, exist_ok=True)
             files_created.append("worktrees/")
+            logger.info(f"Worktrees directory created at: {worktrees_dir}")
+        else:
+            logger.info(f"Simple mode - worktrees directory NOT created")
 
         return files_created
     
