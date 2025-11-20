@@ -1,49 +1,47 @@
 # ClaudeTask Framework - Autonomous Orchestrator Configuration
 
----
 
-## 🔍 READ PROJECT SETTINGS FIRST
+# 🎯 PROJECT MODE: DEVELOPMENT
 
-**⚠️ CRITICAL: Before applying ANY instructions below, you MUST read project settings:**
+**This project is configured in DEVELOPMENT mode with full workflow.**
 
-### How to get project settings:
+## Task Workflow (7 Columns)
+- **Backlog**: New tasks waiting to be analyzed
+- **Analysis**: Understanding requirements and planning
+- **In Progress**: Active development with Git worktrees
+- **Testing**: Running tests and validation
+- **Code Review**: Peer review of changes
+- **PR**: Pull Request created and awaiting merge
+- **Done**: Completed and merged
 
-1. **Through MCP** (preferred):
-   ```
-   # Use MCP tool to get project settings
-   mcp__claudetask__get_project_settings
+## What this means:
+- ✅ **Full Git workflow** - Branches, worktrees, PRs
+- ✅ **Complete development lifecycle** - From analysis to deployment
+- ✅ **Version control** - Proper branching and merge strategy
+- ✅ **Quality gates** - Testing and code review required
 
-   # Returns:
-   {
-     "project_mode": "simple" | "development",
-     "worktree_enabled": true | false
-   }
-   ```
-
-2. **Through local file** (if MCP unavailable):
-   ```bash
-   # Check project root file (if exists)
-   cat .claudetask/settings.json
-   ```
-
-3. **Through HTTP API** (fallback):
-   ```bash
-   curl http://localhost:3333/api/projects/{project_id}/settings
-   ```
-
-### What to look for:
-- **`project_mode`**: `"simple"` or `"development"`
-- **`worktree_enabled`**: `true` or `false` (only relevant in development mode)
-
-**Based on these settings, follow the corresponding instructions below.**
+## Your approach:
+1. Follow the complete task workflow through all statuses
+2. Create worktrees for each task
+3. Use proper branching strategy
+4. Create PRs and wait for review
+5. Ensure tests pass before moving forward
 
 ---
 
-# 🎯 PROJECT MODE INSTRUCTIONS
 
-## Mode 1: SIMPLE Mode (project_mode = "simple")
 
-**⚠️ Apply these instructions ONLY if `project_mode = "simple"`**
+# 📋 Custom Project Instructions
+
+**⚠️ IMPORTANT: This project has custom-specific instructions.**
+
+Please read the [CUSTOM_INSTRUCTIONS.md](./CUSTOM_INSTRUCTIONS.md) file in the project root for project-specific requirements and guidelines that take HIGHEST PRIORITY over general instructions.
+
+---
+
+
+
+# 🎯 PROJECT MODE: SIMPLE
 
 **This project is configured in SIMPLE mode.**
 
@@ -121,119 +119,7 @@ Backlog → In Progress → Done
 
 ---
 
-## Mode 2: DEVELOPMENT Mode with Worktrees (project_mode = "development", worktree_enabled = true)
 
-**⚠️ Apply these instructions ONLY if `project_mode = "development"` AND `worktree_enabled = true`**
-
-### Task Workflow (7 Columns)
-- **Backlog**: New tasks waiting to be analyzed
-- **Analysis**: Understanding requirements and planning
-- **In Progress**: Active development **with Git worktrees**
-- **Testing**: Running tests and validation
-- **Code Review**: Peer review of changes
-- **PR**: Pull Request created and awaiting merge
-- **Done**: Completed and merged
-
-### What this means:
-- ✅ **Full Git workflow** - Branches, worktrees, PRs
-- ✅ **Complete development lifecycle** - From analysis to deployment
-- ✅ **Version control** - Proper branching and merge strategy
-- ✅ **Quality gates** - Testing and code review required
-- ✅ **Git worktrees ENABLED** - Isolated workspaces for each task
-
-### Your approach:
-1. Follow the complete task workflow through all statuses
-2. **CREATE WORKTREES for each task** - Use `mcp:create_worktree <task_id>`
-3. Use proper branching strategy
-4. Create PRs and wait for review
-5. Ensure tests pass before moving forward
-
-### 🌳 Worktree Workflow:
-
-**When task moves to "In Progress":**
-```bash
-# 1. Create worktree for task
-mcp:create_worktree <task_id>
-
-# 2. Worktree created at:
-worktrees/task-{id}/
-
-# 3. Work ONLY in worktree directory
-cd worktrees/task-{id}/
-
-# 4. Make all changes in worktree
-# 5. Commit changes in worktree
-# 6. After merge: worktree auto-cleaned
-```
-
-### ⚠️ Worktree Rules:
-- ✅ **ALWAYS create worktree** when task enters "In Progress"
-- ✅ **Work ONLY in worktree directory** for task changes
-- ✅ **Maximum 3 parallel worktrees** - Keep resource usage reasonable
-- ❌ **NEVER delete worktrees manually** - Use proper cleanup commands
-- ❌ **ONLY delete when user EXPLICITLY requests**: "delete worktree for task X"
-
-### Benefits:
-- 🔒 **Task isolation** - Changes don't interfere with main branch
-- 🔄 **Parallel development** - Work on multiple tasks simultaneously
-- 🧹 **Clean separation** - Each worktree has its own working directory
-- ♻️ **Automatic cleanup** - Worktrees removed after merge
-
----
-
-## Mode 3: DEVELOPMENT Mode without Worktrees (project_mode = "development", worktree_enabled = false)
-
-**⚠️ Apply these instructions ONLY if `project_mode = "development"` AND `worktree_enabled = false`**
-
-### Task Workflow (7 Columns)
-- **Backlog**: New tasks waiting to be analyzed
-- **Analysis**: Understanding requirements and planning
-- **In Progress**: Active development **in main/feature branches**
-- **Testing**: Running tests and validation
-- **Code Review**: Peer review of changes
-- **PR**: Pull Request created and awaiting merge
-- **Done**: Completed and merged
-
-### What this means:
-- ✅ **Full development lifecycle** - From analysis to deployment
-- ✅ **Version control** - Proper branching and merge strategy
-- ✅ **Quality gates** - Testing and code review required
-- ⚠️ **Worktrees DISABLED** - Work directly in main branch or feature branches
-- ⚠️ **No task isolation** - Be careful with parallel tasks
-
-### Your approach:
-1. Follow the complete task workflow through all statuses
-2. **DO NOT create worktrees** - They are disabled for this project
-3. Work directly in main branch OR create feature branches manually
-4. Create PRs and wait for review
-5. Ensure tests pass before moving forward
-
-### 🚫 NO WORKTREES Workflow:
-
-**When task moves to "In Progress":**
-```bash
-# Option 1: Work in main branch (for simple changes)
-git checkout main
-# Make changes directly
-
-# Option 2: Create feature branch manually (for complex features)
-git checkout -b feature/task-{id}
-# Work in feature branch
-```
-
-### ⚠️ NO WORKTREES Rules:
-- ❌ **DO NOT use `git worktree` commands** - They are disabled
-- ❌ **DO NOT create worktrees** for tasks
-- ❌ **DO NOT use `mcp:create_worktree`** command
-- ✅ **Work in main branch** for simple changes
-- ✅ **Create feature branches manually** for complex features: `git checkout -b feature/task-{id}`
-
-### Important:
-- 🚨 **If you see worktree instructions elsewhere, IGNORE them** - Worktrees are disabled
-- ⚠️ **Be careful with parallel tasks** - No task isolation without worktrees
-- 🔄 **Manual branch management** - You handle branches yourself
-
----
 
 # 📋 Custom Project Instructions
 
@@ -506,91 +392,98 @@ LOOP FOREVER:
 
 **FOR EVERY TASK TYPE - DELEGATE IMMEDIATELY (DEVELOPMENT MODE):**
 
-#### Analysis Status Tasks → `business-analyst` AND `systems-analyst` (DEVELOPMENT MODE ONLY)
+#### Analysis Status Tasks → `requirements-writer` AND `system-architect` (DEVELOPMENT MODE ONLY)
 ```
 ⚠️ WHEN TASK ENTERS "ANALYSIS" STATUS - ALWAYS FOLLOW THIS WORKFLOW:
 
-🔴 STEP 0: RAG SEARCH (MANDATORY - DO THIS FIRST!)
-Before delegating to analysts, gather codebase context:
+🔴 AUTOMATIC SETUP (Done by backend):
+When task status changes to "Analysis":
+- Backend creates worktree in worktrees/task-{id}/
+- Backend creates Analyse/ folder with README.md
+- Worktree is ready for requirements and architecture documents
 
-1. Search relevant code:
-   mcp__claudetask__search_codebase(
-     query="<task-related keywords>",
-     top_k=20,
-     language="<relevant language>"
-   )
-
-2. Find similar tasks:
-   mcp__claudetask__find_similar_tasks(
-     task_description="<task description>",
-     top_k=10
-   )
-
-3. Extract RAG insights:
-   - Relevant files and components
-   - Existing patterns and conventions
-   - Similar past implementations
-
-🔴 STEP 1: DELEGATE TO BUSINESS ANALYST (with RAG context)
-Task tool with business-analyst:
-"🧠 IMPORTANT: Use extended thinking to deeply analyze this task.
-
-Analyze business requirements and user needs for this task.
-Task details: [full task info from MCP]
-
-🔍 RAG CONTEXT (from codebase search):
-[Include relevant findings from RAG search:
-- Related components found
-- Similar features implemented
-- User-facing patterns identified]
-
-Create comprehensive business requirements document including:
-- User stories and acceptance criteria
-- Business value and objectives
-- Stakeholder requirements
-- Process workflows
-- Success metrics
-
-Think deeply about user needs and business impact before responding."
-
-🔴 STEP 2: WAIT FOR BUSINESS ANALYST COMPLETION - Get full output
-
-🔴 STEP 3: DELEGATE TO SYSTEMS ANALYST (with RAG + business context)
-Task tool with systems-analyst:
-"🧠 IMPORTANT: Use extended thinking to deeply analyze technical approach.
-
-Analyze technical requirements and system design for this task.
+🔴 STEP 1: DELEGATE TO REQUIREMENTS WRITER (Creates requirements.md)
+Task tool with requirements-writer:
+"Create comprehensive business requirements document for this task.
 
 Task details: [full task info from MCP]
 
-Business analysis results:
-[PASTE COMPLETE OUTPUT from business-analyst here]
+**Output Location:**
+Save to: worktrees/task-{id}/Analyse/requirements.md
 
-🔍 RAG FINDINGS (from codebase search):
-[Include all RAG search results:
-- Files: <list relevant files with line numbers>
-- Patterns: <existing code patterns to follow>
-- Similar tasks: <past implementations and learnings>
-- Integration points: <existing APIs, services, components>]
+**Document Structure:**
+1. Business Requirements Overview
+2. User Stories with Acceptance Criteria
+3. Functional Requirements
+4. Non-Functional Requirements (Performance, Security, etc.)
+5. Success Metrics
+6. Edge Cases and Constraints
 
-Create comprehensive technical specification including:
-- System architecture impact
-- Integration points
-- Technical implementation approach
-- Data flow and dependencies
-- Technology stack decisions
-- Performance considerations
+Use RAG tools (search_codebase, find_similar_tasks) to:
+- Find similar features and patterns
+- Understand existing user workflows
+- Learn from past implementations
 
-Think deeply about technical implications and architecture before responding."
+The agent has RAG tools built-in and will search the codebase itself."
 
-4. AFTER BOTH COMPLETE - Save Combined Results:
-mcp__claudetask__append_stage_result --task_id={id} --status="Analysis" \
-  --summary="Business and technical analysis completed with deep thinking" \
-  --details="Business requirements: [key points from business-analyst]
+🔴 STEP 2: WAIT FOR REQUIREMENTS WRITER COMPLETION
+- Agent will create worktrees/task-{id}/Analyse/requirements.md
+- Document contains complete business requirements
 
-Technical approach: [key points from systems-analyst]
+🔴 STEP 3: DELEGATE TO SYSTEM ARCHITECT (Creates architecture.md)
+Task tool with system-architect:
+"Create comprehensive technical architecture document for this task.
 
-Ready to proceed with implementation"
+Task details: [full task info from MCP]
+
+**Requirements Document Location:**
+Read from: worktrees/task-{id}/Analyse/requirements.md
+
+**Output Location:**
+Save to: worktrees/task-{id}/Analyse/architecture.md
+
+**Document Structure:**
+1. Technical Overview
+2. System Architecture & Design
+3. Integration Points
+4. Data Flow & Dependencies
+5. Implementation Approach
+6. Technology Stack & Decisions
+7. Performance Considerations
+8. Security Considerations
+
+Use RAG tools (search_codebase, find_similar_tasks) to:
+- Find existing architectural patterns
+- Discover integration points
+- Learn from similar implementations
+
+The agent has RAG tools built-in and will search the codebase itself."
+
+🔴 STEP 4: WAIT FOR SYSTEM ARCHITECT COMPLETION
+- Agent will create worktrees/task-{id}/Analyse/architecture.md
+- Document contains complete technical specification
+
+🔴 STEP 5: VERIFY DOCUMENTS CREATED
+Check that both files exist:
+- worktrees/task-{id}/Analyse/requirements.md ✅
+- worktrees/task-{id}/Analyse/architecture.md ✅
+
+🔴 STEP 6: AUTO-TRANSITION TO "IN PROGRESS"
+After both documents created:
+- Update task status to "In Progress"
+- Save stage result:
+  mcp__claudetask__append_stage_result --task_id={id} --status="Analysis" \
+    --summary="Requirements and architecture analysis completed" \
+    --details="Created comprehensive analysis documents:
+
+✅ requirements.md - Business requirements and user stories
+✅ architecture.md - Technical architecture and implementation plan
+
+Ready to proceed with development"
+
+- Task automatically moves to "In Progress" status
+- Worktree is ready for development
+- User can use /start-develop command to begin implementation
 ```
 
 #### Feature Development → ⚠️ NO AUTO DELEGATION AFTER IN PROGRESS
@@ -728,6 +621,167 @@ Issues found: [any issues discovered]
 Recommendations: [suggested improvements]
 Ready for PR: [Yes/No]"
 ```
+
+## 📝 NEW WORKFLOW SLASH COMMANDS
+
+The framework now provides slash commands for each phase of the development workflow:
+
+### /start-feature [task-id]
+**Purpose:** Start working on a task - initiates Analysis phase
+**When to use:** When beginning work on a new task from Backlog
+
+**What it does:**
+1. Updates task status to "Analysis"
+2. Backend automatically creates worktree and Analyse/ folder
+3. Delegates to requirements-writer agent → creates requirements.md
+4. Delegates to system-architect agent → creates architecture.md
+5. Auto-transitions to "In Progress" when analysis complete
+
+**Usage:**
+```bash
+/start-feature 23
+```
+
+### /start-develop [task-id]
+**Purpose:** Begin implementation after analysis is complete
+**When to use:** When requirements.md and architecture.md are ready
+
+**What it does:**
+1. Verifies analysis documents exist
+2. Reads requirements.md and architecture.md
+3. Updates status to "In Progress" if not already
+4. Provides guidance on implementation workflow
+5. Explains commit message format
+
+**Prerequisites:**
+- Task must have completed Analysis phase
+- requirements.md must exist in Analyse/ folder
+- architecture.md must exist in Analyse/ folder
+
+**Usage:**
+```bash
+/start-develop 23
+```
+
+### /test [task-id]
+**Purpose:** Start testing phase after implementation complete
+**When to use:** When development is done and ready for testing
+
+**What it does:**
+1. Updates task status to "Testing"
+2. Backend automatically creates Tests/ folder with README
+3. Creates test-plan.md template
+4. Sets up test environment (starts frontend and backend servers)
+5. **CRITICAL:** Saves testing URLs using mcp__claudetask__set_testing_urls
+6. Provides testing URLs for manual testing
+
+**Testing Checklist Created:**
+- Acceptance criteria testing
+- Functional requirements testing
+- Edge cases testing
+- UI/UX testing (if applicable)
+- Performance testing
+- Security testing
+- Browser/device testing
+
+**Usage:**
+```bash
+/test 23
+```
+
+**After testing:**
+- Update test-plan.md with results
+- Document any bugs found
+- Move to Code Review status when tests pass
+
+### /PR [task-id]
+**Purpose:** Create pull request and handle merge workflow
+**When to use:** After testing and code review are complete
+
+**What it does:**
+1. Verifies prerequisites (tests passed, docs exist)
+2. Delegates to pr-merge-agent for PR creation
+3. Handles manual code review workflow (if manual_mode=true)
+4. Merges PR when approved
+5. Cleans up resources (worktree, branch, test servers)
+6. Updates task to "Done"
+
+**Prerequisites:**
+- Task must be in "Code Review" or "Testing" status
+- All tests passed (test-plan.md shows "Ready for Code Review")
+- requirements.md exists in Analyse/ folder
+- architecture.md exists in Analyse/ folder
+- All code committed and pushed
+
+**Workflow:**
+
+**If manual_mode = false (Automated):**
+1. Create PR with comprehensive description
+2. Wait for automated checks to pass
+3. Merge PR automatically
+4. Clean up resources
+5. Update task to "Done"
+
+**If manual_mode = true (Manual Review):**
+1. Create PR with comprehensive description
+2. Wait for manual code review approval
+3. Coordinate review feedback
+4. After approval: merge PR
+5. Clean up resources
+6. Update task to "Done"
+
+**Usage:**
+```bash
+/PR 23
+```
+
+## 🎛️ MANUAL MODE CONFIGURATION
+
+The framework now supports two workflow modes controlled by the `manual_mode` setting:
+
+### Manual Mode Settings
+
+**Location:** Project Settings page in ClaudeTask UI
+
+**Toggle:** Manual Mode switch
+
+**Default:** `false` (Automated workflow)
+
+### manual_mode = false (Automated Workflow)
+- ✅ Automated PR merge after tests pass
+- ✅ No manual code review required
+- ✅ Faster workflow for solo development
+- ✅ Suitable for experimental/prototype projects
+
+### manual_mode = true (Manual Review Workflow)
+- ✅ Requires manual code review before merge
+- ✅ PR created but waits for approval
+- ✅ Suitable for team development
+- ✅ Quality gate for production code
+
+### How to Configure
+
+1. Open ClaudeTask UI → Settings page
+2. Navigate to "Project Settings" section
+3. Toggle "Manual Mode" switch
+4. Click "Save Changes"
+
+**The setting is stored in ProjectSettings and persists across sessions.**
+
+### Impact on Workflow
+
+**Analysis → In Progress:**
+- No change (same for both modes)
+
+**In Progress → Testing:**
+- No change (same for both modes)
+
+**Testing → Code Review:**
+- No change (same for both modes)
+
+**Code Review → PR → Done:**
+- **manual_mode=false:** Auto-merge when checks pass
+- **manual_mode=true:** Wait for manual approval before merge
 
 ## 🛠️ MCP Command Usage
 
