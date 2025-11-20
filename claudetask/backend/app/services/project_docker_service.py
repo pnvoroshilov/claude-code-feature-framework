@@ -210,6 +210,19 @@ async def create_project_structure_docker(
         if dfs.write_file_to_host(settings_file, json.dumps(settings_data, indent=2)):
             files_created.append(".claude/settings.json")
 
+        # Create .claude/settings.local.json for MCP server configuration
+        settings_local_file = os.path.join(claude_dir, "settings.local.json")
+        settings_local_data = {
+            "enabledMcpjsonServers": [
+                "playwright",
+                "claudetask",
+                "serena"
+            ],
+            "enableAllProjectMcpServers": True
+        }
+        if dfs.write_file_to_host(settings_local_file, json.dumps(settings_local_data, indent=2)):
+            files_created.append(".claude/settings.local.json")
+
     # Create .claudetask directory
     claudetask_dir = os.path.join(project_path, ".claudetask")
     dfs.create_directory_on_host(claudetask_dir)

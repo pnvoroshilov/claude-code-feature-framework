@@ -708,6 +708,20 @@ build/
                 json.dump(settings_data, f, indent=2)
             files_created.append(".claude/settings.json")
 
+        # Create .claude/settings.local.json for MCP server configuration
+        settings_local_file = os.path.join(claude_dir, "settings.local.json")
+        settings_local_data = {
+            "enabledMcpjsonServers": [
+                "playwright",
+                "claudetask",
+                "serena"
+            ],
+            "enableAllProjectMcpServers": True
+        }
+        with open(settings_local_file, 'w') as f:
+            json.dump(settings_local_data, f, indent=2)
+        files_created.append(".claude/settings.local.json")
+
         # Create .claudetask directory for internal metadata
         claudetask_dir = os.path.join(project_path, ".claudetask")
         os.makedirs(claudetask_dir, exist_ok=True)
