@@ -63,7 +63,11 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 - Project-specific configuration (CLAUDE.md generation)
 - Custom instructions support
 - Two modes: SIMPLE and DEVELOPMENT
+- Per-project worktree toggle (DEVELOPMENT mode only)
+- Dynamic project settings via MCP get_project_settings tool
 - Active project tracking
+- Automatic directory trust initialization
+- CASCADE DELETE constraints for safe project deletion
 
 ### 2. Task Management
 - Task CRUD operations
@@ -77,7 +81,12 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 - Custom hooks (user-created via Claude)
 - Per-project hook enablement
 - Favorites system (cross-project)
-- Integration with .claude/settings.json
+- Separate script file support for complex hooks
+- Automatic settings.json generation from hook configs
+- Hook scripts with executable permissions (chmod +x)
+- Integration with .claude/settings.json and .claude/settings.local.json
+- Post-merge documentation update hook with recursion prevention
+- See [Hooks System Documentation](./hooks-system.md)
 
 ### 4. Skills System
 - Default skills (framework-provided)
@@ -99,7 +108,19 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 - Per-project MCP enablement
 - Integration with .claude/settings.json
 
-### 7. File Browser System
+### 7. Framework Update System
+- Automatic synchronization of framework files to projects
+- Preserves user customizations while updating framework components
+- Updates agents, commands, hooks, and CLAUDE.md templates
+- MCP configuration merging with preservation of user's custom servers
+- Automatic generation of `.claude/settings.json` from hook configurations
+- Automatic generation of `.claude/settings.local.json` for MCP server enablement
+- Backup of critical files (CLAUDE.md → CLAUDE.md.backup)
+- Hook scripts copied with executable permissions (chmod +x)
+- Complete agent refresh to remove deprecated configurations
+- See [Framework Updates Documentation](./framework-updates.md)
+
+### 8. File Browser System
 - GitHub-style file browsing interface
 - Monaco Editor integration for code editing
 - Project-scoped file access
@@ -235,12 +256,12 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 
 The system uses SQLite with the following main tables:
 
-- **projects**: Project configurations and metadata
-- **tasks**: Task tracking with status, worktree info, stage results
+- **projects**: Project configurations and metadata with CASCADE DELETE constraints
+- **tasks**: Task tracking with status, worktree info, stage results, testing URLs
 - **task_history**: Audit trail of task status changes
 - **claude_sessions**: Claude Code session management
-- **default_hooks**: Framework-provided hooks
-- **custom_hooks**: User-created hooks
+- **default_hooks**: Framework-provided hooks with optional script_file column
+- **custom_hooks**: User-created hooks with optional script_file column
 - **project_hooks**: Junction table for project-hook enablement
 - **default_skills**: Framework-provided skills
 - **custom_skills**: User-created skills
@@ -249,9 +270,9 @@ The system uses SQLite with the following main tables:
 - **custom_mcp_configs**: User-created MCP configurations
 - **project_mcp_configs**: Junction table for project-MCP enablement
 - **agents**: Subagent configurations
-- **project_settings**: Per-project settings
+- **project_settings**: Per-project settings including worktree_enabled field
 
-See [database-design.md](./database-design.md) for detailed schema documentation.
+See [Database Migrations Documentation](../deployment/database-migrations.md) for complete migration history and [database-design.md](./database-design.md) for detailed schema documentation.
 
 ## API Architecture
 
@@ -333,4 +354,37 @@ The framework is designed for extensibility:
 
 ---
 
-Last updated: 2025-11-18
+## Recent Architectural Enhancements
+
+### Database Migration 006 (CASCADE DELETE)
+- Automatic cascade deletion of all project-related records
+- Orphaned record cleanup during migration
+- Safer and simpler project deletion workflow
+- Prevents database inconsistencies
+
+### Database Migration 005 (Worktree Toggle)
+- Per-project worktree enable/disable functionality
+- Dynamic CLAUDE.md generation based on worktree setting
+- UI toggle in ProjectModeToggle component
+- Single source of truth in database
+
+### Database Migration 004 (Script File Support)
+- Separate script files for complex hooks
+- Improved hook maintainability and organization
+- Automatic executable permissions on hook scripts
+
+### MCP get_project_settings Tool
+- Dynamic project configuration access from Claude Code
+- Real-time project mode and worktree status
+- Custom instructions accessible without file reads
+- Single source of truth for project configuration
+
+### Project Initialization Improvements
+- Increased timeout to 30 seconds for directory trust
+- Better handling of Claude session startup
+- Automatic git repository initialization
+- Framework update mechanism for existing projects
+
+---
+
+Last updated: 2025-11-20

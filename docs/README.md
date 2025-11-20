@@ -35,6 +35,8 @@ System architecture, design decisions, and database schema.
 **Documents:**
 - `overview.md` - High-level system architecture
 - `hooks-system.md` - Hooks system architecture and script file workflow
+- `framework-updates.md` - Framework update system and file synchronization
+- `project-modes.md` - SIMPLE vs DEVELOPMENT mode workflows
 - `database-design.md` - Database schema and relationships (to be created)
 - `adr/*.md` - Architecture Decision Records (ADRs, to be created)
 
@@ -132,11 +134,12 @@ To manually trigger documentation update:
 
 1. `architecture/overview.md` - Understand the system architecture
 2. `deployment/database-migrations.md` - Database schema evolution and migration history
-3. `api/mcp-tools.md` - MCP tool reference and usage patterns
-4. `architecture/hooks-system.md` - Hooks system and automation workflow
-5. `api/endpoints/claude-sessions.md` - Claude session management API
-6. `components/README.md` - UI component architecture
-7. `components/ClaudeSessions.md` - Session management interface
+3. `architecture/framework-updates.md` - Framework update system and file synchronization
+4. `api/mcp-tools.md` - MCP tool reference and usage patterns
+5. `architecture/hooks-system.md` - Hooks system and automation workflow
+6. `api/endpoints/claude-sessions.md` - Claude session management API
+7. `components/README.md` - UI component architecture
+8. `components/ClaudeSessions.md` - Session management interface
 
 ## Technology Stack
 
@@ -159,6 +162,12 @@ To manually trigger documentation update:
 ## Recent Updates
 
 **Latest Changes (2025-11-20):**
+- ✅ **Framework Update System**: Automatic synchronization of framework files
+  - Updates hooks, commands, and agents in existing projects
+  - Preserves user customizations while updating framework components
+  - Copies hook scripts (.sh files) and makes them executable
+  - Merges MCP configurations intelligently
+  - New documentation: `architecture/framework-updates.md`
 - ✅ **Database Migration 006**: CASCADE DELETE constraints for project deletion
   - Automatic cascade deletion of all related records
   - Orphaned record cleanup during migration
