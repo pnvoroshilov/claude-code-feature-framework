@@ -1,6 +1,6 @@
 """Database connection and session management"""
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 import os
@@ -21,12 +21,24 @@ DATABASE_URL = os.getenv("DATABASE_URL", config.sqlite_db_url)
 SYNC_DATABASE_URL = os.getenv("SYNC_DATABASE_URL", config.sqlite_db_url_sync)
 
 # Create async engine
+# For SQLite with aiosqlite, we need to enable foreign keys via event listener
+from sqlalchemy.pool import NullPool
+
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
     future=True,
+    poolclass=NullPool,  # Use NullPool to ensure fresh connections
     connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 )
+
+# Enable foreign keys for async SQLite connections (aiosqlite)
+if "sqlite" in DATABASE_URL:
+    @event.listens_for(engine.sync_engine, "connect")
+    def set_sqlite_pragma_async(dbapi_conn, connection_record):
+        cursor = dbapi_conn.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 # Create sync engine for initial setup
 sync_engine = create_engine(
@@ -34,6 +46,22 @@ sync_engine = create_engine(
     echo=False,
     connect_args={"check_same_thread": False} if "sqlite" in SYNC_DATABASE_URL else {}
 )
+
+# Enable foreign key constraints for SQLite
+# This is critical for CASCADE DELETE to work
+if "sqlite" in DATABASE_URL:
+    @event.listens_for(engine.sync_engine, "connect")
+    def set_sqlite_pragma(dbapi_conn, connection_record):
+        cursor = dbapi_conn.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+if "sqlite" in SYNC_DATABASE_URL:
+    @event.listens_for(sync_engine, "connect")
+    def set_sqlite_pragma_sync(dbapi_conn, connection_record):
+        cursor = dbapi_conn.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 # Session factory
 AsyncSessionLocal = async_sessionmaker(

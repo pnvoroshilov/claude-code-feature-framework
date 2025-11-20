@@ -153,15 +153,32 @@ async def update_project(
 
 
 @app.delete("/api/projects/{project_id}")
-async def delete_project(project_id: str, db: AsyncSession = Depends(get_db)):
-    """Delete project"""
-    result = await db.execute(select(Project).where(Project.id == project_id))
-    project = result.scalar_one_or_none()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    
-    await db.delete(project)
-    await db.commit()
+async def delete_project(project_id: str):
+    """Delete project - uses direct aiosqlite to bypass SQLAlchemy completely"""
+    import aiosqlite
+    from pathlib import Path
+
+    # Get database path
+    backend_dir = Path(__file__).parent.parent
+    db_path = backend_dir / "data" / "claudetask.db"
+
+    # Use direct aiosqlite connection (bypasses ALL SQLAlchemy behavior)
+    async with aiosqlite.connect(str(db_path)) as conn:
+        # Enable foreign keys
+        await conn.execute("PRAGMA foreign_keys=ON")
+
+        # Check if project exists
+        cursor = await conn.execute("SELECT 1 FROM projects WHERE id = ?", (project_id,))
+        exists = await cursor.fetchone()
+        await cursor.close()
+
+        if not exists:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        # Delete project - CASCADE DELETE will handle related records
+        await conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+        await conn.commit()
+
     return {"message": "Project deleted successfully"}
 
 

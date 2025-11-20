@@ -50,10 +50,23 @@ class Project(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan")
-    settings = relationship("ProjectSettings", back_populates="project", uselist=False, cascade="all, delete-orphan")
-    agents = relationship("Agent", cascade="all, delete-orphan")
-    claude_sessions = relationship("ClaudeSession", back_populates="project", cascade="all, delete-orphan")
+    # passive_deletes=True lets database handle CASCADE DELETE
+    tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
+    settings = relationship("ProjectSettings", back_populates="project", uselist=False, cascade="all, delete-orphan", passive_deletes=True)
+    agents = relationship("Agent", cascade="all, delete-orphan", passive_deletes=True)
+    claude_sessions = relationship("ClaudeSession", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
+
+    # Additional relationships with back_populates for proper CASCADE DELETE
+    # passive_deletes='all' tells SQLAlchemy to let database handle ALL deletion (no UPDATE first)
+    # lazy='noload' prevents SQLAlchemy from loading these relationships automatically
+    project_skills = relationship("ProjectSkill", back_populates="project", passive_deletes='all', lazy='noload')
+    custom_skills = relationship("CustomSkill", back_populates="project", passive_deletes='all', lazy='noload')
+    custom_mcp_configs = relationship("CustomMCPConfig", back_populates="project", passive_deletes='all', lazy='noload')
+    enabled_mcp_configs = relationship("ProjectMCPConfig", back_populates="project", passive_deletes='all', lazy='noload')
+    custom_subagents = relationship("CustomSubagent", back_populates="project", passive_deletes='all', lazy='noload')
+    enabled_subagents = relationship("ProjectSubagent", back_populates="project", passive_deletes='all', lazy='noload')
+    custom_hooks = relationship("CustomHook", back_populates="project", passive_deletes='all', lazy='noload')
+    enabled_hooks = relationship("ProjectHook", back_populates="project", passive_deletes='all', lazy='noload')
 
 
 class Task(Base):
@@ -61,7 +74,7 @@ class Task(Base):
     __tablename__ = "tasks"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     type = Column(Enum(TaskType), default=TaskType.FEATURE)
@@ -87,9 +100,9 @@ class Task(Base):
 class TaskHistory(Base):
     """Task history model for tracking status changes"""
     __tablename__ = "task_history"
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
-    task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
+    task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
     old_status = Column(Enum(TaskStatus), nullable=True)
     new_status = Column(Enum(TaskStatus), nullable=False)
     comment = Column(Text, nullable=True)
@@ -107,7 +120,7 @@ class ClaudeSession(Base):
     id = Column(String, primary_key=True, index=True)
     session_id = Column(String, nullable=True, index=True)  # Added session_id field
     task_id = Column(Integer, ForeignKey("tasks.id"), nullable=False)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     status = Column(String, nullable=False, default="idle")  # idle, initializing, active, paused, completed, error
     mode = Column(String, nullable=False, default="terminal")  # terminal, embedded, websocket
     working_dir = Column(String, nullable=True)
@@ -132,7 +145,7 @@ class ProjectSettings(Base):
     __tablename__ = "project_settings"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(String, ForeignKey("projects.id"), unique=True, nullable=False)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), unique=True, nullable=False)
     claude_config = Column(Text, nullable=True)  # CLAUDE.md content
     auto_mode = Column(Boolean, default=False)
     auto_priority_threshold = Column(Enum(TaskPriority), default=TaskPriority.HIGH)
@@ -151,7 +164,7 @@ class Agent(Base):
     __tablename__ = "agents"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     type = Column(String, nullable=False)  # frontend, backend, ai, tester, reviewer
@@ -183,7 +196,7 @@ class CustomSkill(Base):
     __tablename__ = "custom_skills"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=False)
     category = Column(String(50), nullable=False)
@@ -197,7 +210,7 @@ class CustomSkill(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    project = relationship("Project", backref="custom_skills")
+    project = relationship("Project", back_populates="custom_skills")
 
 
 class ProjectSkill(Base):
@@ -205,14 +218,14 @@ class ProjectSkill(Base):
     __tablename__ = "project_skills"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     skill_id = Column(Integer, nullable=False)
     skill_type = Column(String(10), nullable=False)  # "default" or "custom"
     enabled_at = Column(DateTime, default=datetime.utcnow)
     enabled_by = Column(String(100), default="user")
 
     # Relationships
-    project = relationship("Project", backref="enabled_skills")
+    project = relationship("Project", back_populates="project_skills")
 
 
 class AgentSkillRecommendation(Base):
@@ -249,7 +262,7 @@ class CustomMCPConfig(Base):
     __tablename__ = "custom_mcp_configs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=False)  # Required: project-specific
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)  # Required: project-specific
     name = Column(String(100), nullable=False)  # Unique per project, not globally
     description = Column(Text, nullable=False)
     category = Column(String(50), nullable=False)
@@ -262,7 +275,7 @@ class CustomMCPConfig(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    project = relationship("Project", backref="custom_mcp_configs")
+    project = relationship("Project", back_populates="custom_mcp_configs")
 
     # Unique constraint: name must be unique per project
     __table_args__ = (
@@ -275,14 +288,14 @@ class ProjectMCPConfig(Base):
     __tablename__ = "project_mcp_configs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     mcp_config_id = Column(Integer, nullable=False)
     mcp_config_type = Column(String(10), nullable=False)  # "default" or "custom"
     enabled_at = Column(DateTime, default=datetime.utcnow)
     enabled_by = Column(String(100), default="user")
 
     # Relationships
-    project = relationship("Project", backref="enabled_mcp_configs")
+    project = relationship("Project", back_populates="enabled_mcp_configs")
 
 
 class DefaultSubagent(Base):
@@ -307,7 +320,7 @@ class CustomSubagent(Base):
     __tablename__ = "custom_subagents"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=False)
     category = Column(String(50), nullable=False)
@@ -322,7 +335,7 @@ class CustomSubagent(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    project = relationship("Project", backref="custom_subagents")
+    project = relationship("Project", back_populates="custom_subagents")
 
 
 class ProjectSubagent(Base):
@@ -330,14 +343,14 @@ class ProjectSubagent(Base):
     __tablename__ = "project_subagents"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     subagent_id = Column(Integer, nullable=False)
     subagent_type = Column(String(10), nullable=False)  # "default" or "custom"
     enabled_at = Column(DateTime, default=datetime.utcnow)
     enabled_by = Column(String(100), default="user")
 
     # Relationships
-    project = relationship("Project", backref="enabled_subagents")
+    project = relationship("Project", back_populates="enabled_subagents")
 
 
 class DefaultHook(Base):
@@ -364,7 +377,7 @@ class CustomHook(Base):
     __tablename__ = "custom_hooks"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(100), nullable=False)
     description = Column(Text, nullable=False)
     category = Column(String(50), nullable=False)
@@ -381,7 +394,7 @@ class CustomHook(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    project = relationship("Project", backref="custom_hooks")
+    project = relationship("Project", back_populates="custom_hooks")
 
 
 class ProjectHook(Base):
@@ -389,11 +402,11 @@ class ProjectHook(Base):
     __tablename__ = "project_hooks"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
     hook_id = Column(Integer, nullable=False)
     hook_type = Column(String(10), nullable=False)  # "default" or "custom"
     enabled_at = Column(DateTime, default=datetime.utcnow)
     enabled_by = Column(String(100), default="user")
 
     # Relationships
-    project = relationship("Project", backref="enabled_hooks")
+    project = relationship("Project", back_populates="enabled_hooks")
