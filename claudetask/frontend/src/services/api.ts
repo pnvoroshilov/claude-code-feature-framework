@@ -101,7 +101,11 @@ export const getActiveProject = async (): Promise<Project | null> => {
 };
 
 export const initializeProject = async (data: InitializeProjectRequest): Promise<InitializeProjectResponse> => {
-  const response = await api.post('/projects/initialize', data);
+  // Use longer timeout for project initialization (30 seconds)
+  // as it involves copying skills, agents, creating directories, etc.
+  const response = await api.post('/projects/initialize', data, {
+    timeout: 30000
+  });
   return response.data;
 };
 
