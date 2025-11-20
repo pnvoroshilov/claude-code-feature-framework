@@ -16,12 +16,13 @@ from app.models import ClaudeSession
 logger = logging.getLogger(__name__)
 
 class RealClaudeSession:
-    def __init__(self, session_id: str, task_id: int, working_dir: str, root_project_dir: str = None, db_session: Optional[AsyncSession] = None, skip_permissions: bool = True):
+    def __init__(self, session_id: str, task_id: int, working_dir: str, root_project_dir: str = None, db_session: Optional[AsyncSession] = None, skip_permissions: bool = True, project_mode: str = "DEVELOPMENT"):
         self.session_id = session_id
         self.task_id = task_id
         self.working_dir = working_dir  # This is the worktree path
         self.root_project_dir = root_project_dir or working_dir  # Root project directory for Claude
         self.skip_permissions = skip_permissions
+        self.project_mode = project_mode
         self.child: Optional[pexpect.spawn] = None
         self.is_running = False
         self.websocket_clients: List[Any] = []
@@ -220,8 +221,8 @@ class RealClaudeSession:
                 logger.info("Skipping /start-feature for hook session (task_id=0)")
                 return
 
-            # First, provide context about the worktree location
-            if self.working_dir != self.root_project_dir:
+            # First, provide context about the worktree location (only in DEVELOPMENT mode)
+            if self.working_dir != self.root_project_dir and self.project_mode == "DEVELOPMENT":
                 context_message = f"You are working on Task #{self.task_id}. The worktree for this task is located at: {self.working_dir}\n"
                 context_message += f"Please work with files in the worktree: {self.working_dir}\n"
                 context_message += "All your file operations should be relative to this worktree path.\n"
@@ -418,7 +419,7 @@ class RealClaudeService:
         self.sessions: Dict[str, RealClaudeSession] = {}
         self.sessions_lock = threading.Lock()  # Thread-safe session management
 
-    async def create_session(self, task_id: int, project_path: str, session_id: str, root_project_path: str = None, db_session: Optional[AsyncSession] = None) -> Dict[str, Any]:
+    async def create_session(self, task_id: int, project_path: str, session_id: str, root_project_path: str = None, db_session: Optional[AsyncSession] = None, project_mode: str = "DEVELOPMENT") -> Dict[str, Any]:
         """Create a new Claude session"""
         logger.info(f"Creating new session {session_id} for task {task_id}")
         
@@ -450,7 +451,8 @@ class RealClaudeService:
                 project_path,
                 root_project_path,
                 db_session,
-                skip_permissions=True  # Use dangerous mode for task sessions (directory already trusted)
+                skip_permissions=True,  # Use dangerous mode for task sessions (directory already trusted)
+                project_mode=project_mode
             )
             
             # Load history from DB if available

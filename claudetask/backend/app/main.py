@@ -1279,17 +1279,25 @@ async def launch_embedded_claude_session(request: dict, db: AsyncSession = Depen
     # Get project
     project_result = await db.execute(select(Project).where(Project.id == task.project_id))
     project = project_result.scalar_one_or_none()
-    
+
     if not project:
         raise HTTPException(status_code=404, detail=f"Project not found")
-    
+
+    # Get project settings
+    from .models import ProjectSettings
+    settings_result = await db.execute(
+        select(ProjectSettings).where(ProjectSettings.project_id == task.project_id)
+    )
+    settings = settings_result.scalar_one_or_none()
+    project_mode = settings.project_mode if settings else "DEVELOPMENT"
+
     # Determine working directory
     working_dir = task.worktree_path or project.path
-    
+
     # Create new session configuration
     import uuid
     session_id = f"claude-task-{task_id}-{uuid.uuid4().hex[:8]}"
-    
+
     # Start embedded process
     # Pass both the worktree path and the root project path
     result = await real_claude_service.create_session(
@@ -1297,7 +1305,8 @@ async def launch_embedded_claude_session(request: dict, db: AsyncSession = Depen
         project_path=working_dir,  # This is the worktree path
         session_id=session_id,
         root_project_path=project.path,  # Root project directory with .claude
-        db_session=db
+        db_session=db,
+        project_mode=project_mode  # Pass project mode
     )
     
     if result["success"]:
