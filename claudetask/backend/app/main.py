@@ -1283,13 +1283,8 @@ async def launch_embedded_claude_session(request: dict, db: AsyncSession = Depen
     if not project:
         raise HTTPException(status_code=404, detail=f"Project not found")
 
-    # Get project settings
-    from .models import ProjectSettings
-    settings_result = await db.execute(
-        select(ProjectSettings).where(ProjectSettings.project_id == task.project_id)
-    )
-    settings = settings_result.scalar_one_or_none()
-    project_mode = settings.project_mode if settings else "DEVELOPMENT"
+    # Get project mode from project (not settings)
+    project_mode = project.project_mode if project.project_mode else "simple"
 
     # Determine working directory
     working_dir = task.worktree_path or project.path
