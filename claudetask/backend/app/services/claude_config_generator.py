@@ -190,6 +190,108 @@ Please read the [CUSTOM_INSTRUCTIONS.md](./CUSTOM_INSTRUCTIONS.md) file in the p
             else:
                 template_content = mode_section + template_content
 
+            # Add worktree-specific instructions based on worktree_enabled setting
+            if project_mode == "development":
+                if not worktree_enabled:
+                    # Remove worktree-related instructions and add warnings
+                    worktree_warning = """
+## ⚠️ GIT WORKTREES DISABLED
+
+**This project has Git worktrees DISABLED.**
+
+### What this means:
+- ❌ **DO NOT use `git worktree` commands** - They are disabled for this project
+- ❌ **DO NOT create worktrees** for tasks
+- ❌ **DO NOT use `mcp:create_worktree`** command
+- ✅ **Work directly in main branch** or create feature branches manually
+- ✅ **Use standard git branching** instead of worktrees
+
+### When working on tasks:
+1. Work in the main branch for simple changes
+2. For complex features, create feature branches manually: `git checkout -b feature/task-{id}`
+3. Do NOT attempt to create worktrees
+4. Commit and push changes to the appropriate branch
+
+**IMPORTANT**: If you see instructions about worktrees elsewhere in this document, IGNORE them. Worktrees are DISABLED for this project.
+
+---
+
+"""
+                    # Insert after PROJECT MODE section
+                    if "# 📋 Custom Project Instructions" in template_content:
+                        template_content = template_content.replace(
+                            "# 📋 Custom Project Instructions",
+                            worktree_warning + "# 📋 Custom Project Instructions"
+                        )
+                    else:
+                        # Insert after first --- separator
+                        parts = template_content.split('\n---\n', 1)
+                        if len(parts) == 2:
+                            template_content = parts[0] + '\n---\n\n' + worktree_warning + parts[1]
+                else:
+                    # Worktrees are enabled - add specific instructions
+                    worktree_instructions = """
+## ✅ GIT WORKTREES ENABLED
+
+**This project uses Git worktrees for task isolation.**
+
+### How worktrees work:
+- ✅ **Each task gets isolated workspace** - Changes don't interfere with main branch
+- ✅ **Parallel development** - Work on multiple tasks simultaneously
+- ✅ **Clean separation** - Each worktree has its own working directory
+- ✅ **Automatic cleanup** - Worktrees are removed after merge
+
+### Worktree workflow:
+1. When task moves to "In Progress", create worktree: `mcp:create_worktree <task_id>`
+2. Worktree is created at: `worktrees/task-{id}/`
+3. Work in the worktree directory for all changes
+4. After merge to main, worktree is automatically cleaned up
+
+### Important worktree rules:
+- ⚠️ **NEVER delete worktrees manually** - Use proper cleanup commands
+- ⚠️ **ONLY delete when explicitly requested** by user
+- ⚠️ **Maximum 3 parallel worktrees** - Keep resource usage reasonable
+- ✅ **Always work in worktree directory** when task is in progress
+
+---
+
+"""
+                    # Insert after PROJECT MODE section
+                    if "# 📋 Custom Project Instructions" in template_content:
+                        template_content = template_content.replace(
+                            "# 📋 Custom Project Instructions",
+                            worktree_instructions + "# 📋 Custom Project Instructions"
+                        )
+                    else:
+                        # Insert after first --- separator
+                        parts = template_content.split('\n---\n', 1)
+                        if len(parts) == 2:
+                            template_content = parts[0] + '\n---\n\n' + worktree_instructions + parts[1]
+
+            # Remove or modify worktree-specific sections in template based on setting
+            if project_mode == "development" and not worktree_enabled:
+                # Remove the "NEVER DELETE WORKTREES" section since worktrees are disabled
+                lines = template_content.split('\n')
+                filtered_lines = []
+                skip_section = False
+
+                for i, line in enumerate(lines):
+                    # Check if this is the worktree deletion warning section
+                    if "NEVER DELETE WORKTREES" in line:
+                        skip_section = True
+                        continue
+
+                    # Skip lines until we hit the next major section
+                    if skip_section:
+                        if line.strip().startswith("### ⛔") or line.strip().startswith("## "):
+                            skip_section = False
+                        else:
+                            continue
+
+                    filtered_lines.append(line)
+
+                template_content = '\n'.join(filtered_lines)
+
             # Add project configuration section if it doesn't exist
             if "## Project Configuration" not in template_content:
                 config_section = f"""
