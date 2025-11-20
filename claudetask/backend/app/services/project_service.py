@@ -79,7 +79,23 @@ class ProjectService:
         
         # Check if it's a git repo
         is_git_repo = os.path.exists(os.path.join(project_path, ".git"))
-        
+
+        # Initialize git repository if not present
+        if not is_git_repo:
+            logger.info(f"No git repository found at {project_path}, initializing...")
+            try:
+                git_init_result = await ProjectService._initialize_git_repository(
+                    project_path,
+                    project_name,
+                    github_repo
+                )
+                if git_init_result:
+                    logger.info(f"Git repository initialized successfully at {project_path}")
+                    is_git_repo = True
+            except Exception as e:
+                logger.warning(f"Failed to initialize git repository: {e}")
+                # Continue without git - non-fatal error
+
         # Check if project with this path already exists
         existing_project_result = await db.execute(select(Project).where(Project.path == project_path))
         existing_project = existing_project_result.scalar_one_or_none()
@@ -254,6 +270,169 @@ class ProjectService:
             logger.error(f"Error initializing directory trust: {e}", exc_info=True)
             # Don't fail project initialization if this fails
             # User can manually trust the directory later
+
+    @staticmethod
+    async def _initialize_git_repository(
+        project_path: str,
+        project_name: str,
+        github_repo: Optional[str] = None
+    ) -> bool:
+        """
+        Initialize a git repository in the project directory.
+
+        This creates a new git repository with:
+        - Initial .gitignore for framework files
+        - Git configuration (user.name, user.email)
+        - Initial commit with project files
+        - Optional remote origin (if github_repo provided)
+
+        Args:
+            project_path: Path to project directory
+            project_name: Name of the project
+            github_repo: Optional GitHub repository URL
+
+        Returns:
+            bool: True if initialization successful, False otherwise
+        """
+        import subprocess
+
+        try:
+            # Run git init
+            result = subprocess.run(
+                ["git", "init"],
+                cwd=project_path,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            if result.returncode != 0:
+                logger.error(f"git init failed: {result.stderr}")
+                return False
+
+            logger.info(f"Git repository initialized at {project_path}")
+
+            # Create .gitignore if it doesn't exist
+            gitignore_path = os.path.join(project_path, ".gitignore")
+            if not os.path.exists(gitignore_path):
+                gitignore_content = """# ClaudeTask Framework
+.claudetask/
+.mcp.json.backup
+*.pyc
+__pycache__/
+.env
+.venv/
+venv/
+env/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Python
+*.egg-info/
+dist/
+build/
+"""
+                with open(gitignore_path, "w") as f:
+                    f.write(gitignore_content)
+                logger.info("Created .gitignore file")
+
+            # Configure git user if not already configured
+            # Check global config first
+            check_name = subprocess.run(
+                ["git", "config", "user.name"],
+                cwd=project_path,
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            check_email = subprocess.run(
+                ["git", "config", "user.email"],
+                cwd=project_path,
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            # Set local config if global not set
+            if not check_name.stdout.strip():
+                subprocess.run(
+                    ["git", "config", "user.name", "ClaudeTask Framework"],
+                    cwd=project_path,
+                    timeout=5
+                )
+                logger.info("Set git user.name")
+
+            if not check_email.stdout.strip():
+                subprocess.run(
+                    ["git", "config", "user.email", "claudetask@framework.local"],
+                    cwd=project_path,
+                    timeout=5
+                )
+                logger.info("Set git user.email")
+
+            # Add all files for initial commit
+            subprocess.run(
+                ["git", "add", "."],
+                cwd=project_path,
+                timeout=10
+            )
+
+            # Create initial commit
+            commit_result = subprocess.run(
+                ["git", "commit", "-m", f"Initial commit: {project_name} project initialized with ClaudeTask Framework"],
+                cwd=project_path,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            if commit_result.returncode == 0:
+                logger.info("Created initial git commit")
+            else:
+                # Commit might fail if nothing to commit, that's ok
+                logger.debug(f"Initial commit status: {commit_result.stderr}")
+
+            # Add remote origin if github_repo provided
+            if github_repo:
+                try:
+                    subprocess.run(
+                        ["git", "remote", "add", "origin", github_repo],
+                        cwd=project_path,
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    logger.info(f"Added git remote origin: {github_repo}")
+                except Exception as e:
+                    logger.warning(f"Failed to add remote origin: {e}")
+
+            return True
+
+        except subprocess.TimeoutExpired:
+            logger.error("Git initialization timed out")
+            return False
+        except FileNotFoundError:
+            logger.error("Git command not found - is git installed?")
+            return False
+        except Exception as e:
+            logger.error(f"Error initializing git repository: {e}", exc_info=True)
+            return False
 
     @staticmethod
     def _detect_technologies(project_path: str) -> List[str]:
