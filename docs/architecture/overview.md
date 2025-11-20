@@ -79,12 +79,13 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 ### 3. Hooks System
 - Default hooks (framework-provided)
 - Custom hooks (user-created via Claude)
-- Per-project hook enablement
+- Per-project hook enablement via UI
 - Favorites system (cross-project)
 - Separate script file support for complex hooks
 - Automatic settings.json generation from hook configs
 - Hook scripts with executable permissions (chmod +x)
 - Integration with .claude/settings.json and .claude/settings.local.json
+- No auto-enablement during project initialization (user chooses which hooks to enable)
 - Post-merge documentation update hook with recursion prevention
 - See [Hooks System Documentation](./hooks-system.md)
 
@@ -113,8 +114,10 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 - Preserves user customizations while updating framework components
 - Updates agents, commands, hooks, and CLAUDE.md templates
 - MCP configuration merging with preservation of user's custom servers
-- Automatic generation of `.claude/settings.json` from hook configurations
+- Automatic generation of `.claude/settings.json` (empty hooks by default)
 - Automatic generation of `.claude/settings.local.json` for MCP server enablement
+  - Pre-configured with claudetask, playwright, serena MCP servers
+  - enableAllProjectMcpServers flag set to true
 - Backup of critical files (CLAUDE.md → CLAUDE.md.backup)
 - Hook scripts copied with executable permissions (chmod +x)
 - Complete agent refresh to remove deprecated configurations
@@ -355,6 +358,21 @@ The framework is designed for extensibility:
 ---
 
 ## Recent Architectural Enhancements
+
+### Project Initialization Improvements (2025-11-20)
+- **Hooks Directory Reorganization**: Hook scripts now stored in `.claude/hooks/` subdirectory
+- **No Auto-Enablement**: Hooks are not automatically enabled during project creation
+  - Gives users full control over which hooks to enable
+  - Empty `.claude/settings.json` with `{"hooks": {}}` structure
+  - Users enable hooks via UI, which merges hook configs into settings.json
+- **Automatic settings.local.json Generation**: New file created during initialization
+  - Pre-configured with essential MCP servers (claudetask, playwright, serena)
+  - `enableAllProjectMcpServers: true` flag enables all project-specific MCP servers
+  - No need for manual MCP server configuration
+- **Script-Only Hook Copying**: Only `.sh` script files copied to project, not JSON configs
+  - JSON configs stay in framework database
+  - Cleaner project structure
+  - Hook configs merged into settings.json only when enabled
 
 ### Database Migration 006 (CASCADE DELETE)
 - Automatic cascade deletion of all project-related records

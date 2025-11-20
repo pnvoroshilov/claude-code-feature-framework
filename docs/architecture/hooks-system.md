@@ -151,27 +151,44 @@ INSERT INTO default_hooks (
 
 #### 3. Project Installation
 
-When a hook is enabled for a project:
+**IMPORTANT**: As of 2025-11-20, hooks are NOT automatically enabled during project initialization.
 
+During project creation:
+```python
+# project_service.py - _create_project_structure()
+# 1. Create .claude/hooks/ directory
+hooks_dir = os.path.join(claude_dir, "hooks")
+os.makedirs(hooks_dir, exist_ok=True)
+
+# 2. Copy ALL hook scripts (.sh files) from framework-assets
+#    Scripts are ready for use when user enables hooks via UI
+for hook_file in os.listdir(hooks_source_dir):
+    if hook_file.endswith(".sh"):
+        source_file = os.path.join(hooks_source_dir, hook_file)
+        dest_file = os.path.join(hooks_dir, hook_file)
+        shutil.copy(source_file, dest_file)
+        os.chmod(dest_file, 0o755)  # Make executable
+
+# 3. Create empty .claude/settings.json
+settings_data = {"hooks": {}}  # No hooks enabled by default
+```
+
+When user enables a hook via UI:
 ```python
 # hook_file_service.py
 def copy_hook_to_project(project_path, hook):
     """
-    1. Copy script_file to .claude/hooks/
-    2. Make it executable (chmod +x)
-    3. Update .claude/settings.json with hook_config
+    1. Script already exists in .claude/hooks/ (copied during initialization)
+    2. Merge hook_config into .claude/settings.json
+    3. Hook becomes active
     """
-    if hook.script_file:
-        script_src = f"framework-assets/claude-hooks/{hook.script_file}"
-        script_dst = f"{project_path}/.claude/hooks/{hook.script_file}"
-
-        shutil.copy(script_src, script_dst)
-        os.chmod(script_dst, 0o755)  # Make executable
+    # Script is already present and executable
+    # Just merge hook configuration into settings.json
 ```
 
-#### 4. Settings Reference
+#### 4. Settings Files
 
-`.claude/settings.json`:
+**`.claude/settings.json`** - Hook configurations (user-controlled):
 ```json
 {
   "hooks": {
@@ -185,6 +202,24 @@ def copy_hook_to_project(project_path, hook):
   }
 }
 ```
+
+**`.claude/settings.local.json`** - MCP server configuration (automatically generated):
+```json
+{
+  "enabledMcpjsonServers": [
+    "playwright",
+    "claudetask",
+    "serena"
+  ],
+  "enableAllProjectMcpServers": true
+}
+```
+
+**Key Points**:
+- **settings.json**: Created empty during initialization, populated when hooks are enabled
+- **settings.local.json**: Automatically generated with essential MCP servers
+- Both files created in `.claude/` directory during project initialization
+- settings.local.json requires Claude Code restart to take effect
 
 ## Hook Configuration Format
 
