@@ -25,6 +25,13 @@ const ProjectModeToggle: React.FC = () => {
 
   const projectMode = selectedProject?.project_mode || 'simple';
 
+  console.log('ProjectModeToggle render:', {
+    projectMode,
+    worktreeEnabled,
+    selectedProject: selectedProject?.name,
+    willShowWorktreeToggle: projectMode === 'development'
+  });
+
   // Load project settings to get worktree_enabled value
   useEffect(() => {
     const loadSettings = async () => {
