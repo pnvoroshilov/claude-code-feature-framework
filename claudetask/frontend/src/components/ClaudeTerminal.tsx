@@ -84,12 +84,15 @@ const StyledHeader = styled(Box)(({ theme }) => ({
 const StyledMessageContainer = styled(Box)(({ theme }) => ({
   flex: 1,
   overflow: 'auto',
+  overflowAnchor: 'none', // Отключаем автоматическую корректировку скролла браузером
   padding: '20px 24px',
   backgroundColor: '#1a1a1a',
   fontFamily: '"JetBrains Mono", "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", monospace',
   fontSize: '14px',
   lineHeight: '1.7',
   color: '#e8e8e8',
+  display: 'flex',
+  flexDirection: 'column',
   '&::-webkit-scrollbar': {
     width: '10px',
   },
@@ -212,6 +215,7 @@ const ClaudeTerminal: React.FC<ClaudeTerminalProps> = ({
   const wsRef = useRef<WebSocket | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
   const containerRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
@@ -404,7 +408,33 @@ const ClaudeTerminal: React.FC<ClaudeTerminalProps> = ({
   
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const scrollToBottom = () => {
+      requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight;
+      });
+    };
+
+    // Немедленная прокрутка
+    scrollToBottom();
+
+    // Создаем MutationObserver для отслеживания изменений содержимого
+    const observer = new MutationObserver(() => {
+      scrollToBottom();
+    });
+
+    // Наблюдаем за изменениями в дочерних элементах контейнера
+    observer.observe(container, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+
+    return () => {
+      observer.disconnect();
+    };
   }, [messages]);
 
   // Cleanup on unmount
@@ -987,59 +1017,61 @@ const ClaudeTerminal: React.FC<ClaudeTerminalProps> = ({
       )}
 
       {/* Messages Display */}
-      <StyledMessageContainer>
-        {messages.length === 0 ? (
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            height: '100%',
-            gap: 2
-          }}>
-            <ClaudeIcon sx={{ fontSize: 48, color: '#30363d' }} />
-            <Typography sx={{ color: '#8b949e', fontSize: '14px' }}>
-              {isActive ? 'Waiting for messages...' : 'Click the play button to start a Claude session'}
-            </Typography>
-          </Box>
-        ) : (
-          messages.map((msg, index) => (
-            <MessageLine key={index} messageType={msg.type}>
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                <Box sx={{ color: getMessageColor(msg.type), mt: 0.5 }}>
-                  {getMessageIcon(msg.type)}
+      <StyledMessageContainer ref={messagesContainerRef}>
+        <Box sx={{ flex: 1, minHeight: 0 }}>
+          {messages.length === 0 ? (
+            <Box sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '100%',
+              gap: 2
+            }}>
+              <ClaudeIcon sx={{ fontSize: 48, color: '#30363d' }} />
+              <Typography sx={{ color: '#8b949e', fontSize: '14px' }}>
+                {isActive ? 'Waiting for messages...' : 'Click the play button to start a Claude session'}
+              </Typography>
+            </Box>
+          ) : (
+            messages.map((msg, index) => (
+              <MessageLine key={index} messageType={msg.type}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                  <Box sx={{ color: getMessageColor(msg.type), mt: 0.5 }}>
+                    {getMessageIcon(msg.type)}
+                  </Box>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography
+                      component="span"
+                      sx={{
+                        color: '#8b949e',
+                        fontSize: '11px',
+                        fontFamily: 'monospace',
+                        display: 'inline-block',
+                        mb: 0.5
+                      }}
+                    >
+                      {new Date(msg.timestamp).toLocaleTimeString()}
+                      {msg.subtype && ` • ${msg.subtype}`}
+                    </Typography>
+                    <Typography
+                      sx={{
+                        color: getMessageColor(msg.type),
+                        fontSize: '13px',
+                        fontFamily: 'monospace',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                        lineHeight: 1.6
+                      }}
+                    >
+                      {typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)}
+                    </Typography>
+                  </Box>
                 </Box>
-                <Box sx={{ flex: 1 }}>
-                  <Typography
-                    component="span"
-                    sx={{
-                      color: '#8b949e',
-                      fontSize: '11px',
-                      fontFamily: 'monospace',
-                      display: 'inline-block',
-                      mb: 0.5
-                    }}
-                  >
-                    {new Date(msg.timestamp).toLocaleTimeString()}
-                    {msg.subtype && ` • ${msg.subtype}`}
-                  </Typography>
-                  <Typography
-                    sx={{
-                      color: getMessageColor(msg.type),
-                      fontSize: '13px',
-                      fontFamily: 'monospace',
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',
-                      lineHeight: 1.6
-                    }}
-                  >
-                    {typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content)}
-                  </Typography>
-                </Box>
-              </Box>
-            </MessageLine>
-          ))
-        )}
+              </MessageLine>
+            ))
+          )}
+        </Box>
         <div ref={messagesEndRef} />
       </StyledMessageContainer>
 

@@ -18,7 +18,23 @@ Comprehensive interface for managing and monitoring embedded Claude Code task se
 
 **Location:** `claudetask/frontend/src/pages/ClaudeSessions.tsx`
 
-**Status:** Active, Recently Updated (v2.0.0)
+**Status:** Active, Recently Updated (v2.1)
+
+#### [RealTerminal](./RealTerminal.md)
+Embedded terminal interface with xterm.js and intelligent WebSocket communication.
+
+**Features:**
+- Real-time terminal emulation with xterm.js
+- WebSocket-based bidirectional communication
+- Smart auto-scroll with user scroll detection
+- Buffered output writes to prevent scroll jumping
+- Extended scrollback buffer (10,000 lines)
+- Session history replay on reconnection
+- Automatic session management
+
+**Location:** `claudetask/frontend/src/components/RealTerminal.tsx`
+
+**Status:** Active, Recently Updated (v2.1 - WebSocket Buffering & Scroll Improvements)
 
 #### [ClaudeCodeSessions](./ClaudeCodeSessions.md)
 Advanced analytics and browsing interface for Claude Code native session files (.jsonl).
@@ -181,6 +197,7 @@ claudetask/frontend/src/
 ### 1. Session & Process Management
 Components for managing Claude Code sessions and processes:
 - **ClaudeSessions** - Embedded task session management with real-time monitoring
+- **RealTerminal** - Terminal interface with smart scroll and WebSocket buffering
 - **ClaudeCodeSessions** - Native Claude Code session analytics and browsing
 
 ### 2. Project Management
@@ -195,7 +212,8 @@ Components for managing framework features:
 
 ### 4. Task Management
 Components for task and project management:
-- **Tasks** - Task board and details (to be documented)
+- **TaskBoard** - Kanban-style task board with File Browser integration
+- **Tasks** - Task cards and details (to be documented)
 - **Projects** - Project configuration (to be documented)
 
 ### 5. Shared Components
@@ -359,8 +377,8 @@ When adding or updating components:
 
 ---
 
-**Last Updated**: 2025-11-19
-**Total Components Documented**: 6
+**Last Updated**: 2025-11-20
+**Total Components Documented**: 7
 **Documentation Status**: Active maintenance
 
 ## Component Documentation Index
@@ -368,10 +386,12 @@ When adding or updating components:
 | Component | Category | Status | Version | Documentation |
 |-----------|----------|--------|---------|---------------|
 | ClaudeSessions | Session Management | Active | v2.1 | [View](./ClaudeSessions.md) |
+| RealTerminal | Session Management | Active | v2.1 | [View](./RealTerminal.md) |
 | ClaudeCodeSessions | Session Management | Active | v1.0 | [View](./ClaudeCodeSessions.md) |
 | FileBrowser | Project Management | Production Ready | v2.0.1 | [View](./FileBrowser.md) |
 | Hooks | Framework Management | Active | v1.0 | [View](./Hooks.md) |
 | Subagents | Framework Management | Active | v1.0 | [View](./Subagents.md) |
 | Skills | Framework Management | Active | v1.0 | [View](./Skills.md) |
+| TaskBoard | Task Management | Active | v1.1 | Integrated File Browser navigation |
 | Tasks | Task Management | Pending | - | To be documented |
 | Projects | Task Management | Pending | - | To be documented |

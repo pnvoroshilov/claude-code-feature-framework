@@ -1,27 +1,41 @@
 # ClaudeTask Framework - Autonomous Orchestrator Configuration
 
 
-# 🎯 PROJECT MODE: SIMPLE
+# 🎯 PROJECT MODE: DEVELOPMENT
 
-**This project is configured in SIMPLE mode.**
+**This project is configured in DEVELOPMENT mode with full workflow.**
 
-## Task Workflow (3 Columns)
-- **Backlog**: Tasks waiting to be started
-- **In Progress**: Tasks currently being worked on
-- **Done**: Completed tasks
+## Task Workflow (7 Columns)
+- **Backlog**: New tasks waiting to be analyzed
+- **Analysis**: Understanding requirements and planning
+- **In Progress**: Active development with Git worktrees
+- **Testing**: Running tests and validation
+- **Code Review**: Peer review of changes
+- **PR**: Pull Request created and awaiting merge
+- **Done**: Completed and merged
 
 ## What this means:
-- ✅ **NO Git workflow** - Direct work, no branches, no PRs
-- ✅ **NO complex statuses** - Just Backlog → In Progress → Done
-- ✅ **Simplified task management** - Focus on getting work done
-- ✅ **No worktrees, no version control complexity**
+- ✅ **Full Git workflow** - Branches, worktrees, PRs
+- ✅ **Complete development lifecycle** - From analysis to deployment
+- ✅ **Version control** - Proper branching and merge strategy
+- ✅ **Quality gates** - Testing and code review required
 
 ## Your approach:
-1. When working on tasks, work directly in the main branch
-2. Don't create branches or worktrees
-3. Don't follow the full development workflow
-4. Focus on completing tasks efficiently
-5. Task statuses: Only use Backlog, In Progress, and Done
+1. Follow the complete task workflow through all statuses
+2. Create worktrees for each task
+3. Use proper branching strategy
+4. Create PRs and wait for review
+5. Ensure tests pass before moving forward
+
+---
+
+
+
+# 📋 Custom Project Instructions
+
+**⚠️ IMPORTANT: This project has custom-specific instructions.**
+
+Please read the [CUSTOM_INSTRUCTIONS.md](./CUSTOM_INSTRUCTIONS.md) file in the project root for project-specific requirements and guidelines that take HIGHEST PRIORITY over general instructions.
 
 ---
 

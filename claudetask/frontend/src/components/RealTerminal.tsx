@@ -39,6 +39,28 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
   const sessionCheckDoneRef = useRef(false);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const userStoppedRef = useRef(false);
+  const isUserScrollingRef = useRef(false);
+  const lastScrollPositionRef = useRef(0);
+  const writeBufferRef = useRef<string[]>([]);
+  const flushTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Function to flush buffer to terminal
+  const flushBuffer = useCallback(() => {
+    if (writeBufferRef.current.length === 0) return;
+    if (!terminal.current) return;
+
+    // Write all buffered content at once
+    const content = writeBufferRef.current.join('');
+    terminal.current.write(content);
+
+    // Clear buffer
+    writeBufferRef.current = [];
+
+    // Scroll to bottom if user hasn't scrolled up
+    if (!isUserScrollingRef.current) {
+      terminal.current.scrollToBottom();
+    }
+  }, []);
 
   useEffect(() => {
     if (!terminalRef.current) return;
@@ -58,7 +80,7 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
         fontSize: 14,
         cursorBlink: true,
         convertEol: true,
-        scrollback: 1000,
+        scrollback: 10000,
       });
 
       // Add fit addon
@@ -79,6 +101,24 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
         }
       }, 100);
 
+      // Отслеживаем скролл пользователя
+      terminal.current.onScroll(() => {
+        if (!terminal.current) return;
+
+        const viewport = terminal.current.buffer.active.viewportY;
+        const baseY = terminal.current.buffer.active.baseY;
+
+        // Если пользователь прокрутил ВВЕРХ от низа
+        if (viewport < baseY - 1) {
+          isUserScrollingRef.current = true;
+        } else {
+          // Если вернулся вниз - снова включаем автоскролл
+          isUserScrollingRef.current = false;
+        }
+
+        lastScrollPositionRef.current = viewport;
+      });
+
       // Handle all input
       terminal.current.onData((data) => {
         console.log('Terminal input:', data, 'charCode:', data.charCodeAt(0));
@@ -91,7 +131,7 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
       });
 
       terminal.current.writeln('Terminal ready. Checking for active session...');
-      
+
       // Auto-check for active session and launch if needed
       checkActiveSession();
     } catch (error) {
@@ -103,6 +143,14 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
         }
+        if (flushTimeoutRef.current) {
+          clearTimeout(flushTimeoutRef.current);
+          flushTimeoutRef.current = null;
+        }
+        // Flush any remaining buffered content before cleanup
+        if (writeBufferRef.current.length > 0) {
+          flushBuffer();
+        }
         // Don't close WebSocket on unmount to keep session alive
         // wsRef.current?.close();
         terminal.current?.dispose();
@@ -110,7 +158,10 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
         console.warn('Error disposing terminal:', error);
       }
     };
-  }, [taskId]);
+  }, [taskId, flushBuffer]);
+
+  // Auto-scroll is now handled by flushBuffer after each batch write
+  // No need for continuous interval polling
 
   const checkActiveSession = useCallback(async () => {
     if (sessionCheckDoneRef.current) return;
@@ -189,7 +240,13 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
     if (wsRef.current) {
       wsRef.current.close();
     }
-    
+
+    // Clear any pending flush
+    if (flushTimeoutRef.current) {
+      clearTimeout(flushTimeoutRef.current);
+      flushTimeoutRef.current = null;
+    }
+
     setIsConnecting(true);
     const ws = new WebSocket(`ws://localhost:3333/api/sessions/embedded/${sessionId}/ws`);
     wsRef.current = ws;
@@ -197,10 +254,10 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
     ws.onopen = () => {
       setIsConnecting(false);
       terminal.current?.writeln('\r\nConnected to Claude');
-      
+
       // Send initial ping
       ws.send(JSON.stringify({ type: 'ping' }));
-      
+
       // If reconnecting, request history
       if (isReconnect) {
         console.log('Requesting session history on reconnect');
@@ -211,13 +268,13 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        
-        // Handle history replay
+
+        // Handle history replay - write immediately for history
         if (message.type === 'history') {
           console.log(`Replaying ${message.content?.length || 0} history messages`);
           terminal.current?.clear();
           terminal.current?.writeln('=== Session History ===');
-          
+
           // Replay all history messages
           if (Array.isArray(message.content)) {
             message.content.forEach((historyMsg: any) => {
@@ -227,16 +284,40 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
             });
           }
           terminal.current?.writeln('\r\n=== Live Session ===');
+          terminal.current?.scrollToBottom();
         } else if (message.type === 'output' && message.content) {
-          // Write regular output
-          terminal.current?.write(message.content);
+          // Buffer regular output instead of immediate write
+          writeBufferRef.current.push(message.content);
+
+          // Schedule flush if not already scheduled
+          if (!flushTimeoutRef.current) {
+            flushTimeoutRef.current = setTimeout(() => {
+              flushBuffer();
+              flushTimeoutRef.current = null;
+            }, 50); // Flush every 50ms
+          }
         } else if (message.type !== 'pong' && message.content) {
-          // Write any other content
-          terminal.current?.write(message.content);
+          // Buffer other content too
+          writeBufferRef.current.push(message.content);
+
+          // Schedule flush if not already scheduled
+          if (!flushTimeoutRef.current) {
+            flushTimeoutRef.current = setTimeout(() => {
+              flushBuffer();
+              flushTimeoutRef.current = null;
+            }, 50); // Flush every 50ms
+          }
         }
       } catch (error) {
-        // If not JSON, write as plain text
-        terminal.current?.write(event.data);
+        // If not JSON, write as plain text (buffer it too)
+        writeBufferRef.current.push(event.data);
+
+        if (!flushTimeoutRef.current) {
+          flushTimeoutRef.current = setTimeout(() => {
+            flushBuffer();
+            flushTimeoutRef.current = null;
+          }, 50);
+        }
       }
     };
 
@@ -269,16 +350,27 @@ const RealTerminal: React.FC<RealTerminalProps> = ({ taskId }) => {
 
   const stopSession = async () => {
     console.log(`Stopping session ${sessionId}`);
-    
+
     // Mark as user-stopped to prevent reconnection
     userStoppedRef.current = true;
-    
+
     // Clear reconnect timeout
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
     }
-    
+
+    // Clear flush timeout
+    if (flushTimeoutRef.current) {
+      clearTimeout(flushTimeoutRef.current);
+      flushTimeoutRef.current = null;
+    }
+
+    // Flush any remaining buffered content
+    if (writeBufferRef.current.length > 0) {
+      flushBuffer();
+    }
+
     // Close WebSocket first
     if (wsRef.current) {
       wsRef.current.close();

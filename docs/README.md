@@ -19,6 +19,7 @@ React component documentation with props, usage examples, and patterns.
 **Components:**
 - `README.md` - Component index and architecture overview
 - `FileBrowser.md` - GitHub-style file browser with complete file management and layout stability (v2.0.1)
+- `RealTerminal.md` - Terminal interface with WebSocket buffering and smart scroll management (v2.1)
 - `ClaudeSessions.md` - Embedded task session management UI with structured content rendering (v2.1)
 - `ClaudeCodeSessions.md` - Native Claude Code session analytics and browsing interface
 - `Hooks.md` - Hooks management UI for automated shell command configuration
@@ -49,6 +50,14 @@ ClaudeTask framework documentation and workflow guides.
 - `workflow.md` - Task management workflow (to be created)
 - `mcp-integration.md` - MCP tools and integration patterns (to be created)
 - `worktree-guide.md` - Git worktree usage for feature development (to be created)
+
+### `/skills/`
+Claude Code skills documentation for extended capabilities.
+
+**Skills:**
+- `README.md` - Skills overview and usage guide
+- `toon-format.md` - TOON Format skill for token-efficient data serialization
+- `usecase-writer.md` - UseCase Writer skill for requirements documentation
 
 ### `/examples/`
 Practical usage examples and code snippets.
@@ -145,7 +154,19 @@ To manually trigger documentation update:
 
 ## Recent Updates
 
-**Latest Changes (2025-11-19):**
+**Latest Changes (2025-11-20):**
+- ✅ **RealTerminal v2.1**: WebSocket buffering and smart scroll management
+  - User scroll detection prevents auto-scroll interruption
+  - Buffered output writes reduce scroll jumping
+  - Extended scrollback buffer (10,000 lines)
+- ✅ **New Skills Added**: TOON Format and UseCase Writer as framework defaults
+  - TOON Format: Token-efficient data serialization (30-60% token savings)
+  - UseCase Writer: Professional requirements documentation (UML, Cockburn, IEEE 830)
+- ✅ **TaskBoard Enhancement**: File Browser navigation link added to header
+- ✅ **Mode Switch**: Project switched from SIMPLE to DEVELOPMENT mode
+- ✅ **Documentation Cleanup**: Removed 30+ obsolete documentation files
+
+**Previous Changes (2025-11-19):**
 - ✅ **FileBrowser v2.0.1**: UI/UX refinements and layout stability improvements
   - Increased breadcrumb maxWidth from 80px to 200px for significantly better visibility
   - Fixed editor panel layout to prevent full-width expansion on first file open
@@ -272,15 +293,16 @@ New documentation is automatically created when:
 - [ ] Performance optimization guides
 
 **Documentation Metrics:**
-- Total files: 18 active, 3 archived
+- Total files: 22 active, 3 archived
 - API endpoints documented: 4 (including 8 total endpoints)
-- Components documented: 6
-- Last full update: 2025-11-19
+- Components documented: 7 (added RealTerminal v2.1)
+- Skills documented: 2 (TOON Format, UseCase Writer)
+- Last full update: 2025-11-20
 - Auto-update status: Active and operational
 
 ---
 
 **Documentation System Status:** ✅ Active
-**Last Auto-Update:** 2025-11-19
+**Last Auto-Update:** 2025-11-20
 **Auto-Update Trigger:** Post-merge hook with [skip-hook] prevention
 **Maintainer:** documentation-updater-agent
