@@ -28,10 +28,15 @@ const ProjectModeToggle: React.FC = () => {
   // Load project settings to get worktree_enabled value
   useEffect(() => {
     const loadSettings = async () => {
-      if (!selectedProject) return;
+      if (!selectedProject) {
+        console.log('No selected project, skipping settings load');
+        return;
+      }
 
       try {
+        console.log('Loading project settings for:', selectedProject.id);
         const settings = await getProjectSettings(selectedProject.id);
+        console.log('Project settings loaded:', settings);
         setWorktreeEnabled(settings.worktree_enabled);
       } catch (error) {
         console.error('Failed to load project settings:', error);
@@ -42,20 +47,28 @@ const ProjectModeToggle: React.FC = () => {
   }, [selectedProject]);
 
   const handleWorktreeToggle = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!selectedProject) return;
+    if (!selectedProject) {
+      console.error('No selected project');
+      return;
+    }
 
     const newValue = event.target.checked;
+    console.log('Worktree toggle clicked:', { newValue, projectId: selectedProject.id });
     setLoading(true);
 
     try {
+      console.log('Updating project settings...');
       await updateProjectSettings(selectedProject.id, {
         worktree_enabled: newValue
       });
+      console.log('Settings updated successfully');
 
       setWorktreeEnabled(newValue);
 
       // Refresh projects to trigger CLAUDE.md regeneration
+      console.log('Refreshing projects...');
       await refreshProjects();
+      console.log('Projects refreshed');
     } catch (error) {
       console.error('Failed to update worktree setting:', error);
       // Revert on error
