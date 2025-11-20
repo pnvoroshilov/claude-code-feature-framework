@@ -482,9 +482,55 @@ async def update_task_status(
                         # Add warning about conflicts
                         history.comment += f" (WARNING: Merge conflicts detected - manual resolution required)"
         
-        # If status changed to Analysis, log it for potential notifications
+        # If status changed to Analysis, create worktree and Analyse folder
         if status_update.status == TaskStatus.ANALYSIS and old_status != TaskStatus.ANALYSIS:
             logger.info(f"Task {task_id} needs analysis - status changed to Analysis")
+
+            # Get project for context
+            project_result = await db.execute(
+                select(Project).where(Project.id == task.project_id)
+            )
+            project = project_result.scalar_one_or_none()
+
+            # Get project settings to check worktree_enabled
+            settings_result = await db.execute(
+                select(ProjectSettings).where(ProjectSettings.project_id == task.project_id)
+            )
+            settings = settings_result.scalar_one_or_none()
+            worktree_enabled = settings.worktree_enabled if settings else True
+
+            # Create worktree in development mode with worktrees enabled
+            if project and project.project_mode == 'development' and worktree_enabled:
+                logger.info(f"Creating worktree for task {task_id} in Analysis phase")
+                from .services.worktree_service import WorktreeService
+
+                worktree_result = await WorktreeService.create_worktree(
+                    task_id=task_id,
+                    project_path=project.path
+                )
+
+                if worktree_result["success"]:
+                    # Update task with worktree information
+                    task.git_branch = worktree_result["branch_name"]
+                    task.worktree_path = worktree_result["worktree_path"]
+                    logger.info(f"Worktree created for task {task_id}: {worktree_result['branch_name']}")
+
+                    # Now create Analyse folder in the worktree
+                    folder_result = await WorktreeService.create_task_folders(
+                        worktree_path=task.worktree_path,
+                        folder_name="Analyse"
+                    )
+
+                    if folder_result["success"]:
+                        logger.info(f"Created Analyse folder for task {task_id}: {folder_result['folder_path']}")
+                    else:
+                        logger.error(f"Failed to create Analyse folder for task {task_id}: {folder_result.get('error')}")
+                else:
+                    logger.error(f"Failed to create worktree for task {task_id}: {worktree_result.get('error')}")
+            elif project and project.project_mode == 'simple':
+                logger.info(f"Project in simple mode - skipping worktree creation for task {task_id}")
+            elif project and not worktree_enabled:
+                logger.info(f"Worktrees disabled - skipping worktree creation for task {task_id}")
         
         # Initialize response data with instructions for next steps
         response_data = {
@@ -509,6 +555,20 @@ async def update_task_status(
                 "Move to 'Testing' when implementation is complete"
             ]
         elif status_update.status == TaskStatus.TESTING:
+            # Create Tests folder if worktree exists
+            if old_status != TaskStatus.TESTING and task.worktree_path and os.path.exists(task.worktree_path):
+                from .services.worktree_service import WorktreeService
+
+                folder_result = await WorktreeService.create_task_folders(
+                    worktree_path=task.worktree_path,
+                    folder_name="Tests"
+                )
+
+                if folder_result["success"]:
+                    logger.info(f"Created Tests folder for task {task_id}: {folder_result['folder_path']}")
+                else:
+                    logger.error(f"Failed to create Tests folder for task {task_id}: {folder_result.get('error')}")
+
             response_data["next_steps"] = [
                 "Run all test suites",
                 "Verify functionality works as expected",
@@ -536,58 +596,68 @@ async def update_task_status(
                 "Move back to appropriate status when unblocked"
             ]
         
-        # Auto-create worktree when task moves to In Progress (ONLY in development mode)
+        # Auto-create worktree when task moves to In Progress ONLY if worktree doesn't already exist
+        # (worktree may have been created in Analysis phase)
         if status_update.status == TaskStatus.IN_PROGRESS and old_status != TaskStatus.IN_PROGRESS:
             logger.info(f"Task {task_id} started")
 
-            # Get project for context
-            project_result = await db.execute(
-                select(Project).where(Project.id == task.project_id)
-            )
-            project = project_result.scalar_one_or_none()
-
-            # Get project settings to check worktree_enabled
-            settings_result = await db.execute(
-                select(ProjectSettings).where(ProjectSettings.project_id == task.project_id)
-            )
-            settings = settings_result.scalar_one_or_none()
-            worktree_enabled = settings.worktree_enabled if settings else True
-
-            # Only create worktree in development mode AND if worktree_enabled is True
-            if project and project.project_mode == 'development' and worktree_enabled:
-                logger.info(f"Project in development mode with worktrees enabled - creating worktree for task {task_id}")
-                # Create worktree for the task
-                from .services.worktree_service import WorktreeService
-
-                worktree_result = await WorktreeService.create_worktree(
-                    task_id=task_id,
-                    project_path=project.path
+            # Check if worktree already exists
+            if task.worktree_path and os.path.exists(task.worktree_path):
+                logger.info(f"Worktree already exists for task {task_id}: {task.worktree_path}")
+                response_data["worktree"] = {
+                    "exists": True,
+                    "branch": task.git_branch,
+                    "path": task.worktree_path
+                }
+            else:
+                # Get project for context
+                project_result = await db.execute(
+                    select(Project).where(Project.id == task.project_id)
                 )
+                project = project_result.scalar_one_or_none()
 
-                if worktree_result["success"]:
-                    # Update task with worktree information
-                    task.git_branch = worktree_result["branch_name"]
-                    task.worktree_path = worktree_result["worktree_path"]
-                    logger.info(f"Worktree created for task {task_id}: {worktree_result['branch_name']}")
-                    # Add worktree info to response
-                    response_data["worktree"] = {
-                        "created": True,
-                        "branch": worktree_result["branch_name"],
-                        "path": worktree_result["worktree_path"]
-                    }
-                else:
-                    logger.error(f"Failed to create worktree for task {task_id}: {worktree_result.get('error')}")
-                    # Check if worktree already exists
-                    if "already exists" in str(worktree_result.get("error", "")):
+                # Get project settings to check worktree_enabled
+                settings_result = await db.execute(
+                    select(ProjectSettings).where(ProjectSettings.project_id == task.project_id)
+                )
+                settings = settings_result.scalar_one_or_none()
+                worktree_enabled = settings.worktree_enabled if settings else True
+
+                # Only create worktree in development mode AND if worktree_enabled is True
+                if project and project.project_mode == 'development' and worktree_enabled:
+                    logger.info(f"Project in development mode with worktrees enabled - creating worktree for task {task_id}")
+                    # Create worktree for the task
+                    from .services.worktree_service import WorktreeService
+
+                    worktree_result = await WorktreeService.create_worktree(
+                        task_id=task_id,
+                        project_path=project.path
+                    )
+
+                    if worktree_result["success"]:
+                        # Update task with worktree information
+                        task.git_branch = worktree_result["branch_name"]
+                        task.worktree_path = worktree_result["worktree_path"]
+                        logger.info(f"Worktree created for task {task_id}: {worktree_result['branch_name']}")
+                        # Add worktree info to response
                         response_data["worktree"] = {
-                            "exists": True,
-                            "branch": task.git_branch,
-                            "path": task.worktree_path
+                            "created": True,
+                            "branch": worktree_result["branch_name"],
+                            "path": worktree_result["worktree_path"]
                         }
-            elif project and project.project_mode == 'development' and not worktree_enabled:
-                logger.info(f"Project in development mode but worktrees disabled - skipping worktree creation for task {task_id}")
-            elif project and project.project_mode == 'simple':
-                logger.info(f"Project in simple mode - skipping worktree creation for task {task_id}")
+                    else:
+                        logger.error(f"Failed to create worktree for task {task_id}: {worktree_result.get('error')}")
+                        # Check if worktree already exists
+                        if "already exists" in str(worktree_result.get("error", "")):
+                            response_data["worktree"] = {
+                                "exists": True,
+                                "branch": task.git_branch,
+                                "path": task.worktree_path
+                            }
+                elif project and project.project_mode == 'development' and not worktree_enabled:
+                    logger.info(f"Project in development mode but worktrees disabled - skipping worktree creation for task {task_id}")
+                elif project and project.project_mode == 'simple':
+                    logger.info(f"Project in simple mode - skipping worktree creation for task {task_id}")
         
         # If status changed to Done, trigger automatic merge and cleanup
         if status_update.status == TaskStatus.DONE and old_status != TaskStatus.DONE:
