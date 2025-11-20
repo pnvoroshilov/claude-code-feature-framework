@@ -142,21 +142,41 @@ async def create_project_structure_docker(
                     if dfs.write_file_to_host(dest_file, content):
                         files_created.append(f".claude/commands/{command_file}")
 
+    # Create hooks directory
+    hooks_dir = os.path.join(claude_dir, "hooks")
+    dfs.create_directory_on_host(hooks_dir)
+
     # Copy hook files from framework-assets
     hooks_source_dir = os.path.join(framework_path, "framework-assets", "claude-hooks")
+    hook_configs = {}
+
     if os.path.exists(hooks_source_dir):
         for hook_file in os.listdir(hooks_source_dir):
             if hook_file.endswith(".json"):
                 source_file = os.path.join(hooks_source_dir, hook_file)
-                dest_file = os.path.join(claude_dir, hook_file)
+                dest_file = os.path.join(hooks_dir, hook_file)
                 with open(source_file, "r") as src:
                     content = src.read()
                     if dfs.write_file_to_host(dest_file, content):
-                        files_created.append(f".claude/{hook_file}")
+                        files_created.append(f".claude/hooks/{hook_file}")
+
+                # Read hook config for settings.json
+                try:
+                    with open(source_file, 'r') as f:
+                        hook_data = json.load(f)
+                        if "hook_config" in hook_data:
+                            # Merge hook configs
+                            for event_type, event_hooks in hook_data["hook_config"].items():
+                                if event_type not in hook_configs:
+                                    hook_configs[event_type] = []
+                                hook_configs[event_type].extend(event_hooks)
+                except Exception as e:
+                    print(f"Failed to read hook config from {hook_file}: {e}")
+
             elif hook_file.endswith(".sh"):
                 # Copy shell script hooks and make them executable
                 source_file = os.path.join(hooks_source_dir, hook_file)
-                dest_file = os.path.join(claude_dir, hook_file)
+                dest_file = os.path.join(hooks_dir, hook_file)
                 with open(source_file, "r") as src:
                     content = src.read()
                     if dfs.write_file_to_host(dest_file, content):
@@ -170,8 +190,25 @@ async def create_project_structure_docker(
                                 capture_output=True
                             )
                         except Exception as e:
-                            logger.warning(f"Failed to make {hook_file} executable: {e}")
-                        files_created.append(f".claude/{hook_file}")
+                            print(f"Failed to make {hook_file} executable: {e}")
+                        files_created.append(f".claude/hooks/{hook_file}")
+
+        # Create/update .claude/settings.json with hook configurations
+        settings_file = os.path.join(claude_dir, "settings.json")
+        settings_data = {"hooks": hook_configs}
+
+        # Merge with existing settings if file exists (though shouldn't exist during init)
+        if os.path.exists(settings_file):
+            try:
+                with open(settings_file, 'r') as f:
+                    existing_settings = json.load(f)
+                    existing_settings["hooks"] = hook_configs
+                    settings_data = existing_settings
+            except Exception as e:
+                print(f"Failed to read existing settings.json: {e}")
+
+        if dfs.write_file_to_host(settings_file, json.dumps(settings_data, indent=2)):
+            files_created.append(".claude/settings.json")
 
     # Create .claudetask directory
     claudetask_dir = os.path.join(project_path, ".claudetask")
