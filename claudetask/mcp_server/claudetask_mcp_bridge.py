@@ -663,6 +663,15 @@ class ClaudeTaskMCPServer:
                     }
                 ),
                 types.Tool(
+                    name="get_project_settings",
+                    description="Get current project settings including project_mode and worktree_enabled",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {},
+                        "required": []
+                    }
+                ),
+                types.Tool(
                     name="update_custom_subagent_status",
                     description="Update custom subagent status and archive it after creation. Call this AFTER subagent files are created and BEFORE completing the session.",
                     inputSchema={
@@ -799,6 +808,8 @@ class ClaudeTaskMCPServer:
                         arguments["status"],
                         arguments.get("error_message")
                     )
+                elif name == "get_project_settings":
+                    return await self._get_project_settings()
                 else:
                     raise ValueError(f"Unknown tool: {name}")
                     
@@ -2923,6 +2934,84 @@ Total chunks: {result['total_chunks']}"""
                     type="text",
                     text=f"❌ Error updating subagent status: {str(e)}"
                 )]
+
+    async def _get_project_settings(self) -> list[types.TextContent]:
+        """Get project settings including project_mode and worktree_enabled"""
+        async with httpx.AsyncClient() as client:
+            try:
+                # Get project data (contains project_mode)
+                project_response = await client.get(f"{self.server_url}/api/projects/{self.project_id}")
+                project_response.raise_for_status()
+                project_data = project_response.json()
+                project_mode = project_data.get("project_mode", "simple")
+
+                # Get project settings (contains worktree_enabled)
+                settings_response = await client.get(f"{self.server_url}/api/projects/{self.project_id}/settings")
+                settings_response.raise_for_status()
+                settings_data = settings_response.json()
+                worktree_enabled = settings_data.get("worktree_enabled", True)
+
+                return [types.TextContent(
+                    type="text",
+                    text=f"""✅ PROJECT SETTINGS RETRIEVED
+
+📋 Current Configuration:
+- **Project Mode**: {project_mode}
+- **Worktree Enabled**: {worktree_enabled}
+
+🎯 Instructions to Follow:
+{self._get_mode_instructions(project_mode, worktree_enabled)}
+
+Use these settings to determine which workflow instructions to apply from CLAUDE.md"""
+                )]
+
+            except httpx.HTTPError as e:
+                self.logger.error(f"Failed to get project settings: {e}")
+                return [types.TextContent(
+                    type="text",
+                    text=f"""❌ Failed to get project settings: {str(e)}
+
+📋 Using fallback defaults:
+- Project Mode: simple
+- Worktree Enabled: false
+
+Apply SIMPLE mode instructions from CLAUDE.md"""
+                )]
+
+    def _get_mode_instructions(self, project_mode: str, worktree_enabled: bool) -> str:
+        """Get mode-specific instructions based on settings"""
+        if project_mode == "simple":
+            return """
+**Apply Mode 1 Instructions from CLAUDE.md:**
+- SIMPLE Mode (3-column workflow)
+- NO worktrees, branches, or PRs
+- Direct work in main branch
+- Backlog → In Progress → Done
+"""
+        elif project_mode == "development":
+            if worktree_enabled:
+                return """
+**Apply Mode 2 Instructions from CLAUDE.md:**
+- DEVELOPMENT Mode with Worktrees
+- Full 7-column workflow
+- Create worktrees for each task
+- Use git branching and PRs
+- Backlog → Analysis → In Progress → Testing → Code Review → PR → Done
+"""
+            else:
+                return """
+**Apply Mode 3 Instructions from CLAUDE.md:**
+- DEVELOPMENT Mode without Worktrees
+- Full 7-column workflow
+- Work in main/feature branches (NO worktrees)
+- Use git branching and PRs
+- Backlog → Analysis → In Progress → Testing → Code Review → PR → Done
+"""
+        else:
+            return f"""
+**Unknown project mode: {project_mode}**
+Apply SIMPLE mode instructions as fallback.
+"""
 
     async def run(self):
         """Run the MCP server"""

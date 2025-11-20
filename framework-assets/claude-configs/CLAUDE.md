@@ -1,7 +1,49 @@
 # ClaudeTask Framework - Autonomous Orchestrator Configuration
 
+---
 
-# 🎯 PROJECT MODE: SIMPLE
+## 🔍 READ PROJECT SETTINGS FIRST
+
+**⚠️ CRITICAL: Before applying ANY instructions below, you MUST read project settings:**
+
+### How to get project settings:
+
+1. **Through MCP** (preferred):
+   ```
+   # Use MCP tool to get project settings
+   mcp__claudetask__get_project_settings
+
+   # Returns:
+   {
+     "project_mode": "simple" | "development",
+     "worktree_enabled": true | false
+   }
+   ```
+
+2. **Through local file** (if MCP unavailable):
+   ```bash
+   # Check project root file (if exists)
+   cat .claudetask/settings.json
+   ```
+
+3. **Through HTTP API** (fallback):
+   ```bash
+   curl http://localhost:3333/api/projects/{project_id}/settings
+   ```
+
+### What to look for:
+- **`project_mode`**: `"simple"` or `"development"`
+- **`worktree_enabled`**: `true` or `false` (only relevant in development mode)
+
+**Based on these settings, follow the corresponding instructions below.**
+
+---
+
+# 🎯 PROJECT MODE INSTRUCTIONS
+
+## Mode 1: SIMPLE Mode (project_mode = "simple")
+
+**⚠️ Apply these instructions ONLY if `project_mode = "simple"`**
 
 **This project is configured in SIMPLE mode.**
 
@@ -79,7 +121,119 @@ Backlog → In Progress → Done
 
 ---
 
+## Mode 2: DEVELOPMENT Mode with Worktrees (project_mode = "development", worktree_enabled = true)
 
+**⚠️ Apply these instructions ONLY if `project_mode = "development"` AND `worktree_enabled = true`**
+
+### Task Workflow (7 Columns)
+- **Backlog**: New tasks waiting to be analyzed
+- **Analysis**: Understanding requirements and planning
+- **In Progress**: Active development **with Git worktrees**
+- **Testing**: Running tests and validation
+- **Code Review**: Peer review of changes
+- **PR**: Pull Request created and awaiting merge
+- **Done**: Completed and merged
+
+### What this means:
+- ✅ **Full Git workflow** - Branches, worktrees, PRs
+- ✅ **Complete development lifecycle** - From analysis to deployment
+- ✅ **Version control** - Proper branching and merge strategy
+- ✅ **Quality gates** - Testing and code review required
+- ✅ **Git worktrees ENABLED** - Isolated workspaces for each task
+
+### Your approach:
+1. Follow the complete task workflow through all statuses
+2. **CREATE WORKTREES for each task** - Use `mcp:create_worktree <task_id>`
+3. Use proper branching strategy
+4. Create PRs and wait for review
+5. Ensure tests pass before moving forward
+
+### 🌳 Worktree Workflow:
+
+**When task moves to "In Progress":**
+```bash
+# 1. Create worktree for task
+mcp:create_worktree <task_id>
+
+# 2. Worktree created at:
+worktrees/task-{id}/
+
+# 3. Work ONLY in worktree directory
+cd worktrees/task-{id}/
+
+# 4. Make all changes in worktree
+# 5. Commit changes in worktree
+# 6. After merge: worktree auto-cleaned
+```
+
+### ⚠️ Worktree Rules:
+- ✅ **ALWAYS create worktree** when task enters "In Progress"
+- ✅ **Work ONLY in worktree directory** for task changes
+- ✅ **Maximum 3 parallel worktrees** - Keep resource usage reasonable
+- ❌ **NEVER delete worktrees manually** - Use proper cleanup commands
+- ❌ **ONLY delete when user EXPLICITLY requests**: "delete worktree for task X"
+
+### Benefits:
+- 🔒 **Task isolation** - Changes don't interfere with main branch
+- 🔄 **Parallel development** - Work on multiple tasks simultaneously
+- 🧹 **Clean separation** - Each worktree has its own working directory
+- ♻️ **Automatic cleanup** - Worktrees removed after merge
+
+---
+
+## Mode 3: DEVELOPMENT Mode without Worktrees (project_mode = "development", worktree_enabled = false)
+
+**⚠️ Apply these instructions ONLY if `project_mode = "development"` AND `worktree_enabled = false`**
+
+### Task Workflow (7 Columns)
+- **Backlog**: New tasks waiting to be analyzed
+- **Analysis**: Understanding requirements and planning
+- **In Progress**: Active development **in main/feature branches**
+- **Testing**: Running tests and validation
+- **Code Review**: Peer review of changes
+- **PR**: Pull Request created and awaiting merge
+- **Done**: Completed and merged
+
+### What this means:
+- ✅ **Full development lifecycle** - From analysis to deployment
+- ✅ **Version control** - Proper branching and merge strategy
+- ✅ **Quality gates** - Testing and code review required
+- ⚠️ **Worktrees DISABLED** - Work directly in main branch or feature branches
+- ⚠️ **No task isolation** - Be careful with parallel tasks
+
+### Your approach:
+1. Follow the complete task workflow through all statuses
+2. **DO NOT create worktrees** - They are disabled for this project
+3. Work directly in main branch OR create feature branches manually
+4. Create PRs and wait for review
+5. Ensure tests pass before moving forward
+
+### 🚫 NO WORKTREES Workflow:
+
+**When task moves to "In Progress":**
+```bash
+# Option 1: Work in main branch (for simple changes)
+git checkout main
+# Make changes directly
+
+# Option 2: Create feature branch manually (for complex features)
+git checkout -b feature/task-{id}
+# Work in feature branch
+```
+
+### ⚠️ NO WORKTREES Rules:
+- ❌ **DO NOT use `git worktree` commands** - They are disabled
+- ❌ **DO NOT create worktrees** for tasks
+- ❌ **DO NOT use `mcp:create_worktree`** command
+- ✅ **Work in main branch** for simple changes
+- ✅ **Create feature branches manually** for complex features: `git checkout -b feature/task-{id}`
+
+### Important:
+- 🚨 **If you see worktree instructions elsewhere, IGNORE them** - Worktrees are disabled
+- ⚠️ **Be careful with parallel tasks** - No task isolation without worktrees
+- 🔄 **Manual branch management** - You handle branches yourself
+
+---
 
 # 📋 Custom Project Instructions
 
