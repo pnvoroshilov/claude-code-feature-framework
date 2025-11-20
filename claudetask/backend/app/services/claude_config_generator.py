@@ -4,7 +4,7 @@ import os
 from typing import List, Dict, Any
 
 
-def generate_claude_md(project_name: str, project_path: str, tech_stack: List[str], custom_instructions: str = "", project_mode: str = "simple") -> str:
+def generate_claude_md(project_name: str, project_path: str, tech_stack: List[str], custom_instructions: str = "", project_mode: str = "simple", worktree_enabled: bool = True) -> str:
     """Generate customized CLAUDE.md for a project
 
     Args:
@@ -13,6 +13,7 @@ def generate_claude_md(project_name: str, project_path: str, tech_stack: List[st
         tech_stack: List of technologies used
         custom_instructions: Project-specific custom instructions (from database)
         project_mode: Project mode - "simple" or "development"
+        worktree_enabled: Whether git worktrees are enabled (default: True)
     """
 
     # Try to read the template from framework-assets
@@ -117,7 +118,8 @@ Please read the [CUSTOM_INSTRUCTIONS.md](./CUSTOM_INSTRUCTIONS.md) file in the p
 
 """
             else:  # development mode
-                mode_section = """
+                if worktree_enabled:
+                    mode_section = """
 # 🎯 PROJECT MODE: DEVELOPMENT
 
 **This project is configured in DEVELOPMENT mode with full workflow.**
@@ -136,11 +138,44 @@ Please read the [CUSTOM_INSTRUCTIONS.md](./CUSTOM_INSTRUCTIONS.md) file in the p
 - ✅ **Complete development lifecycle** - From analysis to deployment
 - ✅ **Version control** - Proper branching and merge strategy
 - ✅ **Quality gates** - Testing and code review required
+- ✅ **Git worktrees enabled** - Isolated workspaces for each task
 
 ## Your approach:
 1. Follow the complete task workflow through all statuses
 2. Create worktrees for each task
 3. Use proper branching strategy
+4. Create PRs and wait for review
+5. Ensure tests pass before moving forward
+
+---
+
+"""
+                else:
+                    mode_section = """
+# 🎯 PROJECT MODE: DEVELOPMENT (No Worktrees)
+
+**This project is configured in DEVELOPMENT mode WITHOUT worktrees.**
+
+## Task Workflow (7 Columns)
+- **Backlog**: New tasks waiting to be analyzed
+- **Analysis**: Understanding requirements and planning
+- **In Progress**: Active development in main branch
+- **Testing**: Running tests and validation
+- **Code Review**: Peer review of changes
+- **PR**: Pull Request created and awaiting merge
+- **Done**: Completed and merged
+
+## What this means:
+- ✅ **Full development lifecycle** - From analysis to deployment
+- ✅ **Version control** - Proper branching and merge strategy
+- ✅ **Quality gates** - Testing and code review required
+- ⚠️ **Worktrees disabled** - Work directly in main branch or feature branches
+- ⚠️ **No task isolation** - Be careful with parallel tasks
+
+## Your approach:
+1. Follow the complete task workflow through all statuses
+2. Work directly in the main branch or create feature branches manually
+3. DO NOT create worktrees (disabled for this project)
 4. Create PRs and wait for review
 5. Ensure tests pass before moving forward
 

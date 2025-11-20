@@ -130,7 +130,7 @@ class ClaudeSession(Base):
 class ProjectSettings(Base):
     """Project settings model"""
     __tablename__ = "project_settings"
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     project_id = Column(String, ForeignKey("projects.id"), unique=True, nullable=False)
     claude_config = Column(Text, nullable=True)  # CLAUDE.md content
@@ -140,7 +140,8 @@ class ProjectSettings(Base):
     test_command = Column(String, nullable=True)
     build_command = Column(String, nullable=True)
     lint_command = Column(String, nullable=True)
-    
+    worktree_enabled = Column(Boolean, default=True, nullable=False)  # Enable/disable git worktrees
+
     # Relationships
     project = relationship("Project", back_populates="settings")
 

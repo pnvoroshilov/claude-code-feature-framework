@@ -119,6 +119,33 @@ export const activateProject = async (id: string): Promise<Project> => {
   return response.data;
 };
 
+// Project Settings
+export interface ProjectSettings {
+  id: number;
+  project_id: string;
+  claude_config?: string;
+  auto_mode: boolean;
+  auto_priority_threshold: 'High' | 'Medium' | 'Low';
+  max_parallel_tasks: number;
+  test_command?: string;
+  build_command?: string;
+  lint_command?: string;
+  worktree_enabled: boolean;
+}
+
+export const getProjectSettings = async (projectId: string): Promise<ProjectSettings> => {
+  const response = await api.get(`/projects/${projectId}/settings`);
+  return response.data;
+};
+
+export const updateProjectSettings = async (
+  projectId: string,
+  settings: Partial<ProjectSettings>
+): Promise<ProjectSettings> => {
+  const response = await api.patch(`/projects/${projectId}/settings`, settings);
+  return response.data;
+};
+
 export const updateFramework = async (id: string): Promise<{
   success: boolean;
   updated_files: string[];

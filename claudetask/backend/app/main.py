@@ -1177,12 +1177,46 @@ async def update_project_settings(
     settings = result.scalar_one_or_none()
     if not settings:
         raise HTTPException(status_code=404, detail="Project settings not found")
-    
+
+    # Track if worktree_enabled changed
+    worktree_changed = False
+    old_worktree_enabled = settings.worktree_enabled
+
     for field, value in settings_update.dict(exclude_unset=True).items():
+        if field == "worktree_enabled" and value != old_worktree_enabled:
+            worktree_changed = True
         setattr(settings, field, value)
-    
+
     await db.commit()
     await db.refresh(settings)
+
+    # If worktree_enabled changed, regenerate CLAUDE.md
+    if worktree_changed:
+        try:
+            # Get project to regenerate CLAUDE.md
+            project_result = await db.execute(
+                select(Project).where(Project.id == project_id)
+            )
+            project = project_result.scalar_one_or_none()
+
+            if project:
+                logger.info(f"Regenerating CLAUDE.md for project {project_id} due to worktree_enabled change")
+                await ProjectService.regenerate_claude_md(db, project_id)
+        except Exception as e:
+            logger.error(f"Failed to regenerate CLAUDE.md: {e}")
+            # Don't fail the request if regeneration fails
+
+    # Broadcast settings update via WebSocket
+    await task_websocket_manager.broadcast_message({
+        "type": "project_settings_updated",
+        "project_id": project_id,
+        "settings": {
+            "worktree_enabled": settings.worktree_enabled,
+            "auto_mode": settings.auto_mode,
+            "max_parallel_tasks": settings.max_parallel_tasks
+        }
+    })
+
     return settings
 
 
