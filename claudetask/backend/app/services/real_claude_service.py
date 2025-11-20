@@ -121,6 +121,7 @@ class RealClaudeSession:
         # Check if this is initial Claude output and we haven't sent the task command yet
         if not self.claude_initialized and ("Claude" in content or "Welcome" in content or ">" in content):
             self.claude_initialized = True
+            logger.info(f"Claude initialized detected for session {self.session_id}, scheduling task command with 15s delay for MCP initialization")
             # Schedule sending the task initialization command
             self._schedule_task_initialization()
         
@@ -212,8 +213,11 @@ class RealClaudeSession:
     async def _send_task_command_delayed(self):
         """Send task initialization command after a delay"""
         try:
-            # Wait 2 seconds for Claude to fully initialize
-            await asyncio.sleep(2)
+            # Wait 15 seconds for Claude and MCP servers to fully initialize
+            # MCP servers can take 10-15 seconds to start up and be ready
+            logger.info(f"Waiting 15 seconds for MCP servers to initialize for session {self.session_id}...")
+            await asyncio.sleep(15)
+            logger.info(f"MCP initialization wait complete for session {self.session_id}, sending task command")
 
             # Skip task initialization for hook sessions (task_id = 0)
             # Hook sessions should only execute the command sent via API, not /start-feature
