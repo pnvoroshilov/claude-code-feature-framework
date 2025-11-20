@@ -60,14 +60,15 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 
 ### 1. Project Management
 - Multi-project workspace support
-- Project-specific configuration (CLAUDE.md generation)
+- Project-specific configuration (CLAUDE.md generation with explicit mode indicators)
 - Custom instructions support
-- Two modes: SIMPLE and DEVELOPMENT
+- Two modes: SIMPLE and DEVELOPMENT (selected at project creation, immutable)
 - Per-project worktree toggle (DEVELOPMENT mode only)
 - Dynamic project settings via MCP get_project_settings tool
 - Active project tracking
 - Automatic directory trust initialization
 - CASCADE DELETE constraints for safe project deletion
+- CLAUDE.md regeneration script for syncing legacy projects
 
 ### 2. Task Management
 - Task CRUD operations
@@ -358,6 +359,24 @@ The framework is designed for extensibility:
 ---
 
 ## Recent Architectural Enhancements
+
+### Explicit Project Mode Visibility (2025-11-20)
+- **Mode Indicator in CLAUDE.md**: Every generated CLAUDE.md now includes explicit mode declaration
+  - Format: `# 🎯 PROJECT MODE: [SIMPLE|DEVELOPMENT]`
+  - Automatically inserted at top of file by `claude_config_generator.py`
+  - Includes workflow description and characteristics
+  - Ensures Claude Code always knows which mode is active
+- **Mode Selection During Creation**: Project mode selected in ProjectSetup UI
+  - Radio button interface with clear descriptions
+  - Default: SIMPLE mode for new projects
+  - Mode is immutable after creation (stored in database)
+  - Cannot be changed mid-project to prevent workflow confusion
+- **CLAUDE.md Regeneration Script**: New migration utility for syncing legacy projects
+  - `claudetask/backend/migrations/regenerate_claude_md.py`
+  - Reads configuration from database (mode, worktree_enabled, custom_instructions)
+  - Creates backup before overwriting (CLAUDE.md.backup)
+  - Updates `projects.claude_config` field
+  - Useful for adding explicit mode indicators to existing projects
 
 ### Project Initialization Improvements (2025-11-20)
 - **Hooks Directory Reorganization**: Hook scripts now stored in `.claude/hooks/` subdirectory

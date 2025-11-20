@@ -162,6 +162,28 @@ To manually trigger documentation update:
 ## Recent Updates
 
 **Latest Changes (2025-11-20):**
+- ✅ **Explicit Project Mode Indicators in CLAUDE.md**: Mode visibility enhancement
+  - Every generated CLAUDE.md now shows clear project mode at the top
+  - Format: `# 🎯 PROJECT MODE: [SIMPLE|DEVELOPMENT]`
+  - Includes workflow description and characteristics
+  - Automatically inserted by `claude_config_generator.py`
+  - Ensures Claude Code always knows which mode project is using
+- ✅ **Project Mode Selection During Creation**: Mode configured at project setup
+  - Radio button selection in ProjectSetup page
+  - Default mode: SIMPLE
+  - Mode is immutable after creation (cannot be changed later)
+  - Explicit mode indicator inserted at top of CLAUDE.md
+- ✅ **Worktree Toggle Fixes**: Respect worktree_enabled in development mode
+  - Fixed worktree instruction generation in CLAUDE.md
+  - Proper conditional logic based on worktree_enabled setting
+  - Debug logging added to track mode and worktree state
+- ✅ **CLAUDE.md Regeneration Script**: New migration utility
+  - Location: `claudetask/backend/migrations/regenerate_claude_md.py`
+  - Usage: `python migrations/regenerate_claude_md.py <project_id>`
+  - Regenerates CLAUDE.md from database configuration
+  - Creates backup before overwriting (CLAUDE.md.backup)
+  - Updates `projects.claude_config` field in database
+  - Useful for syncing legacy projects with new explicit mode format
 - ✅ **New Hook: Documentation Update Injection**: UserPromptSubmit event hook for automatic recovery
   - Companion to Post-Merge Documentation hook
   - Detects pending documentation update markers
