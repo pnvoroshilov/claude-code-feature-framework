@@ -104,8 +104,8 @@ async def browse_files(
         items = []
         try:
             for item in sorted(full_path.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
-                # Skip hidden files and common ignore patterns
-                if item.name.startswith('.') or item.name in ['node_modules', '__pycache__', 'venv', '.git']:
+                # Skip common ignore patterns (but keep hidden files/folders)
+                if item.name in ['node_modules', '__pycache__', 'venv']:
                     continue
 
                 file_item = {
@@ -304,8 +304,8 @@ async def get_file_tree(
             items = []
             try:
                 for item in sorted(dir_path.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
-                    # Skip hidden and ignored
-                    if item.name.startswith('.') or item.name in ['node_modules', '__pycache__', 'venv', '.git']:
+                    # Skip common ignore patterns (but keep hidden files/folders)
+                    if item.name in ['node_modules', '__pycache__', 'venv']:
                         continue
 
                     relative_path = item.relative_to(project_path)
