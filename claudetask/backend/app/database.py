@@ -480,6 +480,7 @@ async def seed_default_hooks():
                         description=hook_data['description'],
                         category=hook_data['category'],
                         file_name=hook_file.name,
+                        script_file=hook_data.get('script_file'),
                         hook_config=hook_data['hook_config'],
                         setup_instructions=hook_data.get('setup_instructions', ''),
                         dependencies=hook_data.get('dependencies', [])

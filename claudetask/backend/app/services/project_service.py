@@ -652,31 +652,13 @@ build/
         hooks_dir = os.path.join(claude_dir, "hooks")
         os.makedirs(hooks_dir, exist_ok=True)
 
-        # Copy hook files from framework-assets
+        # Copy hook SCRIPTS from framework-assets (but don't enable hooks yet)
         hooks_source_dir = os.path.join(framework_path, "framework-assets", "claude-hooks")
-        hook_configs = {}
 
         if os.path.exists(hooks_source_dir):
             for hook_file in os.listdir(hooks_source_dir):
-                if hook_file.endswith(".json"):
-                    # Don't copy JSON config files - only read them to generate settings.json
-                    source_file = os.path.join(hooks_source_dir, hook_file)
-
-                    # Read hook config for settings.json
-                    try:
-                        with open(source_file, 'r') as f:
-                            hook_data = json.load(f)
-                            if "hook_config" in hook_data:
-                                # Merge hook configs
-                                for event_type, event_hooks in hook_data["hook_config"].items():
-                                    if event_type not in hook_configs:
-                                        hook_configs[event_type] = []
-                                    hook_configs[event_type].extend(event_hooks)
-                    except Exception as e:
-                        print(f"Failed to read hook config from {hook_file}: {e}")
-
-                elif hook_file.endswith(".sh"):
-                    # Copy shell script hooks and make them executable
+                # Only copy shell scripts - hooks will be enabled via UI
+                if hook_file.endswith(".sh"):
                     source_file = os.path.join(hooks_source_dir, hook_file)
                     dest_file = os.path.join(hooks_dir, hook_file)
                     with open(source_file, "r") as src:
@@ -686,23 +668,13 @@ build/
                     os.chmod(dest_file, 0o755)
                     files_created.append(f".claude/hooks/{hook_file}")
 
-            # Create/update .claude/settings.json with hook configurations
-            settings_file = os.path.join(claude_dir, "settings.json")
-            settings_data = {"hooks": hook_configs}
+        # Create empty .claude/settings.json (hooks will be added when user enables them)
+        settings_file = os.path.join(claude_dir, "settings.json")
+        settings_data = {"hooks": {}}  # Empty hooks - user will enable via UI
 
-            # Merge with existing settings if file exists
-            if os.path.exists(settings_file):
-                try:
-                    with open(settings_file, 'r') as f:
-                        existing_settings = json.load(f)
-                        existing_settings["hooks"] = hook_configs
-                        settings_data = existing_settings
-                except Exception as e:
-                    print(f"Failed to read existing settings.json: {e}")
-
-            with open(settings_file, 'w') as f:
-                json.dump(settings_data, f, indent=2)
-            files_created.append(".claude/settings.json")
+        with open(settings_file, 'w') as f:
+            json.dump(settings_data, f, indent=2)
+        files_created.append(".claude/settings.json")
 
         # Create .claude/settings.local.json for MCP server configuration
         settings_local_file = os.path.join(claude_dir, "settings.local.json")
