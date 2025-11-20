@@ -217,7 +217,8 @@ async def update_framework(project_id: str, db: AsyncSession = Depends(get_db)):
         from .services.framework_update_service import FrameworkUpdateService
         result = await FrameworkUpdateService.update_framework(
             project_path=project.path,
-            project_id=project_id
+            project_id=project_id,
+            project_mode=project.project_mode or "simple"
         )
 
         # Sync subagent enabled status based on actual files in project
@@ -545,9 +546,16 @@ async def update_task_status(
             )
             project = project_result.scalar_one_or_none()
 
-            # Only create worktree in development mode
-            if project and project.project_mode == 'development':
-                logger.info(f"Project in development mode - creating worktree for task {task_id}")
+            # Get project settings to check worktree_enabled
+            settings_result = await db.execute(
+                select(ProjectSettings).where(ProjectSettings.project_id == task.project_id)
+            )
+            settings = settings_result.scalar_one_or_none()
+            worktree_enabled = settings.worktree_enabled if settings else True
+
+            # Only create worktree in development mode AND if worktree_enabled is True
+            if project and project.project_mode == 'development' and worktree_enabled:
+                logger.info(f"Project in development mode with worktrees enabled - creating worktree for task {task_id}")
                 # Create worktree for the task
                 from .services.worktree_service import WorktreeService
 
@@ -576,6 +584,8 @@ async def update_task_status(
                             "branch": task.git_branch,
                             "path": task.worktree_path
                         }
+            elif project and project.project_mode == 'development' and not worktree_enabled:
+                logger.info(f"Project in development mode but worktrees disabled - skipping worktree creation for task {task_id}")
             elif project and project.project_mode == 'simple':
                 logger.info(f"Project in simple mode - skipping worktree creation for task {task_id}")
         

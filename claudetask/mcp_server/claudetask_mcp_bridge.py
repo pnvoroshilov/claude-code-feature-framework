@@ -1473,6 +1473,12 @@ New Status: {status}
                 project_response.raise_for_status()
                 project = project_response.json()
 
+                # Get project settings to check worktree_enabled
+                settings_response = await client.get(f"{self.server_url}/api/projects/{task['project_id']}/settings")
+                settings_response.raise_for_status()
+                settings = settings_response.json()
+                worktree_enabled = settings.get('worktree_enabled', True)
+
                 # Check if project is in development mode
                 if project.get('project_mode') != 'development':
                     return [types.TextContent(
@@ -1480,6 +1486,15 @@ New Status: {status}
                         text=f"❌ Cannot create worktree: Project is in '{project.get('project_mode', 'simple')}' mode.\n\n"
                              f"Worktrees are only available in 'development' mode.\n"
                              f"In 'simple' mode, work directly in the main branch without worktrees."
+                    )]
+
+                # Check if worktrees are enabled
+                if not worktree_enabled:
+                    return [types.TextContent(
+                        type="text",
+                        text=f"❌ Cannot create worktree: Worktrees are disabled for this project.\n\n"
+                             f"The project is in 'development' mode but worktrees are turned off.\n"
+                             f"Enable worktrees in project settings or work directly in the main branch."
                     )]
 
             # First, sync main branch with latest updates

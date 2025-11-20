@@ -71,24 +71,29 @@ def generate_claude_md(project_name: str, project_path: str, tech_stack: List[st
 
 """
             else:
-                mode_indicator += """- **Backlog**: New tasks waiting to be analyzed
+                # Development mode - check worktree setting
+                worktree_text = "with Git worktrees" if worktree_enabled else "without worktrees"
+                workflow_text = "Branches, worktrees, PRs" if worktree_enabled else "Branches and PRs (no worktrees)"
+                approach_worktree = "2. Create worktrees for each task\n" if worktree_enabled else "2. Work in main branch or feature branches (worktrees disabled)\n"
+
+                mode_indicator += f"""- **Backlog**: New tasks waiting to be analyzed
 - **Analysis**: Understanding requirements and planning
-- **In Progress**: Active development with Git worktrees
+- **In Progress**: Active development {worktree_text}
 - **Testing**: Running tests and validation
 - **Code Review**: Peer review of changes
 - **PR**: Pull Request created and awaiting merge
 - **Done**: Completed and merged
 
 ## What this means:
-- ✅ **Full Git workflow** - Branches, worktrees, PRs
+- ✅ **Full Git workflow** - {workflow_text}
 - ✅ **Complete development lifecycle** - From analysis to deployment
 - ✅ **Version control** - Proper branching and merge strategy
 - ✅ **Quality gates** - Testing and code review required
+- {"✅" if worktree_enabled else "❌"} **Worktrees**: {"Enabled - isolated task workspaces" if worktree_enabled else "Disabled - work directly in main branch"}
 
 ## Your approach:
 1. Follow the complete task workflow through all statuses
-2. Create worktrees for each task
-3. Use proper branching strategy
+{approach_worktree}3. Use proper branching strategy
 4. Create PRs and wait for review
 5. Ensure tests pass before moving forward
 

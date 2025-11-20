@@ -11,8 +11,14 @@ class FrameworkUpdateService:
     """Service to update framework files in existing projects"""
     
     @staticmethod
-    async def update_framework(project_path: str, project_id: str) -> Dict:
-        """Update framework files in an existing project"""
+    async def update_framework(project_path: str, project_id: str, project_mode: str = "simple") -> Dict:
+        """Update framework files in an existing project
+
+        Args:
+            project_path: Path to the project
+            project_id: Project ID
+            project_mode: Project mode (simple or development), defaults to simple
+        """
         
         # Get the framework source path
         framework_path = os.path.abspath(os.path.join(
@@ -108,8 +114,8 @@ class FrameworkUpdateService:
                 shutil.copy2(claude_md_path, backup_path)
                 updated_files.append("CLAUDE.md.backup")
             
-            # Generate new CLAUDE.md from template
-            generated_content = generate_claude_md(project_name, project_path, tech_stack)
+            # Generate new CLAUDE.md from template with project_mode
+            generated_content = generate_claude_md(project_name, project_path, tech_stack, project_mode=project_mode)
             with open(claude_md_path, "w") as f:
                 f.write(generated_content)
             updated_files.append("CLAUDE.md")

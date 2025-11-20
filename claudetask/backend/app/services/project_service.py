@@ -608,7 +608,7 @@ build/
             files_created.append("CLAUDE.md.backup")
         
         with open(claude_md_path, "w") as f:
-            f.write(generate_claude_md(project_name, project_path, tech_stack))
+            f.write(generate_claude_md(project_name, project_path, tech_stack, project_mode=project_mode))
         files_created.append("CLAUDE.md")
         
         # Create .claude directory for Claude Code agents

@@ -80,6 +80,44 @@ class TaskWebSocketManager:
             await self.disconnect(ws)
         
         logger.info(f"Broadcast {event_type} to {len(self._connections[project_id])} clients for project {project_id}")
+
+    async def broadcast_message(self, message: dict, project_id: Optional[str] = None):
+        """Broadcast a generic message to clients
+        
+        Args:
+            message: The message dict to broadcast
+            project_id: Optional project_id to broadcast to specific project.
+                       If None, extracts from message['project_id'] if available
+        """
+        # Determine target project
+        target_project = project_id or message.get('project_id')
+        
+        if not target_project:
+            logger.warning("No project_id specified for broadcast_message")
+            return
+            
+        if target_project not in self._connections:
+            logger.debug(f"No active connections for project {target_project}")
+            return
+        
+        # Add timestamp if not present
+        if 'timestamp' not in message:
+            message['timestamp'] = datetime.utcnow().isoformat()
+        
+        # Send to all connections for this project
+        disconnected = []
+        for websocket in self._connections[target_project]:
+            try:
+                await websocket.send_json(message)
+            except Exception as e:
+                logger.error(f"Error sending to websocket: {e}")
+                disconnected.append(websocket)
+        
+        # Clean up disconnected clients
+        for ws in disconnected:
+            await self.disconnect(ws)
+        
+        logger.info(f"Broadcast message type '{message.get('type')}' to {len(self._connections[target_project])} clients for project {target_project}")
     
     async def send_error(self, websocket: WebSocket, error_message: str):
         """Send an error message to a specific client"""
