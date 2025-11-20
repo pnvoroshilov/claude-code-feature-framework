@@ -15,8 +15,10 @@ claudetask/backend/migrations/
 ├── 002_add_skills_subagents.sql        # SQL: Skills and subagents
 ├── 003_add_hooks_tables.sql            # SQL: Hooks support
 ├── 004_add_script_file_to_hooks.sql    # SQL: Hook script files
+├── 005_add_worktree_enabled.sql        # SQL: Worktree toggle support
 ├── migrate_add_hooks_tables.py         # Python: Run migrations 001-003
 ├── migrate_add_script_file_to_hooks.py # Python: Run migration 004
+├── migrate_add_worktree_enabled.py     # Python: Run migration 005
 └── update_post_merge_hook.py           # Python: Update hook configuration
 ```
 
@@ -85,7 +87,7 @@ claudetask/backend/migrations/
 - Git Auto Commit
 - Post-Merge Documentation Update
 
-### 004: Add script_file to Hooks Tables ⭐ LATEST
+### 004: Add script_file to Hooks Tables
 
 **Created:** 2025-11-16
 **Purpose:** Separate hook configuration from shell script implementation
@@ -144,6 +146,76 @@ ALTER TABLE custom_hooks ADD COLUMN script_file VARCHAR(100);
 - Version control for script changes
 - Easier testing and debugging
 
+### 005: Add worktree_enabled to ProjectSettings ⭐ LATEST
+
+**Created:** 2025-11-20
+**Purpose:** Enable/disable Git worktrees per project in DEVELOPMENT mode
+
+**Changes:**
+```sql
+ALTER TABLE project_settings ADD COLUMN worktree_enabled BOOLEAN DEFAULT 1 NOT NULL;
+UPDATE project_settings SET worktree_enabled = 1 WHERE worktree_enabled IS NULL;
+```
+
+**Key Features:**
+- Toggle worktree functionality per project
+- Default: enabled (value = 1/true)
+- UI toggle in ProjectModeToggle component
+- Dynamic CLAUDE.md generation based on setting
+- WebSocket broadcast for real-time updates
+
+**Use Cases:**
+
+**Worktrees Enabled (Default):**
+- Isolated workspace per task
+- Parallel development on multiple tasks
+- No interference between tasks
+- Automatic cleanup after merge
+
+**Worktrees Disabled:**
+- Work directly in main branch
+- Simpler workflow for solo developers
+- Useful when repository doesn't support worktrees
+- Reduced complexity for small projects
+
+**Frontend Integration:**
+```tsx
+// ProjectModeToggle.tsx
+const [worktreeEnabled, setWorktreeEnabled] = useState<boolean>(true);
+
+// Toggle worktree setting
+const handleWorktreeToggle = async (event) => {
+  await updateProjectSettings(projectId, {
+    worktree_enabled: event.target.checked
+  });
+  // Triggers CLAUDE.md regeneration
+};
+```
+
+**Backend Integration:**
+```python
+# When worktree_enabled changes, regenerate CLAUDE.md
+if worktree_changed:
+    await ProjectService.regenerate_claude_md(db, project_id)
+
+# Broadcast via WebSocket
+await task_websocket_manager.broadcast_message({
+    "type": "project_settings_updated",
+    "project_id": project_id,
+    "settings": {"worktree_enabled": settings.worktree_enabled}
+})
+```
+
+**CLAUDE.md Generation:**
+- If `worktree_enabled = true`: Full worktree instructions included
+- If `worktree_enabled = false`: Worktree warnings and alternative workflow
+
+**Why This Change:**
+- Some repositories may not support git worktrees (submodules, Git LFS issues)
+- Solo developers may prefer simpler workflow without worktrees
+- Provides flexibility while maintaining DEVELOPMENT mode workflow
+- Allows gradual adoption of worktree workflow
+
 ## Running Migrations
 
 ### Fresh Database Installation
@@ -160,21 +232,47 @@ python claudetask/backend/migrations/migrate_add_hooks_tables.py
 # Run migration 004 (script_file support)
 python claudetask/backend/migrations/migrate_add_script_file_to_hooks.py
 
+# Run migration 005 (worktree_enabled support)
+python claudetask/backend/migrations/migrate_add_worktree_enabled.py
+
 # Update Post-Merge Documentation hook to v2.0.0
 python claudetask/backend/migrations/update_post_merge_hook.py
 ```
 
 ### Incremental Migration (Existing Database)
 
-If you already have a database with migrations 001-003:
+If you already have a database with migrations 001-004:
+
+```bash
+# Add worktree_enabled column to project_settings
+python claudetask/backend/migrations/migrate_add_worktree_enabled.py
+```
+
+If you have a database with migrations 001-003:
 
 ```bash
 # Add script_file column to hooks tables
 python claudetask/backend/migrations/migrate_add_script_file_to_hooks.py
 
+# Add worktree_enabled column to project_settings
+python claudetask/backend/migrations/migrate_add_worktree_enabled.py
+
 # Update Post-Merge hook configuration
 python claudetask/backend/migrations/update_post_merge_hook.py
 ```
+
+### Migration 005 Only
+
+For databases that need worktree_enabled support:
+
+```bash
+python claudetask/backend/migrations/migrate_add_worktree_enabled.py
+```
+
+This script:
+1. Adds `worktree_enabled BOOLEAN DEFAULT 1 NOT NULL` to `project_settings` table
+2. Updates existing records to set `worktree_enabled = 1` (enabled by default)
+3. Handles "duplicate column" errors gracefully (idempotent)
 
 ### Migration 004 Only
 

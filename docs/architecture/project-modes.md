@@ -66,17 +66,43 @@ Backlog → In Progress → Done
 
 **Current Status**: This project is configured in DEVELOPMENT mode as of 2025-11-20.
 
+### Worktree Toggle Feature
+
+DEVELOPMENT mode now supports **optional Git worktrees**:
+
+- **Worktrees Enabled (Default)**: Each task gets isolated workspace in `worktrees/task-{id}/`
+- **Worktrees Disabled**: Work directly in main branch or manual feature branches
+
+**Why Toggle Worktrees?**
+- Some repositories don't support worktrees (Git LFS, submodules)
+- Solo developers may prefer simpler workflow
+- Gradual adoption of worktree workflow
+- Flexibility for different project needs
+
+**How to Toggle:**
+1. Open project in ClaudeTask UI
+2. Go to TaskBoard page
+3. Look for worktree toggle switch next to project mode selector (only visible in DEVELOPMENT mode)
+4. Toggle on/off as needed
+5. CLAUDE.md is automatically regenerated with appropriate instructions
+
+**Technical Implementation:**
+- Database field: `project_settings.worktree_enabled` (BOOLEAN, default: true)
+- UI component: `ProjectModeToggle.tsx` with Switch control
+- Backend: Automatic CLAUDE.md regeneration on toggle
+- WebSocket: Real-time broadcast of setting changes
+
 ### Task Workflow (7 Columns)
 ```
 Backlog → Analysis → In Progress → Testing → Code Review → PR → Done
 ```
 
 ### Characteristics
-- **Full Git Workflow**: Feature branches, worktrees, pull requests
+- **Full Git Workflow**: Feature branches, worktrees (optional), pull requests
 - **Complete Development Lifecycle**: From analysis to deployment
 - **Version Control**: Proper branching and merge strategy
 - **Quality Gates**: Testing and code review required before merge
-- **Worktree Management**: Isolated development environments per task
+- **Worktree Management**: Isolated development environments per task (can be toggled on/off)
 
 ### Workflow Stages
 
@@ -93,8 +119,8 @@ Backlog → Analysis → In Progress → Testing → Code Review → PR → Done
 - **Automatic transition** to In Progress after analysis complete
 
 #### 3. In Progress
-- Active development in task worktree
-- Feature branch created
+- Active development in task worktree (if worktrees enabled) or main branch (if disabled)
+- Feature branch created (if worktrees enabled)
 - Code implementation
 - Unit tests written
 - **Automatic transition** to Testing when implementation detected
@@ -121,7 +147,7 @@ Backlog → Analysis → In Progress → Testing → Code Review → PR → Done
 
 #### 7. Done
 - Merged to main branch
-- Worktree cleaned up
+- Worktree cleaned up (if worktrees enabled)
 - Resources released
 - Task archived
 
@@ -187,13 +213,13 @@ Backlog → Analysis → In Progress → Testing → Code Review → PR → Done
 |---------|-------------|------------------|
 | **Statuses** | 3 (Backlog, In Progress, Done) | 7 (Full lifecycle) |
 | **Git Workflow** | None (direct to main) | Feature branches + PRs |
-| **Worktrees** | No | Yes (one per task) |
+| **Worktrees** | No | Optional (toggle on/off) |
 | **Analysis Phase** | No | Yes (automatic delegation) |
 | **Testing Phase** | No | Yes (manual testing) |
 | **Code Review** | No | Yes (before merge) |
 | **Pull Requests** | No | Yes (required) |
 | **Quality Gates** | None | Testing + Review |
-| **Team Size** | 1 developer | 2+ developers |
+| **Team Size** | 1 developer | 1+ developers |
 | **Best For** | Prototypes, internal tools | Production, team projects |
 
 ## Switching Between Modes
@@ -216,7 +242,8 @@ Backlog → Analysis → In Progress → Testing → Code Review → PR → Done
 
 **Migration Considerations**:
 - Existing In Progress tasks: Move to Analysis or Testing as appropriate
-- No worktrees exist: Create worktrees for active tasks
+- No worktrees exist: Enable worktree toggle and create worktrees for active tasks
+- Alternatively: Keep worktrees disabled and work in main branch
 - Update team on new workflow
 
 ### DEVELOPMENT → SIMPLE
@@ -287,12 +314,19 @@ The project mode is defined in `CLAUDE.md` at the project root. This file is rea
 
 ### DEVELOPMENT Mode Best Practices
 1. **Complete Analysis**: Don't skip analysis phase
-2. **Use Worktrees**: One worktree per task for isolation
+2. **Use Worktrees** (if enabled): One worktree per task for isolation
 3. **Write Tests**: Include tests with implementation
 4. **Request Review**: Always get code review before merge
 5. **Test Thoroughly**: Manual testing before code review
 6. **Clean PRs**: Keep PRs focused and well-documented
-7. **Clean Up**: Always clean up worktrees after merge
+7. **Clean Up**: Always clean up worktrees after merge (if worktrees enabled)
+
+### Worktree Toggle Best Practices
+- **Enable worktrees** for parallel development on multiple tasks
+- **Disable worktrees** if repository has Git LFS or submodule issues
+- **Disable worktrees** for solo development with simple workflow
+- **Enable worktrees** when onboarding new team members (prevents conflicts)
+- Toggle can be changed at any time without data loss
 
 ## Auto-Transitions
 
