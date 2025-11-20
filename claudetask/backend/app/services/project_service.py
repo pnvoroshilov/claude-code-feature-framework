@@ -158,6 +158,7 @@ class ProjectService:
                 await db.commit()
         
         # Create project in database
+        logger.info(f"💾 Creating project in database with project_mode: {project_mode}")
         project = Project(
             id=project_id,
             name=project_name,
@@ -167,6 +168,7 @@ class ProjectService:
             is_active=True,
             project_mode=project_mode
         )
+        logger.info(f"💾 Project object created with project_mode: {project.project_mode}")
         
         # Set other projects as inactive
         result = await db.execute(select(Project).where(Project.id != project_id))
@@ -200,8 +202,11 @@ class ProjectService:
         await ProjectService._import_existing_mcp_configs(db, project_id, project_path)
 
         # Create file structure
+        logger.info(f"📁 About to create file structure with project_mode: {project_mode}")
+        logger.info(f"📁 RUNNING_IN_DOCKER: {os.getenv('RUNNING_IN_DOCKER')}")
         if os.getenv("RUNNING_IN_DOCKER"):
             # Use Docker version for creating files on host
+            logger.info(f"🐳 Using Docker version to create structure with project_mode: {project_mode}")
             files_created = await create_project_structure_docker(
                 project_path, project_id, project_name, tech_stack, project_mode
             )
@@ -209,11 +214,14 @@ class ProjectService:
             mcp_configured = configure_mcp_docker(project_path, project_id)
         else:
             # Use normal version for local development
+            logger.info(f"💻 Using local version to create structure with project_mode: {project_mode}")
             files_created = await ProjectService._create_project_structure(
                 project_path, project_id, project_name, tech_stack, project_mode
             )
             # Configure MCP normally
             mcp_configured = ProjectService._configure_mcp(project_path, project_id)
+
+        logger.info(f"📁 File structure created. Files created: {files_created}")
         
         # Initialize directory trust for Claude Code
         # This must be done BEFORE any skill creation sessions
@@ -588,6 +596,7 @@ build/
         project_mode: str = 'simple'
     ) -> List[str]:
         """Create ClaudeTask structure in the project"""
+        logger.info(f"🏗️ _create_project_structure called with project_mode: {project_mode}")
         files_created = []
         
         # Create CLAUDE.md in project root (this is what Claude Code reads)
