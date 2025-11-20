@@ -41,6 +41,70 @@ def generate_claude_md(project_name: str, project_path: str, tech_stack: List[st
             template_content = template_content.replace("{{PROJECT_NAME}}", project_name)
             template_content = template_content.replace("{{PROJECT_PATH}}", project_path)
 
+            # Insert explicit project mode indicator at the top
+            mode_upper = project_mode.upper()
+            mode_indicator = f"""
+# 🎯 PROJECT MODE: {mode_upper}
+
+**This project is configured in {mode_upper} mode.**
+
+## Task Workflow ({'3 Columns' if project_mode == 'simple' else '7 Columns'})
+"""
+            if project_mode == "simple":
+                mode_indicator += """- **Backlog**: New tasks waiting to be analyzed
+- **In Progress**: Tasks currently being worked on
+- **Done**: Completed tasks
+
+## What this means:
+- ✅ **NO Git workflow** - Direct work, no branches, no PRs
+- ✅ **NO complex statuses** - Just Backlog → In Progress → Done
+- ✅ **Simplified task management** - Focus on getting work done
+- ✅ **No worktrees, no version control complexity**
+
+## Your approach:
+1. Follow simple Backlog → In Progress → Done flow
+2. Work directly in main branch
+3. No worktrees, no test environments
+4. Mark done only when user explicitly requests
+
+---
+
+"""
+            else:
+                mode_indicator += """- **Backlog**: New tasks waiting to be analyzed
+- **Analysis**: Understanding requirements and planning
+- **In Progress**: Active development with Git worktrees
+- **Testing**: Running tests and validation
+- **Code Review**: Peer review of changes
+- **PR**: Pull Request created and awaiting merge
+- **Done**: Completed and merged
+
+## What this means:
+- ✅ **Full Git workflow** - Branches, worktrees, PRs
+- ✅ **Complete development lifecycle** - From analysis to deployment
+- ✅ **Version control** - Proper branching and merge strategy
+- ✅ **Quality gates** - Testing and code review required
+
+## Your approach:
+1. Follow the complete task workflow through all statuses
+2. Create worktrees for each task
+3. Use proper branching strategy
+4. Create PRs and wait for review
+5. Ensure tests pass before moving forward
+
+---
+
+"""
+
+            # Insert mode indicator after the first heading
+            lines = template_content.split('\n')
+            if lines and lines[0].startswith('#'):
+                # Insert after first heading
+                template_content = lines[0] + '\n' + mode_indicator + '\n'.join(lines[1:])
+            else:
+                # Insert at the beginning
+                template_content = mode_indicator + template_content
+
             # Detect commands and add to template
             commands = detect_commands(tech_stack)
 
