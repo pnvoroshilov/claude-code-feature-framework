@@ -135,6 +135,7 @@ class ProjectSettingsBase(BaseModel):
     test_command: Optional[str] = None
     build_command: Optional[str] = None
     lint_command: Optional[str] = None
+    worktree_enabled: bool = True
 
 
 class ProjectSettingsCreate(ProjectSettingsBase):
