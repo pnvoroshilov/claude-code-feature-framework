@@ -99,7 +99,8 @@ async def initialize_project(
             project_path=request.project_path,
             project_name=request.project_name,
             github_repo=request.github_repo,
-            force_reinitialize=request.force_reinitialize
+            force_reinitialize=request.force_reinitialize,
+            project_mode=request.project_mode or 'simple'
         )
         return result
     except ValueError as e:
@@ -534,25 +535,27 @@ async def update_task_status(
                 "Move back to appropriate status when unblocked"
             ]
         
-        # Auto-create worktree when task moves to In Progress
+        # Auto-create worktree when task moves to In Progress (ONLY in development mode)
         if status_update.status == TaskStatus.IN_PROGRESS and old_status != TaskStatus.IN_PROGRESS:
-            logger.info(f"Task {task_id} started - creating worktree")
-            
+            logger.info(f"Task {task_id} started")
+
             # Get project for context
             project_result = await db.execute(
                 select(Project).where(Project.id == task.project_id)
             )
             project = project_result.scalar_one_or_none()
-            
-            if project:
+
+            # Only create worktree in development mode
+            if project and project.project_mode == 'development':
+                logger.info(f"Project in development mode - creating worktree for task {task_id}")
                 # Create worktree for the task
                 from .services.worktree_service import WorktreeService
-                
+
                 worktree_result = await WorktreeService.create_worktree(
                     task_id=task_id,
                     project_path=project.path
                 )
-                
+
                 if worktree_result["success"]:
                     # Update task with worktree information
                     task.git_branch = worktree_result["branch_name"]
@@ -573,6 +576,8 @@ async def update_task_status(
                             "branch": task.git_branch,
                             "path": task.worktree_path
                         }
+            elif project and project.project_mode == 'simple':
+                logger.info(f"Project in simple mode - skipping worktree creation for task {task_id}")
         
         # If status changed to Done, trigger automatic merge and cleanup
         if status_update.status == TaskStatus.DONE and old_status != TaskStatus.DONE:

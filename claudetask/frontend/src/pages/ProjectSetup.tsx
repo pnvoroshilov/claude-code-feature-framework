@@ -24,6 +24,10 @@ import {
   useTheme,
   Paper,
   Stack,
+  Radio,
+  RadioGroup,
+  FormControl,
+  FormLabel,
 } from '@mui/material';
 import {
   Folder as FolderIcon,
@@ -46,6 +50,7 @@ const ProjectSetup: React.FC = () => {
     project_name: '',
     github_repo: '',
     force_reinitialize: false,
+    project_mode: 'simple',
   });
   const [initResult, setInitResult] = useState<any>(null);
   const [browserOpen, setBrowserOpen] = useState(false);
@@ -325,6 +330,71 @@ const ProjectSetup: React.FC = () => {
                 }}
                 helperText="Link to your GitHub repository"
               />
+
+              <FormControl component="fieldset" sx={{ mb: 3 }}>
+                <FormLabel
+                  component="legend"
+                  sx={{
+                    color: theme.palette.text.primary,
+                    fontWeight: 600,
+                    mb: 2,
+                    '&.Mui-focused': { color: theme.palette.primary.main }
+                  }}
+                >
+                  Project Mode
+                </FormLabel>
+                <RadioGroup
+                  value={projectData.project_mode || 'simple'}
+                  onChange={(e) => setProjectData({ ...projectData, project_mode: e.target.value as 'simple' | 'development' })}
+                >
+                  <FormControlLabel
+                    value="simple"
+                    control={
+                      <Radio
+                        sx={{
+                          color: alpha(theme.palette.text.secondary, 0.7),
+                          '&.Mui-checked': {
+                            color: theme.palette.primary.main,
+                          },
+                        }}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body1" sx={{ color: theme.palette.text.primary, fontWeight: 500 }}>
+                          Simple Mode
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: alpha(theme.palette.text.secondary, 0.7) }}>
+                          3 columns: Backlog → In Progress → Done. Direct work, no branches or PRs.
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                  <FormControlLabel
+                    value="development"
+                    control={
+                      <Radio
+                        sx={{
+                          color: alpha(theme.palette.text.secondary, 0.7),
+                          '&.Mui-checked': {
+                            color: theme.palette.primary.main,
+                          },
+                        }}
+                      />
+                    }
+                    label={
+                      <Box>
+                        <Typography variant="body1" sx={{ color: theme.palette.text.primary, fontWeight: 500 }}>
+                          Development Mode
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: alpha(theme.palette.text.secondary, 0.7) }}>
+                          Full workflow with Git integration, worktrees, testing, code review, and PRs.
+                        </Typography>
+                      </Box>
+                    }
+                  />
+                </RadioGroup>
+              </FormControl>
 
               <FormControlLabel
                 control={

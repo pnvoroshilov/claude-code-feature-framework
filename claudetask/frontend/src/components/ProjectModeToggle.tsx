@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  ToggleButtonGroup,
-  ToggleButton,
   Typography,
   Switch,
   FormControlLabel,
   Tooltip,
+  Chip,
   alpha,
 } from '@mui/material';
 import {
@@ -16,7 +15,7 @@ import {
 } from '@mui/icons-material';
 import { useProject } from '../context/ProjectContext';
 import { useThemeMode } from '../context/ThemeContext';
-import { updateProject, getProjectSettings, updateProjectSettings, ProjectSettings } from '../services/api';
+import { getProjectSettings, updateProjectSettings } from '../services/api';
 
 const ProjectModeToggle: React.FC = () => {
   const { selectedProject, refreshProjects } = useProject();
@@ -41,24 +40,6 @@ const ProjectModeToggle: React.FC = () => {
 
     loadSettings();
   }, [selectedProject]);
-
-  const handleModeChange = async (
-    event: React.MouseEvent<HTMLElement>,
-    newMode: string | null,
-  ) => {
-    if (!newMode || !selectedProject) return;
-
-    try {
-      await updateProject(selectedProject.id, {
-        project_mode: newMode as 'simple' | 'development'
-      });
-
-      // Refresh projects to get updated data
-      await refreshProjects();
-    } catch (error) {
-      console.error('Failed to update project mode:', error);
-    }
-  };
 
   const handleWorktreeToggle = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedProject) return;
@@ -115,41 +96,23 @@ const ProjectModeToggle: React.FC = () => {
         Project Mode:
       </Typography>
 
-      <ToggleButtonGroup
-        value={projectMode}
-        exclusive
-        onChange={handleModeChange}
+      {/* Display-only mode indicator */}
+      <Chip
+        icon={projectMode === 'simple' ? <SimpleIcon /> : <DevelopmentIcon />}
+        label={projectMode === 'simple' ? 'Simple' : 'Development'}
         size="small"
         sx={{
-          '& .MuiToggleButton-root': {
-            px: 2,
-            py: 0.5,
-            textTransform: 'none',
-            fontWeight: 500,
-            border: themeMode === 'dark' ? '1px solid #334155' : '1px solid #e2e8f0',
-            '&.Mui-selected': {
-              bgcolor: themeMode === 'dark'
-                ? alpha('#6366f1', 0.2)
-                : alpha('#6366f1', 0.1),
-              color: '#6366f1',
-              '&:hover': {
-                bgcolor: themeMode === 'dark'
-                  ? alpha('#6366f1', 0.3)
-                  : alpha('#6366f1', 0.2),
-              },
-            },
+          fontWeight: 500,
+          bgcolor: themeMode === 'dark'
+            ? alpha('#6366f1', 0.2)
+            : alpha('#6366f1', 0.1),
+          color: '#6366f1',
+          border: themeMode === 'dark' ? '1px solid #334155' : '1px solid #e2e8f0',
+          '& .MuiChip-icon': {
+            color: '#6366f1',
           },
         }}
-      >
-        <ToggleButton value="simple">
-          <SimpleIcon sx={{ mr: 1, fontSize: 18 }} />
-          Simple
-        </ToggleButton>
-        <ToggleButton value="development">
-          <DevelopmentIcon sx={{ mr: 1, fontSize: 18 }} />
-          Development
-        </ToggleButton>
-      </ToggleButtonGroup>
+      />
 
       <Typography
         variant="caption"

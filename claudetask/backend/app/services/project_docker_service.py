@@ -79,7 +79,8 @@ async def create_project_structure_docker(
     project_path: str,
     project_id: str,
     project_name: str,
-    tech_stack: List[str]
+    tech_stack: List[str],
+    project_mode: str = 'simple'
 ) -> List[str]:
     """Create ClaudeTask structure in the project using Docker"""
     files_created = []
@@ -206,12 +207,13 @@ async def create_project_structure_docker(
     project_json_path = os.path.join(claudetask_dir, "project.json")
     if dfs.write_file_to_host(project_json_path, json.dumps(project_meta, indent=2)):
         files_created.append(".claudetask/project.json")
-    
-    # Create worktrees directory
-    worktrees_dir = os.path.join(project_path, "worktrees")
-    dfs.create_directory_on_host(worktrees_dir)
-    files_created.append("worktrees/")
-    
+
+    # Create worktrees directory ONLY in development mode
+    if project_mode == 'development':
+        worktrees_dir = os.path.join(project_path, "worktrees")
+        dfs.create_directory_on_host(worktrees_dir)
+        files_created.append("worktrees/")
+
     return files_created
 
 

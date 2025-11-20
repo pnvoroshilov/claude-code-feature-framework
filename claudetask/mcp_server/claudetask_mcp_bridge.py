@@ -1457,17 +1457,31 @@ New Status: {status}
                 )]
 
     async def _create_worktree(self, task_id: int) -> list[types.TextContent]:
-        """Create git worktree for task"""
+        """Create git worktree for task (ONLY for development mode)"""
         import subprocess
         import os
-        
+
         try:
             # Get task details
             async with httpx.AsyncClient() as client:
-                response = await client.get(f"{self.server_url}/api/tasks/{task_id}")
-                response.raise_for_status()
-                task = response.json()
-            
+                task_response = await client.get(f"{self.server_url}/api/tasks/{task_id}")
+                task_response.raise_for_status()
+                task = task_response.json()
+
+                # Get project details to check project_mode
+                project_response = await client.get(f"{self.server_url}/api/projects/{task['project_id']}")
+                project_response.raise_for_status()
+                project = project_response.json()
+
+                # Check if project is in development mode
+                if project.get('project_mode') != 'development':
+                    return [types.TextContent(
+                        type="text",
+                        text=f"❌ Cannot create worktree: Project is in '{project.get('project_mode', 'simple')}' mode.\n\n"
+                             f"Worktrees are only available in 'development' mode.\n"
+                             f"In 'simple' mode, work directly in the main branch without worktrees."
+                    )]
+
             # First, sync main branch with latest updates
             self.logger.info(f"Syncing main branch with latest updates for task {task_id}")
             

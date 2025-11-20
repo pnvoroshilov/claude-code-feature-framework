@@ -31,7 +31,8 @@ class ProjectService:
         project_path: str,
         project_name: str,
         github_repo: Optional[str] = None,
-        force_reinitialize: bool = False
+        force_reinitialize: bool = False,
+        project_mode: str = 'simple'
     ) -> InitializeProjectResponse:
         """Initialize a new project"""
         
@@ -161,7 +162,8 @@ class ProjectService:
             path=project_path,  # Store the path as provided
             github_repo=github_repo,
             tech_stack=tech_stack,
-            is_active=True
+            is_active=True,
+            project_mode=project_mode
         )
         
         # Set other projects as inactive
@@ -175,7 +177,7 @@ class ProjectService:
         # Create project settings
         settings = ProjectSettings(
             project_id=project_id,
-            claude_config=generate_claude_md(project_name, project_path, tech_stack)
+            claude_config=generate_claude_md(project_name, project_path, tech_stack, project_mode=project_mode)
         )
         db.add(settings)
         
@@ -199,14 +201,14 @@ class ProjectService:
         if os.getenv("RUNNING_IN_DOCKER"):
             # Use Docker version for creating files on host
             files_created = await create_project_structure_docker(
-                project_path, project_id, project_name, tech_stack
+                project_path, project_id, project_name, tech_stack, project_mode
             )
             # Configure MCP using Docker
             mcp_configured = configure_mcp_docker(project_path, project_id)
         else:
             # Use normal version for local development
             files_created = await ProjectService._create_project_structure(
-                project_path, project_id, project_name, tech_stack
+                project_path, project_id, project_name, tech_stack, project_mode
             )
             # Configure MCP normally
             mcp_configured = ProjectService._configure_mcp(project_path, project_id)
@@ -580,7 +582,8 @@ build/
         project_path: str,
         project_id: str,
         project_name: str,
-        tech_stack: List[str]
+        tech_stack: List[str],
+        project_mode: str = 'simple'
     ) -> List[str]:
         """Create ClaudeTask structure in the project"""
         files_created = []
@@ -706,12 +709,13 @@ build/
         with open(project_json_path, "w") as f:
             json.dump(project_meta, f, indent=2)
         files_created.append(".claudetask/project.json")
-        
-        # Create worktrees directory
-        worktrees_dir = os.path.join(project_path, "worktrees")
-        os.makedirs(worktrees_dir, exist_ok=True)
-        files_created.append("worktrees/")
-        
+
+        # Create worktrees directory ONLY in development mode
+        if project_mode == 'development':
+            worktrees_dir = os.path.join(project_path, "worktrees")
+            os.makedirs(worktrees_dir, exist_ok=True)
+            files_created.append("worktrees/")
+
         return files_created
     
     @staticmethod

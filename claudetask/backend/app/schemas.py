@@ -42,7 +42,6 @@ class ProjectCreate(ProjectBase):
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     github_repo: Optional[str] = None
-    project_mode: Optional[str] = None  # "simple" or "development"
     is_active: Optional[bool] = None
 
 
@@ -196,6 +195,7 @@ class InitializeProjectRequest(BaseModel):
     project_name: str
     github_repo: Optional[str] = None
     force_reinitialize: bool = False
+    project_mode: Optional[str] = 'simple'
 
 
 class InitializeProjectResponse(BaseModel):

@@ -750,7 +750,7 @@ const TaskBoard: React.FC = () => {
 
   return (
     <Box sx={{ minHeight: '100vh', pb: 4 }}>
-      {/* Project Mode Toggle */}
+      {/* Project Mode and Worktree Toggle */}
       <ProjectModeToggle />
 
       <Container maxWidth="xl">
@@ -771,14 +771,30 @@ const TaskBoard: React.FC = () => {
               >
                 Task Board
               </Typography>
-              <Typography variant="body1" color="text.secondary">
+              <Typography variant="body1" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 Manage and track your project tasks
+                {project && (
+                  <Chip
+                    size="small"
+                    label={project.project_mode === 'simple' ? 'Simple Mode' : 'Development Mode'}
+                    sx={{
+                      height: 20,
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      background: project.project_mode === 'simple'
+                        ? `linear-gradient(135deg, ${alpha(theme.palette.info.main, 0.2)}, ${alpha(theme.palette.info.light, 0.1)})`
+                        : `linear-gradient(135deg, ${alpha(theme.palette.secondary.main, 0.2)}, ${alpha(theme.palette.secondary.light, 0.1)})`,
+                      border: `1px solid ${alpha(project.project_mode === 'simple' ? theme.palette.info.main : theme.palette.secondary.main, 0.3)}`,
+                      color: project.project_mode === 'simple' ? theme.palette.info.dark : theme.palette.secondary.dark,
+                    }}
+                  />
+                )}
                 {isConnected && (
                   <Chip
                     size="small"
                     label="Real-time updates"
                     color="success"
-                    sx={{ ml: 2, height: 20, fontSize: '0.7rem' }}
+                    sx={{ height: 20, fontSize: '0.7rem' }}
                   />
                 )}
               </Typography>

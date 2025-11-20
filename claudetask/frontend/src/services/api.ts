@@ -78,6 +78,7 @@ export interface InitializeProjectRequest {
   project_name: string;
   github_repo?: string;
   force_reinitialize?: boolean;
+  project_mode?: 'simple' | 'development';
 }
 
 export interface InitializeProjectResponse {
