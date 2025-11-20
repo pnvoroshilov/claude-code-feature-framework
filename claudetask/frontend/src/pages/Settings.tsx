@@ -22,6 +22,7 @@ import {
   InputLabel,
   IconButton,
   Tooltip,
+  CircularProgress,
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
 import PaletteIcon from '@mui/icons-material/Palette';
@@ -33,7 +34,9 @@ import InfoIcon from '@mui/icons-material/Info';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import AutoModeIcon from '@mui/icons-material/AutoMode';
+import RateReviewIcon from '@mui/icons-material/RateReview';
 import { useProject } from '../context/ProjectContext';
+import { getProjectSettings, updateProjectSettings, ProjectSettings as ProjectSettingsType } from '../services/api';
 
 const Settings: React.FC = () => {
   const theme = useTheme();
@@ -71,6 +74,10 @@ const Settings: React.FC = () => {
     maxRetries: 3,
   });
 
+  // Backend Project Settings state
+  const [backendSettings, setBackendSettings] = useState<ProjectSettingsType | null>(null);
+  const [loadingSettings, setLoadingSettings] = useState(false);
+
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -91,8 +98,32 @@ const Settings: React.FC = () => {
     }
   }, []);
 
-  const handleSaveSettings = () => {
+  // Load backend project settings when project changes
+  useEffect(() => {
+    const loadBackendSettings = async () => {
+      if (!selectedProject) {
+        setBackendSettings(null);
+        return;
+      }
+
+      setLoadingSettings(true);
+      try {
+        const settings = await getProjectSettings(selectedProject.id);
+        setBackendSettings(settings);
+      } catch (error) {
+        console.error('Failed to load project settings:', error);
+        setSaveError('Failed to load project settings from backend');
+      } finally {
+        setLoadingSettings(false);
+      }
+    };
+
+    loadBackendSettings();
+  }, [selectedProject]);
+
+  const handleSaveSettings = async () => {
     try {
+      // Save UI settings to localStorage
       const allSettings = {
         general: generalSettings,
         appearance: appearanceSettings,
@@ -101,6 +132,12 @@ const Settings: React.FC = () => {
         advanced: advancedSettings,
       };
       localStorage.setItem('claudetask-settings', JSON.stringify(allSettings));
+
+      // Save backend project settings if available
+      if (selectedProject && backendSettings) {
+        await updateProjectSettings(selectedProject.id, backendSettings);
+      }
+
       setSaveSuccess(true);
       setSaveError(null);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -484,6 +521,97 @@ const Settings: React.FC = () => {
             description="Configure project-specific behavior and defaults"
             icon={<FolderIcon sx={{ color: theme.palette.primary.main, fontSize: 28 }} />}
           >
+            {loadingSettings ? (
+              <Box display="flex" justifyContent="center" py={4}>
+                <CircularProgress />
+              </Box>
+            ) : backendSettings ? (
+              <>
+                <SettingRow
+                  label="Manual Mode"
+                  description="Require manual code review before merging pull requests"
+                  control={
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Switch
+                        checked={backendSettings.manual_mode}
+                        onChange={(e) => setBackendSettings({ ...backendSettings, manual_mode: e.target.checked })}
+                        color="primary"
+                      />
+                      <Tooltip title={backendSettings.manual_mode ? "Code review required before merge" : "Auto-merge after tests pass"}>
+                        <RateReviewIcon
+                          sx={{
+                            color: backendSettings.manual_mode ? theme.palette.success.main : theme.palette.text.disabled,
+                            fontSize: 20
+                          }}
+                        />
+                      </Tooltip>
+                    </Stack>
+                  }
+                />
+                <SettingRow
+                  label="Git Worktrees"
+                  description="Use isolated Git worktrees for each task (requires Development mode)"
+                  control={
+                    <Switch
+                      checked={backendSettings.worktree_enabled}
+                      onChange={(e) => setBackendSettings({ ...backendSettings, worktree_enabled: e.target.checked })}
+                      color="primary"
+                      disabled={selectedProject?.project_mode === 'simple'}
+                    />
+                  }
+                />
+                <SettingRow
+                  label="Test Command"
+                  description="Command to run project tests"
+                  control={
+                    <TextField
+                      size="small"
+                      value={backendSettings.test_command || ''}
+                      onChange={(e) => setBackendSettings({ ...backendSettings, test_command: e.target.value })}
+                      placeholder="npm test"
+                      sx={{ width: 250 }}
+                    />
+                  }
+                />
+                <SettingRow
+                  label="Build Command"
+                  description="Command to build the project"
+                  control={
+                    <TextField
+                      size="small"
+                      value={backendSettings.build_command || ''}
+                      onChange={(e) => setBackendSettings({ ...backendSettings, build_command: e.target.value })}
+                      placeholder="npm run build"
+                      sx={{ width: 250 }}
+                    />
+                  }
+                />
+                <SettingRow
+                  label="Lint Command"
+                  description="Command to run code linting"
+                  control={
+                    <TextField
+                      size="small"
+                      value={backendSettings.lint_command || ''}
+                      onChange={(e) => setBackendSettings({ ...backendSettings, lint_command: e.target.value })}
+                      placeholder="npm run lint"
+                      sx={{ width: 250 }}
+                    />
+                  }
+                />
+              </>
+            ) : (
+              <Alert severity="info">
+                Please select a project to configure project settings
+              </Alert>
+            )}
+
+            <Divider sx={{ my: 2 }} />
+
+            {/* UI-only project settings */}
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2, mt: 2 }}>
+              UI Preferences
+            </Typography>
             <SettingRow
               label="Default Priority"
               description="Default priority for new tasks"

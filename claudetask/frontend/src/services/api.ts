@@ -136,6 +136,7 @@ export interface ProjectSettings {
   build_command?: string;
   lint_command?: string;
   worktree_enabled: boolean;
+  manual_mode: boolean;
 }
 
 export const getProjectSettings = async (projectId: string): Promise<ProjectSettings> => {
