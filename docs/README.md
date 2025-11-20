@@ -162,10 +162,24 @@ To manually trigger documentation update:
 ## Recent Updates
 
 **Latest Changes (2025-11-20):**
+- ✅ **New Hook: Documentation Update Injection**: UserPromptSubmit event hook for automatic recovery
+  - Companion to Post-Merge Documentation hook
+  - Detects pending documentation update markers
+  - Injects /update-documentation command into next user prompt
+  - One-time trigger with automatic cleanup
+  - Provides fallback when API calls fail
+  - Documentation: `architecture/hooks-system.md` Case Study 2
+- ✅ **Hooks Initialization Change**: Hooks no longer auto-enabled on project creation
+  - All hook scripts (.sh files) copied to .claude/hooks/ during initialization
+  - Scripts made executable automatically
+  - Empty .claude/settings.json created (no hooks enabled by default)
+  - Users enable hooks via UI as needed
+  - Prevents unwanted automation on new projects
 - ✅ **Framework Update System**: Automatic synchronization of framework files
   - Updates hooks, commands, and agents in existing projects
   - Preserves user customizations while updating framework components
-  - Copies hook scripts (.sh files) and makes them executable
+  - Updates hook scripts (.sh files) during framework sync
+  - Preserves .claude/settings.json (user's enabled hooks)
   - Merges MCP configurations intelligently
   - New documentation: `architecture/framework-updates.md`
 - ✅ **Database Migration 006**: CASCADE DELETE constraints for project deletion
@@ -325,10 +339,11 @@ New documentation is automatically created when:
 - Total files: 23 active, 3 archived
 - API endpoints documented: 4 (including 8 total endpoints)
 - MCP tools documented: 15+ tools with complete reference
-- Components documented: 7 (added RealTerminal v2.1)
+- Components documented: 7 (FileBrowser, RealTerminal, ClaudeSessions, etc.)
+- Hooks documented: 8 framework hooks (including inject-docs-update)
 - Skills documented: 2 (TOON Format, UseCase Writer)
 - Database migrations documented: 6 complete migrations
-- Last full update: 2025-11-20
+- Last full update: 2025-11-20 20:15
 - Auto-update status: Active and operational
 
 ---

@@ -264,6 +264,14 @@ def copy_hook_to_project(project_path, hook):
 | `SessionStart` | Session initialization | Setup, environment prep |
 | `SessionEnd` | Session termination | Cleanup, reporting |
 
+**Event Details:**
+
+- **UserPromptSubmit**: Triggered when user submits a prompt to Claude
+  - Receives prompt content as JSON input
+  - Can inject additional context into Claude's environment
+  - Use for automatic context enrichment, prompt pre-processing
+  - Example: inject-docs-update hook adds documentation update instruction
+
 ### Hook Input Format
 
 Hooks receive JSON input via stdin:
@@ -283,7 +291,7 @@ Hooks receive JSON input via stdin:
 }
 ```
 
-## Case Study: Post-Merge Documentation Hook
+## Case Study 1: Post-Merge Documentation Hook
 
 ### Version 2.0.0 Architecture
 
@@ -373,6 +381,128 @@ Execute /update-documentation Command
 Documentation Updater Agent Runs
       ↓
 Commit with [skip-hook] Tag
+```
+
+## Case Study 2: Documentation Update Injection Hook
+
+### Version 1.0.0 Architecture
+
+The inject-docs-update hook demonstrates UserPromptSubmit event handling and automatic recovery mechanisms.
+
+#### Components
+
+1. **Hook Configuration** (`inject-docs-update.json`):
+   - Defines UserPromptSubmit event with wildcard matcher
+   - References separate script file
+   - Works in conjunction with post-merge documentation hook
+   - Category: version-control
+
+2. **Shell Script** (`inject-docs-update.sh`):
+   - Checks for `.docs-update-pending` marker file
+   - Injects documentation update instruction into user prompt
+   - Removes marker after injection (one-time trigger)
+   - Provides comprehensive logging
+
+#### Key Features
+
+**Marker File Detection:**
+```bash
+MARKER_FILE="$LOGDIR/.docs-update-pending"
+
+if [ -f "$MARKER_FILE" ]; then
+    echo "Documentation update marker found - injecting context"
+    rm -f "$MARKER_FILE"  # One-time trigger
+fi
+```
+
+**Context Injection via JSON:**
+```bash
+cat << 'EOF'
+{
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "🔔 AUTOMATIC DOCUMENTATION UPDATE REQUIRED\n\n📚 Execute: /update-documentation"
+  }
+}
+EOF
+```
+
+**One-Time Trigger:**
+- Marker file created by post-push-docs.sh if API call fails
+- Detected on next user prompt submission
+- Automatically removed after injection
+- Prevents repeated injections
+
+#### Workflow Integration
+
+The inject-docs-update hook works as a recovery mechanism for failed documentation updates:
+
+```
+Post-Merge Hook Executes
+      ↓
+Attempts API Call to /update-documentation
+      ↓
+API Call Fails (backend unavailable)
+      ↓
+Creates .docs-update-pending Marker
+      ↓
+User Submits Next Prompt
+      ↓
+UserPromptSubmit Hook Triggered
+      ↓
+Detects Marker File
+      ↓
+Injects /update-documentation Context
+      ↓
+Removes Marker (one-time)
+      ↓
+Claude Receives Instruction
+      ↓
+Documentation Update Executes
+```
+
+#### Use Cases
+
+1. **API Failure Recovery**: When backend is temporarily unavailable
+2. **Delayed Execution**: Documentation update on next user interaction
+3. **Non-Blocking**: Post-merge hook doesn't block on API failures
+4. **Automatic Recovery**: No manual intervention required
+
+#### Hook Configuration
+
+```json
+{
+  "name": "Documentation Update Injection",
+  "description": "Injects documentation update instruction into user prompt when marker file exists",
+  "category": "version-control",
+  "version": "1.0.0",
+  "hook_config": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/inject-docs-update.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "script_file": "inject-docs-update.sh",
+  "dependencies": ["bash"],
+  "related_hooks": ["post-merge-documentation"]
+}
+```
+
+#### Logging
+
+All injection events are logged to `.claude/logs/hooks/user-prompt-YYYYMMDD.log`:
+
+```
+[2025-11-20 19:45:12] UserPromptSubmit hook triggered
+[2025-11-20 19:45:12] Documentation update marker found - injecting context
+[2025-11-20 19:45:12] Documentation update context injected successfully
 ```
 
 ## Service Layer

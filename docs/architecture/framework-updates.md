@@ -44,15 +44,23 @@ FrameworkUpdateService.update_framework()
 └────────────┬───────────────────────────┘
              ↓
 ┌────────────────────────────────────────┐
-│ 5. Update Hook Files                   │
-│    - Copy hook configs (.json files)    │
-│    - Copy hook scripts (.sh files)      │
-│    - Make scripts executable (chmod +x) │
-│    - Generate .claude/settings.json     │
+│ 5. Update Hook Scripts                 │
+│    - Copy ONLY hook scripts (.sh files)│
+│    - Make scripts executable (chmod +x)│
+│    - PRESERVE .claude/settings.json    │
+│    - Don't modify user's enabled hooks │
 └────────────┬───────────────────────────┘
              ↓
 ┌────────────────────────────────────────┐
-│ 6. Return Update Report                │
+│ 6. Generate settings.local.json        │
+│    - Create/update MCP server config   │
+│    - Enable essential MCP servers       │
+│    - Set enableAllProjectMcpServers     │
+│    - Requires Claude Code restart       │
+└────────────┬───────────────────────────┘
+             ↓
+┌────────────────────────────────────────┐
+│ 7. Return Update Report                │
 │    - List of updated files              │
 │    - Any errors encountered             │
 │    - Success/failure status             │
@@ -201,69 +209,130 @@ def _detect_technologies(project_path: str) -> List[str]:
 - `/start-feature` - Start new feature development
 - `/update-documentation` - Trigger documentation update
 
-### 5. Hook Files Update (NEW in Recent Changes)
+### 5. Hook Scripts Update
 
-**Purpose:** Update automation hooks with latest implementations.
+**Purpose:** Update hook script implementations while preserving user's enabled hooks.
+
+**Important Change (2025-11-20):** Framework updates now ONLY update hook scripts, NOT hook configurations in settings.json. This preserves user's choice of which hooks are enabled.
 
 **Process:**
 
-#### Step 1: Copy Hook Configurations
+#### Step 1: Update Hook Scripts Only
 ```python
+# ONLY copy shell scripts - don't touch settings.json
 for hook_file in os.listdir(hooks_source_dir):
-    if hook_file.endswith(".json"):
+    if hook_file.endswith(".sh"):
         source_file = os.path.join(hooks_source_dir, hook_file)
         dest_file = os.path.join(hooks_dir, hook_file)
         shutil.copy2(source_file, dest_file)
 
-        # Read hook config for settings.json
-        with open(source_file, 'r') as f:
-            hook_data = json.load(f)
-            if "hook_config" in hook_data:
-                # Collect hook configs
-                for event_type, event_hooks in hook_data["hook_config"].items():
-                    if event_type not in hook_configs:
-                        hook_configs[event_type] = []
-                    hook_configs[event_type].extend(event_hooks)
+        # Make script executable
+        os.chmod(dest_file, 0o755)
+        updated_files.append(f".claude/hooks/{hook_file}")
+
+# Don't touch settings.json - user's enabled hooks are managed via UI
 ```
 
-#### Step 2: Copy Hook Scripts
+#### Step 2: Preserve User Configuration
 ```python
-elif hook_file.endswith(".sh"):
-    source_file = os.path.join(hooks_source_dir, hook_file)
-    dest_file = os.path.join(hooks_dir, hook_file)
-    shutil.copy2(source_file, dest_file)
-
-    # Make script executable
-    os.chmod(dest_file, 0o755)
+# .claude/settings.json is NOT modified during framework updates
+# User's enabled hooks remain unchanged
+# Hook scripts are updated, but activation is preserved
 ```
 
-#### Step 3: Generate settings.json
+**Hook Scripts Updated:**
+- `post-push-docs.sh` - Post-merge documentation update script
+- `inject-docs-update.sh` - Documentation update injection script (NEW in 2025-11-20)
+- Other hook scripts as they are added to the framework
+
+**What's Updated:**
+- ✅ Hook script implementations (.sh files)
+- ✅ Script permissions (chmod +x)
+- ✅ Bug fixes in hook logic
+
+**What's Preserved:**
+- ✅ User's enabled hooks in settings.json
+- ✅ User's custom hook configurations
+- ✅ User's choice of which hooks to activate
+
+**Why This Approach:**
+- Users control which hooks are enabled via UI
+- Framework updates don't enable unwanted hooks
+- Bug fixes in scripts propagate without changing activation
+- Clear separation: framework owns scripts, user owns configuration
+
+### 6. Settings Files Management
+
+**Purpose:** Ensure essential Claude Code configurations are present while respecting user choices.
+
+**Two Settings Files:**
+
+#### `.claude/settings.json` - User-Managed Hook Configuration
+- **Created during initialization**: Empty hooks object `{"hooks": {}}`
+- **Never modified by framework updates**: User's enabled hooks are preserved
+- **Updated via UI**: When user enables/disables hooks through Hooks management page
+- **Purpose**: Stores which hooks are active for the project
+
+**Example:**
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/post-push-docs.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+#### `.claude/settings.local.json` - Auto-Generated MCP Configuration
+- **Created during initialization and updates**: Always regenerated
+- **Purpose**: Configure essential MCP servers for Claude Code
+- **Requires Claude Code restart**: Changes take effect after app restart
+- **Not user-editable**: Automatically managed by framework
+
+**Example:**
+```json
+{
+  "enabledMcpjsonServers": [
+    "playwright",
+    "claudetask",
+    "serena"
+  ],
+  "enableAllProjectMcpServers": true
+}
+```
+
+**Update Behavior:**
 ```python
-# Create/update .claude/settings.json
-settings_file = os.path.join(claude_dir, "settings.json")
-settings_data = {"hooks": hook_configs}
+# Create/update .claude/settings.local.json (always regenerated)
+settings_local_file = os.path.join(claude_dir, "settings.local.json")
+settings_local_data = {
+    "enabledMcpjsonServers": [
+        "playwright",
+        "claudetask",
+        "serena"
+    ],
+    "enableAllProjectMcpServers": True
+}
 
-# Merge with existing settings if file exists
-if os.path.exists(settings_file):
-    with open(settings_file, 'r') as f:
-        existing_settings = json.load(f)
-        existing_settings["hooks"] = hook_configs
-        settings_data = existing_settings
-
-with open(settings_file, 'w') as f:
-    json.dump(settings_data, f, indent=2)
+with open(settings_local_file, 'w') as f:
+    json.dump(settings_local_data, f, indent=2)
+updated_files.append(".claude/settings.local.json")
 ```
 
-**Hook Files Copied:**
-- `bash-command-logger.json` - Log all bash commands
-- `code-formatter.json` - Auto-format code on save
-- `desktop-notifications.json` - Desktop alerts
-- `file-protection.json` - Protect critical files
-- `git-auto-commit.json` - Auto-commit on milestones
-- `post-merge-documentation.json` - Documentation updates
-- `post-push-docs.sh` - Documentation update script (executable)
-
-**Result:** `.claude/settings.json` is automatically configured with all hook events.
+**Key Points:**
+- ✅ **settings.json**: User-controlled, never auto-modified, stores enabled hooks
+- ✅ **settings.local.json**: Framework-controlled, always regenerated, configures MCP servers
+- ✅ Clear separation: User owns hook activation, framework owns MCP configuration
+- ⚠️ **Important**: Claude Code restart required after settings.local.json changes
 
 ## API Integration
 
