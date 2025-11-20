@@ -105,7 +105,7 @@ async def create_project_structure_docker(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
     ))
     agents_source_dir = os.path.join(framework_path, "framework-assets", "claude-agents")
-    
+
     if os.path.exists(agents_source_dir):
         for agent_file in os.listdir(agents_source_dir):
             if agent_file.endswith(".md"):
@@ -121,7 +121,58 @@ async def create_project_structure_docker(
             agent_path = os.path.join(agents_dir, f"{agent_config['name']}.md")
             if dfs.write_file_to_host(agent_path, agent_config['config']):
                 files_created.append(f".claude/agents/{agent_config['name']}.md")
-    
+
+    # Create skills directory
+    skills_dir = os.path.join(claude_dir, "skills")
+    dfs.create_directory_on_host(skills_dir)
+
+    # Create commands directory
+    commands_dir = os.path.join(claude_dir, "commands")
+    dfs.create_directory_on_host(commands_dir)
+
+    # Copy command files from framework-assets
+    commands_source_dir = os.path.join(framework_path, "framework-assets", "claude-commands")
+    if os.path.exists(commands_source_dir):
+        for command_file in os.listdir(commands_source_dir):
+            if command_file.endswith(".md") and command_file != "README.md":
+                source_file = os.path.join(commands_source_dir, command_file)
+                dest_file = os.path.join(commands_dir, command_file)
+                with open(source_file, "r") as src:
+                    content = src.read()
+                    if dfs.write_file_to_host(dest_file, content):
+                        files_created.append(f".claude/commands/{command_file}")
+
+    # Copy hook files from framework-assets
+    hooks_source_dir = os.path.join(framework_path, "framework-assets", "claude-hooks")
+    if os.path.exists(hooks_source_dir):
+        for hook_file in os.listdir(hooks_source_dir):
+            if hook_file.endswith(".json"):
+                source_file = os.path.join(hooks_source_dir, hook_file)
+                dest_file = os.path.join(claude_dir, hook_file)
+                with open(source_file, "r") as src:
+                    content = src.read()
+                    if dfs.write_file_to_host(dest_file, content):
+                        files_created.append(f".claude/{hook_file}")
+            elif hook_file.endswith(".sh"):
+                # Copy shell script hooks and make them executable
+                source_file = os.path.join(hooks_source_dir, hook_file)
+                dest_file = os.path.join(claude_dir, hook_file)
+                with open(source_file, "r") as src:
+                    content = src.read()
+                    if dfs.write_file_to_host(dest_file, content):
+                        # Make script executable using Docker
+                        import subprocess
+                        try:
+                            subprocess.run(
+                                ["docker", "run", "--rm", "-v", f"{project_path}:{project_path}",
+                                 "alpine", "chmod", "755", dest_file],
+                                check=True,
+                                capture_output=True
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to make {hook_file} executable: {e}")
+                        files_created.append(f".claude/{hook_file}")
+
     # Create .claudetask directory
     claudetask_dir = os.path.join(project_path, ".claudetask")
     dfs.create_directory_on_host(claudetask_dir)

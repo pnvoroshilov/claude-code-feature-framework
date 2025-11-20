@@ -647,7 +647,29 @@ build/
                         with open(dest_file, "w") as dst:
                             dst.write(src.read())
                     files_created.append(f".claude/commands/{command_file}")
-        
+
+        # Copy hook files from framework-assets
+        hooks_source_dir = os.path.join(framework_path, "framework-assets", "claude-hooks")
+        if os.path.exists(hooks_source_dir):
+            for hook_file in os.listdir(hooks_source_dir):
+                if hook_file.endswith(".json"):
+                    source_file = os.path.join(hooks_source_dir, hook_file)
+                    dest_file = os.path.join(claude_dir, hook_file)
+                    with open(source_file, "r") as src:
+                        with open(dest_file, "w") as dst:
+                            dst.write(src.read())
+                    files_created.append(f".claude/{hook_file}")
+                elif hook_file.endswith(".sh"):
+                    # Copy shell script hooks and make them executable
+                    source_file = os.path.join(hooks_source_dir, hook_file)
+                    dest_file = os.path.join(claude_dir, hook_file)
+                    with open(source_file, "r") as src:
+                        with open(dest_file, "w") as dst:
+                            dst.write(src.read())
+                    # Make script executable
+                    os.chmod(dest_file, 0o755)
+                    files_created.append(f".claude/{hook_file}")
+
         # Create .claudetask directory for internal metadata
         claudetask_dir = os.path.join(project_path, ".claudetask")
         os.makedirs(claudetask_dir, exist_ok=True)
