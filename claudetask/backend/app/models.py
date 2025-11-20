@@ -154,6 +154,7 @@ class ProjectSettings(Base):
     build_command = Column(String, nullable=True)
     lint_command = Column(String, nullable=True)
     worktree_enabled = Column(Boolean, default=True, nullable=False)  # Enable/disable git worktrees
+    manual_mode = Column(Boolean, default=False, nullable=False)  # Enable manual testing and code review
 
     # Relationships
     project = relationship("Project", back_populates="settings")

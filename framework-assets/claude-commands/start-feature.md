@@ -38,15 +38,49 @@ The MCP response will include:
 - Analysis (if available)
 - **Next steps** - Instructions on what to do based on current status
 
-### Step 3: Follow MCP Instructions
+### Step 3: Follow MCP Instructions and New Workflow
 Based on the task's current status, MCP will provide specific next steps:
 
-- **Backlog** → Instructions to analyze the task
-- **Analysis** → Instructions to complete analysis and move to development
-- **In Progress** → Instructions to implement, test, and review
-- **Testing** → Instructions to run tests and verify
-- **Code Review** → Instructions to review and prepare for merge
+- **Backlog** → Move to "Analyse" status and create Analyse/ folder
+- **Analyse** → Delegate to Requirements Writer and System Architect agents
+- **In Progress** → Begin development in task worktree
+- **Tests** → Perform manual testing and document in Tests/ folder
+- **Code Review** → Review code changes (if manual_mode enabled)
+- **PR** → Create pull request and merge
 - **Blocked** → Instructions to resolve blockers
+
+### New Workflow for Analysis Phase:
+
+When task enters "Analyse" status:
+
+1. **Create Analyse Folder in Worktree:**
+```bash
+# MCP will automatically create Analyse/ folder in task worktree
+# Contains: README.md with instructions
+```
+
+2. **Delegate to Requirements Writer Agent:**
+```bash
+# Use Task tool to delegate
+Task tool with requirements-writer agent:
+"Create comprehensive requirements document for this task.
+Task details: [task info]
+Output to: worktrees/task-<id>/Analyse/requirements.md"
+```
+
+3. **Wait for requirements.md completion**
+
+4. **Delegate to System Architect Agent:**
+```bash
+# Use Task tool to delegate
+Task tool with system-architect agent:
+"Create technical architecture document for this task.
+Requirements: [from requirements.md]
+Task details: [task info]
+Output to: worktrees/task-<id>/Analyse/architecture.md"
+```
+
+5. **After both documents created → Move to "In Progress"**
 
 ### Step 4: Update Status
 When moving to a new phase:

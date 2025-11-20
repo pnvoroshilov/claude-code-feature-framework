@@ -329,6 +329,105 @@ class WorktreeService:
             }
     
     @staticmethod
+    async def create_task_folders(worktree_path: str, folder_name: str) -> Dict[str, Any]:
+        """Create a task-specific folder in the worktree.
+
+        This method creates a folder (e.g., 'Analyse' or 'Tests') in the worktree root
+        for organizing task documentation and test files.
+
+        Args:
+            worktree_path: Path to the worktree directory
+            folder_name: Name of the folder to create ('Analyse' or 'Tests')
+
+        Returns:
+            Dict containing success status and message
+        """
+        try:
+            if not os.path.exists(worktree_path):
+                logger.error(f"Worktree path does not exist: {worktree_path}")
+                return {
+                    "success": False,
+                    "error": f"Worktree path does not exist: {worktree_path}"
+                }
+
+            folder_path = os.path.join(worktree_path, folder_name)
+
+            # Create folder if it doesn't exist
+            Path(folder_path).mkdir(exist_ok=True)
+            logger.info(f"Created {folder_name} folder in worktree: {folder_path}")
+
+            # Create README.md with instructions based on folder type
+            readme_path = os.path.join(folder_path, "README.md")
+
+            if folder_name == "Analyse":
+                readme_content = """# Analysis Documentation
+
+This folder contains analysis and design documentation for this task.
+
+## Files to Create:
+
+### 1. requirements.md
+- Business requirements and user needs
+- User stories and acceptance criteria
+- Stakeholder requirements
+- Success metrics
+
+### 2. architecture.md
+- System architecture and design decisions
+- Technical implementation approach
+- Integration points and dependencies
+- Data flow and component interactions
+- Performance and security considerations
+
+## Workflow:
+1. Requirements Writer Agent creates requirements.md
+2. System Architect Agent creates architecture.md
+3. Both documents guide the implementation phase
+"""
+            elif folder_name == "Tests":
+                readme_content = """# Testing Documentation
+
+This folder contains test plans and testing documentation for this task.
+
+## Files to Create:
+
+### test-plan.md
+- Test strategy and approach
+- Test cases and scenarios
+- Expected results
+- Testing checklist
+- Bug reports and issues found
+
+## Workflow:
+1. Manual testing performed by user
+2. Test results documented in test-plan.md
+3. Issues and bugs tracked here
+"""
+            else:
+                readme_content = f"""# {folder_name}
+
+Task-specific folder for organizing documentation and files.
+"""
+
+            with open(readme_path, 'w') as f:
+                f.write(readme_content)
+
+            logger.info(f"Created README.md in {folder_name} folder")
+
+            return {
+                "success": True,
+                "folder_path": folder_path,
+                "message": f"{folder_name} folder created successfully in worktree"
+            }
+
+        except Exception as e:
+            logger.error(f"Error creating {folder_name} folder in worktree: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+    @staticmethod
     async def list_worktrees(project_path: str) -> Dict[str, Any]:
         """List all git worktrees"""
         try:
