@@ -1,0 +1,23 @@
+{
+  "name": "Documentation Update Injection",
+  "description": "Injects documentation update instruction into user prompt when marker file exists (companion to Post-Merge Documentation hook)",
+  "category": "version-control",
+  "version": "1.0.0",
+  "hook_config": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/inject-docs-update.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "script_file": "inject-docs-update.sh",
+  "setup_instructions": "This hook works in conjunction with the Post-Merge Documentation hook.\n\nWHEN TO USE:\n- Automatically enabled when Post-Merge Documentation hook is enabled\n- Checks for .docs-update-pending marker file\n- Injects documentation update instruction into next user prompt\n\nWORKFLOW:\n1. Post-push hook detects merge/push to main\n2. Creates .docs-update-pending marker if API call fails\n3. This hook detects marker on next user prompt\n4. Injects /update-documentation instruction\n5. Removes marker (one-time trigger)\n\nSETUP STEPS:\n1. Copy inject-docs-update.sh to .claude/hooks/inject-docs-update.sh\n2. Make script executable: chmod +x .claude/hooks/inject-docs-update.sh\n3. Add hook configuration to .claude/settings.json\n\nREQUIREMENTS:\n- /update-documentation slash command must exist\n- documentation-updater-agent must exist\n- Post-Merge Documentation hook should be enabled\n\nFEATURES:\n- Automatic recovery from failed API calls\n- One-time trigger (marker auto-removed)\n- Detailed logging to .claude/logs/hooks/\n- Non-intrusive (only activates when marker exists)",
+  "dependencies": ["bash"],
+  "related_hooks": ["post-merge-documentation"]
+}
