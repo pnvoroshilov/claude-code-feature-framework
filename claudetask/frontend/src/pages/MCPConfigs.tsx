@@ -238,6 +238,47 @@ const MCPConfigs: React.FC = () => {
     }
   };
 
+  const handleEnableAll = async () => {
+    if (!selectedProject?.id) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/mcp-configs/enable-all`
+      );
+      await fetchMCPConfigs();
+      if (response.data.errors && response.data.errors.length > 0) {
+        setError(`Enabled ${response.data.enabled_count} MCP configs with some errors: ${response.data.errors.join(', ')}`);
+      }
+    } catch (err: any) {
+      setError('Failed to enable all MCP configs: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDisableAll = async () => {
+    if (!selectedProject?.id) return;
+    if (!window.confirm('Are you sure you want to disable all enabled MCP configs?')) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/mcp-configs/disable-all`
+      );
+      await fetchMCPConfigs();
+      if (response.data.errors && response.data.errors.length > 0) {
+        setError(`Disabled ${response.data.disabled_count} MCP configs with some errors: ${response.data.errors.join(', ')}`);
+      }
+    } catch (err: any) {
+      setError('Failed to disable all MCP configs: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleViewConfig = (config: MCPConfig) => {
     setSelectedConfig(config);
     setViewConfigDialogOpen(true);
@@ -648,34 +689,86 @@ const MCPConfigs: React.FC = () => {
               Manage Model Context Protocol servers for enhanced AI capabilities
             </Typography>
           </Box>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={(e) => setAddMenuAnchor(e.currentTarget)}
-            disabled={!selectedProject?.id}
-            sx={{
-              background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-              color: '#fff',
-              fontWeight: 600,
-              textTransform: 'none',
-              px: 3,
-              py: 1.5,
-              borderRadius: 2,
-              boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`,
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
-                transform: 'translateY(-2px)',
-                boxShadow: `0 6px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
-              },
-              '&:disabled': {
-                background: alpha(theme.palette.action.disabledBackground, 0.3),
-                color: alpha(theme.palette.text.disabled, 0.5),
-              },
-            }}
-          >
-            Add MCP
-          </Button>
+          <Stack direction="row" spacing={2}>
+            <Button
+              variant="outlined"
+              size="large"
+              startIcon={<CheckCircleIcon />}
+              onClick={handleEnableAll}
+              disabled={!selectedProject?.id || loading}
+              sx={{
+                borderRadius: 2,
+                px: 2,
+                py: 1.5,
+                borderColor: theme.palette.success.main,
+                color: theme.palette.success.main,
+                '&:hover': {
+                  borderColor: theme.palette.success.dark,
+                  backgroundColor: alpha(theme.palette.success.main, 0.08),
+                  transform: 'translateY(-2px)',
+                },
+                '&:disabled': {
+                  borderColor: theme.palette.action.disabledBackground,
+                  color: theme.palette.action.disabled,
+                },
+              }}
+            >
+              Enable All
+            </Button>
+            <Button
+              variant="outlined"
+              size="large"
+              startIcon={<CloseIcon />}
+              onClick={handleDisableAll}
+              disabled={!selectedProject?.id || loading}
+              sx={{
+                borderRadius: 2,
+                px: 2,
+                py: 1.5,
+                borderColor: theme.palette.error.main,
+                color: theme.palette.error.main,
+                '&:hover': {
+                  borderColor: theme.palette.error.dark,
+                  backgroundColor: alpha(theme.palette.error.main, 0.08),
+                  transform: 'translateY(-2px)',
+                },
+                '&:disabled': {
+                  borderColor: theme.palette.action.disabledBackground,
+                  color: theme.palette.action.disabled,
+                },
+              }}
+            >
+              Disable All
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={(e) => setAddMenuAnchor(e.currentTarget)}
+              disabled={!selectedProject?.id}
+              sx={{
+                background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                color: '#fff',
+                fontWeight: 600,
+                textTransform: 'none',
+                px: 3,
+                py: 1.5,
+                borderRadius: 2,
+                boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
+                  transform: 'translateY(-2px)',
+                  boxShadow: `0 6px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
+                },
+                '&:disabled': {
+                  background: alpha(theme.palette.action.disabledBackground, 0.3),
+                  color: alpha(theme.palette.text.disabled, 0.5),
+                },
+              }}
+            >
+              Add MCP
+            </Button>
+          </Stack>
           <Menu
             anchorEl={addMenuAnchor}
             open={Boolean(addMenuAnchor)}

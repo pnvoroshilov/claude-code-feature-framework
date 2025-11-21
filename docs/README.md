@@ -169,7 +169,7 @@ To manually trigger documentation update:
 **Latest Changes (2025-11-21):**
 - ✅ **Intelligent Development Workflow**: Complete agent-driven workflow with slash commands
   - New slash commands: `/start-feature`, `/start-develop`, `/test`, `/PR`, `/merge`
-  - Automated analysis phase with requirements-writer and system-architect agents
+  - Automated analysis phase with requirements-analyst and system-architect agents
   - Structured development phases with Analyse/ and Tests/ folders
   - Enhanced MCP start_claude_session with automatic context injection
   - Comprehensive workflow documentation in `architecture/intelligent-workflow.md`
@@ -389,7 +389,7 @@ New documentation is automatically created when:
 - Components documented: 7 (FileBrowser, RealTerminal, ClaudeSessions, etc.)
 - Hooks documented: 8 framework hooks (including inject-docs-update)
 - Skills documented: 2 (TOON Format, UseCase Writer)
-- Specialized agents documented: 10+ agents (requirements-writer, system-architect, pr-merge-agent, etc.)
+- Specialized agents documented: 10+ agents (requirements-analyst, system-architect, pr-merge-agent, etc.)
 - Database migrations documented: 7 complete migrations (including hook sync)
 - Last full update: 2025-11-21
 - Auto-update status: Active and operational
@@ -398,7 +398,7 @@ New documentation is automatically created when:
 
 ### Intelligent Development Workflow
 - **Complete 7-phase workflow**: Backlog → Analysis → In Progress → Testing → Code Review → PR → Done
-- **Automated analysis agents**: requirements-writer and system-architect
+- **Automated analysis agents**: requirements-analyst and system-architect
 - **Slash commands**: Quick workflow automation (`/start-feature`, `/test`, `/PR`, `/merge`)
 - **Git worktrees**: Isolated development environments per task
 - **Automatic context injection**: Analysis documents provided to development sessions

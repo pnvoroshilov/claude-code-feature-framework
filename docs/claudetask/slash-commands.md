@@ -25,10 +25,10 @@ Slash commands provide quick access to workflow automation features. They trigge
 **Mode**: DEVELOPMENT only
 
 **What it does**:
-1. Delegates to `requirements-writer` agent
-2. Creates `worktrees/task-{id}/Analyse/requirements.md`
+1. Delegates to `requirements-analyst` agent
+2. Creates `worktrees/task-{id}/Analyze/Requirements/` (3 files)
 3. Delegates to `system-architect` agent
-4. Creates `worktrees/task-{id}/Analyse/architecture.md`
+4. Creates `worktrees/task-{id}/Analyze/Design/` (4 files)
 5. Creates git worktree at `worktrees/task-{id}/`
 6. Creates feature branch `feature/task-{id}`
 7. Auto-transitions task to "In Progress" status
@@ -67,7 +67,7 @@ Ready for development!
 
 **Related Documentation**:
 - [Intelligent Workflow](../architecture/intelligent-workflow.md#phase-2-analysis)
-- [Requirements Writer Agent](../../framework-assets/claude-agents/requirements-writer.md)
+- [Requirements Analyst Agent](../../framework-assets/claude-agents/requirements-analyst.md)
 - [System Architect Agent](../../framework-assets/claude-agents/system-architect.md)
 
 ---

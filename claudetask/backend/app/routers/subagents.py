@@ -85,6 +85,100 @@ async def disable_subagent(
         raise HTTPException(status_code=500, detail=f"Failed to disable subagent: {str(e)}")
 
 
+@router.post("/enable-all")
+async def enable_all_subagents(
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Enable all available subagents (both default and custom)
+
+    Process:
+    1. Get all available default subagents
+    2. Get all custom subagents
+    3. Enable each subagent that isn't already enabled
+    4. Return count of newly enabled subagents
+    """
+    try:
+        service = SubagentService(db)
+
+        # Get current project subagents to avoid duplicates
+        project_subagents = await service.get_project_subagents(project_id)
+        enabled_ids = {s.id for s in project_subagents.enabled}
+
+        # Get all available subagents
+        available_default = project_subagents.available_default
+        custom_subagents = project_subagents.custom
+
+        # Enable all subagents that aren't already enabled
+        enabled_count = 0
+        errors = []
+
+        for subagent in available_default:
+            if subagent.id not in enabled_ids:
+                try:
+                    await service.enable_subagent(project_id, subagent.id, "default")
+                    enabled_count += 1
+                except Exception as e:
+                    errors.append(f"Failed to enable {subagent.name}: {str(e)}")
+
+        for subagent in custom_subagents:
+            if subagent.id not in enabled_ids:
+                try:
+                    await service.enable_subagent(project_id, subagent.id, "custom")
+                    enabled_count += 1
+                except Exception as e:
+                    errors.append(f"Failed to enable {subagent.name}: {str(e)}")
+
+        result = {"success": True, "enabled_count": enabled_count}
+        if errors:
+            result["errors"] = errors
+
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to enable all subagents: {str(e)}")
+
+
+@router.post("/disable-all")
+async def disable_all_subagents(
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Disable all enabled subagents
+
+    Process:
+    1. Get all enabled subagents
+    2. Disable each enabled subagent
+    3. Return count of disabled subagents
+    """
+    try:
+        service = SubagentService(db)
+
+        # Get currently enabled subagents
+        project_subagents = await service.get_project_subagents(project_id)
+        enabled_subagents = project_subagents.enabled
+
+        # Disable all enabled subagents
+        disabled_count = 0
+        errors = []
+
+        for subagent in enabled_subagents:
+            try:
+                await service.disable_subagent(project_id, subagent.id)
+                disabled_count += 1
+            except Exception as e:
+                errors.append(f"Failed to disable {subagent.name}: {str(e)}")
+
+        result = {"success": True, "disabled_count": disabled_count}
+        if errors:
+            result["errors"] = errors
+
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to disable all subagents: {str(e)}")
+
+
 @router.post("/create", response_model=SubagentInDB)
 async def create_custom_subagent(
     project_id: str,

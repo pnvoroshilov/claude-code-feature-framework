@@ -196,6 +196,34 @@ class FrameworkUpdateService:
                     json.dump(settings_local_data, f, indent=2)
                 updated_files.append(".claude/settings.local.json")
 
+            # 6. Update instruction files in .claudetask/instructions/
+            instructions_source_dir = os.path.join(framework_path, "framework-assets", "claude-configs", "instructions")
+            print(f"DEBUG: Checking instructions directory: {instructions_source_dir}")
+            print(f"DEBUG: Directory exists: {os.path.exists(instructions_source_dir)}")
+
+            if os.path.exists(instructions_source_dir):
+                claudetask_dir = os.path.join(project_path, ".claudetask")
+                os.makedirs(claudetask_dir, exist_ok=True)
+
+                instructions_dest_dir = os.path.join(claudetask_dir, "instructions")
+                os.makedirs(instructions_dest_dir, exist_ok=True)
+
+                # Copy all instruction files
+                instruction_files_copied = 0
+                for instruction_file in os.listdir(instructions_source_dir):
+                    if instruction_file.endswith(".md"):
+                        source_file = os.path.join(instructions_source_dir, instruction_file)
+                        dest_file = os.path.join(instructions_dest_dir, instruction_file)
+                        shutil.copy2(source_file, dest_file)
+                        updated_files.append(f".claudetask/instructions/{instruction_file}")
+                        instruction_files_copied += 1
+                        print(f"DEBUG: Copied {instruction_file} to {dest_file}")
+
+                print(f"✅ Updated {instruction_files_copied} instruction files in .claudetask/instructions/")
+            else:
+                print(f"❌ ERROR: Instructions source directory not found: {instructions_source_dir}")
+                errors.append(f"Instructions source directory not found: {instructions_source_dir}")
+
             return {
                 "success": True,
                 "updated_files": updated_files,

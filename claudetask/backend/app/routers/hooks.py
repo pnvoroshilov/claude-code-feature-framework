@@ -84,6 +84,100 @@ async def disable_hook(
         raise HTTPException(status_code=500, detail=f"Failed to disable hook: {str(e)}")
 
 
+@router.post("/enable-all")
+async def enable_all_hooks(
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Enable all available hooks (both default and custom)
+
+    Process:
+    1. Get all available default hooks
+    2. Get all custom hooks
+    3. Enable each hook that isn't already enabled
+    4. Return count of newly enabled hooks
+    """
+    try:
+        service = HookService(db)
+
+        # Get current project hooks to avoid duplicates
+        project_hooks = await service.get_project_hooks(project_id)
+        enabled_ids = {h.id for h in project_hooks.enabled}
+
+        # Get all available hooks
+        available_default = project_hooks.available_default
+        custom_hooks = project_hooks.custom
+
+        # Enable all hooks that aren't already enabled
+        enabled_count = 0
+        errors = []
+
+        for hook in available_default:
+            if hook.id not in enabled_ids:
+                try:
+                    await service.enable_hook(project_id, hook.id)
+                    enabled_count += 1
+                except Exception as e:
+                    errors.append(f"Failed to enable {hook.name}: {str(e)}")
+
+        for hook in custom_hooks:
+            if hook.id not in enabled_ids:
+                try:
+                    await service.enable_hook(project_id, hook.id)
+                    enabled_count += 1
+                except Exception as e:
+                    errors.append(f"Failed to enable {hook.name}: {str(e)}")
+
+        result = {"success": True, "enabled_count": enabled_count}
+        if errors:
+            result["errors"] = errors
+
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to enable all hooks: {str(e)}")
+
+
+@router.post("/disable-all")
+async def disable_all_hooks(
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Disable all enabled hooks
+
+    Process:
+    1. Get all enabled hooks
+    2. Disable each enabled hook
+    3. Return count of disabled hooks
+    """
+    try:
+        service = HookService(db)
+
+        # Get currently enabled hooks
+        project_hooks = await service.get_project_hooks(project_id)
+        enabled_hooks = project_hooks.enabled
+
+        # Disable all enabled hooks
+        disabled_count = 0
+        errors = []
+
+        for hook in enabled_hooks:
+            try:
+                await service.disable_hook(project_id, hook.id)
+                disabled_count += 1
+            except Exception as e:
+                errors.append(f"Failed to disable {hook.name}: {str(e)}")
+
+        result = {"success": True, "disabled_count": disabled_count}
+        if errors:
+            result["errors"] = errors
+
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to disable all hooks: {str(e)}")
+
+
 @router.post("/create", response_model=HookInDB)
 async def create_custom_hook(
     project_id: str,

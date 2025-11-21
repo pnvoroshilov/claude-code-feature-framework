@@ -89,6 +89,100 @@ async def disable_mcp_config(
         raise HTTPException(status_code=500, detail=f"Failed to disable MCP config: {str(e)}")
 
 
+@router.post("/enable-all")
+async def enable_all_mcp_configs(
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Enable all available MCP configs (both default and custom)
+
+    Process:
+    1. Get all available default MCP configs
+    2. Get all custom MCP configs
+    3. Enable each config that isn't already enabled
+    4. Return count of newly enabled configs
+    """
+    try:
+        service = MCPConfigService(db)
+
+        # Get current project configs to avoid duplicates
+        project_configs = await service.get_project_mcp_configs(project_id)
+        enabled_ids = {c.id for c in project_configs.enabled}
+
+        # Get all available configs
+        available_default = project_configs.available_default
+        custom_configs = project_configs.custom
+
+        # Enable all configs that aren't already enabled
+        enabled_count = 0
+        errors = []
+
+        for config in available_default:
+            if config.id not in enabled_ids:
+                try:
+                    await service.enable_mcp_config(project_id, config.id, "default")
+                    enabled_count += 1
+                except Exception as e:
+                    errors.append(f"Failed to enable {config.name}: {str(e)}")
+
+        for config in custom_configs:
+            if config.id not in enabled_ids:
+                try:
+                    await service.enable_mcp_config(project_id, config.id, "custom")
+                    enabled_count += 1
+                except Exception as e:
+                    errors.append(f"Failed to enable {config.name}: {str(e)}")
+
+        result = {"success": True, "enabled_count": enabled_count}
+        if errors:
+            result["errors"] = errors
+
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to enable all MCP configs: {str(e)}")
+
+
+@router.post("/disable-all")
+async def disable_all_mcp_configs(
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Disable all enabled MCP configs
+
+    Process:
+    1. Get all enabled MCP configs
+    2. Disable each enabled config
+    3. Return count of disabled configs
+    """
+    try:
+        service = MCPConfigService(db)
+
+        # Get currently enabled configs
+        project_configs = await service.get_project_mcp_configs(project_id)
+        enabled_configs = project_configs.enabled
+
+        # Disable all enabled configs
+        disabled_count = 0
+        errors = []
+
+        for config in enabled_configs:
+            try:
+                await service.disable_mcp_config(project_id, config.id)
+                disabled_count += 1
+            except Exception as e:
+                errors.append(f"Failed to disable {config.name}: {str(e)}")
+
+        result = {"success": True, "disabled_count": disabled_count}
+        if errors:
+            result["errors"] = errors
+
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to disable all MCP configs: {str(e)}")
+
+
 @router.post("/create", response_model=MCPConfigInDB)
 async def create_custom_mcp_config(
     project_id: str,

@@ -228,6 +228,47 @@ const Subagents: React.FC = () => {
     }
   };
 
+  const handleEnableAll = async () => {
+    if (!selectedProject?.id) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/subagents/enable-all`
+      );
+      await fetchSubagents();
+      if (response.data.errors && response.data.errors.length > 0) {
+        setError(`Enabled ${response.data.enabled_count} subagents with some errors: ${response.data.errors.join(', ')}`);
+      }
+    } catch (err: any) {
+      setError('Failed to enable all subagents: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDisableAll = async () => {
+    if (!selectedProject?.id) return;
+    if (!window.confirm('Are you sure you want to disable all enabled subagents?')) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/subagents/disable-all`
+      );
+      await fetchSubagents();
+      if (response.data.errors && response.data.errors.length > 0) {
+        setError(`Disabled ${response.data.disabled_count} subagents with some errors: ${response.data.errors.join(', ')}`);
+      }
+    } catch (err: any) {
+      setError('Failed to disable all subagents: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleViewSubagent = (subagent: Subagent) => {
     setSelectedSubagent(subagent);
     setViewSubagentDialogOpen(true);
@@ -606,26 +647,78 @@ const Subagents: React.FC = () => {
                 Manage and configure AI agents for your project
               </Typography>
             </Box>
-            <Button
-              variant="contained"
-              size="large"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateDialogOpen(true)}
-              sx={{
-                borderRadius: 2,
-                px: 3,
-                py: 1.5,
-                background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-                boxShadow: `0 8px 16px ${alpha(theme.palette.primary.main, 0.3)}`,
-                '&:hover': {
-                  background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
-                  transform: 'translateY(-2px)',
-                  boxShadow: `0 12px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
-                },
-              }}
-            >
-              Create Custom Agent
-            </Button>
+            <Stack direction="row" spacing={2}>
+              <Button
+                variant="outlined"
+                size="large"
+                startIcon={<CheckCircleIcon />}
+                onClick={handleEnableAll}
+                disabled={!selectedProject?.id || loading}
+                sx={{
+                  borderRadius: 2,
+                  px: 2,
+                  py: 1.5,
+                  borderColor: theme.palette.success.main,
+                  color: theme.palette.success.main,
+                  '&:hover': {
+                    borderColor: theme.palette.success.dark,
+                    backgroundColor: alpha(theme.palette.success.main, 0.08),
+                    transform: 'translateY(-2px)',
+                  },
+                  '&:disabled': {
+                    borderColor: theme.palette.action.disabledBackground,
+                    color: theme.palette.action.disabled,
+                  },
+                }}
+              >
+                Enable All
+              </Button>
+              <Button
+                variant="outlined"
+                size="large"
+                startIcon={<CloseIcon />}
+                onClick={handleDisableAll}
+                disabled={!selectedProject?.id || loading}
+                sx={{
+                  borderRadius: 2,
+                  px: 2,
+                  py: 1.5,
+                  borderColor: theme.palette.error.main,
+                  color: theme.palette.error.main,
+                  '&:hover': {
+                    borderColor: theme.palette.error.dark,
+                    backgroundColor: alpha(theme.palette.error.main, 0.08),
+                    transform: 'translateY(-2px)',
+                  },
+                  '&:disabled': {
+                    borderColor: theme.palette.action.disabledBackground,
+                    color: theme.palette.action.disabled,
+                  },
+                }}
+              >
+                Disable All
+              </Button>
+              <Button
+                variant="contained"
+                size="large"
+                startIcon={<AddIcon />}
+                onClick={() => setCreateDialogOpen(true)}
+                sx={{
+                  borderRadius: 2,
+                  px: 3,
+                  py: 1.5,
+                  background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                  boxShadow: `0 8px 16px ${alpha(theme.palette.primary.main, 0.3)}`,
+                  '&:hover': {
+                    background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
+                    transform: 'translateY(-2px)',
+                    boxShadow: `0 12px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
+                  },
+                }}
+              >
+                Create Custom Agent
+              </Button>
+            </Stack>
           </Stack>
 
           {/* Statistics Cards */}

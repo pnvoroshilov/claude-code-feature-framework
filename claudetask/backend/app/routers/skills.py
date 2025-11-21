@@ -85,6 +85,101 @@ async def disable_skill(
         raise HTTPException(status_code=500, detail=f"Failed to disable skill: {str(e)}")
 
 
+@router.post("/enable-all")
+async def enable_all_skills(
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Enable all available skills (both default and custom)
+
+    Process:
+    1. Get all available default skills
+    2. Get all custom skills
+    3. Enable each skill that isn't already enabled
+    4. Return count of newly enabled skills
+    """
+    try:
+        service = SkillService(db)
+
+        # Get current project skills to avoid duplicates
+        project_skills = await service.get_project_skills(project_id)
+        enabled_ids = {s.id for s in project_skills.enabled}
+
+        # Get all available skills
+        available_default = project_skills.available_default
+        custom_skills = project_skills.custom
+
+        # Enable all skills that aren't already enabled
+        enabled_count = 0
+        errors = []
+
+        for skill in available_default:
+            if skill.id not in enabled_ids:
+                try:
+                    await service.enable_skill(project_id, skill.id, "default")
+                    enabled_count += 1
+                except Exception as e:
+                    errors.append(f"Failed to enable {skill.name}: {str(e)}")
+
+        for skill in custom_skills:
+            if skill.id not in enabled_ids:
+                try:
+                    await service.enable_skill(project_id, skill.id, "custom")
+                    enabled_count += 1
+                except Exception as e:
+                    errors.append(f"Failed to enable {skill.name}: {str(e)}")
+
+        result = {"success": True, "enabled_count": enabled_count}
+        if errors:
+            result["errors"] = errors
+
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to enable all skills: {str(e)}")
+
+
+@router.post("/disable-all")
+async def disable_all_skills(
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Disable all enabled skills
+
+    Process:
+    1. Get all enabled skills
+    2. Disable each enabled skill
+    3. Return count of disabled skills
+    """
+    try:
+        service = SkillService(db)
+
+        # Get currently enabled skills
+        project_skills = await service.get_project_skills(project_id)
+        enabled_skills = project_skills.enabled
+
+        # Disable all enabled skills
+        disabled_count = 0
+        errors = []
+
+        for skill in enabled_skills:
+            try:
+                skill_type = "custom" if skill.is_custom else "default"
+                await service.disable_skill(project_id, skill.id, skill_type)
+                disabled_count += 1
+            except Exception as e:
+                errors.append(f"Failed to disable {skill.name}: {str(e)}")
+
+        result = {"success": True, "disabled_count": disabled_count}
+        if errors:
+            result["errors"] = errors
+
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to disable all skills: {str(e)}")
+
+
 @router.post("/create", response_model=SkillInDB)
 async def create_custom_skill(
     project_id: str,

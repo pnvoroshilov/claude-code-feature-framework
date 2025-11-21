@@ -35,12 +35,12 @@ The framework implements an intelligent, agent-driven development workflow that 
 **Status**: Analyse
 **Trigger**: User initiates with `/start-feature [task-id]`
 **Duration**: 5-15 minutes (automated)
-**Agents**: requirements-writer, system-architect
+**Agents**: requirements-analyst, system-architect
 
 #### 2.1 Requirements Analysis
 
-**Agent**: `requirements-writer`
-**Output**: `worktrees/task-{id}/Analyse/requirements.md`
+**Agent**: `requirements-analyst`
+**Output**: `worktrees/task-{id}/Analyze/Requirements/`
 
 Creates comprehensive business requirements including:
 - **User Stories**: Clear user-focused scenarios
@@ -463,10 +463,10 @@ All resources cleaned up successfully.
 **Phase**: Backlog → Analysis
 **Purpose**: Start task analysis with automated agents
 **Actions**:
-- Delegates to requirements-writer agent
+- Delegates to requirements-analyst agent
 - Delegates to system-architect agent
 - Creates worktree and feature branch
-- Sets up Analyse/ folder with documentation
+- Sets up Analyze/ folder with documentation
 - Auto-transitions to "In Progress"
 
 ### `/start-develop [task-id]`
@@ -516,14 +516,16 @@ All resources cleaned up successfully.
 
 ### Analysis Agents
 
-#### `requirements-writer`
-**Purpose**: Create business requirements documentation
-**Output**: `requirements.md`
+#### `requirements-analyst`
+**Purpose**: Create comprehensive business requirements documentation
+**Output**: `Analyze/Requirements/` (requirements.md, acceptance-criteria.md, constraints.md)
 **Skills**:
+- RAG-enhanced requirements analysis
 - User story creation
 - Acceptance criteria definition
 - Business requirement analysis
-- Use case documentation
+- Task queue conflict checking
+- Project documentation analysis
 
 #### `system-architect`
 **Purpose**: Create technical architecture documentation

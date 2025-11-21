@@ -443,7 +443,7 @@ The framework now implements a complete intelligent development workflow that gu
 
 #### Slash Commands
 Quick workflow automation commands for triggering agents and managing workflow:
-- `/start-feature [task-id]`: Start analysis phase with requirements-writer and system-architect agents
+- `/start-feature [task-id]`: Start analysis phase with requirements-analyst and system-architect agents
 - `/start-develop [task-id]`: Begin implementation after analysis complete
 - `/test [task-id]`: Setup test environment (backend + frontend servers) for manual testing
 - `/PR [task-id]`: Create pull request with complete documentation (requirements, architecture, tests)
@@ -452,10 +452,10 @@ Quick workflow automation commands for triggering agents and managing workflow:
 #### Specialized Agents
 
 **Analysis Agents** (automated during `/start-feature`):
-- `requirements-writer`: Creates `Analyse/requirements.md` with:
-  - User stories and acceptance criteria
-  - Business and functional requirements
-  - Non-functional requirements (performance, security)
+- `requirements-analyst`: Creates `Analyze/Requirements/` with:
+  - requirements.md - User stories and acceptance criteria
+  - acceptance-criteria.md - Business and functional requirements
+  - constraints.md - Non-functional requirements (performance, security)
   - Constraints and success metrics
 
 - `system-architect`: Creates `Analyse/architecture.md` with:
@@ -567,7 +567,7 @@ User controls critical workflow transitions:
 
 **DEVELOPMENT Mode**:
 - Full 7-column workflow with all phases
-- Automated analysis with requirements-writer and system-architect
+- Automated analysis with requirements-analyst and system-architect
 - Git worktrees (can be toggled on/off per project)
 - Test environment automation with URL persistence
 - PR workflow with comprehensive documentation

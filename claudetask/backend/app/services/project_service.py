@@ -662,6 +662,26 @@ build/
                             dst.write(src.read())
                     files_created.append(f".claude/commands/{command_file}")
 
+        # Create instructions directory in .claudetask/instructions/
+        # Instructions are stored in .claudetask/instructions/ to be referenced by CLAUDE.md
+        claudetask_dir = os.path.join(project_path, ".claudetask")
+        os.makedirs(claudetask_dir, exist_ok=True)
+
+        instructions_dir = os.path.join(claudetask_dir, "instructions")
+        os.makedirs(instructions_dir, exist_ok=True)
+
+        # Copy instruction files from framework-assets/claude-configs/instructions
+        instructions_source_dir = os.path.join(framework_path, "framework-assets", "claude-configs", "instructions")
+        if os.path.exists(instructions_source_dir):
+            for instruction_file in os.listdir(instructions_source_dir):
+                if instruction_file.endswith(".md"):
+                    source_file = os.path.join(instructions_source_dir, instruction_file)
+                    dest_file = os.path.join(instructions_dir, instruction_file)
+                    with open(source_file, "r", encoding="utf-8") as src:
+                        with open(dest_file, "w", encoding="utf-8") as dst:
+                            dst.write(src.read())
+                    files_created.append(f".claudetask/instructions/{instruction_file}")
+
         # Create hooks directory
         hooks_dir = os.path.join(claude_dir, "hooks")
         os.makedirs(hooks_dir, exist_ok=True)
