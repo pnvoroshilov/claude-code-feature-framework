@@ -58,11 +58,22 @@ class SkillService:
             (ps.skill_id, ps.skill_type) for ps in enabled_project_skills
         }
 
-        # Get custom skills for this project only
+        # Get custom skills for this project only (for Custom tab)
         custom_skills_result = await self.db.execute(
             select(CustomSkill).where(CustomSkill.project_id == project_id)
         )
         custom_skills = custom_skills_result.scalars().all()
+
+        # Get ALL enabled custom skills (including from other projects via favorites)
+        # We need this to show them in Enabled tab
+        enabled_custom_skill_ids = [ps.skill_id for ps in enabled_project_skills if ps.skill_type == "custom"]
+        if enabled_custom_skill_ids:
+            enabled_custom_skills_result = await self.db.execute(
+                select(CustomSkill).where(CustomSkill.id.in_(enabled_custom_skill_ids))
+            )
+            all_enabled_custom_skills = enabled_custom_skills_result.scalars().all()
+        else:
+            all_enabled_custom_skills = []
 
         # Get ALL favorite custom skills from ALL projects (for Favorites tab)
         favorite_custom_skills_result = await self.db.execute(
@@ -93,7 +104,7 @@ class SkillService:
                 enabled.append(skill_dto)
                 enabled_names.add(skill.name)
 
-        # Process custom skills (for this project only)
+        # Process custom skills for this project (for Custom tab)
         custom_dtos = []
         for skill in custom_skills:
             is_enabled = (skill.id, "custom") in enabled_skill_ids
@@ -102,8 +113,11 @@ class SkillService:
             # Add to custom list (always show in Custom Skills)
             custom_dtos.append(skill_dto)
 
-            # Add to enabled only if not already added (avoid duplicates)
+        # Process ALL enabled custom skills (including from other projects)
+        for skill in all_enabled_custom_skills:
+            is_enabled = (skill.id, "custom") in enabled_skill_ids
             if is_enabled and skill.name not in enabled_names:
+                skill_dto = self._to_skill_dto(skill, "custom", is_enabled, project.path)
                 enabled.append(skill_dto)
                 enabled_names.add(skill.name)
 

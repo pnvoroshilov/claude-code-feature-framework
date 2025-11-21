@@ -165,8 +165,8 @@ async def disable_all_skills(
 
         for skill in enabled_skills:
             try:
-                skill_type = "custom" if skill.is_custom else "default"
-                await service.disable_skill(project_id, skill.id, skill_type)
+                # skill.skill_type is already "default" or "custom"
+                await service.disable_skill(project_id, skill.id, skill.skill_type)
                 disabled_count += 1
             except Exception as e:
                 errors.append(f"Failed to disable {skill.name}: {str(e)}")
