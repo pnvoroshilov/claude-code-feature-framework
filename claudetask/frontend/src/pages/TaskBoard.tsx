@@ -203,8 +203,20 @@ const TaskBoard: React.FC = () => {
       onSuccess: async () => {
         setSnackbar({ open: true, message: `Task moved to ${newStatus}`, severity: 'success' });
 
-        // Auto-send /start-feature command when task moves to "In Progress"
-        if (newStatus === 'In Progress') {
+        // Define command mapping for each status
+        const statusCommandMap: Record<string, string | null> = {
+          'Analysis': null, // No command, orchestrator handles this
+          'In Progress': `/start-feature ${taskId}`,
+          'Testing': null, // Testing is manual user process
+          'Code Review': null, // Code review is manual user process
+          'PR': `/merge ${taskId}`, // Use /merge command for Pull Request → Done
+          'Done': null // No command needed for Done
+        };
+
+        const command = statusCommandMap[newStatus];
+
+        // Auto-send command for statuses that have one
+        if (command) {
           try {
             // Check for active Claude sessions
             const sessions = await getActiveSessions();
@@ -218,11 +230,11 @@ const TaskBoard: React.FC = () => {
             }
 
             if (targetSession) {
-              // Send /start-feature command to existing session
-              await sendCommandToSession(targetSession.session_id, `/start-feature ${taskId}`);
+              // Send command to existing session
+              await sendCommandToSession(targetSession.session_id, command);
               setSnackbar({
                 open: true,
-                message: `Task moved to ${newStatus} and /start-feature command sent to Claude session`,
+                message: `Task moved to ${newStatus} and "${command}" command sent to Claude session`,
                 severity: 'success'
               });
             } else {
@@ -233,17 +245,17 @@ const TaskBoard: React.FC = () => {
                   // Wait a moment for session to initialize
                   setTimeout(async () => {
                     try {
-                      await sendCommandToSession(sessionResult.session_id, `/start-feature ${taskId}`);
+                      await sendCommandToSession(sessionResult.session_id, command);
                       setSnackbar({
                         open: true,
-                        message: `Task moved to ${newStatus}, new Claude session created, and /start-feature command sent`,
+                        message: `Task moved to ${newStatus}, new Claude session created, and "${command}" command sent`,
                         severity: 'success'
                       });
                     } catch (error) {
-                      console.error('Failed to send /start-feature command:', error);
+                      console.error(`Failed to send ${command} command:`, error);
                       setSnackbar({
                         open: true,
-                        message: `Task moved to ${newStatus} and Claude session created, but failed to send /start-feature command`,
+                        message: `Task moved to ${newStatus} and Claude session created, but failed to send "${command}" command`,
                         severity: 'warning'
                       });
                     }
@@ -265,7 +277,7 @@ const TaskBoard: React.FC = () => {
               }
             }
           } catch (error) {
-            console.error('Failed to handle Claude session for In Progress task:', error);
+            console.error(`Failed to handle Claude session for ${newStatus} task:`, error);
             setSnackbar({
               open: true,
               message: `Task moved to ${newStatus} but failed to handle Claude session`,
