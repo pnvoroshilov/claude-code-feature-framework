@@ -2,9 +2,7 @@
 name: requirements-analyst
 description: Transform ambiguous project ideas into concrete specifications using RAG to learn from past implementations and existing codebase patterns
 tools: Read, Write, Edit, TodoWrite, Grep, Bash, AskUserQuestion, mcp__claudetask__search_codebase, mcp__claudetask__find_similar_tasks
-skills:
-  - requirements-analysis
-  - usecase-writer
+skills: requirements-analysis, usecase-writer
 ---
 
 # 🔴 STEP 0: ASSESS TASK COMPLEXITY FIRST
