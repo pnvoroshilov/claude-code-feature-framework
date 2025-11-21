@@ -192,6 +192,14 @@ async def seed_default_skills():
                 category="Documentation",
                 file_name="usecase-writer/SKILL.md",
                 is_favorite=True
+            ),
+            # Architecture Patterns skill
+            DefaultSkill(
+                name="Architecture Patterns",
+                description="Comprehensive guide to software architecture patterns including SOLID principles, Clean Architecture, DDD, design patterns, and anti-patterns with practical examples",
+                category="Architecture",
+                file_name="architecture-patterns/SKILL.md",
+                is_favorite=True
             )
         ]
 
@@ -432,6 +440,49 @@ async def seed_default_skills():
                 skill_type="default",
                 priority=1,
                 reason="Essential for creating token-efficient skill documentation"
+            ),
+            # Architecture Patterns recommendations
+            AgentSkillRecommendation(
+                agent_name="system-architect",
+                skill_id=skills["Architecture Patterns"],
+                skill_type="default",
+                priority=1,
+                reason="Core skill for applying architectural patterns and principles"
+            ),
+            AgentSkillRecommendation(
+                agent_name="backend-architect",
+                skill_id=skills["Architecture Patterns"],
+                skill_type="default",
+                priority=1,
+                reason="Essential for designing clean, maintainable backend architecture"
+            ),
+            AgentSkillRecommendation(
+                agent_name="frontend-architect",
+                skill_id=skills["Architecture Patterns"],
+                skill_type="default",
+                priority=1,
+                reason="Important for structuring scalable frontend applications"
+            ),
+            AgentSkillRecommendation(
+                agent_name="refactoring-expert",
+                skill_id=skills["Architecture Patterns"],
+                skill_type="default",
+                priority=1,
+                reason="Critical for identifying and applying better architectural patterns during refactoring"
+            ),
+            AgentSkillRecommendation(
+                agent_name="fullstack-code-reviewer",
+                skill_id=skills["Architecture Patterns"],
+                skill_type="default",
+                priority=2,
+                reason="Useful for reviewing code against SOLID principles and design patterns"
+            ),
+            AgentSkillRecommendation(
+                agent_name="systems-analyst",
+                skill_id=skills["Architecture Patterns"],
+                skill_type="default",
+                priority=2,
+                reason="Helpful for designing system architecture following established patterns"
             )
         ]
 
