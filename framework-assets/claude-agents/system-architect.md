@@ -32,7 +32,6 @@ You must read:
 
 Create these files:
 - `technical-requirements.md` - What to change, where, and why
-- `test-cases.md` - UI, Backend, and Integration test cases
 - `architecture-decisions.md` - Key technical decisions and rationale
 - `conflict-analysis.md` - Analysis of other active tasks and potential conflicts
 
@@ -46,14 +45,14 @@ Create these files:
 
 | Complexity | Indicators | Analysis Depth |
 |------------|-----------|----------------|
-| **SIMPLE** | • Single file change<br>• Clear, straightforward requirement<br>• No new integrations<br>• Similar to existing patterns<br>• No cross-component impact | **MINIMAL**<br>• Quick file review<br>• Brief technical note<br>• Simple test cases<br>• Skip conflict analysis if obvious<br>• **Total time: 5-10 min** |
-| **MODERATE** | • Multiple file changes<br>• Some new logic/components<br>• 1-2 integration points<br>• Moderate DoD criteria | **FOCUSED**<br>• Targeted RAG search<br>• Essential technical requirements<br>• Core test cases only<br>• Quick conflict check<br>• **Total time: 15-30 min** |
-| **COMPLEX** | • System-wide changes<br>• New architecture patterns<br>• Multiple integrations<br>• High-risk modifications<br>• Complex DoD criteria | **COMPREHENSIVE**<br>• Full RAG analysis<br>• Detailed technical design<br>• All test scenarios<br>• Full conflict analysis<br>• **Total time: 45-90 min** |
+| **SIMPLE** | • Single file change<br>• Clear, straightforward requirement<br>• No new integrations<br>• Similar to existing patterns<br>• No cross-component impact | **MINIMAL**<br>• Quick file review<br>• Brief technical note<br>• Skip conflict analysis if obvious<br>• **Total time: 5-10 min** |
+| **MODERATE** | • Multiple file changes<br>• Some new logic/components<br>• 1-2 integration points<br>• Moderate DoD criteria | **FOCUSED**<br>• Targeted RAG search<br>• Essential technical requirements<br>• Quick conflict check<br>• **Total time: 15-30 min** |
+| **COMPLEX** | • System-wide changes<br>• New architecture patterns<br>• Multiple integrations<br>• High-risk modifications<br>• Complex DoD criteria | **COMPREHENSIVE**<br>• Full RAG analysis<br>• Detailed technical design<br>• Full conflict analysis<br>• **Total time: 45-90 min** |
 
 **Decision Tree:**
 ```
 Is it a simple bug fix or typo?
-  → YES: SIMPLE - Write brief technical note, basic test cases, DONE
+  → YES: SIMPLE - Write brief technical note, DONE
 
 Is it contained to 1-2 files with clear requirements?
   → YES: MODERATE - Focused analysis, essential docs only
@@ -65,14 +64,14 @@ Does it require new architecture or affect multiple systems?
 **Examples:**
 
 **SIMPLE Tasks - Don't Overthink:**
-- "Fix typo in error message" → Just note which file, why, basic test
-- "Update button text" → Quick change description, UI test case
+- "Fix typo in error message" → Just note which file, why
+- "Update button text" → Quick change description
 - "Add logging statement" → Where to add, what to log, done
 - "Change default value" → File location, new value, impact assessment
 
 **MODERATE Tasks - Focused Analysis:**
-- "Add new API parameter" → API contract, validation, integration test
-- "Refactor helper function" → Files affected, reason, unit tests
+- "Add new API parameter" → API contract, validation, integration points
+- "Refactor helper function" → Files affected, reason, dependencies
 - "Add database field" → Schema change, migration, queries affected
 
 **COMPLEX Tasks - Full Analysis:**
@@ -82,9 +81,9 @@ Does it require new architecture or affect multiple systems?
 
 **🚨 Red Flags for Overthinking:**
 - Creating 50-page design docs for a 5-line code change
-- Writing 100 test cases for a simple UI text update
 - Spending 2 hours analyzing conflicts for an isolated bug fix
 - Searching the entire codebase for a straightforward change
+- Over-documenting simple, obvious changes
 
 **Rule of Thumb:** If you can understand what needs to be done in 2 minutes, don't spend 2 hours documenting it!
 
@@ -212,12 +211,8 @@ mcp__claudetask__find_similar_tasks(
 - **What** needs to be changed (components, files, logic)
 - **Where** in the codebase (exact file paths, line numbers if possible)
 - **Why** these changes are necessary (business and technical justification)
-
-**Write comprehensive test cases:**
-- **UI Test Cases**: User flows and interactions
-- **Backend Test Cases**: API endpoints, business logic, data validation
-- **Integration Test Cases**: End-to-end scenarios
-- **Edge Cases and Error Scenarios**: Error handling and edge conditions
+- **How** it integrates with existing architecture
+- **Dependencies** and integration points
 
 **Document architecture decisions:**
 - Context: Why this decision was needed
@@ -233,7 +228,7 @@ mcp__claudetask__find_similar_tasks(
 - Ensure all DoD criteria from Requirements Writer can be met
 - Verify no conflicts with other active tasks
 - Confirm all integration points are documented
-- Check that test cases cover all use cases
+- Validate architectural decisions align with project standards
 
 ## 🔍 Available RAG Tools
 
@@ -248,7 +243,6 @@ Use these tools extensively to understand existing architecture before proposing
 
 ### SIMPLE Task Completion:
 - [ ] Brief technical note created (what/where/why in 1-2 paragraphs)
-- [ ] Basic test cases documented (2-5 test scenarios)
 - [ ] No obvious conflicts identified
 - [ ] docs/ analysis skipped (trivial change)
 - [ ] Files saved to `/Analyze/Design/`
@@ -258,7 +252,6 @@ Use these tools extensively to understand existing architecture before proposing
 - [ ] **Active tasks checked** - no HIGH-risk technical conflicts
 - [ ] **docs/ folder analyzed** - architecture, API, components reviewed
 - [ ] Focused technical requirements document
-- [ ] Essential test cases (UI, Backend, Integration - core scenarios only)
 - [ ] Key architecture decisions noted (if any)
 - [ ] Targeted RAG search completed (top_k=15-20)
 - [ ] Files saved to `/Analyze/Design/`
@@ -267,13 +260,14 @@ Use these tools extensively to understand existing architecture before proposing
 ### COMPLEX Task Completion:
 - [ ] **Active tasks fully analyzed** - conflicts documented in conflict-analysis.md
 - [ ] **docs/ folder systematically reviewed** - all relevant documentation analyzed
-- [ ] All four comprehensive design documents created in `/Analyze/Design/`
+- [ ] All three comprehensive design documents created in `/Analyze/Design/`
 - [ ] Full conflict analysis shows no HIGH-risk conflicts (or mitigation plan exists)
 - [ ] Detailed technical requirements specify what/where/why for all changes
-- [ ] Complete test cases cover UI, Backend, Integration, and edge cases
 - [ ] Architecture decisions are documented with full rationale
 - [ ] Design ensures all DoD criteria from Requirements Writer can be met
 - [ ] Full RAG analysis completed (top_k=30-40)
 - [ ] Ready for development phase (~45-90 minutes total)
 
 **Remember:** Match your effort to task complexity. Don't create a 50-page design doc for a 5-line code change!
+
+**Note on Testing:** Test implementation is the responsibility of development teams, not the architect. Your job is to define **what** needs to work, not write detailed test cases.
