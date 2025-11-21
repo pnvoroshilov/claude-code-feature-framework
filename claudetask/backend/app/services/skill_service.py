@@ -149,13 +149,9 @@ class SkillService:
             skill = skill_result.scalar_one_or_none()
             source_type = "default"
         else:
+            # For custom skills, search across all projects (to support favorites from other projects)
             skill_result = await self.db.execute(
-                select(CustomSkill).where(
-                    and_(
-                        CustomSkill.id == skill_id,
-                        CustomSkill.project_id == project_id
-                    )
-                )
+                select(CustomSkill).where(CustomSkill.id == skill_id)
             )
             skill = skill_result.scalar_one_or_none()
             source_type = "custom"
@@ -176,11 +172,21 @@ class SkillService:
         if existing.scalar_one_or_none():
             raise ValueError(f"Skill already enabled for project")
 
+        # For custom skills from other projects, get the source project path
+        source_project_path = None
+        if skill_type == "custom" and skill.project_id != project_id:
+            # Skill is from another project - get that project's path
+            source_project = await self._get_project(skill.project_id)
+            if source_project:
+                source_project_path = source_project.path
+                logger.info(f"Enabling favorite skill from project {skill.project_id} to project {project_id}")
+
         # Copy skill file to project
         success = await self.file_service.copy_skill_to_project(
             project_path=project.path,
             skill_file_name=skill.file_name,
-            source_type=source_type
+            source_type=source_type,
+            source_project_path=source_project_path
         )
 
         if not success:

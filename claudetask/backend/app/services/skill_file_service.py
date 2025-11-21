@@ -21,21 +21,23 @@ class SkillFileService:
         self,
         project_path: str,
         skill_file_name: str,
-        source_type: str = "default"
+        source_type: str = "default",
+        source_project_path: str = None
     ) -> bool:
         """
         Copy skill file from framework-assets or custom archive to project
 
         Args:
-            project_path: Path to project root
+            project_path: Path to destination project root
             skill_file_name: Name of skill file (e.g., "business-requirements-analysis.md")
             source_type: "default" (from framework-assets) or "custom" (from .claudetask/custom-skills/)
+            source_project_path: For custom skills from other projects, path to the source project
 
         Returns:
             True if successful, False otherwise
         """
         try:
-            logger.info(f"copy_skill_to_project called: project_path={project_path}, skill_file_name={skill_file_name}, source_type={source_type}")
+            logger.info(f"copy_skill_to_project called: project_path={project_path}, skill_file_name={skill_file_name}, source_type={source_type}, source_project_path={source_project_path}")
             # Source path
             if source_type == "default":
                 # Check if skill_file_name contains a directory (e.g., "api-development/skill.md")
@@ -50,8 +52,13 @@ class SkillFileService:
                     source_path = os.path.join(self.framework_skills_dir, skill_file_name)
                     logger.info(f"Detected single-file skill: source_path={source_path}")
             else:
-                # For custom skills, source is in .claudetask/custom-skills/ (archive)
-                archive_dir = os.path.join(project_path, ".claudetask", "custom-skills")
+                # For custom skills, determine the source project path
+                # If source_project_path is provided, use that (for favorites from other projects)
+                # Otherwise, use current project path (for skills from current project)
+                actual_source_project = source_project_path if source_project_path else project_path
+
+                # Source is in .claudetask/custom-skills/ (archive)
+                archive_dir = os.path.join(actual_source_project, ".claudetask", "custom-skills")
                 if '/' in skill_file_name:
                     # Directory-based custom skill
                     skill_dir = skill_file_name.split('/')[0]
@@ -59,7 +66,7 @@ class SkillFileService:
                 else:
                     # Single file custom skill
                     source_path = os.path.join(archive_dir, skill_file_name)
-                logger.info(f"Custom skill source from archive: source_path={source_path}")
+                logger.info(f"Custom skill source from archive: source_path={source_path} (source_project={actual_source_project})")
 
             # Destination path
             dest_dir = os.path.join(project_path, ".claude", "skills")

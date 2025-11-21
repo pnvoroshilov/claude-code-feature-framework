@@ -92,7 +92,7 @@ const TaskBoard: React.FC = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [taskDetailsOpen, setTaskDetailsOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [statusMenuAnchor, setStatusMenuAnchor] = useState<null | HTMLElement>(null);
+  const [menuAnchorPosition, setMenuAnchorPosition] = useState<{ top: number; left: number } | null>(null);
   const [selectedTaskForStatus, setSelectedTaskForStatus] = useState<Task | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ task: Task; newStatus: string; message: string } | null>(null);
@@ -422,14 +422,16 @@ const TaskBoard: React.FC = () => {
 
   const handleStatusMenuOpen = (event: React.MouseEvent<HTMLButtonElement>, task: Task) => {
     event.stopPropagation();
-    const target = event.currentTarget as HTMLElement;
-    console.log('Menu anchor set to:', target); // Debug log
-    setStatusMenuAnchor(target);
+    const rect = event.currentTarget.getBoundingClientRect();
+    setMenuAnchorPosition({
+      top: rect.bottom + window.scrollY,
+      left: rect.left + window.scrollX,
+    });
     setSelectedTaskForStatus(task);
   };
 
   const handleStatusMenuClose = () => {
-    setStatusMenuAnchor(null);
+    setMenuAnchorPosition(null);
     setSelectedTaskForStatus(null);
   };
 
@@ -1179,17 +1181,10 @@ const TaskBoard: React.FC = () => {
 
       {/* Status Transition Menu */}
       <Menu
-        anchorEl={statusMenuAnchor}
-        open={Boolean(statusMenuAnchor)}
+        open={Boolean(menuAnchorPosition)}
         onClose={handleStatusMenuClose}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'left',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'left',
-        }}
+        anchorReference="anchorPosition"
+        anchorPosition={menuAnchorPosition || undefined}
         PaperProps={{
           sx: {
             maxHeight: 300,

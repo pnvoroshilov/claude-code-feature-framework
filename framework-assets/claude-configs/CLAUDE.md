@@ -67,6 +67,12 @@ If `CUSTOM_INSTRUCTIONS.md` exists in the project root, **READ IT FIRST**. Custo
 - Systems analyst creates architecture.md
 - Auto-transition to "In Progress" when complete
 
+📖 **[In Progress Phase](./.claudetask/instructions/in-progress-phase.md)** - When task is in "In Progress" status
+- Review and select development path (UC-02)
+- Coordinate implementation agents (UC-03)
+- Validate DoD compliance
+- Create PR and auto-transition to Testing
+
 📖 **[Testing Workflow](./.claudetask/instructions/testing-workflow.md)** - When task moves to "Testing" status
 - Setup test environment (find ports, start servers)
 - **🔴 MANDATORY**: Save testing URLs with `mcp__claudetask__set_testing_urls`
@@ -96,7 +102,7 @@ WHILE TRUE:
 
   2. For each task, read appropriate instruction:
      - "Analysis" → Read analysis-phase.md
-     - "In Progress" → Monitor for completion, read status-transitions.md
+     - "In Progress" → Read in-progress-phase.md
      - "Testing" → Read testing-workflow.md
      - "Code Review" → Read status-transitions.md
      - "Pull Request" → Read status-transitions.md
@@ -118,12 +124,13 @@ WHILE TRUE:
 4. **[Status Transitions](./.claudetask/instructions/status-transitions.md)** - Moving between statuses
 5. **[Agent Selection Guide](./.claudetask/instructions/agent-selection-guide.md)** - Choosing the right agent
 6. **[Analysis Phase](./.claudetask/instructions/analysis-phase.md)** - Requirements and architecture
-7. **[Testing Workflow](./.claudetask/instructions/testing-workflow.md)** - Manual testing setup
-8. **[Resource Cleanup](./.claudetask/instructions/resource-cleanup.md)** - Task completion
+7. **[In Progress Phase](./.claudetask/instructions/in-progress-phase.md)** - Implementation and development
+8. **[Testing Workflow](./.claudetask/instructions/testing-workflow.md)** - Manual testing setup
+9. **[Resource Cleanup](./.claudetask/instructions/resource-cleanup.md)** - Task completion
 
 ### Technical Reference (Use When Required)
-9. **[RAG Usage](./.claudetask/instructions/rag-usage.md)** - Semantic search and context gathering
-10. **[MCP Commands](./.claudetask/instructions/mcp-commands.md)** - Command reference and patterns
+10. **[RAG Usage](./.claudetask/instructions/rag-usage.md)** - Semantic search and context gathering
+11. **[MCP Commands](./.claudetask/instructions/mcp-commands.md)** - Command reference and patterns
 
 ## 🚨 Common Scenarios - Quick Reference
 
@@ -136,15 +143,17 @@ WHILE TRUE:
 1. Read [status-transitions.md](./.claudetask/instructions/status-transitions.md)
 2. Save stage result
 3. Update to "In Progress"
-4. DO NOT setup test environment (wait for Testing status)
+4. Read [in-progress-phase.md](./.claudetask/instructions/in-progress-phase.md)
+5. DO NOT setup test environment (wait for Testing status)
 
 ### Implementation Complete
-1. Auto-detect completion
-2. Read [status-transitions.md](./.claudetask/instructions/status-transitions.md)
-3. Transition to "Testing"
-4. Read [testing-workflow.md](./.claudetask/instructions/testing-workflow.md)
-5. Setup test environment
-6. **🔴 CRITICAL**: Save testing URLs (mandatory!)
+1. Auto-detect completion (see [in-progress-phase.md](./.claudetask/instructions/in-progress-phase.md))
+2. Create PR with DoD validation
+3. Read [status-transitions.md](./.claudetask/instructions/status-transitions.md)
+4. Transition to "Testing"
+5. Read [testing-workflow.md](./.claudetask/instructions/testing-workflow.md)
+6. Setup test environment
+7. **🔴 CRITICAL**: Save testing URLs (mandatory!)
 
 ### User Requests Task Completion
 1. Check explicit request ("mark task X as done")
@@ -204,7 +213,10 @@ See [mcp-commands.md](./.claudetask/instructions/mcp-commands.md) for examples.
 3. [Orchestration Role](./.claudetask/instructions/orchestration-role.md) - Your responsibilities
 4. [Status Transitions](./.claudetask/instructions/status-transitions.md) - Workflow overview
 5. [Agent Selection Guide](./.claudetask/instructions/agent-selection-guide.md) - Choosing agents
-6. Other instructions as needed for specific phases
+6. [Analysis Phase](./.claudetask/instructions/analysis-phase.md) - Requirements and design
+7. [In Progress Phase](./.claudetask/instructions/in-progress-phase.md) - Implementation coordination
+8. [Testing Workflow](./.claudetask/instructions/testing-workflow.md) - Testing phase
+9. Other instructions as needed for specific scenarios
 
 **Remember:** You don't need to memorize everything. Just know which instruction file to read when you need guidance on a specific task.
 
