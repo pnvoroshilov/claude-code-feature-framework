@@ -59,16 +59,24 @@ When task enters "Analyse" status:
 # Contains: README.md with instructions
 ```
 
-2. **Delegate to Requirements Writer Agent:**
+2. **Delegate to Requirements Analyst Agent:**
 ```bash
 # Use Task tool to delegate
-Task tool with requirements-writer agent:
-"Create comprehensive requirements document for this task.
+Task tool with requirements-analyst agent:
+"Create comprehensive requirements documentation for this task.
+
+**STEP 1: Check Other Active Tasks**
+Run: mcp:get_task_queue
+
+**STEP 2: Analyze Project Documentation**
+Review docs/architecture/, docs/api/, docs/components/
+
+**STEP 3: Create Requirements**
 Task details: [task info]
-Output to: worktrees/task-<id>/Analyse/requirements.md"
+Output to: worktrees/task-<id>/Analyze/Requirements/"
 ```
 
-3. **Wait for requirements.md completion**
+3. **Wait for requirements documentation completion**
 
 4. **Delegate to System Architect Agent:**
 ```bash
