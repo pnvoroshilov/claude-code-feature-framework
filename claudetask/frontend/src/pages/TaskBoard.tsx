@@ -732,12 +732,11 @@ const TaskBoard: React.FC = () => {
             <Typography
               variant="caption"
               sx={{
-                display: 'block',
+                display: '-webkit-box',
                 mb: 1,
                 color: theme.palette.text.secondary,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                display: '-webkit-box',
                 WebkitLineClamp: 3,
                 WebkitBoxOrient: 'vertical',
                 fontSize: '0.7rem',
