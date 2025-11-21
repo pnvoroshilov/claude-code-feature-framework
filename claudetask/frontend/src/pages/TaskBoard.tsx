@@ -420,9 +420,11 @@ const TaskBoard: React.FC = () => {
     }
   };
 
-  const handleStatusMenuOpen = (event: React.MouseEvent<HTMLElement>, task: Task) => {
+  const handleStatusMenuOpen = (event: React.MouseEvent<HTMLButtonElement>, task: Task) => {
     event.stopPropagation();
-    setStatusMenuAnchor(event.currentTarget);
+    const target = event.currentTarget as HTMLElement;
+    console.log('Menu anchor set to:', target); // Debug log
+    setStatusMenuAnchor(target);
     setSelectedTaskForStatus(task);
   };
 
@@ -1182,18 +1184,17 @@ const TaskBoard: React.FC = () => {
         onClose={handleStatusMenuClose}
         anchorOrigin={{
           vertical: 'bottom',
-          horizontal: 'right',
+          horizontal: 'left',
         }}
         transformOrigin={{
           vertical: 'top',
-          horizontal: 'right',
+          horizontal: 'left',
         }}
         PaperProps={{
           sx: {
             maxHeight: 300,
             width: '280px',
             borderRadius: 2,
-            mt: 0.5,
           }
         }}
       >
