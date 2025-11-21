@@ -713,7 +713,7 @@ const TaskBoard: React.FC = () => {
             variant="body2"
             sx={{
               fontWeight: 500,
-              mb: 1,
+              mb: 0.5,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               display: '-webkit-box',
@@ -726,6 +726,26 @@ const TaskBoard: React.FC = () => {
           >
             {task.title}
           </Typography>
+
+          {/* Task description (first 50 chars) */}
+          {task.description && (
+            <Typography
+              variant="caption"
+              sx={{
+                display: 'block',
+                mb: 1,
+                color: theme.palette.text.secondary,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                fontSize: '0.7rem',
+                opacity: 0.8,
+              }}
+            >
+              {task.description.substring(0, 50)}
+              {task.description.length > 50 ? '...' : ''}
+            </Typography>
+          )}
 
           {/* Priority and Type chips */}
           <Stack direction="row" spacing={0.5} alignItems="center">
