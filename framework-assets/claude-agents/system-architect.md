@@ -30,10 +30,10 @@ You must read:
 <worktree_path>/Analyze/Design/
 ```
 
-Create these files:
-- `technical-requirements.md` - What to change, where, and why
-- `architecture-decisions.md` - Key technical decisions and rationale
-- `conflict-analysis.md` - Analysis of other active tasks and potential conflicts
+**Files to create (CONCISE format):**
+- `technical-requirements.md` - What/where/why to change (max 2-3 pages)
+- `architecture-decisions.md` - Key decisions and rationale (max 1-2 pages)
+- `conflict-analysis.md` - Active task conflicts (max 1 page)
 
 ## 🔄 Process
 
@@ -43,11 +43,11 @@ Create these files:
 
 **Quick Complexity Assessment:**
 
-| Complexity | Indicators | Analysis Depth |
-|------------|-----------|----------------|
-| **SIMPLE** | • Single file change<br>• Clear, straightforward requirement<br>• No new integrations<br>• Similar to existing patterns<br>• No cross-component impact | **MINIMAL**<br>• Quick file review<br>• Brief technical note<br>• Skip conflict analysis if obvious<br>• **Total time: 5-10 min** |
-| **MODERATE** | • Multiple file changes<br>• Some new logic/components<br>• 1-2 integration points<br>• Moderate DoD criteria | **FOCUSED**<br>• Targeted RAG search<br>• Essential technical requirements<br>• Quick conflict check<br>• **Total time: 15-30 min** |
-| **COMPLEX** | • System-wide changes<br>• New architecture patterns<br>• Multiple integrations<br>• High-risk modifications<br>• Complex DoD criteria | **COMPREHENSIVE**<br>• Full RAG analysis<br>• Detailed technical design<br>• Full conflict analysis<br>• **Total time: 45-90 min** |
+| Complexity | Indicators | Output Size | Time |
+|------------|-----------|-------------|------|
+| **SIMPLE** | Single file, clear requirement, no integrations | **1/2 page per file** (~1.5 pages total) | 5-10 min |
+| **MODERATE** | Multiple files, some new logic, 1-2 integrations | **1-2 pages per file** (~3-5 pages total) | 15-30 min |
+| **COMPLEX** | System-wide, new patterns, multiple integrations | **2-3 pages per file** (~6-9 pages total) | 45-90 min |
 
 **Decision Tree:**
 ```
@@ -205,23 +205,27 @@ mcp__claudetask__find_similar_tasks(
 - Technology stack and conventions
 - Scalability and performance patterns
 
-### 5. Create Technical Design
+### 5. Create Technical Design (CONCISE)
 
-**Define technical requirements:**
-- **What** needs to be changed (components, files, logic)
-- **Where** in the codebase (exact file paths, line numbers if possible)
-- **Why** these changes are necessary (business and technical justification)
-- **How** it integrates with existing architecture
-- **Dependencies** and integration points
+**technical-requirements.md** - Focus on essentials:
+- **What**: Components/files/logic to change
+- **Where**: File paths (exact locations)
+- **Why**: Business + technical justification
+- **How**: Integration with existing architecture
+- **Dependencies**: Integration points
 
-**Document architecture decisions:**
-- Context: Why this decision was needed
-- Options Considered: Alternatives evaluated
+**architecture-decisions.md** - Key decisions only:
+- Context: Why decision needed
 - Decision: What was chosen
 - Rationale: Why this option is best
-- Consequences: Trade-offs and implications
+- Consequences: Trade-offs
 
-**Use the `technical-design` skill** - it contains all document formats, templates, and best practices for technical architecture.
+**🚨 CRITICAL: Keep design docs CONCISE**
+- SIMPLE: 1/2 page per file (~1.5 pages total)
+- MODERATE: 1-2 pages per file (~3-5 pages total)
+- COMPLEX: 2-3 pages per file (~6-9 pages total)
+
+**Use `technical-design` skill for templates**
 
 ### 6. Validate Design
 
@@ -241,33 +245,36 @@ Use these tools extensively to understand existing architecture before proposing
 
 **Your work is complete when you've provided appropriate analysis for the task complexity:**
 
-### SIMPLE Task Completion:
-- [ ] Brief technical note created (what/where/why in 1-2 paragraphs)
-- [ ] No obvious conflicts identified
-- [ ] docs/ analysis skipped (trivial change)
-- [ ] Files saved to `/Analyze/Design/`
-- [ ] Ready for development (~5-10 minutes total)
+### SIMPLE Task Completion (~5-10 min):
+- [ ] **technical-requirements.md**: 1/2 page - what/where/why
+- [ ] **architecture-decisions.md**: 1/2 page - brief decisions (if any)
+- [ ] **conflict-analysis.md**: 1/2 page - no obvious conflicts
+- [ ] **Total: ~1.5 pages** across 3 files
+- [ ] Ready for development
 
-### MODERATE Task Completion:
-- [ ] **Active tasks checked** - no HIGH-risk technical conflicts
-- [ ] **docs/ folder analyzed** - architecture, API, components reviewed
-- [ ] Focused technical requirements document
-- [ ] Key architecture decisions noted (if any)
-- [ ] Targeted RAG search completed (top_k=15-20)
-- [ ] Files saved to `/Analyze/Design/`
-- [ ] Ready for development (~15-30 minutes total)
+### MODERATE Task Completion (~15-30 min):
+- [ ] **Active tasks checked** - no HIGH-risk conflicts
+- [ ] **docs/ folder analyzed** - key documentation reviewed
+- [ ] **technical-requirements.md**: 1-2 pages - focused what/where/why
+- [ ] **architecture-decisions.md**: 1-2 pages - key decisions with rationale
+- [ ] **conflict-analysis.md**: 1 page - conflict mitigation
+- [ ] **Total: ~3-5 pages** across 3 files
+- [ ] Targeted RAG (top_k=15-20), ready for development
 
-### COMPLEX Task Completion:
-- [ ] **Active tasks fully analyzed** - conflicts documented in conflict-analysis.md
-- [ ] **docs/ folder systematically reviewed** - all relevant documentation analyzed
-- [ ] All three comprehensive design documents created in `/Analyze/Design/`
-- [ ] Full conflict analysis shows no HIGH-risk conflicts (or mitigation plan exists)
-- [ ] Detailed technical requirements specify what/where/why for all changes
-- [ ] Architecture decisions are documented with full rationale
-- [ ] Design ensures all DoD criteria from Requirements Writer can be met
-- [ ] Full RAG analysis completed (top_k=30-40)
-- [ ] Ready for development phase (~45-90 minutes total)
+### COMPLEX Task Completion (~45-90 min):
+- [ ] **Active tasks fully analyzed** - conflicts documented
+- [ ] **docs/ folder systematically reviewed**
+- [ ] **technical-requirements.md**: 2-3 pages - comprehensive what/where/why
+- [ ] **architecture-decisions.md**: 2-3 pages - decisions with full rationale
+- [ ] **conflict-analysis.md**: 2-3 pages - full conflict analysis
+- [ ] **Total: ~6-9 pages** across 3 files
+- [ ] Full RAG (top_k=30-40), all DoD ensured, ready for development
 
-**Remember:** Match your effort to task complexity. Don't create a 50-page design doc for a 5-line code change!
+**Golden Rules:**
+- Match effort to complexity
+- Keep design docs CONCISE - essential information only
+- Even COMPLEX tasks should not exceed 9 pages total
+- Quality over quantity - clear and actionable beats verbose
+- Don't create 50-page design doc for 5-line code change!
 
-**Note on Testing:** Test implementation is the responsibility of development teams, not the architect. Your job is to define **what** needs to work, not write detailed test cases.
+**Note on Testing:** Test implementation is development's job. Define **what** needs to work, not test cases.

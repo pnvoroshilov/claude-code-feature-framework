@@ -29,20 +29,20 @@ From coordinator:
 <worktree_path>/Analyze/Requirements/
 ```
 
-**Files to create:**
-- `requirements.md` - User stories, use cases, DoD
-- `acceptance-criteria.md` - Detailed acceptance criteria
-- `constraints.md` - Business and technical constraints
+**Files to create (CONCISE format):**
+- `requirements.md` - User stories, use cases, DoD (max 2-3 pages)
+- `acceptance-criteria.md` - Acceptance criteria (max 1-2 pages)
+- `constraints.md` - Constraints (max 1 page)
 
 ## 🔄 Process: Complexity-Based Approach
 
 ### Step 0: Assess Task Complexity FIRST (MANDATORY)
 
-| Complexity | Indicators | Time | Approach |
-|------------|-----------|------|----------|
-| **SIMPLE** | Clear request, single feature, obvious requirements | 5-10 min | Brief docs (1/2 page each), skip RAG |
-| **MODERATE** | Some ambiguity, 2-3 user stories, moderate criteria | 15-30 min | Focused docs (2-3 pages), targeted RAG (top_k=10-15) |
-| **COMPLEX** | Vague requirements, multiple stakeholders, novel domain | 45-90 min | Comprehensive docs (5-10+ pages), full RAG (top_k=30-40) |
+| Complexity | Indicators | Time | Output Size |
+|------------|-----------|------|-------------|
+| **SIMPLE** | Clear request, single feature, obvious requirements | 5-10 min | **1/2 page per file**, skip RAG |
+| **MODERATE** | Some ambiguity, 2-3 user stories, moderate criteria | 15-30 min | **1-2 pages per file**, targeted RAG (top_k=10-15) |
+| **COMPLEX** | Vague requirements, multiple stakeholders, novel domain | 45-90 min | **2-3 pages per file**, full RAG (top_k=30-40) |
 
 **Decision Tree:**
 ```
@@ -187,24 +187,22 @@ mcp__claudetask__search_codebase(
 
 **Match output to complexity:**
 
-#### SIMPLE Task Output (1/2 to 1 page):
-- Brief requirement summary (1-2 paragraphs)
-- Single user story with basic acceptance criteria
-- Definition of Done (2-3 simple criteria)
+#### SIMPLE Task Output (1/2 page per file, ~1.5 pages total):
+- **requirements.md**: Brief summary, 1 user story, DoD (3-5 items)
+- **acceptance-criteria.md**: Basic acceptance criteria (3-5 points)
+- **constraints.md**: Key constraints (2-3 items)
 
-#### MODERATE Task Output (2-3 pages):
-- 2-5 user stories with acceptance criteria
-- Core constraints and dependencies
-- Essential DoD criteria
-- Basic risk notes (if applicable)
+#### MODERATE Task Output (1-2 pages per file, ~3-5 pages total):
+- **requirements.md**: 2-4 user stories, essential DoD (5-8 items)
+- **acceptance-criteria.md**: Focused acceptance criteria per story
+- **constraints.md**: Core constraints, dependencies, risks
 
-#### COMPLEX Task Output (5-10+ pages):
-- Detailed functional requirements with acceptance criteria
-- Non-functional requirements (performance, security, usability)
-- System constraints and dependencies
-- Risk analysis and mitigation
-- Stakeholder requirement matrices
-- Business rules and workflows
+#### COMPLEX Task Output (2-3 pages per file, ~6-9 pages total):
+- **requirements.md**: Comprehensive user stories, complete DoD (10-15 items)
+- **acceptance-criteria.md**: Detailed criteria with edge cases
+- **constraints.md**: Full constraints, dependencies, risk analysis
+
+**🚨 CRITICAL: Keep documents CONCISE - focus on essential information only!**
 
 ## 📋 RAG-Enhanced Requirements Benefits
 
@@ -239,36 +237,29 @@ mcp__claudetask__search_codebase(
 **Match criteria to task complexity:**
 
 ### SIMPLE Task Completion (~5-10 min):
-- [ ] Clear requirement statement (1-2 paragraphs)
-- [ ] Basic user story with acceptance criteria
-- [ ] Simple DoD checklist (2-3 items)
-- [ ] No ambiguity remains
-- [ ] 3 files created in `/Analyze/Requirements/` (brief versions)
-- [ ] Ready for architecture/development
+- [ ] **requirements.md**: 1/2 page - 1 user story, DoD (3-5 items)
+- [ ] **acceptance-criteria.md**: 1/2 page - basic criteria (3-5 points)
+- [ ] **constraints.md**: 1/2 page - key constraints (2-3 items)
+- [ ] **Total: ~1.5 pages** across 3 files
+- [ ] No ambiguity, ready for architecture
 
 ### MODERATE Task Completion (~15-30 min):
 - [ ] **Active tasks checked** - no HIGH-risk conflicts
-- [ ] **docs/ folder analyzed** - architecture, API, components reviewed
-- [ ] Focused requirements with 2-5 user stories
-- [ ] Essential acceptance criteria for each story
-- [ ] Core DoD criteria documented
-- [ ] Key constraints identified (from docs/)
-- [ ] Targeted RAG search completed (top_k=10-15)
-- [ ] 3 files created in `/Analyze/Requirements/` (focused versions)
-- [ ] Ready for architecture phase
+- [ ] **docs/ folder analyzed** - key documentation reviewed
+- [ ] **requirements.md**: 1-2 pages - 2-4 user stories, DoD (5-8 items)
+- [ ] **acceptance-criteria.md**: 1-2 pages - focused criteria per story
+- [ ] **constraints.md**: 1 page - core constraints, dependencies
+- [ ] **Total: ~3-5 pages** across 3 files
+- [ ] Targeted RAG (top_k=10-15), ready for architecture
 
 ### COMPLEX Task Completion (~45-90 min):
-- [ ] **Active tasks fully analyzed** - conflicts documented and mitigated
-- [ ] **docs/ folder systematically reviewed** - all docs analyzed
-- [ ] Comprehensive requirements document created
-- [ ] All user stories with detailed acceptance criteria
-- [ ] Complete DoD criteria covering all aspects
-- [ ] Full RAG analysis (historical + codebase, top_k=30-40)
-- [ ] Risk assessment and mitigation strategies
-- [ ] Stakeholder perspectives documented
-- [ ] System constraints mapped (from docs/ + RAG)
-- [ ] 3 files created in `/Analyze/Requirements/` (comprehensive)
-- [ ] Ready for architecture phase
+- [ ] **Active tasks fully analyzed** - conflicts documented
+- [ ] **docs/ folder systematically reviewed**
+- [ ] **requirements.md**: 2-3 pages - comprehensive user stories, DoD (10-15 items)
+- [ ] **acceptance-criteria.md**: 2-3 pages - detailed criteria with edge cases
+- [ ] **constraints.md**: 2-3 pages - full constraints, dependencies, risks
+- [ ] **Total: ~6-9 pages** across 3 files
+- [ ] Full RAG (top_k=30-40), ready for architecture
 
 **Remember:** Simple task = simple requirements. Don't write an encyclopedia for a button text change!
 
@@ -283,21 +274,25 @@ mcp__claudetask__search_codebase(
 
 **For SIMPLE tasks:**
 1. Read task description
-2. Write brief requirements (1/2 page per file)
+2. Write brief requirements: **1/2 page per file** (~1.5 pages total)
 3. Done in 5-10 minutes
 
 **For MODERATE tasks:**
 1. Check active tasks (conflicts)
 2. Analyze docs/ folder
 3. Targeted RAG search (top_k=10-15)
-4. Write focused requirements (2-3 pages per file)
+4. Write focused requirements: **1-2 pages per file** (~3-5 pages total)
 5. Done in 15-30 minutes
 
 **For COMPLEX tasks:**
 1. Check active tasks (full conflict analysis)
 2. Systematically review docs/ folder
 3. Full RAG analysis (top_k=30-40)
-4. Write comprehensive requirements (5-10+ pages)
+4. Write concise requirements: **2-3 pages per file** (~6-9 pages total)
 5. Done in 45-90 minutes
 
-**Golden Rule:** Match effort to complexity. If you can understand requirements in 2 minutes, don't spend 2 hours documenting them!
+**Golden Rules:**
+- Match effort to complexity
+- Keep documents CONCISE - essential information only
+- Even COMPLEX tasks should not exceed 9 pages total
+- Quality over quantity - clear and actionable beats verbose
