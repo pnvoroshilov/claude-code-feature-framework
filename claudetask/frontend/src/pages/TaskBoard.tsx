@@ -595,170 +595,154 @@ const TaskBoard: React.FC = () => {
     inProgress: tasks?.filter(t => t.status === 'In Progress').length || 0,
   };
 
-  // Task Card Component with modern design
-  const TaskCard: React.FC<{ task: Task }> = ({ task }) => (
-    <Card
-      sx={{
-        mb: 2,
-        position: 'relative',
-        overflow: 'visible',
-        background: theme.palette.mode === 'dark'
-          ? `linear-gradient(145deg, ${alpha(theme.palette.background.paper, 0.9)}, ${alpha(theme.palette.background.paper, 0.95)})`
-          : theme.palette.background.paper,
-        border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        cursor: 'pointer',
-        '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: theme.palette.mode === 'dark'
-            ? `0 12px 24px -6px ${alpha(theme.palette.primary.main, 0.3)}`
-            : `0 12px 24px -6px ${alpha(theme.palette.primary.main, 0.15)}`,
-          border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
-        },
-      }}
-      onClick={() => handleTaskClick(task)}
-    >
-      {/* Status indicator bar */}
-      <Box
-        sx={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 4,
-          background: `linear-gradient(90deg, ${getStatusColor(task.status)}, ${alpha(getStatusColor(task.status), 0.7)})`,
-          borderTopLeftRadius: 12,
-          borderTopRightRadius: 12,
-        }}
-      />
+  // Task Card Component - Compact design for development mode
+  const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
+    const isBug = task.type === 'Bug';
 
-      <CardContent sx={{ pt: 3 }}>
-        {/* Header with icon */}
-        <Box display="flex" alignItems="start" gap={1.5} mb={2}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: 2,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.2)}, ${alpha(theme.palette.primary.light, 0.1)})`,
-              border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
-            }}
-          >
-            {task.type === 'Bug' ? (
-              <BugIcon sx={{ color: theme.palette.error.main, fontSize: 22 }} />
-            ) : (
-              <CodeIcon sx={{ color: theme.palette.primary.main, fontSize: 22 }} />
-            )}
-          </Box>
-          <Box flexGrow={1}>
-            <Typography
-              variant="h6"
-              sx={{
-                fontWeight: 600,
-                fontSize: '1rem',
-                mb: 0.5,
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-              }}
-            >
-              #{task.id} - {task.title}
-            </Typography>
-            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-              <Chip
-                label={task.status}
-                size="small"
+    return (
+      <Card
+        sx={{
+          mb: 1.5,
+          position: 'relative',
+          cursor: 'pointer',
+          // Bug cards have reddish background
+          background: isBug
+            ? theme.palette.mode === 'dark'
+              ? alpha(theme.palette.error.main, 0.15)
+              : alpha(theme.palette.error.main, 0.05)
+            : theme.palette.background.paper,
+          border: `1px solid ${
+            isBug
+              ? alpha(theme.palette.error.main, 0.3)
+              : alpha(theme.palette.divider, 0.5)
+          }`,
+          borderRadius: 2,
+          transition: 'all 0.2s ease-in-out',
+          '&:hover': {
+            transform: 'translateY(-2px)',
+            boxShadow: theme.palette.mode === 'dark'
+              ? `0 4px 12px ${alpha(theme.palette.common.black, 0.4)}`
+              : `0 4px 12px ${alpha(theme.palette.common.black, 0.1)}`,
+            border: `1px solid ${
+              isBug
+                ? alpha(theme.palette.error.main, 0.5)
+                : alpha(theme.palette.primary.main, 0.5)
+            }`,
+          },
+        }}
+        onClick={() => handleTaskClick(task)}
+      >
+        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+          {/* Main content row */}
+          <Box display="flex" alignItems="flex-start" justifyContent="space-between" gap={1}>
+            {/* Task title and info */}
+            <Box flexGrow={1} minWidth={0}>
+              {/* Task title */}
+              <Typography
+                variant="body2"
                 sx={{
-                  height: 22,
-                  fontSize: '0.7rem',
-                  fontWeight: 500,
-                  background: `linear-gradient(135deg, ${alpha(getStatusColor(task.status), 0.2)}, ${alpha(getStatusColor(task.status), 0.1)})`,
-                  border: `1px solid ${alpha(getStatusColor(task.status), 0.3)}`,
-                  color: getStatusColor(task.status),
+                  fontWeight: 600,
+                  mb: 1,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  lineHeight: 1.4,
+                  color: isBug ? theme.palette.error.main : theme.palette.text.primary,
                 }}
-              />
+              >
+                {task.title}
+              </Typography>
+
+              {/* Priority and Type chips */}
+              <Stack direction="row" spacing={0.5} flexWrap="wrap">
+                {/* Priority chip */}
+                <Chip
+                  label={task.priority}
+                  size="small"
+                  color={getPriorityColor(task.priority) as any}
+                  sx={{
+                    height: 20,
+                    fontSize: '0.7rem',
+                    fontWeight: 500,
+                    '& .MuiChip-label': {
+                      px: 1,
+                    },
+                  }}
+                />
+
+                {/* Type chip with icon */}
+                <Chip
+                  icon={isBug ? <BugIcon sx={{ fontSize: 14 }} /> : <CodeIcon sx={{ fontSize: 14 }} />}
+                  label={task.type}
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    height: 20,
+                    fontSize: '0.7rem',
+                    fontWeight: 500,
+                    borderColor: isBug ? theme.palette.error.main : theme.palette.primary.main,
+                    color: isBug ? theme.palette.error.main : theme.palette.primary.main,
+                    '& .MuiChip-label': {
+                      px: 0.5,
+                    },
+                    '& .MuiChip-icon': {
+                      ml: 0.5,
+                    },
+                  }}
+                />
+              </Stack>
+            </Box>
+
+            {/* Action buttons column */}
+            <Stack direction="column" spacing={0.5} sx={{ flexShrink: 0 }}>
+              {/* Context menu button */}
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleStatusMenuOpen(e, task);
+                }}
+                sx={{
+                  width: 28,
+                  height: 28,
+                  color: theme.palette.text.secondary,
+                  '&:hover': {
+                    background: alpha(theme.palette.primary.main, 0.1),
+                    color: theme.palette.primary.main,
+                  },
+                }}
+              >
+                <MoreIcon fontSize="small" />
+              </IconButton>
+
+              {/* Delete button */}
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.confirm(`Delete task "${task.title}"?`)) {
+                    deleteTaskMutation.mutate(task.id);
+                  }
+                }}
+                sx={{
+                  width: 28,
+                  height: 28,
+                  color: theme.palette.error.main,
+                  '&:hover': {
+                    background: alpha(theme.palette.error.main, 0.1),
+                  },
+                }}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
             </Stack>
           </Box>
-          <Box>
-            <IconButton
-              size="small"
-              onClick={(e) => handleStatusMenuOpen(e, task)}
-              sx={{
-                color: theme.palette.text.secondary,
-                '&:hover': {
-                  background: alpha(theme.palette.primary.main, 0.1),
-                },
-              }}
-            >
-              <MoreIcon fontSize="small" />
-            </IconButton>
-          </Box>
-        </Box>
-
-        {/* Priority and Type Chips */}
-        <Stack direction="row" spacing={1} mb={2}>
-          <Chip
-            label={task.priority}
-            size="small"
-            color={getPriorityColor(task.priority) as any}
-            sx={{
-              height: 24,
-              fontSize: '0.75rem',
-              fontWeight: 500,
-            }}
-          />
-          <Chip
-            label={task.type}
-            size="small"
-            variant="outlined"
-            sx={{
-              height: 24,
-              fontSize: '0.75rem',
-              fontWeight: 500,
-            }}
-          />
-        </Stack>
-
-        {/* Description */}
-        {task.description && (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{
-              mb: 2,
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              lineHeight: 1.5,
-            }}
-          >
-            {task.description}
-          </Typography>
-        )}
-
-        <Divider sx={{ my: 2 }} />
-
-        {/* Metadata */}
-        <Stack spacing={1}>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <CalendarIcon sx={{ fontSize: 14 }} />
-            {new Date(task.created_at).toLocaleDateString()}
-          </Typography>
-          {task.assigned_agent && (
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <PersonIcon sx={{ fontSize: 14 }} />
-              {task.assigned_agent}
-            </Typography>
-          )}
-        </Stack>
-      </CardContent>
-    </Card>
-  );
+        </CardContent>
+      </Card>
+    );
+  };
 
   if (!project) {
     return (
