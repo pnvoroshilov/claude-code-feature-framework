@@ -897,83 +897,8 @@ Analysis:
                 )]
     
     def _get_next_steps_for_status(self, status: str, task_type: str) -> str:
-        """Get next steps instructions based on current task status"""
-        if status == "Backlog":
-            return """📍 NEXT STEPS (Status: Backlog):
-1. Analyze the task: mcp:analyze_task <task_id>
-2. The analysis will automatically move status to 'Analysis'
-3. Complete your analysis and save it
-4. Move to 'In Progress' when analysis is complete"""
-        
-        elif status == "Analysis":
-            return """📍 NEXT STEPS (Status: Analysis):
-⚠️ MANDATORY DUAL DELEGATION - UC-01 WORKFLOW:
-
-1. FIRST delegate to Requirements Analyst:
-   mcp:delegate_to_agent <task_id> requirements-analyst "Analyze requirements and create user stories"
-   
-2. THEN delegate to System Architect:
-   mcp:delegate_to_agent <task_id> system-architect "Design architecture and technical approach"
-   
-3. Save combined analysis: mcp:update_task_analysis <task_id> "<combined_analysis>"
-
-4. ⚠️ MANDATORY: Update to In Progress: mcp:update_status <task_id> "In Progress"
-   (NEVER update to Ready - go directly to In Progress per UC-01)"""
-        
-        elif status == "In Progress":
-            return """📍 NEXT STEPS (Status: In Progress):
-1. Monitor development progress
-2. When implementation complete, create PR: mcp:update_status <task_id> "PR"
-3. Or if blocked: mcp:update_status <task_id> "Blocked"
-
-📋 UC-02: After development complete → Create PR → Testing → Code Review"""
-        
-        elif status == "PR":
-            return """📍 NEXT STEPS (Status: Pull Request):
-UC-02: PR created after development, before testing
-
-1. PR has been created with implementation changes
-2. Next: Move to Testing: mcp:update_status <task_id> "Testing"
-3. Setup test environment and provide URLs for user testing"""
-        
-        elif status == "Testing":
-            return """📍 NEXT STEPS (Status: Testing):
-🔴 UC-04 VARIANT B: MANUAL TESTING MODE (Default)
-
-1. Prepare test environment (ensure app is running)
-2. Provide URLs/endpoints for user to test manually
-3. ⚠️ MANDATORY: Save testing URLs: mcp__claudetask__set_testing_urls
-4. Document what needs to be tested
-5. ⚠️ NO AUTO PROGRESSION - Wait for user
-6. ONLY user can update status after manual testing
-
-Note: UC-04 Variant A (automated testing) requires manual_testing_mode=false"""
-        
-        elif status == "Code Review":
-            return """📍 NEXT STEPS (Status: Code Review):
-UC-05: Code review after testing complete
-
-1. Complete code review with appropriate agent
-2. If approved → User will manually click 'Done' button
-3. User action sends /merge command to merge PR and mark as Done
-
-⚠️ DO NOT transition to Done automatically (UC-05 Variant B)
-Note: UC-05 Variant A (auto-merge) requires manual_review_mode=false"""
-        
-        elif status == "Done":
-            return """✅ TASK COMPLETE
-This task has been merged to main branch and is complete."""
-        
-        elif status == "Blocked":
-            return """⚠️ TASK BLOCKED
-1. Resolve the blocking issue
-2. Update status back to previous state when unblocked
-3. Document resolution in task comments"""
-        
-        else:
-            return f"""📍 CURRENT STATUS: {status}
-Use mcp:update_status to progress the task through the workflow.
-New flow (UC-02): Backlog → Analysis → In Progress → PR → Testing → Code Review → Done"""
+        """Return current status only - instructions are in CLAUDE.md"""
+        return f"Current Status: {status}"
 
     def _get_agent_for_task(self, task_type: str, status: str, title: str = "", description: str = "") -> Optional[str]:
         """Get the appropriate agent for a task type and status with intelligent context analysis"""
