@@ -229,7 +229,7 @@ Components for managing framework features:
 
 ### 4. Task Management
 Components for task and project management:
-- **TaskBoard** - Kanban-style task board with File Browser integration
+- **TaskBoard** - Kanban-style task board with automatic Claude command dispatch and File Browser integration
 - **Tasks** - Task cards and details (to be documented)
 - **Projects** - Project configuration (to be documented)
 
@@ -410,6 +410,6 @@ When adding or updating components:
 | Subagents | Framework Management | Active | v1.0 | [View](./Subagents.md) |
 | Skills | Framework Management | Active | v1.0 | [View](./Skills.md) |
 | MCPConfigs | Framework Management | Active | v2.0 | [View](./MCPConfigs.md) |
-| TaskBoard | Task Management | Active | v1.1 | Integrated File Browser navigation |
+| TaskBoard | Task Management | Active | v2.1 | [View](./TaskBoard.md) |
 | Tasks | Task Management | Pending | - | To be documented |
 | Projects | Task Management | Pending | - | To be documented |

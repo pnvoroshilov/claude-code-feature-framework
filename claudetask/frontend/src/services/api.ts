@@ -136,7 +136,9 @@ export interface ProjectSettings {
   build_command?: string;
   lint_command?: string;
   worktree_enabled: boolean;
-  manual_mode: boolean;
+  manual_mode: boolean; // DEPRECATED: Use manual_testing_mode and manual_review_mode
+  manual_testing_mode: boolean; // UC-04: Manual (true) vs Automated (false) testing
+  manual_review_mode: boolean; // UC-05: Manual (true) vs Auto-merge (false) review
 }
 
 export const getProjectSettings = async (projectId: string): Promise<ProjectSettings> => {

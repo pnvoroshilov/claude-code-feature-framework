@@ -33,12 +33,17 @@ This eliminates manual command typing and context switching!
 
 | Status Transition | Auto Command | Description |
 |-------------------|--------------|-------------|
-| Backlog → **Analysis** | None | Orchestrator handles analysis automatically |
-| Analysis → **In Progress** | `/start-feature {task-id}` | Starts development on the task |
-| In Progress → **Testing** | None | Manual user testing process |
-| Testing → **Code Review** | None | Manual code review process |
-| Code Review → **PR** | `/merge {task-id}` | Creates PR and merges to main |
-| PR → **Done** | None | Task completion (handled by /merge) |
+| Backlog → **Analysis** | `/start-feature {task-id}` | UC-01: Triggers analysis phase with requirements and architecture |
+| Analysis → **In Progress** | `/start-develop` | UC-02: Starts development after analysis complete |
+| In Progress → **Testing** | `/test` (if manual_testing_mode=false) | UC-04: Automated testing when manual mode disabled |
+| Testing → **Code Review** | `/PR` (if manual_review_mode=false) | UC-05: Automated review and merge when manual mode disabled |
+| Code Review → **PR** | None | Handled by /PR command in previous step |
+| PR → **Done** | None | Task completion |
+
+**Manual Mode Behavior:**
+- When `manual_testing_mode=true` (default), Testing status does NOT send `/test` command - user must test manually
+- When `manual_review_mode=true` (default), Code Review status does NOT send `/PR` command - user must review manually
+- Info notifications appear when manual mode prevents auto-command execution
 
 ## How It Works
 
@@ -76,17 +81,38 @@ If command exists:
 
 ## Implementation Details
 
-### Status Command Map
+### Status Command Logic
 
 ```typescript
-const statusCommandMap: Record<string, string | null> = {
-  'Analysis': null,                    // Orchestrator handles
-  'In Progress': `/start-feature ${taskId}`,
-  'Testing': null,                     // Manual process
-  'Code Review': null,                 // Manual process
-  'PR': `/merge ${taskId}`,            // Merge command
-  'Done': null                         // No action needed
-};
+// Command mapping based on workflow use cases (UC-01 through UC-05)
+switch (newStatus) {
+  case 'Analysis':
+    // UC-01: Backlog → Analysis triggers /start-feature
+    command = `/start-feature ${taskId}`;
+    break;
+
+  case 'In Progress':
+    // UC-02: Analysis → In Progress triggers /start-develop
+    command = `/start-develop`;
+    break;
+
+  case 'Testing':
+    // UC-04: Check manual_testing_mode before sending /test
+    if (!projectSettings.manual_testing_mode) {
+      command = `/test`;
+    }
+    break;
+
+  case 'Code Review':
+    // UC-05: Check manual_review_mode before sending /PR
+    if (!projectSettings.manual_review_mode) {
+      command = `/PR`;
+    }
+    break;
+
+  default:
+    command = null;
+}
 ```
 
 ### Session Management
@@ -123,25 +149,27 @@ All status changes show snackbar notifications:
 
 ### Enabling/Disabling Auto-Commands
 
-To disable auto-commands for specific statuses, set their value to `null` in `statusCommandMap`:
+Auto-commands are controlled by project settings:
 
-```typescript
-const statusCommandMap: Record<string, string | null> = {
-  'In Progress': null,  // Disabled - no auto-command
-  // ...
-};
+**Enable Automated Testing:**
+```bash
+# Set manual_testing_mode to false
+curl -X PATCH http://localhost:3333/api/projects/{id}/settings \
+  -H "Content-Type: application/json" \
+  -d '{"manual_testing_mode": false}'
 ```
 
-### Custom Commands
-
-To change the command for a status:
-
-```typescript
-const statusCommandMap: Record<string, string | null> = {
-  'In Progress': `/custom-command ${taskId}`,
-  // ...
-};
+**Enable Automated Code Review:**
+```bash
+# Set manual_review_mode to false
+curl -X PATCH http://localhost:3333/api/projects/{id}/settings \
+  -H "Content-Type: application/json" \
+  -d '{"manual_review_mode": false}'
 ```
+
+**Default Behavior:**
+- `manual_testing_mode=true` → Testing requires manual user action
+- `manual_review_mode=true` → Code Review requires manual user action
 
 ## API Integration
 
@@ -151,7 +179,8 @@ const statusCommandMap: Record<string, string | null> = {
 import {
   getActiveSessions,      // Get list of active Claude sessions
   createClaudeSession,    // Create new Claude session for task
-  sendCommandToSession    // Send command to specific session
+  sendCommandToSession,   // Send command to specific session
+  getProjectSettings      // Get project settings (manual mode flags)
 } from '../services/api';
 ```
 
@@ -161,6 +190,7 @@ import {
 - `POST /api/sessions/create` - Create new Claude session
 - `POST /api/sessions/{session_id}/command` - Send command to session
 - `PATCH /api/tasks/{task_id}/status` - Update task status
+- `GET /api/projects/{project_id}/settings` - Get project settings including manual mode flags
 
 ## Development Notes
 
@@ -189,15 +219,34 @@ This reduces terminal clutter and improves performance.
 
 ### Manual Testing Checklist
 
-- [ ] Move task from Backlog to In Progress
+**With Manual Mode Enabled (defaults):**
+- [ ] Move task from Backlog to Analysis
   - [ ] Verify `/start-feature` command sent
   - [ ] Check notification appears
   - [ ] Confirm Claude terminal opens/activates
 
-- [ ] Move task from Code Review to PR
-  - [ ] Verify `/merge` command sent
+- [ ] Move task from Analysis to In Progress
+  - [ ] Verify `/start-develop` command sent
   - [ ] Check notification appears
 
+- [ ] Move task from In Progress to Testing
+  - [ ] Verify NO command sent (manual_testing_mode=true)
+  - [ ] Check info notification about manual mode
+
+- [ ] Move task from Testing to Code Review
+  - [ ] Verify NO command sent (manual_review_mode=true)
+  - [ ] Check info notification about manual mode
+
+**With Manual Mode Disabled:**
+- [ ] Disable manual_testing_mode in project settings
+- [ ] Move task to Testing
+  - [ ] Verify `/test` command sent
+
+- [ ] Disable manual_review_mode in project settings
+- [ ] Move task to Code Review
+  - [ ] Verify `/PR` command sent
+
+**Session Management:**
 - [ ] Test with no active sessions
   - [ ] Verify new session created
   - [ ] Confirm command sent after delay
@@ -263,16 +312,18 @@ Potential improvements:
 
 ### Adding New Status Command
 
-```typescript
-// 1. Add to statusCommandMap
-const statusCommandMap: Record<string, string | null> = {
-  'Analysis': null,
-  'In Progress': `/start-feature ${taskId}`,
-  'Ready for QA': `/run-tests ${taskId}`,  // ← New
-  // ...
-};
+To add a new status with auto-command:
 
-// 2. Add status to workflow (if not exists)
+1. **Update switch statement in `handleStatusChange`:**
+```typescript
+case 'Ready for QA':
+  // Add your custom command logic
+  command = `/run-qa-tests`;
+  break;
+```
+
+2. **Add status to workflow columns:**
+```typescript
 const developmentStatusColumns = [
   { status: 'Backlog', title: 'Backlog', color: '#grey' },
   { status: 'Analysis', title: 'Analysis', color: '#blue' },
@@ -282,17 +333,29 @@ const developmentStatusColumns = [
 ];
 ```
 
-### Custom Command with Parameters
+3. **Update documentation** with new command mapping
+
+### Custom Command with Manual Mode
+
+If your custom status should respect a manual mode flag:
 
 ```typescript
-const statusCommandMap: Record<string, string | null> = {
-  'Deploy Staging': `/deploy ${taskId} --env=staging --notify`,
-  // Command will be: /deploy 42 --env=staging --notify
-};
+case 'Ready for QA':
+  // Check custom manual mode flag
+  if (projectSettings && !projectSettings.manual_qa_mode) {
+    command = `/run-qa-tests`;
+  } else {
+    setSnackbar({
+      open: true,
+      message: 'Manual QA mode enabled - please test manually.',
+      severity: 'info'
+    });
+  }
+  break;
 ```
 
 ---
 
 **Last Updated**: 2025-11-21
-**Version**: 1.0.0
+**Version**: 2.1.0 (Workflow Commands + Manual Mode Support)
 **Maintainer**: Claude Code Feature Framework Team

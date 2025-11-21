@@ -61,7 +61,7 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useNavigate } from 'react-router-dom';
-import { getTasks, createTask, updateTask, updateTaskStatus, deleteTask, Task, getActiveSessions, createClaudeSession, sendCommandToSession } from '../services/api';
+import { getTasks, createTask, updateTask, updateTaskStatus, deleteTask, Task, getActiveSessions, createClaudeSession, sendCommandToSession, getProjectSettings } from '../services/api';
 import RealTerminal from '../components/RealTerminal';
 import ProjectModeToggle from '../components/ProjectModeToggle';
 import { useProject } from '../context/ProjectContext';
@@ -203,19 +203,67 @@ const TaskBoard: React.FC = () => {
       onSuccess: async () => {
         setSnackbar({ open: true, message: `Task moved to ${newStatus}`, severity: 'success' });
 
-        // Define command mapping for each status
-        const statusCommandMap: Record<string, string | null> = {
-          'Analysis': null, // No command, orchestrator handles this
-          'In Progress': `/start-feature ${taskId}`,
-          'Testing': null, // Testing is manual user process
-          'Code Review': null, // Code review is manual user process
-          'PR': `/merge ${taskId}`, // Use /merge command for Pull Request → Done
-          'Done': null // No command needed for Done
-        };
+        // Fetch project settings to check manual mode flags
+        let projectSettings = null;
+        if (project?.id) {
+          try {
+            projectSettings = await getProjectSettings(project.id);
+          } catch (error) {
+            console.error('Failed to fetch project settings:', error);
+          }
+        }
 
-        const command = statusCommandMap[newStatus];
+        // Define command mapping for each status based on workflow use cases
+        let command: string | null = null;
 
-        // Auto-send command for statuses that have one
+        switch (newStatus) {
+          case 'Analysis':
+            // UC-01: Backlog → Analysis triggers /start-feature
+            command = `/start-feature ${taskId}`;
+            break;
+
+          case 'In Progress':
+            // UC-02: Analysis → In Progress triggers /start-develop
+            command = `/start-develop`;
+            break;
+
+          case 'Testing':
+            // UC-04: In Progress → Testing triggers /test only if manual_testing_mode is false
+            if (projectSettings && !projectSettings.manual_testing_mode) {
+              command = `/test`;
+            } else {
+              setSnackbar({
+                open: true,
+                message: `Task moved to Testing. Manual testing mode enabled - please test manually.`,
+                severity: 'info'
+              });
+            }
+            break;
+
+          case 'Code Review':
+            // UC-05: Testing → Code Review triggers /PR only if manual_review_mode is false
+            if (projectSettings && !projectSettings.manual_review_mode) {
+              command = `/PR`;
+            } else {
+              setSnackbar({
+                open: true,
+                message: `Task moved to Code Review. Manual review mode enabled - please review manually.`,
+                severity: 'info'
+              });
+            }
+            break;
+
+          case 'PR':
+          case 'Done':
+            // No auto-commands for PR or Done statuses
+            command = null;
+            break;
+
+          default:
+            command = null;
+        }
+
+        // Auto-send command if one is defined
         if (command) {
           try {
             // Check for active Claude sessions
