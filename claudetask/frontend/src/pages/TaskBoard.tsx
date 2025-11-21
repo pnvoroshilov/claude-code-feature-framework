@@ -290,20 +290,22 @@ const TaskBoard: React.FC = () => {
               try {
                 const sessionResult = await createClaudeSession(taskId);
                 if (sessionResult.success) {
+                  // Capture command in closure to avoid null type issues
+                  const commandToSend = command;
                   // Wait a moment for session to initialize
                   setTimeout(async () => {
                     try {
-                      await sendCommandToSession(sessionResult.session_id, command);
+                      await sendCommandToSession(sessionResult.session_id, commandToSend);
                       setSnackbar({
                         open: true,
-                        message: `Task moved to ${newStatus}, new Claude session created, and "${command}" command sent`,
+                        message: `Task moved to ${newStatus}, new Claude session created, and "${commandToSend}" command sent`,
                         severity: 'success'
                       });
                     } catch (error) {
-                      console.error(`Failed to send ${command} command:`, error);
+                      console.error(`Failed to send ${commandToSend} command:`, error);
                       setSnackbar({
                         open: true,
-                        message: `Task moved to ${newStatus} and Claude session created, but failed to send "${command}" command`,
+                        message: `Task moved to ${newStatus} and Claude session created, but failed to send "${commandToSend}" command`,
                         severity: 'warning'
                       });
                     }
