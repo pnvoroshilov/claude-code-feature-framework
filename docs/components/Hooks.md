@@ -179,22 +179,33 @@ const [selectedHook, setSelectedHook] = useState<Hook | null>(null);
 3. **POST /api/projects/{project_id}/hooks/disable/{hook_id}**
    - Disables an active hook
 
-4. **POST /api/projects/{project_id}/hooks/favorite/{hook_id}**
+4. **POST /api/projects/{project_id}/hooks/enable-all**
+   - Enables all available hooks (default + custom)
+   - Returns count of newly enabled hooks
+   - Includes error list for failed enables
+
+5. **POST /api/projects/{project_id}/hooks/disable-all**
+   - Disables all currently enabled hooks
+   - Returns count of disabled hooks
+   - Includes error list for failed disables
+
+6. **POST /api/projects/{project_id}/hooks/favorites/save**
    - Marks hook as favorite
-   - Query param: `hook_type`
+   - Query params: `hook_id`, `hook_type`
 
-5. **POST /api/projects/{project_id}/hooks/unfavorite/{hook_id}**
+7. **POST /api/projects/{project_id}/hooks/favorites/remove**
    - Removes favorite status
+   - Query params: `hook_id`, `hook_type`
 
-6. **POST /api/projects/{project_id}/hooks/**
+8. **POST /api/projects/{project_id}/hooks/create**
    - Creates new custom hook
    - Request body: `{ name, description, category, hook_config, setup_instructions, dependencies }`
 
-7. **PUT /api/projects/{project_id}/hooks/{hook_id}**
+9. **PUT /api/projects/{project_id}/hooks/{hook_id}**
    - Updates existing custom hook
    - Cannot edit default hooks
 
-8. **DELETE /api/projects/{project_id}/hooks/{hook_id}**
+10. **DELETE /api/projects/{project_id}/hooks/{hook_id}**
    - Deletes custom hook
    - Cannot delete default hooks
 

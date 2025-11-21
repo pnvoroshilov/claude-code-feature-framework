@@ -82,7 +82,7 @@ POST /api/projects/my-project/skills/enable/1?skill_type=default
 - `404` - Skill not found
 - `500` - File system error during copy
 
-### DELETE `/api/projects/{project_id}/skills/disable/{skill_id}`
+### POST `/api/projects/{project_id}/skills/disable/{skill_id}`
 
 Disable a skill by removing it from project's `.claude/skills/` directory.
 
@@ -96,7 +96,7 @@ Disable a skill by removing it from project's `.claude/skills/` directory.
 
 **Request:**
 ```http
-DELETE /api/projects/my-project/skills/disable/1?skill_type=default
+POST /api/projects/my-project/skills/disable/1?skill_type=default
 ```
 
 **Response:**
@@ -110,6 +110,85 @@ DELETE /api/projects/my-project/skills/disable/1?skill_type=default
 **Error Responses:**
 - `404` - Skill not found or not enabled
 - `500` - File system error during removal
+
+### POST `/api/projects/{project_id}/skills/enable-all`
+
+Enable all available skills (both default and custom) for a project.
+
+**Process:**
+1. Get all available default skills
+2. Get all custom skills
+3. Enable each skill that isn't already enabled
+4. Return count of newly enabled skills
+
+**Request:**
+```http
+POST /api/projects/my-project/skills/enable-all
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "enabled_count": 8,
+  "errors": []
+}
+```
+
+**Response with Errors:**
+```json
+{
+  "success": true,
+  "enabled_count": 6,
+  "errors": [
+    "Failed to enable custom-analyzer: File not found",
+    "Failed to enable data-processor: Invalid configuration"
+  ]
+}
+```
+
+**Status Codes:**
+- `200 OK` - Operation completed (check enabled_count)
+- `500 Internal Server Error` - Operation failed
+
+### POST `/api/projects/{project_id}/skills/disable-all`
+
+Disable all currently enabled skills for a project.
+
+**Process:**
+1. Get all enabled skills
+2. Disable each enabled skill
+3. Return count of disabled skills
+
+**Request:**
+```http
+POST /api/projects/my-project/skills/disable-all
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "disabled_count": 8,
+  "errors": []
+}
+```
+
+**Response with Errors:**
+```json
+{
+  "success": true,
+  "disabled_count": 6,
+  "errors": [
+    "Failed to disable rag-search: File in use",
+    "Failed to disable toon-format: Permission denied"
+  ]
+}
+```
+
+**Status Codes:**
+- `200 OK` - Operation completed (check disabled_count)
+- `500 Internal Server Error` - Operation failed
 
 ### POST `/api/projects/{project_id}/skills/sync-framework`
 

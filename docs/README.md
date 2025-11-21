@@ -14,7 +14,8 @@ API documentation including OpenAPI specifications and endpoint details.
 - `endpoints/claude-sessions.md` - Claude Code session management and hook integration API
 - `endpoints/file-browser.md` - File browser API with comprehensive file management (v2.0)
 - `endpoints/settings.md` - Project settings API for configuration management
-- `endpoints/skills.md` - Skills management API
+- `endpoints/skills.md` - Skills management API with bulk operations
+- `endpoints/hooks.md` - Hooks management API with bulk operations
 - `endpoints/rag-indexing.md` - RAG codebase indexing API
 
 ### `/components/`
@@ -187,7 +188,10 @@ To manually trigger documentation update:
   - Documentation: `skills/skills-system.md`
 - ✅ **Backend API Enhancements**: Improved skill/hook/subagent/MCP config management
   - Skills API: skill_type parameter for default vs custom skills
+  - Skills API: New enable-all and disable-all bulk operations
   - Hooks API: Comprehensive hook enable/disable workflow
+  - Hooks API: New enable-all and disable-all bulk operations
+  - Hooks API: Complete documentation in `api/endpoints/hooks.md`
   - Subagents API: Agent management and delegation
   - MCP Configs API: Configuration management
 - ✅ **Frontend UI Updates**: Enhanced Skills, Hooks, Subagents, MCPConfigs pages
@@ -195,6 +199,7 @@ To manually trigger documentation update:
   - Search functionality across all management pages
   - Better category visualization
   - Real-time enable/disable feedback
+  - Bulk enable/disable operations for skills and hooks
 - ✅ **Intelligent Development Workflow**: Complete agent-driven workflow with slash commands
   - New slash commands: `/start-feature`, `/start-develop`, `/test`, `/PR`, `/merge`
   - Automated analysis phase with requirements-analyst and system-architect agents
@@ -409,8 +414,8 @@ New documentation is automatically created when:
 - [ ] Performance optimization guides
 
 **Documentation Metrics:**
-- Total files: 28 active, 3 archived
-- API endpoints documented: 5 (including Settings API)
+- Total files: 29 active, 3 archived
+- API endpoints documented: 6 (including Hooks API)
 - MCP tools documented: 16+ tools with complete reference
 - Slash commands documented: 10+ commands with full examples
 - Workflow phases documented: 7 phases in intelligent workflow

@@ -166,6 +166,18 @@ POST /api/projects/{projectId}/skills/disable/{skillId}
 Response: { message: string }
 ```
 
+#### Enable All Skills
+```typescript
+POST /api/projects/{projectId}/skills/enable-all
+Response: { success: boolean, enabled_count: number, errors?: string[] }
+```
+
+#### Disable All Skills
+```typescript
+POST /api/projects/{projectId}/skills/disable-all
+Response: { success: boolean, disabled_count: number, errors?: string[] }
+```
+
 #### Toggle Favorite
 ```typescript
 POST /api/projects/{projectId}/skills/toggle-favorite/{skillId}
