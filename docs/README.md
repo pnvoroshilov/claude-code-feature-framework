@@ -36,6 +36,7 @@ System architecture, design decisions, and database schema.
 **Documents:**
 - `overview.md` - High-level system architecture
 - `intelligent-workflow.md` - Complete intelligent development workflow with agents and slash commands
+- `modular-instructions.md` - Modular instruction system architecture
 - `hooks-system.md` - Hooks system architecture and script file workflow
 - `framework-updates.md` - Framework update system and file synchronization
 - `project-modes.md` - SIMPLE vs DEVELOPMENT mode workflows
@@ -64,6 +65,7 @@ Claude Code skills documentation for extended capabilities.
 
 **Skills:**
 - `README.md` - Skills overview and usage guide
+- `skills-system.md` - Complete skills system architecture and available skills
 - `toon-format.md` - TOON Format skill for token-efficient data serialization
 - `usecase-writer.md` - UseCase Writer skill for requirements documentation
 
@@ -167,6 +169,32 @@ To manually trigger documentation update:
 ## Recent Updates
 
 **Latest Changes (2025-11-21):**
+- ✅ **Modular Instruction System**: CLAUDE.md refactored into focused instruction files
+  - 10 modular instruction files in `.claudetask/instructions/`
+  - Just-in-time instruction loading
+  - Improved maintainability and clarity
+  - Documentation: `architecture/modular-instructions.md`
+- ✅ **Expanded Skills System**: 16 default skills for comprehensive development support
+  - Architecture Patterns (SOLID, DRY, KISS, Clean Architecture, DDD)
+  - Requirements Analysis, Technical Design
+  - API Development, API Integration
+  - UI Component Development
+  - Code Review, Database Migration
+  - Debug Helper, Deployment Helper
+  - Documentation Writer, Git Workflow
+  - Refactoring, Test Runner
+  - TOON Format, UseCase Writer
+  - Documentation: `skills/skills-system.md`
+- ✅ **Backend API Enhancements**: Improved skill/hook/subagent/MCP config management
+  - Skills API: skill_type parameter for default vs custom skills
+  - Hooks API: Comprehensive hook enable/disable workflow
+  - Subagents API: Agent management and delegation
+  - MCP Configs API: Configuration management
+- ✅ **Frontend UI Updates**: Enhanced Skills, Hooks, Subagents, MCPConfigs pages
+  - Improved filtering (all, default, custom, favorite, enabled)
+  - Search functionality across all management pages
+  - Better category visualization
+  - Real-time enable/disable feedback
 - ✅ **Intelligent Development Workflow**: Complete agent-driven workflow with slash commands
   - New slash commands: `/start-feature`, `/start-develop`, `/test`, `/PR`, `/merge`
   - Automated analysis phase with requirements-analyst and system-architect agents
@@ -381,16 +409,17 @@ New documentation is automatically created when:
 - [ ] Performance optimization guides
 
 **Documentation Metrics:**
-- Total files: 26 active, 3 archived
+- Total files: 28 active, 3 archived
 - API endpoints documented: 5 (including Settings API)
 - MCP tools documented: 16+ tools with complete reference
 - Slash commands documented: 10+ commands with full examples
 - Workflow phases documented: 7 phases in intelligent workflow
 - Components documented: 7 (FileBrowser, RealTerminal, ClaudeSessions, etc.)
 - Hooks documented: 8 framework hooks (including inject-docs-update)
-- Skills documented: 2 (TOON Format, UseCase Writer)
+- Skills documented: 16 default skills + custom skill system
+- Modular instructions documented: 10 instruction files
 - Specialized agents documented: 10+ agents (requirements-analyst, system-architect, pr-merge-agent, etc.)
-- Database migrations documented: 7 complete migrations (including hook sync)
+- Database migrations documented: 8 complete migrations (including manual mode)
 - Last full update: 2025-11-21
 - Auto-update status: Active and operational
 
