@@ -727,7 +727,7 @@ const TaskBoard: React.FC = () => {
             {task.title}
           </Typography>
 
-          {/* Task description (first 50 chars) */}
+          {/* Task description (first 200 chars) */}
           {task.description && (
             <Typography
               variant="caption"
@@ -737,13 +737,16 @@ const TaskBoard: React.FC = () => {
                 color: theme.palette.text.secondary,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+                display: '-webkit-box',
+                WebkitLineClamp: 3,
+                WebkitBoxOrient: 'vertical',
                 fontSize: '0.7rem',
                 opacity: 0.8,
+                lineHeight: 1.3,
               }}
             >
-              {task.description.substring(0, 50)}
-              {task.description.length > 50 ? '...' : ''}
+              {task.description.substring(0, 200)}
+              {task.description.length > 200 ? '...' : ''}
             </Typography>
           )}
 
