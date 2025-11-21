@@ -55,6 +55,8 @@ class ClaudeTaskMCPServer:
             "memory-sync",
             "mobile-react-expert",
             "python-api-expert",
+            "requirements-analyst",  # Added for UC-01
+            "system-architect",      # Added for UC-01
             "systems-analyst",
             "ux-ui-researcher",
             "web-tester"
@@ -63,9 +65,10 @@ class ClaudeTaskMCPServer:
         # Agent mapping for task types and statuses with intelligent specialization
         self.agent_mappings = {
             "Feature": {
-                "Ready": "frontend-developer",
+                "Analysis": "requirements-analyst",  # UC-01: Requirements Writer
                 "In Progress": "frontend-developer",
-                "Testing": None,  # Manual testing only
+                "PR": "fullstack-code-reviewer",     # UC-02: Create PR
+                "Testing": None,  # Manual testing (UC-04 Variant B)
                 "Code Review": "fullstack-code-reviewer"
             },
             "Bug": {
@@ -184,10 +187,10 @@ class ClaudeTaskMCPServer:
             }
         }
 
-        # Status progression flow
+        # Status progression flow (Updated per UC-02: PR before Testing)
         self.status_flow = [
-            "Backlog", "Analysis", "Ready", "In Progress",
-            "Testing", "Code Review", "PR", "Done"
+            "Backlog", "Analysis", "In Progress", "PR",
+            "Testing", "Code Review", "Done"
         ]
 
         # Initialize RAG service with centralized config
@@ -901,60 +904,62 @@ Analysis:
 1. Analyze the task: mcp:analyze_task <task_id>
 2. The analysis will automatically move status to 'Analysis'
 3. Complete your analysis and save it
-4. Move to 'Ready' when analysis is complete"""
+4. Move to 'In Progress' when analysis is complete"""
         
         elif status == "Analysis":
             return """📍 NEXT STEPS (Status: Analysis):
-⚠️ MANDATORY DUAL DELEGATION - ALWAYS DELEGATE TO BOTH:
+⚠️ MANDATORY DUAL DELEGATION - UC-01 WORKFLOW:
 
-1. FIRST delegate to Business Analyst:
-   mcp:delegate_to_agent <task_id> business-analyst "Analyze business requirements"
+1. FIRST delegate to Requirements Analyst:
+   mcp:delegate_to_agent <task_id> requirements-analyst "Analyze requirements and create user stories"
    
-2. THEN delegate to Systems Analyst:
-   mcp:delegate_to_agent <task_id> systems-analyst "Analyze technical requirements"
+2. THEN delegate to System Architect:
+   mcp:delegate_to_agent <task_id> system-architect "Design architecture and technical approach"
    
 3. Save combined analysis: mcp:update_task_analysis <task_id> "<combined_analysis>"
 
 4. ⚠️ MANDATORY: Update to In Progress: mcp:update_status <task_id> "In Progress"
-   (NEVER update to Ready - go directly to In Progress)"""
-        
-        elif status == "Ready":
-            return """⚠️ DEPRECATED STATUS - Should not be in Ready
-1. Immediately update to 'In Progress': mcp:update_status <task_id> "In Progress"
-2. Tasks should go: Analysis → In Progress (not Ready)
-3. After updating status, delegate to appropriate agent"""
+   (NEVER update to Ready - go directly to In Progress per UC-01)"""
         
         elif status == "In Progress":
             return """📍 NEXT STEPS (Status: In Progress):
 1. Monitor development progress
-2. When complete, move to: mcp:update_status <task_id> "Testing"
-3. Or if blocked: mcp:update_status <task_id> "Blocked" """
-        
-        elif status == "Testing":
-            return """📍 NEXT STEPS (Status: Testing):
-🔴 FULL STOP - MANUAL TESTING ONLY
-1. Prepare test environment (ensure app is running)
-2. Provide URLs/endpoints for user to test manually
-3. Document what needs to be tested
-4. ⚠️ NO AUTO PROGRESSION - Wait for user
-5. ONLY user can update status after manual testing
-Note: NEVER automatically move to Code Review"""
-        
-        elif status == "Code Review":
-            return """📍 NEXT STEPS (Status: Code Review):
-1. Complete code review with appropriate agent
-2. After review complete → Update to Pull Request: mcp:update_status <task_id> "PR"
-3. Then create PR ONLY (no merge): mcp:complete_task <task_id> true
-⚠️ DO NOT merge to main, DO NOT run tests"""
+2. When implementation complete, create PR: mcp:update_status <task_id> "PR"
+3. Or if blocked: mcp:update_status <task_id> "Blocked"
+
+📋 UC-02: After development complete → Create PR → Testing → Code Review"""
         
         elif status == "PR":
             return """📍 NEXT STEPS (Status: Pull Request):
-🔴 FULL STOP - NO AUTO ACTIONS
-1. PR has been created (not merged)
-2. Awaiting user to handle merge
-3. NO automatic actions allowed
-4. User will manually merge and update status
-⚠️ DO NOT attempt any automatic actions"""
+UC-02: PR created after development, before testing
+
+1. PR has been created with implementation changes
+2. Next: Move to Testing: mcp:update_status <task_id> "Testing"
+3. Setup test environment and provide URLs for user testing"""
+        
+        elif status == "Testing":
+            return """📍 NEXT STEPS (Status: Testing):
+🔴 UC-04 VARIANT B: MANUAL TESTING MODE (Default)
+
+1. Prepare test environment (ensure app is running)
+2. Provide URLs/endpoints for user to test manually
+3. ⚠️ MANDATORY: Save testing URLs: mcp__claudetask__set_testing_urls
+4. Document what needs to be tested
+5. ⚠️ NO AUTO PROGRESSION - Wait for user
+6. ONLY user can update status after manual testing
+
+Note: UC-04 Variant A (automated testing) requires manual_testing_mode=false"""
+        
+        elif status == "Code Review":
+            return """📍 NEXT STEPS (Status: Code Review):
+UC-05: Code review after testing complete
+
+1. Complete code review with appropriate agent
+2. If approved → User will manually click 'Done' button
+3. User action sends /merge command to merge PR and mark as Done
+
+⚠️ DO NOT transition to Done automatically (UC-05 Variant B)
+Note: UC-05 Variant A (auto-merge) requires manual_review_mode=false"""
         
         elif status == "Done":
             return """✅ TASK COMPLETE
@@ -968,7 +973,8 @@ This task has been merged to main branch and is complete."""
         
         else:
             return f"""📍 CURRENT STATUS: {status}
-Use mcp:update_status to progress the task through the workflow."""
+Use mcp:update_status to progress the task through the workflow.
+New flow (UC-02): Backlog → Analysis → In Progress → PR → Testing → Code Review → Done"""
 
     def _get_agent_for_task(self, task_type: str, status: str, title: str = "", description: str = "") -> Optional[str]:
         """Get the appropriate agent for a task type and status with intelligent context analysis"""
@@ -3033,7 +3039,7 @@ Total chunks: {result['total_chunks']}"""
                 )]
 
     async def _get_project_settings(self) -> list[types.TextContent]:
-        """Get project settings including project_mode and worktree_enabled"""
+        """Get project settings including project_mode, worktree_enabled, and manual modes"""
         async with httpx.AsyncClient() as client:
             try:
                 # Get project data (contains project_mode)
@@ -3042,11 +3048,19 @@ Total chunks: {result['total_chunks']}"""
                 project_data = project_response.json()
                 project_mode = project_data.get("project_mode", "simple")
 
-                # Get project settings (contains worktree_enabled)
+                # Get project settings (contains worktree_enabled and manual modes)
                 settings_response = await client.get(f"{self.server_url}/api/projects/{self.project_id}/settings")
                 settings_response.raise_for_status()
                 settings_data = settings_response.json()
                 worktree_enabled = settings_data.get("worktree_enabled", True)
+                manual_testing_mode = settings_data.get("manual_testing_mode", True)
+                manual_review_mode = settings_data.get("manual_review_mode", True)
+
+                # Determine testing variant (UC-04)
+                testing_variant = "UC-04 Variant B (Manual Testing)" if manual_testing_mode else "UC-04 Variant A (Automated Testing)"
+                
+                # Determine review variant (UC-05)
+                review_variant = "UC-05 Variant B (Manual Review)" if manual_review_mode else "UC-05 Variant A (Auto-merge)"
 
                 return [types.TextContent(
                     type="text",
@@ -3055,6 +3069,12 @@ Total chunks: {result['total_chunks']}"""
 📋 Current Configuration:
 - **Project Mode**: {project_mode}
 - **Worktree Enabled**: {worktree_enabled}
+- **Manual Testing Mode**: {manual_testing_mode} ({testing_variant})
+- **Manual Review Mode**: {manual_review_mode} ({review_variant})
+
+🎯 Workflow Variants:
+- Testing: {"Manual user testing required" if manual_testing_mode else "Automated testing agents"}
+- Review: {"Manual PR review & merge" if manual_review_mode else "Auto-merge after review"}
 
 🎯 Instructions to Follow:
 {self._get_mode_instructions(project_mode, worktree_enabled)}
@@ -3071,6 +3091,8 @@ Use these settings to determine which workflow instructions to apply from CLAUDE
 📋 Using fallback defaults:
 - Project Mode: simple
 - Worktree Enabled: false
+- Manual Testing Mode: true (UC-04 Variant B)
+- Manual Review Mode: true (UC-05 Variant B)
 
 Apply SIMPLE mode instructions from CLAUDE.md"""
                 )]
