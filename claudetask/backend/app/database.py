@@ -215,14 +215,6 @@ async def seed_default_skills():
 
         # Define agent-skill recommendations (updated with new skills)
         agent_recommendations = [
-            # Business Analyst
-            AgentSkillRecommendation(
-                agent_name="business-analyst",
-                skill_id=skills["Business Requirements Analysis"],
-                skill_type="default",
-                priority=1,
-                reason="Core skill for business requirements analysis"
-            ),
             # Systems Analyst
             AgentSkillRecommendation(
                 agent_name="systems-analyst",
@@ -409,14 +401,6 @@ async def seed_default_skills():
                 skill_type="default",
                 priority=1,
                 reason="Essential for requirements gathering and analysis"
-            ),
-            # Business Analyst (additional)
-            AgentSkillRecommendation(
-                agent_name="business-analyst",
-                skill_id=skills["UseCase Writer"],
-                skill_type="default",
-                priority=1,
-                reason="Important for documenting business processes as UseCases"
             ),
             # Technical Writer (additional)
             AgentSkillRecommendation(
@@ -671,14 +655,6 @@ async def seed_default_subagents():
                 recommended_for=["Mobile UI", "Responsive design", "React Native", "Progressive web apps"]
             ),
             # Analysis Agents
-            DefaultSubagent(
-                name="Business Analyst",
-                description="Analyze business requirements, processes, and stakeholder needs to bridge the gap between business and technical teams",
-                category="Analysis",
-                subagent_type="business-analyst",
-                tools_available=["Read", "Write", "Edit", "TodoWrite", "Grep", "Bash"],
-                recommended_for=["Requirements gathering", "Business analysis", "User stories", "Feature specifications"]
-            ),
             DefaultSubagent(
                 name="Systems Analyst",
                 description="Analyze existing systems, design solutions, and bridge technical architecture with business requirements using RAG-powered codebase search",

@@ -44,7 +44,6 @@ class ClaudeTaskMCPServer:
             "api-validator",
             "backend-architect",
             "background-tester",
-            "business-analyst",
             "context-analyzer",
             "data-formatter",
             "devops-engineer",
@@ -347,7 +346,7 @@ class ClaudeTaskMCPServer:
                                 "type": "string",
                                 "enum": [
                                     "ai-implementation-expert", "api-validator", "backend-architect",
-                                    "background-tester", "business-analyst", "context-analyzer", 
+                                    "background-tester", "context-analyzer",
                                     "data-formatter", "devops-engineer", "docs-generator", 
                                     "frontend-developer", "fullstack-code-reviewer", "mcp-engineer", 
                                     "memory-sync", "mobile-react-expert", "python-api-expert",
