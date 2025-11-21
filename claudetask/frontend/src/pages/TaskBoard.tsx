@@ -595,7 +595,7 @@ const TaskBoard: React.FC = () => {
     inProgress: tasks?.filter(t => t.status === 'In Progress').length || 0,
   };
 
-  // Task Card Component - Compact design for development mode
+  // Task Card Component - Compact modern design
   const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
     const isBug = task.type === 'Bug';
 
@@ -608,96 +608,60 @@ const TaskBoard: React.FC = () => {
           // Bug cards have reddish background
           background: isBug
             ? theme.palette.mode === 'dark'
-              ? alpha(theme.palette.error.main, 0.15)
-              : alpha(theme.palette.error.main, 0.05)
+              ? alpha(theme.palette.error.main, 0.12)
+              : alpha(theme.palette.error.main, 0.04)
             : theme.palette.background.paper,
           border: `1px solid ${
             isBug
-              ? alpha(theme.palette.error.main, 0.3)
-              : alpha(theme.palette.divider, 0.5)
+              ? alpha(theme.palette.error.main, 0.25)
+              : alpha(theme.palette.divider, 0.12)
           }`,
-          borderRadius: 2,
+          borderRadius: 1.5,
           transition: 'all 0.2s ease-in-out',
           '&:hover': {
             transform: 'translateY(-2px)',
-            boxShadow: theme.palette.mode === 'dark'
-              ? `0 4px 12px ${alpha(theme.palette.common.black, 0.4)}`
-              : `0 4px 12px ${alpha(theme.palette.common.black, 0.1)}`,
+            boxShadow: `0 4px 12px ${alpha(theme.palette.common.black, 0.08)}`,
             border: `1px solid ${
               isBug
-                ? alpha(theme.palette.error.main, 0.5)
-                : alpha(theme.palette.primary.main, 0.5)
+                ? alpha(theme.palette.error.main, 0.4)
+                : alpha(theme.palette.primary.main, 0.3)
             }`,
+            '& .task-actions': {
+              opacity: 1,
+            },
           },
         }}
         onClick={() => handleTaskClick(task)}
       >
-        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-          {/* Main content row */}
-          <Box display="flex" alignItems="flex-start" justifyContent="space-between" gap={1}>
-            {/* Task title and info */}
-            <Box flexGrow={1} minWidth={0}>
-              {/* Task title */}
-              <Typography
-                variant="body2"
-                sx={{
-                  fontWeight: 600,
-                  mb: 1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  lineHeight: 1.4,
-                  color: isBug ? theme.palette.error.main : theme.palette.text.primary,
-                }}
-              >
-                {task.title}
-              </Typography>
+        <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+          {/* Header with action buttons */}
+          <Box display="flex" alignItems="flex-start" justifyContent="space-between" mb={1}>
+            {/* Task ID badge */}
+            <Chip
+              label={`#${task.id}`}
+              size="small"
+              sx={{
+                height: 18,
+                fontSize: '0.65rem',
+                fontWeight: 600,
+                background: alpha(theme.palette.primary.main, 0.1),
+                color: theme.palette.primary.main,
+                '& .MuiChip-label': {
+                  px: 0.75,
+                },
+              }}
+            />
 
-              {/* Priority and Type chips */}
-              <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                {/* Priority chip */}
-                <Chip
-                  label={task.priority}
-                  size="small"
-                  color={getPriorityColor(task.priority) as any}
-                  sx={{
-                    height: 20,
-                    fontSize: '0.7rem',
-                    fontWeight: 500,
-                    '& .MuiChip-label': {
-                      px: 1,
-                    },
-                  }}
-                />
-
-                {/* Type chip with icon */}
-                <Chip
-                  icon={isBug ? <BugIcon sx={{ fontSize: 14 }} /> : <CodeIcon sx={{ fontSize: 14 }} />}
-                  label={task.type}
-                  size="small"
-                  variant="outlined"
-                  sx={{
-                    height: 20,
-                    fontSize: '0.7rem',
-                    fontWeight: 500,
-                    borderColor: isBug ? theme.palette.error.main : theme.palette.primary.main,
-                    color: isBug ? theme.palette.error.main : theme.palette.primary.main,
-                    '& .MuiChip-label': {
-                      px: 0.5,
-                    },
-                    '& .MuiChip-icon': {
-                      ml: 0.5,
-                    },
-                  }}
-                />
-              </Stack>
-            </Box>
-
-            {/* Action buttons column */}
-            <Stack direction="column" spacing={0.5} sx={{ flexShrink: 0 }}>
-              {/* Context menu button */}
+            {/* Action buttons */}
+            <Box
+              className="task-actions"
+              sx={{
+                display: 'flex',
+                gap: 0.5,
+                opacity: 0.6,
+                transition: 'opacity 0.2s',
+              }}
+            >
               <IconButton
                 size="small"
                 onClick={(e) => {
@@ -705,8 +669,8 @@ const TaskBoard: React.FC = () => {
                   handleStatusMenuOpen(e, task);
                 }}
                 sx={{
-                  width: 28,
-                  height: 28,
+                  width: 24,
+                  height: 24,
                   color: theme.palette.text.secondary,
                   '&:hover': {
                     background: alpha(theme.palette.primary.main, 0.1),
@@ -714,10 +678,9 @@ const TaskBoard: React.FC = () => {
                   },
                 }}
               >
-                <MoreIcon fontSize="small" />
+                <MoreIcon sx={{ fontSize: 16 }} />
               </IconButton>
 
-              {/* Delete button */}
               <IconButton
                 size="small"
                 onClick={(e) => {
@@ -727,18 +690,78 @@ const TaskBoard: React.FC = () => {
                   }
                 }}
                 sx={{
-                  width: 28,
-                  height: 28,
-                  color: theme.palette.error.main,
+                  width: 24,
+                  height: 24,
+                  color: theme.palette.text.secondary,
                   '&:hover': {
                     background: alpha(theme.palette.error.main, 0.1),
+                    color: theme.palette.error.main,
                   },
                 }}
               >
-                <DeleteIcon fontSize="small" />
+                <DeleteIcon sx={{ fontSize: 16 }} />
               </IconButton>
-            </Stack>
+            </Box>
           </Box>
+
+          {/* Task title */}
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: 500,
+              mb: 1,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              lineHeight: 1.4,
+              fontSize: '0.875rem',
+              color: isBug ? theme.palette.error.main : theme.palette.text.primary,
+            }}
+          >
+            {task.title}
+          </Typography>
+
+          {/* Priority and Type chips */}
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            {/* Priority chip */}
+            <Chip
+              label={task.priority}
+              size="small"
+              color={getPriorityColor(task.priority) as any}
+              sx={{
+                height: 20,
+                fontSize: '0.65rem',
+                fontWeight: 600,
+                '& .MuiChip-label': {
+                  px: 0.75,
+                },
+              }}
+            />
+
+            {/* Type chip with icon */}
+            <Chip
+              icon={isBug ? <BugIcon sx={{ fontSize: 12 }} /> : <CodeIcon sx={{ fontSize: 12 }} />}
+              label={task.type}
+              size="small"
+              variant="outlined"
+              sx={{
+                height: 20,
+                fontSize: '0.65rem',
+                fontWeight: 600,
+                borderColor: isBug ? theme.palette.error.main : theme.palette.primary.main,
+                color: isBug ? theme.palette.error.main : theme.palette.primary.main,
+                '& .MuiChip-label': {
+                  px: 0.5,
+                },
+                '& .MuiChip-icon': {
+                  ml: 0.5,
+                  mr: -0.25,
+                },
+              }}
+            />
+          </Stack>
         </CardContent>
       </Card>
     );
