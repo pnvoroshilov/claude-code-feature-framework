@@ -1180,11 +1180,20 @@ const TaskBoard: React.FC = () => {
         anchorEl={statusMenuAnchor}
         open={Boolean(statusMenuAnchor)}
         onClose={handleStatusMenuClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
         PaperProps={{
           sx: {
             maxHeight: 300,
             width: '280px',
             borderRadius: 2,
+            mt: 0.5,
           }
         }}
       >
