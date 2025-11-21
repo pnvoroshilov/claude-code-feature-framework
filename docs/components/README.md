@@ -125,6 +125,22 @@ Skills management interface for creating and managing Claude Code skills.
 
 **Status:** Active, Extended Capabilities System
 
+#### [MCPConfigs](./MCPConfigs.md)
+MCP (Model Context Protocol) server configuration management interface.
+
+**Features:**
+- Browse and enable default MCP server configs
+- Create custom project-specific MCP configs
+- Search MCP servers from GitHub registry
+- Import existing `.mcp.json` configurations
+- JSON configuration editor with validation
+- Bulk enable/disable operations
+- Environment variable management
+
+**Location:** `claudetask/frontend/src/pages/MCPConfigs.tsx`
+
+**Status:** Active, MCP Integration System
+
 ## Component Architecture
 
 ### Technology Stack
@@ -209,6 +225,7 @@ Components for managing framework features:
 - **Hooks** - Automated shell command configuration at workflow trigger points
 - **Subagents** - Specialized AI assistant management and delegation
 - **Skills** - Extended capability creation and management
+- **MCPConfigs** - Model Context Protocol server configuration management
 
 ### 4. Task Management
 Components for task and project management:
@@ -377,8 +394,8 @@ When adding or updating components:
 
 ---
 
-**Last Updated**: 2025-11-20
-**Total Components Documented**: 7
+**Last Updated**: 2025-11-21
+**Total Components Documented**: 8
 **Documentation Status**: Active maintenance
 
 ## Component Documentation Index
@@ -392,6 +409,7 @@ When adding or updating components:
 | Hooks | Framework Management | Active | v1.0 | [View](./Hooks.md) |
 | Subagents | Framework Management | Active | v1.0 | [View](./Subagents.md) |
 | Skills | Framework Management | Active | v1.0 | [View](./Skills.md) |
+| MCPConfigs | Framework Management | Active | v2.0 | [View](./MCPConfigs.md) |
 | TaskBoard | Task Management | Active | v1.1 | Integrated File Browser navigation |
 | Tasks | Task Management | Pending | - | To be documented |
 | Projects | Task Management | Pending | - | To be documented |

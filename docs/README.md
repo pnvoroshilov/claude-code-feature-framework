@@ -16,6 +16,8 @@ API documentation including OpenAPI specifications and endpoint details.
 - `endpoints/settings.md` - Project settings API for configuration management
 - `endpoints/skills.md` - Skills management API with bulk operations
 - `endpoints/hooks.md` - Hooks management API with bulk operations
+- `endpoints/subagents.md` - Subagents management API for specialized AI assistants
+- `endpoints/mcp-configs.md` - MCP server configuration management API
 - `endpoints/rag-indexing.md` - RAG codebase indexing API
 
 ### `/components/`
@@ -30,6 +32,7 @@ React component documentation with props, usage examples, and patterns.
 - `Hooks.md` - Hooks management UI for automated shell command configuration
 - `Subagents.md` - Subagent management UI for specialized AI assistants
 - `Skills.md` - Skills management interface for extended capabilities
+- `MCPConfigs.md` - MCP server configuration management interface
 
 ### `/architecture/`
 System architecture, design decisions, and database schema.
@@ -414,12 +417,12 @@ New documentation is automatically created when:
 - [ ] Performance optimization guides
 
 **Documentation Metrics:**
-- Total files: 29 active, 3 archived
-- API endpoints documented: 6 (including Hooks API)
+- Total files: 32 active, 3 archived
+- API endpoints documented: 8 (Hooks, Skills, Subagents, MCP Configs, Sessions, File Browser, Settings, RAG)
 - MCP tools documented: 16+ tools with complete reference
 - Slash commands documented: 10+ commands with full examples
 - Workflow phases documented: 7 phases in intelligent workflow
-- Components documented: 7 (FileBrowser, RealTerminal, ClaudeSessions, etc.)
+- Components documented: 8 (FileBrowser, RealTerminal, ClaudeSessions, MCPConfigs, etc.)
 - Hooks documented: 8 framework hooks (including inject-docs-update)
 - Skills documented: 16 default skills + custom skill system
 - Modular instructions documented: 10 instruction files
