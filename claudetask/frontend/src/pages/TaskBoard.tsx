@@ -937,39 +937,6 @@ const TaskBoard: React.FC = () => {
           </Stack>
           </Stack>
 
-          {/* Statistics Cards */}
-          <Grid container spacing={2} mb={3}>
-            {[
-              { label: 'Total Tasks', value: stats.total, color: theme.palette.primary.main },
-              { label: 'Features', value: stats.features, color: theme.palette.success.main },
-              { label: 'Bugs', value: stats.bugs, color: theme.palette.error.main },
-              { label: 'In Progress', value: stats.inProgress, color: theme.palette.warning.main },
-            ].map((stat) => (
-              <Grid item xs={12} sm={6} md={3} key={stat.label}>
-                <Paper
-                  sx={{
-                    p: 2.5,
-                    borderRadius: 2,
-                    background: `linear-gradient(145deg, ${alpha(stat.color, 0.05)}, ${alpha(stat.color, 0.02)})`,
-                    border: `1px solid ${alpha(stat.color, 0.15)}`,
-                    transition: 'all 0.3s ease',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: `0 8px 16px ${alpha(stat.color, 0.2)}`,
-                    },
-                  }}
-                >
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    {stat.label}
-                  </Typography>
-                  <Typography variant="h3" sx={{ fontWeight: 700, color: stat.color }}>
-                    {stat.value}
-                  </Typography>
-                </Paper>
-              </Grid>
-            ))}
-          </Grid>
-
           {/* Search and Filter Bar */}
           <Paper
             sx={{
@@ -981,10 +948,9 @@ const TaskBoard: React.FC = () => {
               border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
             }}
           >
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
-              {/* Search */}
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
+              {/* Search - 50% width */}
               <TextField
-                fullWidth
                 placeholder="Search tasks by title, description, or ID..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -996,6 +962,7 @@ const TaskBoard: React.FC = () => {
                   ),
                 }}
                 sx={{
+                  width: { xs: '100%', md: '50%' },
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
                   },
