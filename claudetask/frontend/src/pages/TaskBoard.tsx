@@ -228,29 +228,15 @@ const TaskBoard: React.FC = () => {
             break;
 
           case 'Testing':
-            // UC-04: In Progress → Testing triggers /test only if manual_testing_mode is false
-            if (projectSettings && !projectSettings.manual_testing_mode) {
-              command = `/test`;
-            } else {
-              setSnackbar({
-                open: true,
-                message: `Task moved to Testing. Manual testing mode enabled - please test manually.`,
-                severity: 'info'
-              });
-            }
+            // UC-04: In Progress → Testing triggers /test command
+            // The command handles both manual and automated modes
+            command = `/test ${taskId}`;
             break;
 
           case 'Code Review':
-            // UC-05: Testing → Code Review triggers /PR only if manual_review_mode is false
-            if (projectSettings && !projectSettings.manual_review_mode) {
-              command = `/PR`;
-            } else {
-              setSnackbar({
-                open: true,
-                message: `Task moved to Code Review. Manual review mode enabled - please review manually.`,
-                severity: 'info'
-              });
-            }
+            // UC-05: Testing → Code Review triggers /PR command
+            // The command handles both manual and automated modes
+            command = `/PR ${taskId}`;
             break;
 
           case 'PR':

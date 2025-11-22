@@ -1,288 +1,181 @@
 ---
-allowed-tools: [Bash, Read, Write, Edit, Grep, Glob]
+description: Execute testing workflow - manual or automated based on project settings (UC-04)
 argument-hint: [task-id]
-description: Start testing phase for a task. Create Tests folder, setup test environment, and guide manual testing.
 ---
 
-# Start Testing Phase
+# Testing Workflow - UC-04
 
-I'll start the testing phase for this task, setting up the test environment and creating testing documentation.
+When you run this command, the system will execute the UC-04 testing workflow based on the project's `manual_mode` setting.
 
-## Prerequisites
+## Step 1: Check Project Settings
 
-Before starting testing:
-- ✅ Task must be in "In Progress" status with implementation complete
-- ✅ All code changes committed to task branch
-- ✅ Implementation meets requirements from requirements.md
-
-## Getting Task Information
-
-First, let me get the task details:
+First, determine which testing mode is enabled:
 
 ```bash
-# Get task information
-mcp:get_task <task_id>
+mcp__claudetask__get_project_settings
 ```
 
-## Testing Workflow
+Look for: `"Manual Mode": True` or `False`
 
-### Step 1: Update Task Status to "Tests"
+## Step 2a: Manual Mode (manual_mode = true)
 
-Move the task from "In Progress" to "Tests":
+If Manual Mode is enabled, follow the manual testing workflow:
+
+### Find Available Ports
+```bash
+lsof -i :3333  # Backend default
+lsof -i :3000  # Frontend default
+
+# If occupied, find free ports in ranges:
+# Backend: 3333-5000
+# Frontend: 3000-4000
+```
+
+### Start Backend Server
+```bash
+cd worktrees/task-{id}
+python -m uvicorn app.main:app --port FREE_BACKEND_PORT --reload &
+```
+
+### Start Frontend Server
+```bash
+cd worktrees/task-{id}
+PORT=FREE_FRONTEND_PORT npm start &
+```
+
+### 🔴 MANDATORY: Save Testing URLs
+```bash
+mcp__claudetask__set_testing_urls --task_id={id} \
+  --urls='{"frontend": "http://localhost:FREE_FRONTEND_PORT", "backend": "http://localhost:FREE_BACKEND_PORT"}'
+```
+
+⛔ **DO NOT SKIP THIS STEP** - Testing URLs MUST be saved for task tracking!
+
+### Save Stage Result
+```bash
+mcp__claudetask__append_stage_result --task_id={id} --status="Testing" \
+  --summary="Testing environment ready with URLs saved" \
+  --details="Backend: http://localhost:FREE_BACKEND_PORT
+Frontend: http://localhost:FREE_FRONTEND_PORT
+✅ URLs saved to database for persistent access
+Ready for manual testing"
+```
+
+### Notify User
+```
+✅ Testing environment ready and URLs SAVED to task:
+- Backend: http://localhost:FREE_BACKEND_PORT
+- Frontend: http://localhost:FREE_FRONTEND_PORT
+- URLs permanently saved to task #{id} for easy access
+
+Please perform manual testing and update status when complete.
+```
+
+### Wait for User
+- User will test manually via browser
+- User will update status when testing is complete
+- **DO NOT auto-transition** - wait for user action
+
+## Step 2b: Automated Mode (manual_mode = false)
+
+If Automated Mode is enabled, delegate to testing agents:
+
+### Read Analysis Documents
+```bash
+# Get task details
+mcp__claudetask__get_task --task_id={id}
+
+# Read analysis docs in worktree
+cat worktrees/task-{id}/Analyze/Requirements/*
+cat worktrees/task-{id}/Analyze/Design/*
+```
+
+### Determine Test Types
+Based on analysis docs and DoD, determine which tests are needed:
+- ✅ UI/Frontend tests (web-tester agent)
+- ✅ Backend/API tests (quality-engineer agent)
+- ✅ Integration tests (if multiple components changed)
+
+### Delegate to Testing Agents
+
+**For Frontend/UI Testing:**
+```bash
+mcp__claudetask__delegate_to_agent \
+  --task_id={id} \
+  --agent_type="web-tester" \
+  --instructions="Read /Analyze docs and DoD. Create and execute UI tests per test plan. Save results in /Tests/Report/ui-tests.md"
+```
+
+**For Backend Testing:**
+```bash
+mcp__claudetask__delegate_to_agent \
+  --task_id={id} \
+  --agent_type="quality-engineer" \
+  --instructions="Read /Analyze docs and DoD. Create pytest tests for backend APIs. Test all endpoints from test plan. Run tests and save results in /Tests/Report/backend-tests.md"
+```
+
+### Wait for Test Results
+Monitor agent completion and collect test reports from:
+- `/Tests/Report/ui-tests.md`
+- `/Tests/Report/backend-tests.md`
+
+### Analyze Test Results
+Review all test reports and determine:
+- ✅ All tests passed → Proceed to next step
+- ❌ Critical failures → Return to "In Progress"
+- ⚠️ Minor issues → Document and proceed (or return based on severity)
+
+### Save Stage Result
+```bash
+mcp__claudetask__append_stage_result --task_id={id} --status="Testing" \
+  --summary="Automated testing completed" \
+  --details="UI Tests: [PASS/FAIL count]
+Backend Tests: [PASS/FAIL count]
+Total: [X passed, Y failed]
+Reports: /Tests/Report/*.md"
+```
+
+### Auto-Transition Status
+**Based on test results:**
 
 ```bash
-mcp:update_status <task_id> "Tests"
+# If all tests passed
+mcp__claudetask__update_status --task_id={id} --status="Code Review" \
+  --comment="All automated tests passed"
+
+# If critical issues found
+mcp__claudetask__update_status --task_id={id} --status="In Progress" \
+  --comment="Critical test failures: [list issues]"
 ```
 
-**This will automatically**:
-- Create `Tests/` folder in task worktree
-- Generate `Tests/README.md` with testing instructions
-- Set up test environment (start frontend and backend servers on available ports)
-- Save testing URLs to task for easy access
-
-### Step 2: Create Test Plan Document
-
-I'll create a comprehensive test plan in the Tests/ folder:
-
-**File**: `worktrees/task-<id>/Tests/test-plan.md`
-
-**Template**:
-```markdown
-# Test Plan: [Task Title]
-
-## 📋 Testing Scope
-
-Testing the implementation of: [Brief description]
-
-Based on requirements from: `Analyse/requirements.md`
-
-## ✅ Acceptance Criteria Testing
-
-### User Story 1: [Name]
-**Acceptance Criteria:**
-- [ ] Criterion 1 - [How to test] - Result: [Pass/Fail]
-- [ ] Criterion 2 - [How to test] - Result: [Pass/Fail]
-- [ ] Criterion 3 - [How to test] - Result: [Pass/Fail]
-
-### User Story 2: [Name]
-[Repeat for each user story from requirements.md]
-
-## 🧪 Functional Requirements Testing
-
-### FR1: [Requirement Name]
-**Test Steps:**
-1. [Step 1]
-2. [Step 2]
-3. [Expected result]
-
-**Result:** ✅ Pass / ❌ Fail
-**Notes:** [Any observations]
-
-### FR2: [Requirement Name]
-[Repeat for each functional requirement]
-
-## 🔍 Edge Cases Testing
-
-### Edge Case 1: [Scenario]
-**Test Steps:**
-1. [How to trigger edge case]
-2. [Expected behavior]
-
-**Result:** ✅ Pass / ❌ Fail
-**Notes:** [Observations]
-
-## 🎨 UI/UX Testing (if applicable)
-
-- [ ] Visual design matches requirements
-- [ ] Responsive design works on different screen sizes
-- [ ] Accessibility standards met
-- [ ] User interaction is intuitive
-- [ ] Loading states display correctly
-- [ ] Error messages are clear
-
-## ⚡ Performance Testing
-
-- [ ] Page load time acceptable (< 2s)
-- [ ] No performance regressions
-- [ ] API response times acceptable
-- [ ] Resource usage reasonable
-
-## 🔒 Security Testing
-
-- [ ] Input validation working
-- [ ] No security vulnerabilities introduced
-- [ ] Authentication/authorization working (if applicable)
-- [ ] Data protection implemented
-
-## 📱 Browser/Device Testing
-
-- [ ] Chrome - Version: [X] - Result: [Pass/Fail]
-- [ ] Firefox - Version: [X] - Result: [Pass/Fail]
-- [ ] Safari - Version: [X] - Result: [Pass/Fail]
-- [ ] Edge - Version: [X] - Result: [Pass/Fail]
-- [ ] Mobile (iOS/Android) - Result: [Pass/Fail]
-
-## 🐛 Bugs Found
-
-### Bug 1:
-- **Description:** [What went wrong]
-- **Steps to reproduce:** [How to trigger bug]
-- **Expected:** [What should happen]
-- **Actual:** [What actually happened]
-- **Severity:** High/Medium/Low
-- **Status:** Open/Fixed
-
-### Bug 2:
-[Add more bugs as found]
-
-## ✅ Testing Summary
-
-**Total Tests:** [Number]
-**Passed:** [Number] ✅
-**Failed:** [Number] ❌
-**Bugs Found:** [Number]
-
-**Overall Result:** ✅ Ready for Code Review / ❌ Needs Fixes
-
-## 📝 Additional Notes
-
-[Any additional observations, suggestions, or concerns]
-
-## 🎯 Next Steps
-
-- [ ] All critical bugs fixed
-- [ ] All acceptance criteria met
-- [ ] Performance acceptable
-- [ ] Ready to move to Code Review status
-```
-
-### Step 3: Access Test Environment
-
-The test environment URLs will be available in the task details:
+## Usage
 
 ```bash
-# Get testing URLs from task
-mcp:get_task <task_id>
-
-# Testing URLs will be shown:
-# Frontend: http://localhost:XXXX
-# Backend: http://localhost:YYYY
+/test [task-id]
 ```
 
-You can also access them from the ClaudeTask UI.
-
-### Step 4: Perform Manual Testing
-
-Follow the test plan and test each requirement:
-
-1. **Open the test URLs** in your browser
-2. **Test each acceptance criterion** from requirements.md
-3. **Document results** in test-plan.md
-4. **Record any bugs found** with details
-5. **Test edge cases** and error scenarios
-6. **Verify performance** and usability
-
-### Step 5: Document Test Results
-
-As you test, update the test-plan.md file:
+## Example
 
 ```bash
-# Edit test plan with results
-cd worktrees/task-<id>/Tests
-# Update test-plan.md with pass/fail status for each test
+/test 42
 ```
 
-### Step 6: Handle Test Results
+This will:
+1. ✅ Check project settings for testing mode
+2. ✅ If manual mode: Start test servers, save URLs, wait for user
+3. ✅ If automated mode: Delegate to testing agents, run tests, auto-transition
 
-**If all tests pass:**
-```bash
-# Update test-plan.md with "Ready for Code Review" status
-# Commit the test plan
-cd worktrees/task-<id>
-git add Tests/test-plan.md
-git commit -m "test(task-<id>): Add test plan and results
+## Required Preconditions
 
-All acceptance criteria tested and passing.
+- Task must be in "Testing" status
+- Implementation must be complete
+- Worktree must exist
+- For automated mode: Analysis documents must exist
 
-Refs: #<task_id>"
+## Notes
 
-# Move to Code Review status
-mcp:update_status <task_id> "Code Review"
-```
-
-**If tests fail or bugs found:**
-```bash
-# Document bugs in test-plan.md
-# Move back to In Progress to fix bugs
-mcp:update_status <task_id> "In Progress"
-
-# Fix the bugs, then return to testing
-```
-
-## Testing Checklist
-
-- [ ] Test environment set up and accessible
-- [ ] test-plan.md created with comprehensive test cases
-- [ ] All acceptance criteria tested
-- [ ] All functional requirements tested
-- [ ] Edge cases tested
-- [ ] Performance verified
-- [ ] UI/UX reviewed (if applicable)
-- [ ] Browser compatibility checked
-- [ ] All bugs documented
-- [ ] Test results recorded in test-plan.md
-
-## Tips for Effective Testing
-
-1. **Be thorough**: Test more than just the happy path
-2. **Think like a user**: Try to break the feature
-3. **Document everything**: Record all observations
-4. **Test edge cases**: Try unusual inputs and scenarios
-5. **Check error handling**: Verify errors are handled gracefully
-6. **Performance matters**: Note any slowness or issues
-7. **Test on multiple browsers**: Ensure compatibility
-
-## Common Test Scenarios
-
-### For UI Features:
-- Click all buttons and links
-- Try invalid inputs
-- Test with different data
-- Check responsive design
-- Verify loading states
-- Test error messages
-
-### For API Features:
-- Test with valid data
-- Test with invalid data
-- Check error responses
-- Verify data validation
-- Test edge cases
-- Check performance
-
-### For Bug Fixes:
-- Reproduce original bug (should be fixed)
-- Test related functionality (no regressions)
-- Test edge cases around the fix
-- Verify fix doesn't break anything else
-
-## Completion
-
-When testing is complete:
-
-1. **All tests documented** in test-plan.md
-2. **All bugs recorded** (or fixed)
-3. **Test summary completed**
-4. **Ready for next phase**
-
-Then move to Code Review:
-```bash
-mcp:update_status <task_id> "Code Review"
-```
-
-Or if manual_mode = false, skip directly to PR creation:
-```bash
-# Use /PR command to create pull request
-```
-
-Let me start by getting task information and setting up the testing phase...
+- This implements UC-04 from `Workflow/new_workflow_usecases.md`
+- Supports both manual and automated testing modes
+- Mode is determined by `manual_mode` project setting
+- In manual mode: Testing URLs are **mandatory**
+- In automated mode: Tests run automatically and status auto-transitions

@@ -1,319 +1,165 @@
 ---
-allowed-tools: [Bash, Read, Write, Edit, Grep, Glob, Task]
+description: Execute code review workflow - manual or automated based on project settings (UC-05)
 argument-hint: [task-id]
-description: Create pull request for a completed task, handle code review (if manual_mode), and merge to main.
 ---
 
-# Create Pull Request and Merge
+# Code Review Workflow - UC-05
 
-I'll create a pull request for this task, coordinate code review if needed, and handle the merge to main.
+When you run this command, the system will execute the UC-05 code review workflow based on the project's `manual_mode` setting.
 
-## Prerequisites
+## Step 1: Check Project Settings
 
-Before creating PR:
-- ✅ Task must be in "Code Review" or "Tests" status
-- ✅ All tests passed (test-plan.md shows "Ready for Code Review")
-- ✅ requirements.md exists in Analyse/ folder
-- ✅ architecture.md exists in Analyse/ folder
-- ✅ All code committed and pushed
-
-## Getting Task Information
-
-First, let me get the task details and project settings:
+First, determine which code review mode is enabled:
 
 ```bash
-# Get task information
-mcp:get_task <task_id>
-
-# Get project settings to check manual_mode
-# This will tell us if code review is required
+mcp__claudetask__get_project_settings
 ```
 
-## PR Creation Workflow
+Look for: `"Manual Mode": True` or `False`
 
-### Step 1: Verify Prerequisites
+## Step 2a: Manual Mode (manual_mode = true)
 
-I'll check that all required documents exist:
+If Manual Mode is enabled, the user performs code review manually:
+
+### Notify User
+```
+✅ Task is ready for Code Review.
+
+Manual Mode is enabled - please review the code manually:
+- Review the Pull Request on GitHub/GitLab
+- Check code quality and adherence to standards
+- Verify test coverage
+- Ensure DoD is met
+- Approve or request changes
+
+Update task status when review is complete.
+```
+
+### Save Stage Result
+```bash
+mcp__claudetask__append_stage_result --task_id={id} --status="Code Review" \
+  --summary="Awaiting manual code review" \
+  --details="Manual mode enabled - user will review PR manually
+PR is ready for review
+Waiting for user approval or feedback"
+```
+
+### Wait for User
+- User will review the PR manually
+- User will approve or request changes
+- User will update status when review is complete
+- **DO NOT auto-transition** - wait for user action
+
+## Step 2b: Automated Mode (manual_mode = false)
+
+If Automated Mode is enabled, delegate to code review agent:
+
+### Get Task and PR Details
+```bash
+# Get task details
+mcp__claudetask__get_task --task_id={id}
+
+# Get PR information from task
+# The PR URL should be in task metadata
+```
+
+### Delegate to Code Review Agent
 
 ```bash
-# Verify analysis documents
-ls worktrees/task-<id>/Analyse/requirements.md
-ls worktrees/task-<id>/Analyse/architecture.md
+mcp__claudetask__delegate_to_agent \
+  --task_id={id} \
+  --agent_type="fullstack-code-reviewer" \
+  --instructions="Review the PR for task #{id}. Check:
+- Code quality and best practices
+- Test coverage and passing tests
+- DoD compliance
+- Security vulnerabilities
+- Performance considerations
+- Architecture consistency
 
-# Verify test plan (if exists)
-ls worktrees/task-<id>/Tests/test-plan.md
+If approved: auto-merge PR and save review results.
+If issues found: document them and DO NOT merge.
 
-# Check git status
-cd worktrees/task-<id>
-git status
+Save review report in /Tests/Report/code-review.md"
 ```
 
-### Step 2: Gather PR Information
+### Wait for Code Review Results
 
-I'll collect information for the PR description:
+Monitor agent completion and check review report:
+- `/Tests/Report/code-review.md`
+
+### Analyze Review Results
+
+Review the code review report and determine:
+- ✅ Approved → Auto-merge PR and proceed
+- ❌ Changes required → Return to "In Progress"
+- ⚠️ Minor issues → Document and decide based on severity
+
+### Auto-Merge (if approved)
 
 ```bash
-# Read requirements
-cat worktrees/task-<id>/Analyse/requirements.md
-
-# Read architecture
-cat worktrees/task-<id>/Analyse/architecture.md
-
-# Read test plan
-cat worktrees/task-<id>/Tests/test-plan.md
-
-# Get list of changed files
-git diff --name-only main...HEAD
-
-# Get commit history
-git log main..HEAD --oneline
+# If review passed, merge PR
+cd worktrees/task-{id}
+git checkout main
+git pull origin main
+git merge --no-ff task-{id}-branch
+git push origin main
 ```
 
-### Step 3: Delegate to PR Merge Agent
-
-I'll use the pr-merge-agent to handle the PR creation and merge:
+### Save Stage Result
 
 ```bash
-# Use Task tool to delegate to pr-merge-agent
-Task tool with pr-merge-agent:
-"Create pull request and handle merge for this task.
-
-Task Details:
-- ID: <task_id>
-- Title: <task_title>
-- Description: <task_description>
-- Worktree: worktrees/task-<id>
-- Branch: feature/task-<id>
-
-Requirements: [Summary from requirements.md]
-Architecture: [Summary from architecture.md]
-Test Results: [Summary from test-plan.md]
-
-Project Settings:
-- manual_mode: <true/false>
-
-Instructions:
-1. Create comprehensive PR description
-2. Create PR with gh CLI
-3. If manual_mode = true:
-   - Wait for code review approval
-   - Coordinate review feedback
-4. If manual_mode = false:
-   - Skip code review
-   - Proceed to merge when checks pass
-5. Merge PR to main
-6. Clean up worktree and branch
-7. Update task status to 'Done'
-8. Provide merge summary
-
-Worktree path: worktrees/task-<id>
-"
+mcp__claudetask__append_stage_result --task_id={id} --status="Code Review" \
+  --summary="Automated code review completed" \
+  --details="Code Review: [APPROVED/CHANGES REQUIRED]
+Issues found: [count]
+Review report: /Tests/Report/code-review.md
+PR status: [MERGED/PENDING]"
 ```
 
-## What the PR Merge Agent Will Do
+### Auto-Transition Status
 
-### If manual_mode = false (Automated):
-
-1. **Create PR** with comprehensive description
-2. **Wait for automated checks** to pass
-3. **Merge PR** to main automatically
-4. **Clean up resources**:
-   - Delete worktree
-   - Delete branch
-   - Stop test servers
-5. **Update task to "Done"**
-6. **Provide summary**
-
-### If manual_mode = true (Manual Review):
-
-1. **Create PR** with comprehensive description
-2. **Wait for code review**:
-   - Notify that manual review is required
-   - Provide PR URL for reviewer
-   - Wait for approval
-3. **After approval received**:
-   - Merge PR to main
-   - Clean up resources
-   - Update task to "Done"
-   - Provide summary
-
-## PR Description Template
-
-The PR will include:
-
-```markdown
-# [Task Title]
-
-## 📋 Task Overview
-[Brief description]
-
-**Task ID:** #<task_id>
-**Type:** Feature/Bug Fix
-**Priority:** High/Medium/Low
-
-## 🎯 Business Requirements
-
-[From requirements.md - key user stories and acceptance criteria]
-
-## 🏗️ Technical Implementation
-
-[From architecture.md - architecture decisions and approach]
-
-## 📊 Changes Made
-
-### Files Changed
-- file1.tsx - [Description]
-- file2.py - [Description]
-
-### Components Modified
-- Component 1: [Changes]
-- Component 2: [Changes]
-
-## ✅ Testing
-
-[From test-plan.md - test results]
-
-- ✅ All acceptance criteria tested and passing
-- ✅ Edge cases covered
-- ✅ Performance acceptable
-- ✅ No regressions found
-
-## 📚 Documentation
-
-- ✅ requirements.md created
-- ✅ architecture.md created
-- ✅ test-plan.md completed
-- ✅ Code comments added
-
-## 🔗 Related Links
-
-- Analysis: Analyse/requirements.md, Analyse/architecture.md
-- Tests: Tests/test-plan.md
-```
-
-## Code Review Process (Manual Mode Only)
-
-If manual_mode = true:
-
-### Waiting for Review:
-```
-PR Created: #<pr_number>
-URL: https://github.com/user/repo/pull/<pr_number>
-
-Status: Awaiting code review
-
-⏳ Manual review required. Please:
-1. Review the PR on GitHub
-2. Check the code changes
-3. Review requirements and architecture docs
-4. Approve or request changes
-```
-
-### After Review Approved:
-```
-Code Review: ✅ Approved
-
-Proceeding with merge...
-```
-
-### If Changes Requested:
-```
-Code Review: ⚠️ Changes requested
-
-Please address the feedback and update the PR.
-Task remains in "Code Review" status until approved.
-```
-
-## Merge Process
-
-After all requirements met (tests pass, review approved if needed):
+**Based on review results:**
 
 ```bash
-# Merge PR
-gh pr merge <pr_number> --merge --delete-branch
+# If review approved and PR merged
+mcp__claudetask__update_status --task_id={id} --status="Done" \
+  --comment="Code review passed, PR merged successfully"
 
-# Return to project root
-cd <project_path>
-
-# Remove worktree
-git worktree remove worktrees/task-<id>
-
-# Update task status
-mcp:update_status <task_id> "Done"
+# If changes required
+mcp__claudetask__update_status --task_id={id} --status="In Progress" \
+  --comment="Code review failed: [list issues]"
 ```
 
-## Cleanup Checklist
-
-The PR merge agent will ensure:
-
-- [ ] PR created successfully
-- [ ] All checks passing
-- [ ] Code review approved (if manual_mode)
-- [ ] PR merged to main
-- [ ] Remote branch deleted
-- [ ] Worktree removed
-- [ ] Local branch cleaned up
-- [ ] Task status updated to "Done"
-- [ ] Test servers stopped
-- [ ] Resources freed
-
-## Success Output
-
-After successful merge:
-
-```
-✅ PR Merged Successfully
-
-PR #<number>: [Task #<id>] <title>
-Merge commit: abc123def456
-Branch deleted: feature/task-<id>
-Worktree removed: worktrees/task-<id>
-Task status: Done
-
-📊 Summary:
-- Files changed: 3
-- Lines added: 150
-- Lines removed: 20
-- Tests: All passing ✅
-- Documentation: Complete ✅
-- Review: Approved ✅
-
-Task #<id> completed successfully! 🎉
-```
-
-## Handling Issues
-
-### If PR Creation Fails:
-- Check that branch is pushed to remote
-- Verify gh CLI is authenticated
-- Ensure no PR already exists for this branch
-
-### If Merge Fails:
-- Check for merge conflicts
-- Ensure all checks are passing
-- Verify branch is up to date with main
-
-### If Cleanup Fails:
-- Manually remove worktree if needed
-- Check for running processes in worktree
-- Ensure no files are open in worktree
-
-## Manual Intervention
-
-If you need to manually handle the PR:
+## Usage
 
 ```bash
-# Create PR manually
-cd worktrees/task-<id>
-gh pr create --title "[Task #<id>] <title>" --body "<description>"
-
-# Merge manually
-gh pr merge <pr_number> --merge --delete-branch
-
-# Clean up manually
-cd <project_path>
-git worktree remove worktrees/task-<id>
-mcp:update_status <task_id> "Done"
+/PR [task-id]
 ```
 
-Let me start by getting task information and delegating to the PR merge agent...
+## Example
+
+```bash
+/PR 42
+```
+
+This will:
+1. ✅ Check project settings for review mode
+2. ✅ If manual mode: Notify user, wait for manual review
+3. ✅ If automated mode: Delegate to code review agent, auto-merge if approved
+
+## Required Preconditions
+
+- Task must be in "Code Review" status
+- Testing must be complete
+- PR must exist
+- All tests must be passing
+
+## Notes
+
+- This implements UC-05 from `Workflow/new_workflow_usecases.md`
+- Supports both manual and automated code review modes
+- Mode is determined by `manual_mode` project setting
+- In manual mode: User reviews and merges PR manually
+- In automated mode: Code review agent analyzes and auto-merges if approved
+- **CRITICAL**: Only transitions to "Done" in automated mode with successful review
