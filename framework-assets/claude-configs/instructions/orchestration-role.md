@@ -34,12 +34,15 @@
 ```
 LOOP FOREVER:
 1. mcp:get_task_queue → Check for available tasks
+2. mcp__claudetask__get_project_settings → Get manual_mode setting
 
 2. For each task found, check current status:
 
    🔍 ANALYSIS STATUS:
    - If no analysis started → Delegate to analyst agents
    - If analysis complete → Auto-transition to "In Progress"
+   - IN AUTO MODE (manual_mode = false):
+     * After transitioning to "In Progress" → Execute /start-develop command
 
    🔍 IN PROGRESS STATUS (Active Monitoring):
    - When checking task, inspect worktree for implementation progress
@@ -50,22 +53,39 @@ LOOP FOREVER:
    - IF COMPLETION DETECTED:
      * IMMEDIATELY transition to "Testing"
      * Save stage result with implementation summary
-     * Setup test environment
+     * IN AUTO MODE (manual_mode = false):
+       → Execute /test {task_id} command automatically
+     * IN MANUAL MODE (manual_mode = true):
+       → Setup test environment, save URLs, wait for user
 
    🔍 TESTING STATUS:
-   - ONLY prepare test environment (NO delegation)
-   - Wait for user manual testing
+   - IN MANUAL MODE (manual_mode = true):
+     * ONLY prepare test environment (NO delegation)
+     * Save testing URLs (MANDATORY)
+     * Wait for user manual testing
+   - IN AUTO MODE (manual_mode = false):
+     * /test command handles everything
+     * When tests complete:
+       → If tests PASSED: Execute /PR {task_id} command automatically
+       → If tests FAILED: Execute /start-develop command automatically
 
    🔍 CODE REVIEW STATUS:
-   - NEVER auto-transition to Done
-   - Only transition to "PR" after review complete
+   - IN MANUAL MODE (manual_mode = true):
+     * Wait for user manual review
+     * NEVER auto-transition to Done
+   - IN AUTO MODE (manual_mode = false):
+     * /PR command handles everything
+     * When review complete:
+       → If review APPROVED: Auto-merge PR, transition to Done
+       → If review FAILED: Execute /start-develop command automatically
 
    🔍 DONE STATUS:
    - Clean up test environments (terminate processes, free ports)
 
 3. Update task status based on detected changes
 4. Save stage results with append_stage_result
-5. Continue monitoring → Never stop
+5. IN AUTO MODE: Execute appropriate slash command for next stage
+6. Continue monitoring → Never stop
 ```
 
 **🚨 KEY IMPROVEMENT: SMART IMPLEMENTATION DETECTION**
@@ -73,6 +93,42 @@ LOOP FOREVER:
 - Auto-detect when development is complete
 - Immediately transition "In Progress" → "Testing"
 - Respond to user signals and agent completion reports
+
+**🤖 AUTONOMOUS COMMAND EXECUTION (AUTO MODE)**
+
+When `manual_mode = false`, the orchestrator MUST automatically execute slash commands to chain workflow stages:
+
+**Command Execution Flow**:
+```
+Analysis Complete → /start-develop → Implementation → /test → Testing
+                                                                    ↓
+                                                              Tests PASS
+                                                                    ↓
+                                                                  /PR → Code Review
+                                                                    ↓
+                                                            Review APPROVED
+                                                                    ↓
+                                                                  Done
+
+                    ← /start-develop ← Tests FAILED or Review FAILED
+```
+
+**How to Execute Commands**:
+```bash
+# Use SlashCommand tool to execute slash commands programmatically
+SlashCommand("/test 42")
+SlashCommand("/PR 42")
+SlashCommand("/start-develop")
+```
+
+**When to Execute Commands** (AUTO MODE ONLY):
+1. **After Analysis Complete** → Execute `/start-develop`
+2. **After Implementation Complete** → Execute `/test {task_id}`
+3. **After Tests PASS** → Execute `/PR {task_id}`
+4. **After Tests FAIL** → Execute `/start-develop`
+5. **After Code Review FAIL** → Execute `/start-develop`
+
+**⚠️ CRITICAL**: In MANUAL MODE (`manual_mode = true`), DO NOT auto-execute commands. Wait for user action.
 
 ## 🔄 Orchestration Patterns
 

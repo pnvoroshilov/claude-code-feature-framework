@@ -74,6 +74,8 @@ class FrameworkUpdateService:
                 claudetask_config["args"] = [native_server_script]
                 # Keep existing env values but update PROJECT_PATH
                 claudetask_config["env"]["CLAUDETASK_PROJECT_PATH"] = project_path
+                # Remove PROJECT_ID - let MCP server auto-detect it
+                claudetask_config["env"].pop("CLAUDETASK_PROJECT_ID", None)
             
             # Merge: preserved servers + all template servers (including playwright and any others)
             new_config = {

@@ -143,9 +143,15 @@ Reports: /Tests/Report/*.md"
 mcp__claudetask__update_status --task_id={id} --status="Code Review" \
   --comment="All automated tests passed"
 
+# NOTE: In AUTO mode (manual_mode = false), orchestrator will automatically
+# execute /PR command next. In MANUAL mode, wait for user to transition.
+
 # If critical issues found
 mcp__claudetask__update_status --task_id={id} --status="In Progress" \
   --comment="Critical test failures: [list issues]"
+
+# NOTE: In AUTO mode (manual_mode = false), orchestrator will automatically
+# execute /start-develop to fix issues. In MANUAL mode, wait for user action.
 ```
 
 ## Usage

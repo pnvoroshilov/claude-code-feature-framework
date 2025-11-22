@@ -1,171 +1,83 @@
 ---
-allowed-tools: [Bash, Read, Write, Edit, MultiEdit, Glob, Grep]
-argument-hint: [task-id]
-description: Start development phase for a task after analysis is complete. Begin implementation in task worktree.
+description: Start development phase after analysis complete (UC-02)
 ---
 
-# Start Development Phase
+# Start Development Phase - UC-02 Workflow
 
-I'll start the development phase for this task, transitioning from analysis to implementation.
+When you run this command with a task ID, the system will execute the UC-02 workflow:
 
-## Prerequisites
+## UC-02: Review and Select Development Path
 
-Before starting development:
-- ✅ Task must be in "Analyse" status or have completed analysis
-- ✅ requirements.md must exist in Analyse/ folder
-- ✅ architecture.md must exist in Analyse/ folder
-- ✅ Task worktree must be created
+**Step 1: Review Analysis Documents**
+- Read `/Analyze/requirements.md` (from Requirements Analyst)
+- Read `/Analyze/architecture.md` (from System Architect)
+- Check for any PR testing or review errors
 
-## Getting Task Information
+**Step 2: Intelligent Agent Selection**
+- Determine which agent(s) will participate in development
+- Decide if tasks can be split into bounded contexts
+- Plan parallel development if applicable
 
-First, let me get the task details:
+**Step 3: Launch Development Agents**
+- Delegate to appropriate specialized agents:
+  - `frontend-developer` for UI/frontend work
+  - `python-api-expert` for backend API work
+  - Both agents in parallel for fullstack features
+- Each agent works in isolated worktree context
 
-```bash
-# Get task information
-mcp:get_task <task_id>
-```
+**Step 4: Monitor and Validate**
+- Track agent progress and completion
+- Validate Definition of Done (DoD) completeness
+- Call additional agents if gaps exist
 
-## Verification Steps
+**Step 5: Create Pull Request**
+- Automatically create PR when development complete
+- Transition task to "PR" status
 
-### Step 1: Check Analysis Documents
+**Step 6: Proceed to Testing**
+- After PR created, move to "Testing" status
+- NOTE: In AUTO mode (manual_mode = false), orchestrator will automatically
+  execute `/test {task_id}` command. In MANUAL mode, wait for user action.
 
-I'll verify that both analysis documents exist:
-
-```bash
-# Check for requirements.md
-ls worktrees/task-<id>/Analyse/requirements.md
-
-# Check for architecture.md
-ls worktrees/task-<id>/Analyse/architecture.md
-```
-
-### Step 2: Read Analysis Documents
-
-I'll read both documents to understand the requirements and architecture:
-
-```bash
-# Read requirements
-cat worktrees/task-<id>/Analyse/requirements.md
-
-# Read architecture
-cat worktrees/task-<id>/Analyse/architecture.md
-```
-
-### Step 3: Update Task Status to "In Progress"
-
-Move the task from "Analyse" to "In Progress":
+## Usage
 
 ```bash
-mcp:update_status <task_id> "In Progress"
+/start-develop [task-id]
 ```
 
-## Development Workflow
-
-### Working in Task Worktree
-
-All development work should be done in the task's isolated worktree:
+## Example
 
 ```bash
-# Navigate to task worktree
-cd worktrees/task-<id>
-
-# Verify you're on the correct branch
-git branch --show-current
-# Should show: feature/task-<id>
+/start-develop 42
 ```
 
-### Implementation Guidelines
+This will:
+1. ✅ Load task #42 details from ClaudeTask backend
+2. ✅ Review `/Analyze` folder documents
+3. ✅ Select appropriate development agent(s)
+4. ✅ Delegate implementation work
+5. ✅ Monitor for completion
+6. ✅ Create PR automatically
+7. ✅ Transition to Testing status
+8. ✅ In AUTO mode: Orchestrator executes `/test {task_id}` automatically
 
-1. **Follow Architecture**:
-   - Implement according to architecture.md specifications
-   - Use the technology stack and patterns defined
-   - Follow the implementation steps outlined
+## Required Preconditions
 
-2. **Meet Requirements**:
-   - Satisfy all acceptance criteria from requirements.md
-   - Implement all functional requirements
-   - Consider edge cases and constraints
+- Task must be in "In Progress" status
+- Analysis phase must be complete
+- `/Analyze/requirements.md` must exist
+- `/Analyze/architecture.md` must exist
+- Worktree must be created and ready
 
-3. **Code Quality**:
-   - Follow project coding conventions
-   - Write clean, maintainable code
-   - Add appropriate error handling
-   - Include code comments where needed
+## Status Flow
 
-4. **Testing as You Go**:
-   - Write unit tests for new code
-   - Test edge cases
-   - Verify functionality works as expected
-
-### Making Commits
-
-Make regular, descriptive commits:
-
-```bash
-# Stage your changes
-git add <files>
-
-# Commit with descriptive message
-git commit -m "feat(task-<id>): <description>
-
-- Detail about change 1
-- Detail about change 2
-
-Refs: #<task_id>"
-
-# Push to remote (if needed)
-git push origin feature/task-<id>
+```
+Analysis → In Progress → /start-develop → Implementation → PR → Testing → Code Review → Done
 ```
 
-## Implementation Checklist
+## Notes
 
-As you develop, track progress against these items:
-
-- [ ] Read and understand requirements.md
-- [ ] Read and understand architecture.md
-- [ ] Set up any required dependencies
-- [ ] Implement core functionality
-- [ ] Handle edge cases from requirements
-- [ ] Add error handling
-- [ ] Write unit tests
-- [ ] Test locally
-- [ ] Update documentation (if needed)
-- [ ] Make clean, descriptive commits
-
-## Completion
-
-When implementation is complete:
-
-1. **Verify all requirements met**:
-   - Review acceptance criteria in requirements.md
-   - Check that all functional requirements implemented
-   - Test edge cases
-
-2. **Prepare for testing**:
-   - Ensure code is committed
-   - Push changes to remote branch
-   - Ready for transition to "Tests" status
-
-3. **Move to Tests status**:
-   ```bash
-   # When ready for testing phase
-   mcp:update_status <task_id> "Tests"
-   ```
-
-## Tips
-
-- **Stay focused**: Work only on this task in the worktree
-- **Refer to docs**: Keep requirements.md and architecture.md open
-- **Test frequently**: Don't wait until the end to test
-- **Ask for help**: If blocked, update task status to "Blocked" with details
-- **Document changes**: Update architecture.md if implementation differs from plan
-
-## Next Steps
-
-After completing development:
-1. Use `/test` command to enter testing phase
-2. Perform manual testing and document results
-3. Move to code review when tests pass
-4. Use `/PR` command to create pull request
-
-Let me begin by getting the task information and verifying analysis documents...
+- This implements UC-02 from `Workflow/new_workflow_usecases.md`
+- Supports parallel development for bounded contexts
+- Automatically handles DoD validation
+- Creates PR before moving to Testing (new workflow)

@@ -126,9 +126,15 @@ PR status: [MERGED/PENDING]"
 mcp__claudetask__update_status --task_id={id} --status="Done" \
   --comment="Code review passed, PR merged successfully"
 
+# NOTE: In AUTO mode (manual_mode = false), task is marked Done.
+# In MANUAL mode, wait for user to mark as Done.
+
 # If changes required
 mcp__claudetask__update_status --task_id={id} --status="In Progress" \
   --comment="Code review failed: [list issues]"
+
+# NOTE: In AUTO mode (manual_mode = false), orchestrator will automatically
+# execute /start-develop to fix issues. In MANUAL mode, wait for user action.
 ```
 
 ## Usage

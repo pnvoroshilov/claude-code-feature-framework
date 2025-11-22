@@ -47,11 +47,14 @@ Before:
 - MCP config had hardcoded `CLAUDETASK_PROJECT_ID`
 - Every project used the same (wrong) ID
 - Changing project IDs broke MCP functionality
+- Framework updates re-wrote hardcoded ID back into config
 
 After:
 - MCP server queries backend API to find project by path
 - Correct project ID is automatically detected
 - Works for all projects without hardcoding
+- Framework updates no longer inject hardcoded ID
+- MCP enable/disable preserves auto-detection
 
 ## Technical Details
 
