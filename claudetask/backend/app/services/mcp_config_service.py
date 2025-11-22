@@ -595,7 +595,8 @@ class MCPConfigService:
             if "env" not in config:
                 config["env"] = {}
 
-            config["env"]["CLAUDETASK_PROJECT_ID"] = project.id
+            # Let MCP server auto-detect project ID by path
+            # config["env"]["CLAUDETASK_PROJECT_ID"] = project.id  # Removed - auto-detection handles this
             config["env"]["CLAUDETASK_PROJECT_PATH"] = project.path
             config["env"]["CLAUDETASK_BACKEND_URL"] = os.getenv("CLAUDETASK_BACKEND_URL", "http://localhost:3333")
 

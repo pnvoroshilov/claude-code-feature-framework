@@ -539,14 +539,6 @@ async def seed_default_mcp_configs():
     import json
 
     async with AsyncSessionLocal() as session:
-        # Check if MCP configs already seeded
-        result = await session.execute(select(DefaultMCPConfig))
-        existing_configs = result.scalars().first()
-
-        if existing_configs:
-            print("Default MCP configs already seeded")
-            return
-
         # Load default MCP configs from framework-assets/mcp-configs/.mcp.json
         # Path is: claudetask/backend/app/database.py -> go up 3 levels to project root
         framework_assets_path = Path(__file__).parent.parent.parent.parent / "framework-assets" / "mcp-configs" / ".mcp.json"
@@ -560,42 +552,53 @@ async def seed_default_mcp_configs():
 
         mcp_servers = mcp_data.get("mcpServers", {})
 
+        # Get existing configs
+        result = await session.execute(select(DefaultMCPConfig))
+        existing_configs = {config.name: config for config in result.scalars().all()}
+
         # Define default MCP configs with descriptions
-        default_mcp_configs = []
+        descriptions = {
+            "claudetask": "ClaudeTask MCP server for task management, project orchestration, and workflow automation",
+            "serena": "Serena MCP server - a powerful coding agent toolkit providing semantic code retrieval and editing capabilities",
+            "playwright": "Playwright MCP server for browser automation, E2E testing, and web scraping capabilities"
+        }
+
+        # Define categories
+        categories = {
+            "claudetask": "development",
+            "serena": "development",
+            "playwright": "testing"
+        }
+
+        added_count = 0
+        updated_count = 0
 
         for server_name, server_config in mcp_servers.items():
-            # Create description based on server name
-            descriptions = {
-                "claudetask": "ClaudeTask MCP server for task management, project orchestration, and workflow automation",
-                "serena": "Serena MCP server - a powerful coding agent toolkit providing semantic code retrieval and editing capabilities",
-                "playwright": "Playwright MCP server for browser automation, E2E testing, and web scraping capabilities"
-            }
-
-            # Define categories
-            categories = {
-                "claudetask": "development",
-                "serena": "development",
-                "playwright": "testing"
-            }
-
-            default_mcp_configs.append(
-                DefaultMCPConfig(
+            if server_name in existing_configs:
+                # Update existing config
+                existing_config = existing_configs[server_name]
+                existing_config.config = server_config
+                existing_config.description = descriptions.get(server_name, f"MCP server configuration for {server_name}")
+                existing_config.category = categories.get(server_name, "general")
+                updated_count += 1
+            else:
+                # Add new config
+                new_config = DefaultMCPConfig(
                     name=server_name,
                     description=descriptions.get(server_name, f"MCP server configuration for {server_name}"),
                     category=categories.get(server_name, "general"),
                     config=server_config,
                     is_active=True
                 )
-            )
-
-        # Add all default MCP configs
-        for config in default_mcp_configs:
-            session.add(config)
+                session.add(new_config)
+                added_count += 1
 
         await session.commit()
 
-        print(f"Seeded {len(default_mcp_configs)} default MCP configs")
-        print(f"MCP Servers: {', '.join([c.name for c in default_mcp_configs])}")
+        if added_count > 0 or updated_count > 0:
+            print(f"MCP configs: added {added_count}, updated {updated_count}")
+        else:
+            print("No new MCP configs to seed (all up to date)")
 
 
 async def seed_default_subagents():
