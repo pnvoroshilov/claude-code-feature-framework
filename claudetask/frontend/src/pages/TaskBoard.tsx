@@ -971,7 +971,7 @@ const TaskBoard: React.FC = () => {
               />
 
               {/* Filter Toggle - Right side */}
-              <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+              <Box sx={{ display: 'flex', gap: 2, flexShrink: 0 }}>
                 <ToggleButtonGroup
                   value={activeFilter}
                   exclusive
@@ -981,10 +981,12 @@ const TaskBoard: React.FC = () => {
                     }
                   }}
                   sx={{
+                    gap: 1.5,
                     '& .MuiToggleButton-root': {
                       borderRadius: 2,
-                      px: 2,
-                      py: 1,
+                      px: 3,
+                      py: 1.5,
+                      minWidth: 100,
                       textTransform: 'none',
                       fontWeight: 500,
                       '&.Mui-selected': {
