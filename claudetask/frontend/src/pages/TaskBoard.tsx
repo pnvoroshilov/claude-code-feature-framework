@@ -969,43 +969,44 @@ const TaskBoard: React.FC = () => {
                 }}
               />
 
-              {/* Filter Toggle */}
-              <ToggleButtonGroup
-                value={activeFilter}
-                exclusive
-                onChange={(e, newFilter) => {
-                  if (newFilter !== null) {
-                    setActiveFilter(newFilter);
-                  }
-                }}
-                sx={{
-                  flexShrink: 0,
-                  '& .MuiToggleButton-root': {
-                    borderRadius: 2,
-                    px: 2,
-                    py: 1,
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    '&.Mui-selected': {
-                      background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-                      color: theme.palette.primary.contrastText,
-                      '&:hover': {
-                        background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
+              {/* Filter Toggle - Grouped on the right */}
+              <Box sx={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                <ToggleButtonGroup
+                  value={activeFilter}
+                  exclusive
+                  onChange={(e, newFilter) => {
+                    if (newFilter !== null) {
+                      setActiveFilter(newFilter);
+                    }
+                  }}
+                  sx={{
+                    '& .MuiToggleButton-root': {
+                      borderRadius: 2,
+                      px: 2,
+                      py: 1,
+                      textTransform: 'none',
+                      fontWeight: 500,
+                      '&.Mui-selected': {
+                        background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                        color: theme.palette.primary.contrastText,
+                        '&:hover': {
+                          background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
+                        },
                       },
                     },
-                  },
-                }}
-              >
-                <ToggleButton value="all">
-                  All <Badge badgeContent={stats.total} color="primary" sx={{ ml: 1 }} />
-                </ToggleButton>
-                <ToggleButton value="feature">
-                  Features <Badge badgeContent={stats.features} color="success" sx={{ ml: 1 }} />
-                </ToggleButton>
-                <ToggleButton value="bug">
-                  Bugs <Badge badgeContent={stats.bugs} color="error" sx={{ ml: 1 }} />
-                </ToggleButton>
-              </ToggleButtonGroup>
+                  }}
+                >
+                  <ToggleButton value="all">
+                    All <Badge badgeContent={stats.total} color="primary" sx={{ ml: 1 }} />
+                  </ToggleButton>
+                  <ToggleButton value="feature">
+                    Features <Badge badgeContent={stats.features} color="success" sx={{ ml: 1 }} />
+                  </ToggleButton>
+                  <ToggleButton value="bug">
+                    Bugs <Badge badgeContent={stats.bugs} color="error" sx={{ ml: 1 }} />
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
             </Stack>
           </Paper>
         </Box>
