@@ -15,7 +15,11 @@ Example error:
 
 ## Solution
 
-The MCP server now **automatically detects the project ID** by querying the backend API with the project path.
+The framework now **uses the correct project ID** for each project instead of a hardcoded default:
+
+1. **Framework updates**: Uses the actual project ID when updating `.mcp.json`
+2. **MCP enable/disable**: Uses the current project's ID, not a hardcoded default
+3. **Auto-detection fallback**: MCP server can query backend API if ID is missing
 
 ### How It Works
 
@@ -46,21 +50,22 @@ async def get_project_id_by_path(project_path: str, backend_url: str) -> str | N
 
 ### Configuration
 
-**Old Configuration** (hardcoded ID):
+**Old Configuration** (hardcoded default ID):
 ```json
 {
   "env": {
-    "CLAUDETASK_PROJECT_ID": "ff9cc152-3f38-49ab-bec0-0e7cbf8459a",
+    "CLAUDETASK_PROJECT_ID": "ff9cc152-3f38-49ab-bec0-0e7cbf8459a",  // Wrong - same for all projects!
     "CLAUDETASK_PROJECT_PATH": ".",
     "CLAUDETASK_BACKEND_URL": "http://localhost:3333"
   }
 }
 ```
 
-**New Configuration** (auto-detect):
+**New Configuration** (correct project ID):
 ```json
 {
   "env": {
+    "CLAUDETASK_PROJECT_ID": "c2f3e0e2-f7cb-43d1-a5a4-f491662b801d",  // Correct - this project's actual ID!
     "CLAUDETASK_PROJECT_PATH": ".",
     "CLAUDETASK_BACKEND_URL": "http://localhost:3333"
   }

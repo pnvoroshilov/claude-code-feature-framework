@@ -11,24 +11,33 @@ You see this error in Claude terminal sessions:
 
 ## Root Cause
 
-The MCP server was using a hardcoded project ID that doesn't match your actual project ID in the database.
+The framework was using a hardcoded default project ID (`ff9cc152-3f38-49ab-bec0-0e7cbf84594a`) for ALL projects instead of each project's actual ID from the database.
 
 ## Solution (Automatic)
 
-The framework now **auto-detects** the correct project ID by querying the backend API with your project path.
+The framework now **uses the correct project ID** for each project:
+
+1. **Framework updates**: Writes current project's actual ID to `.mcp.json`
+2. **MCP enable/disable**: Uses current project's ID, not hardcoded default
+3. **Database configs**: Updated to use correct IDs per project
 
 ### Quick Fix
 
-**Simply restart Claude Code** - the new auto-detection will work automatically!
+Run **framework update** for your project in the UI, or manually update with:
+
+```bash
+./scripts/update-mcp-config.sh
+```
 
 ### Verification
 
-After restarting, check the terminal logs for:
+Check your project's `.mcp.json` file:
 
+```bash
+cat /path/to/project/.mcp.json | grep CLAUDETASK_PROJECT_ID
 ```
-Auto-detected project ID: c2f3e0e2-f7cb-43d1-a5a4-f491662b801d
-Starting ClaudeTask MCP STDIO server for project c2f3e0e2-f7cb-43d1-a5a4-f491662b801d
-```
+
+Should show YOUR project's actual ID, not `ff9cc152-3f38-49ab-bec0-0e7cbf84594a`
 
 ## Manual Update (if needed)
 
@@ -44,17 +53,17 @@ If you need to manually update the database configuration:
 ## What Changed?
 
 Before:
-- MCP config had hardcoded `CLAUDETASK_PROJECT_ID`
+- Template had hardcoded default `CLAUDETASK_PROJECT_ID`
 - Every project used the same (wrong) ID
-- Changing project IDs broke MCP functionality
-- Framework updates re-wrote hardcoded ID back into config
+- Framework updates wrote this hardcoded ID to all projects
+- MCP enable/disable also used hardcoded default
 
 After:
-- MCP server queries backend API to find project by path
-- Correct project ID is automatically detected
-- Works for all projects without hardcoding
-- Framework updates no longer inject hardcoded ID
-- MCP enable/disable preserves auto-detection
+- Template has no hardcoded ID
+- Framework updates write CURRENT project's actual ID
+- MCP enable/disable uses current project's actual ID
+- Each project gets its own correct ID from database
+- Auto-detection fallback available if ID is missing
 
 ## Technical Details
 
