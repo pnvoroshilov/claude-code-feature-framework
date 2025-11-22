@@ -591,14 +591,6 @@ const TaskBoard: React.FC = () => {
     return column?.color || '#grey';
   };
 
-  // Statistics
-  const stats = {
-    total: tasks?.length || 0,
-    features: tasks?.filter(t => t.type === 'Feature').length || 0,
-    bugs: tasks?.filter(t => t.type === 'Bug').length || 0,
-    inProgress: tasks?.filter(t => t.status === 'In Progress').length || 0,
-  };
-
   // Task Card Component - Compact modern design
   const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
     const isBug = task.type === 'Bug';
@@ -1006,13 +998,13 @@ const TaskBoard: React.FC = () => {
                   }}
                 >
                   <ToggleButton value="all">
-                    All <Badge badgeContent={stats.total} color="primary" sx={{ ml: 1 }} />
+                    All
                   </ToggleButton>
                   <ToggleButton value="feature">
-                    Features <Badge badgeContent={stats.features} color="success" sx={{ ml: 1 }} />
+                    Features
                   </ToggleButton>
                   <ToggleButton value="bug">
-                    Bugs <Badge badgeContent={stats.bugs} color="error" sx={{ ml: 1 }} />
+                    Bugs
                   </ToggleButton>
                 </ToggleButtonGroup>
               </Box>
