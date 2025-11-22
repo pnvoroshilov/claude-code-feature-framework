@@ -43,10 +43,28 @@ mcp__claudetask__append_stage_result \
   --details="Requirements and architecture documented"
 ```
 
-### Testing URLs (CRITICAL for Testing Status)
+### Project Settings Check
 
 ```bash
-# 🔴 MANDATORY when moving to Testing status
+# Check project configuration including testing mode
+mcp__claudetask__get_project_settings
+
+# Returns:
+# - project_mode: "development" or "simple"
+# - worktree_enabled: True/False
+# - manual_mode: True/False (determines UC-04 Testing and UC-05 Code Review workflows)
+```
+
+### Testing URLs (CRITICAL for MANUAL Testing Mode Only)
+
+```bash
+# 🔴 MANDATORY when manual_mode = true
+# ❌ NOT REQUIRED when manual_mode = false
+
+# Check mode first
+mcp__claudetask__get_project_settings
+
+# If manual_mode = true, MUST save URLs:
 mcp__claudetask__set_testing_urls \
   --task_id=<id> \
   --urls='{"frontend": "http://localhost:PORT", "backend": "http://localhost:PORT"}'
@@ -56,6 +74,8 @@ mcp__claudetask__set_testing_urls \
   --task_id=42 \
   --urls='{"frontend": "http://localhost:3001", "backend": "http://localhost:3333"}'
 ```
+
+**⚠️ Important**: Testing URLs are ONLY required in Manual Testing Mode. In Automated Mode, testing agents run tests without user-facing servers.
 
 ### Resource Cleanup (Task Completion)
 
@@ -171,15 +191,34 @@ while true:
 2. mcp:update_status {id} "New Status"
 ```
 
-### Testing Setup Pattern
+### Testing Workflow Pattern (Mode-Dependent)
 
 ```bash
-# When moving to Testing status
+# Step 1: Check testing mode
+mcp__claudetask__get_project_settings
+# Look for: "Manual Mode": True/False
+
+# Step 2a: If manual_mode = true (MANUAL MODE)
 1. Find free ports (lsof -i :PORT)
-2. Start test servers
-3. 🔴 MANDATORY: mcp__claudetask__set_testing_urls --task_id={id} --urls='{...}'
-4. mcp__claudetask__append_stage_result --task_id={id} --status="Testing" ...
-5. Notify user
+2. Start test servers in worktree
+3. 🔴 MANDATORY: mcp__claudetask__set_testing_urls --task_id={id} --urls='{"frontend": "...", "backend": "..."}'
+4. mcp__claudetask__append_stage_result --task_id={id} --status="Testing" --summary="Testing environment ready" --details="URLs saved..."
+5. Notify user with URLs and wait for manual testing
+6. DO NOT auto-transition - user updates status manually
+
+# Step 2b: If manual_mode = false (AUTOMATED MODE)
+1. Read /Analyze docs from worktree
+2. Determine test types (UI, backend, integration)
+3. Delegate to testing agents:
+   - mcp:delegate_to_agent {id} "web-tester" "Read /Analyze, write UI tests, save report in /Tests/Report"
+   - mcp:delegate_to_agent {id} "quality-engineer" "Read /Analyze, write backend tests, save report in /Tests/Report"
+4. Wait for agents to complete
+5. Collect test reports from /Tests/Report
+6. Analyze results
+7. mcp__claudetask__append_stage_result --task_id={id} --status="Testing" --summary="Automated tests complete" --details="Test results..."
+8. Auto-transition based on results:
+   - All passed → mcp:update_status {id} "Code Review"
+   - Failures → mcp:update_status {id} "In Progress" --comment="Test failures: ..."
 ```
 
 ### Task Completion Pattern

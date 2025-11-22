@@ -528,27 +528,6 @@ const Settings: React.FC = () => {
             ) : backendSettings ? (
               <>
                 <SettingRow
-                  label="Manual Mode"
-                  description="Require manual code review before merging pull requests"
-                  control={
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Switch
-                        checked={backendSettings.manual_mode}
-                        onChange={(e) => setBackendSettings({ ...backendSettings, manual_mode: e.target.checked })}
-                        color="primary"
-                      />
-                      <Tooltip title={backendSettings.manual_mode ? "Code review required before merge" : "Auto-merge after tests pass"}>
-                        <RateReviewIcon
-                          sx={{
-                            color: backendSettings.manual_mode ? theme.palette.success.main : theme.palette.text.disabled,
-                            fontSize: 20
-                          }}
-                        />
-                      </Tooltip>
-                    </Stack>
-                  }
-                />
-                <SettingRow
                   label="Git Worktrees"
                   description="Use isolated Git worktrees for each task (requires Development mode)"
                   control={

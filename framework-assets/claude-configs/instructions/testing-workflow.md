@@ -1,12 +1,32 @@
-# 🧪 Testing Workflow - Manual Testing Setup
+# 🧪 Testing Workflow - Hybrid Testing Modes
 
 ⚠️ **This applies to DEVELOPMENT MODE only. SIMPLE mode has no Testing status.**
 
-## 🚨🚨🚨 CRITICAL TESTING URL REQUIREMENT 🚨🚨🚨
+## 📋 Testing Mode Configuration
 
-**⛔ FAILURE TO SAVE TESTING URLs = CRITICAL ERROR**
-**You MUST save testing URLs IMMEDIATELY after starting test servers**
-**This is NOT optional - it is MANDATORY for task tracking**
+**This project supports TWO testing modes controlled by `manual_mode` setting:**
+
+- **🔵 MANUAL MODE** (`manual_mode = true`) - UC-04 Variant B
+  - User performs manual testing
+  - Test servers started for user access
+  - Testing URLs saved for persistence
+  - User manually transitions status after testing
+
+- **🟢 AUTOMATED MODE** (`manual_mode = false`) - UC-04 Variant A
+  - Testing agents write and execute tests automatically
+  - Tests run in isolated environment
+  - Reports generated in `/Tests/Report`
+  - Auto-transition based on test results
+
+## 🔍 Check Testing Mode BEFORE Starting
+
+**FIRST, check project settings to determine which mode to use:**
+
+```bash
+mcp__claudetask__get_project_settings
+```
+
+Look for: `"Manual Testing Mode": True` or `False`
 
 ## When Testing Phase Starts
 
@@ -15,9 +35,21 @@
 - Implementation is detected as complete
 - User manually updates status to "Testing"
 
-## 📋 TESTING ENVIRONMENT CHECKLIST (ALL STEPS REQUIRED)
+**After detecting Testing phase, follow the workflow for the configured mode below.**
 
-When task moves to "Testing" status:
+---
+
+# 🔵 MANUAL TESTING MODE (`manual_mode = true`)
+
+## 🚨🚨🚨 CRITICAL TESTING URL REQUIREMENT 🚨🚨🚨
+
+**⛔ FAILURE TO SAVE TESTING URLs = CRITICAL ERROR**
+**You MUST save testing URLs IMMEDIATELY after starting test servers**
+**This is NOT optional - it is MANDATORY for task tracking**
+
+## 📋 MANUAL TESTING CHECKLIST (ALL STEPS REQUIRED)
+
+When task moves to "Testing" status in MANUAL mode:
 
 ### Step 1: Find Available Ports
 ```bash
@@ -103,14 +135,14 @@ mcp__claudetask__set_testing_urls --task_id={id} \
   --urls='{"frontend": "http://localhost:ACTUAL_PORT", "backend": "http://localhost:ACTUAL_PORT"}'
 ```
 
-## What NOT to Do in Testing Status
+## Manual Mode Restrictions
 
 ❌ **DO NOT delegate to testing agents** - This is for MANUAL testing only
 ❌ **DO NOT create automated tests** - Unless explicitly requested
 ❌ **DO NOT auto-transition** - Wait for user to update status
 ❌ **DO NOT run test commands** - User will test manually
 
-## Testing Status Exit
+## Manual Mode Status Exit
 
 **User will update status when testing is complete:**
 
@@ -118,7 +150,106 @@ mcp__claudetask__set_testing_urls --task_id={id} \
 - If bugs found → User updates to "In Progress" to fix
 - If major issues → User may update to "Analysis" to re-evaluate
 
-**You should NEVER auto-transition from Testing status.**
+**You should NEVER auto-transition from Testing status in MANUAL mode.**
+
+---
+
+# 🟢 AUTOMATED TESTING MODE (`manual_testing_mode = false`)
+
+## 📋 AUTOMATED TESTING CHECKLIST
+
+When task moves to "Testing" status in AUTOMATED mode:
+
+### Step 1: Read Analysis Documents
+```bash
+# Get task context
+mcp__claudetask__get_task --task_id={id}
+
+# Read analysis docs in worktree
+cat worktrees/task-{id}/Analyze/Requirements/*
+cat worktrees/task-{id}/Analyze/Design/*
+```
+
+### Step 2: Determine Test Types
+Based on analysis docs and DoD, determine which tests are needed:
+- ✅ UI/Frontend tests (web-tester agent)
+- ✅ Backend/API tests (quality-engineer agent)
+- ✅ Integration tests (if multiple components changed)
+
+### Step 3: Delegate to Testing Agents
+
+**For Frontend/UI Testing:**
+```bash
+# Use web-tester agent for E2E browser testing
+mcp__claudetask__delegate_to_agent \
+  --task_id={id} \
+  --agent_type="web-tester" \
+  --instructions="Read /Analyze docs and DoD. Create and execute UI tests per test plan. Save results in /Tests/Report/ui-tests.md"
+```
+
+**For Backend Testing:**
+```bash
+# Use quality-engineer for backend/API testing
+mcp__claudetask__delegate_to_agent \
+  --task_id={id} \
+  --agent_type="quality-engineer" \
+  --instructions="Read /Analyze docs and DoD. Create pytest tests for backend APIs. Test all endpoints from test plan. Run tests and save results in /Tests/Report/backend-tests.md"
+```
+
+### Step 4: Wait for Test Results
+
+Monitor agent completion and collect test reports from:
+- `/Tests/Report/ui-tests.md`
+- `/Tests/Report/backend-tests.md`
+
+### Step 5: Analyze Test Results
+
+Review all test reports and determine:
+- ✅ All tests passed → Proceed to Step 6
+- ❌ Critical failures → Return to "In Progress"
+- ⚠️ Minor issues → Document and proceed (or return based on severity)
+
+### Step 6: Save Stage Result
+
+```bash
+mcp__claudetask__append_stage_result --task_id={id} --status="Testing" \
+  --summary="Automated testing completed" \
+  --details="UI Tests: [PASS/FAIL count]
+Backend Tests: [PASS/FAIL count]
+Total: [X passed, Y failed]
+Reports: /Tests/Report/*.md"
+```
+
+### Step 7: Auto-Transition Status
+
+**Based on test results:**
+
+```bash
+# If all tests passed
+mcp__claudetask__update_status --task_id={id} --status="Code Review" \
+  --comment="All automated tests passed"
+
+# If critical issues found
+mcp__claudetask__update_status --task_id={id} --status="In Progress" \
+  --comment="Critical test failures: [list issues]"
+```
+
+## Automated Mode Workflow
+
+✅ **DO delegate to testing agents** - Use web-tester, python-expert
+✅ **DO create automated tests** - Required for automated mode
+✅ **DO auto-transition** - Based on test results
+✅ **DO generate test reports** - Save in `/Tests/Report/`
+
+## Automated Mode Status Exit
+
+**Auto-transition based on test results:**
+
+- All tests pass → Auto-update to "Code Review"
+- Critical failures → Auto-update to "In Progress" with details
+- Blocking issues → May return to "Analysis" if design flaws found
+
+**You SHOULD auto-transition from Testing status in AUTOMATED mode.**
 
 ## Port Management Best Practices
 
@@ -192,14 +323,68 @@ echo "✅ Testing environment ready:
 - URLs saved to task #42"
 ```
 
-## Key Reminder
+---
 
-**EVERY TIME you setup test environment:**
+# 📊 Mode Comparison Summary
+
+| Feature | Manual Mode (true) | Automated Mode (false) |
+|---------|-------------------|------------------------|
+| **Who Tests** | User manually | Testing agents |
+| **Test Servers** | ✅ Started for user access | ❌ Not needed |
+| **Testing URLs** | 🔴 MUST save URLs | ❌ Not required |
+| **Test Reports** | User documents findings | Auto-generated in `/Tests/Report/` |
+| **Status Transition** | User manually updates | Auto-transition based on results |
+| **Delegation** | ❌ Forbidden | ✅ Required |
+| **Test Creation** | ❌ Not created | ✅ Agents write tests |
+
+## Decision Tree
+
+```
+Task enters "Testing" status
+    ↓
+Check: mcp__claudetask__get_project_settings
+    ↓
+manual_testing_mode = ?
+    ↓
+    ├─→ TRUE (Manual Mode)
+    │   ├─→ Find free ports
+    │   ├─→ Start test servers
+    │   ├─→ 🔴 SAVE testing URLs (mandatory!)
+    │   ├─→ Save stage result
+    │   ├─→ Notify user
+    │   └─→ WAIT for user to update status
+    │
+    └─→ FALSE (Automated Mode)
+        ├─→ Read analysis docs
+        ├─→ Determine test types
+        ├─→ Delegate to testing agents
+        ├─→ Wait for test reports
+        ├─→ Analyze results
+        ├─→ Save stage result
+        └─→ AUTO-TRANSITION based on results
+```
+
+## Key Reminders by Mode
+
+### Manual Mode Checklist:
 1. ✅ Find free ports
 2. ✅ Start servers
 3. ✅ **SAVE URLs** (mandatory!)
 4. ✅ Save stage result
 5. ✅ Notify user
 6. ✅ Wait for user testing
+7. ❌ NEVER auto-transition
 
-**The `set_testing_urls` command is NOT optional - it MUST be called for proper task tracking.**
+**The `set_testing_urls` command is NOT optional in Manual Mode - it MUST be called for proper task tracking.**
+
+### Automated Mode Checklist:
+1. ✅ Read analysis documents
+2. ✅ Determine test types
+3. ✅ Delegate to testing agents
+4. ✅ Wait for test completion
+5. ✅ Analyze test results
+6. ✅ Save stage result with test summary
+7. ✅ Auto-transition based on results
+8. ✅ Create test reports in `/Tests/Report/`
+
+**Testing agents MUST be used in Automated Mode - manual testing is not applicable.**

@@ -1,0 +1,30 @@
+{
+  "name": "RAG Indexing Recovery (UserPromptSubmit)",
+  "description": "Recovery mechanism for failed RAG indexing - retries on next user prompt",
+  "category": "version-control",
+  "version": "1.0.0",
+  "changelog": {
+    "1.0.0": "Initial version - companion to post-merge RAG indexing hook"
+  },
+  "hook_config": {
+    "UserPromptSubmit": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/inject-rag-indexing.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "script_file": "inject-rag-indexing.sh",
+  "setup_instructions": "This hook provides a recovery mechanism for the post-merge RAG indexing hook.\n\nPURPOSE:\n- Retries RAG indexing if the initial API call failed\n- Triggers on any user prompt after a failed indexing attempt\n- One-time trigger using marker file mechanism\n\nHOW IT WORKS:\n1. Main hook (post-merge-rag-indexing) creates .rag-indexing-pending if API fails\n2. This hook detects the marker file on next UserPromptSubmit event\n3. Retries the API call with the stored file list\n4. Notifies user of success or failure\n5. Removes marker file after attempt\n\nSETUP STEPS:\n1. Copy inject-rag-indexing.sh to .claude/hooks/inject-rag-indexing.sh\n2. Make script executable: chmod +x .claude/hooks/inject-rag-indexing.sh\n3. Add hook configuration to .claude/settings.json\n4. Ensure backend API is running on localhost:3333\n\nREQUIREMENTS:\n- Backend API server running (claudetask backend)\n- jq command-line tool for JSON parsing\n- curl for API calls\n\nNOTES:\n- This hook is automatically enabled with post-merge-rag-indexing hook\n- Provides graceful recovery without user intervention\n- Marker file: .claude/logs/hooks/.rag-indexing-pending",
+  "dependencies": ["jq", "curl", "claudetask backend API (localhost:3333)"],
+  "troubleshooting": {
+    "marker_file_stuck": "If marker file persists, manually delete .claude/logs/hooks/.rag-indexing-pending",
+    "repeated_failures": "Check that backend API is running and accessible at localhost:3333",
+    "api_connection": "Verify claudetask backend is running: curl http://localhost:3333/health"
+  }
+}

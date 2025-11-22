@@ -254,14 +254,25 @@ WRONG: devops-engineer ❌ (handles deployment, not UI)
 - "Assess security vulnerabilities"
 
 ### Testing Tasks:
-⚠️ **SPECIAL HANDLING FOR TESTING STATUS**:
+⚠️ **TESTING STATUS HANDLING (MODE-DEPENDENT)**:
+
+**If manual_mode = true (Manual Testing)**:
 - When task status = **Testing**: DO NOT delegate to testing agents
-- ONLY prepare environment for manual testing by user
-- Testing agents should ONLY be used for:
-  - "Create E2E test suite" (when explicitly requested)
-  - "Implement unit test coverage" (when explicitly requested)
-  - "Design load testing strategy" (when explicitly requested)
-  - "Set up integration testing" (when explicitly requested)
+- ONLY prepare test servers and save URLs
+- Wait for user manual testing
+
+**If manual_mode = false (Automated Testing)**:
+- ✅ Delegate to testing agents:
+  - `web-tester` for UI/E2E tests
+  - `quality-engineer` for backend tests
+  - Generate reports in /Tests/Report/
+- Auto-transition based on test results
+
+**Testing agents for explicit test creation tasks**:
+- "Create E2E test suite" → `web-tester`
+- "Implement backend unit tests" → `quality-engineer`
+- "Design load testing strategy" → `quality-engineer`
+- "Set up integration testing" → `quality-engineer`
 
 ## 🚨 Domain Boundary Enforcement
 

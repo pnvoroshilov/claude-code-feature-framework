@@ -420,6 +420,36 @@ mcp__playwright__browser_console_messages
    - Capture full page vs viewport
    - Use consistent naming for comparison
 
+## Automated Testing Workflow (UC-04)
+
+When delegated for automated UI/E2E testing:
+
+1. **Read Analysis Documents**:
+   - Review `/Analyze/Requirements/*.md` for feature requirements
+   - Review `/Analyze/Design/*.md` for UI/UX specifications
+   - Review Definition of Done (DoD) for test coverage requirements
+
+2. **Design Test Strategy**:
+   - Identify user journeys to test
+   - Determine test cases from requirements
+   - Plan E2E scenarios and edge cases
+
+3. **Implement E2E Tests with Playwright**:
+   - Use MCP Playwright tools for browser automation
+   - Test all user flows from test plan
+   - Include cross-browser and mobile testing
+   - Capture screenshots and console logs
+
+4. **Execute Tests**:
+   - Run E2E test suite in isolated browser
+   - Capture test results (pass/fail counts)
+   - Document any failures with screenshots
+
+5. **Generate Test Report**:
+   - Save results in `/Tests/Report/ui-tests.md`
+   - Include: test summary, pass/fail counts, screenshots
+   - Document any issues or recommendations
+
 ## ClaudeTask Integration
 
 ### MCP Playwright Testing in ClaudeTask

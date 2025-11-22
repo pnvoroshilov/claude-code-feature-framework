@@ -1,0 +1,32 @@
+{
+  "name": "Post-Merge RAG Indexing",
+  "description": "Automatically indexes/reindexes files changed in commits to main/master branch for semantic search",
+  "category": "version-control",
+  "version": "1.0.0",
+  "changelog": {
+    "1.0.0": "Initial version with backend API integration, URL encoding for paths with spaces, and efficient incremental indexing"
+  },
+  "hook_config": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/post-merge-rag-indexing.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "script_file": "post-merge-rag-indexing.sh",
+  "setup_instructions": "This hook automatically triggers RAG indexing for files changed in commits after merging to main, pulling from main, or pushing to main.\n\nKEY FEATURES:\n- URL encoding for project paths with spaces (e.g., '/Users/name/Start Up/Project')\n- Backend API integration for efficient file indexing\n- Lock file mechanism to prevent recursion\n- Enhanced logging with debug information\n- Support for [skip-hook] commit tag to bypass hook\n- Incremental indexing (only changed files)\n\nSETUP STEPS:\n1. Copy post-merge-rag-indexing.sh to .claude/hooks/post-merge-rag-indexing.sh\n2. Make script executable: chmod +x .claude/hooks/post-merge-rag-indexing.sh\n3. Add hook configuration to .claude/settings.json\n4. Ensure backend API is running on localhost:3333\n\nREQUIREMENTS:\n- Backend API server running (claudetask backend)\n- jq command-line tool for JSON parsing and URL encoding\n- git command-line tool\n- RAG service must be initialized for the project\n\nFEATURES:\n- Detects git merge, pull, and push to main/master\n- URL-encodes project directory path (handles spaces and special characters)\n- Extracts list of changed files from commit\n- Calls backend API to index/reindex specific files\n- Comprehensive logging to .claude/logs/hooks/\n- Lock file prevents recursive hook invocation\n- Visual notifications to stderr\n- Fallback marker file for manual trigger",
+  "dependencies": ["git", "jq", "curl", "claudetask backend API (localhost:3333)"],
+  "troubleshooting": {
+    "paths_with_spaces": "If your project path contains spaces (e.g., '/Users/name/Start Up/Project'), this hook uses jq to URL-encode the path before passing to the API. The encoded path will be logged for verification.",
+    "api_connection": "Hook requires claudetask backend running on localhost:3333. If API call fails, a marker file is created at .claude/logs/hooks/.rag-indexing-pending for manual recovery.",
+    "recursion_prevention": "Lock file at .claude/logs/hooks/.rag-indexing-running prevents recursive hook invocation. If hook gets stuck, manually delete this file.",
+    "skip_hook": "Add [skip-hook] to commit message to bypass RAG indexing for that commit.",
+    "rag_not_initialized": "If RAG service is not initialized for the project, the hook will fail gracefully. Initialize RAG by running semantic search first."
+  }
+}

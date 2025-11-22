@@ -12,6 +12,8 @@ import {
   Lightbulb as SimpleIcon,
   Code as DevelopmentIcon,
   AccountTree as WorktreeIcon,
+  PersonOutline as ManualIcon,
+  SmartToy as AutoIcon,
 } from '@mui/icons-material';
 import { useProject } from '../context/ProjectContext';
 import { useThemeMode } from '../context/ThemeContext';
@@ -21,6 +23,7 @@ const ProjectModeToggle: React.FC = () => {
   const { selectedProject, refreshProjects } = useProject();
   const { mode: themeMode } = useThemeMode();
   const [worktreeEnabled, setWorktreeEnabled] = useState<boolean>(true);
+  const [manualMode, setManualMode] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
 
   const projectMode = selectedProject?.project_mode || 'simple';
@@ -45,6 +48,7 @@ const ProjectModeToggle: React.FC = () => {
         const settings = await getProjectSettings(selectedProject.id);
         console.log('Project settings loaded:', settings);
         setWorktreeEnabled(settings.worktree_enabled);
+        setManualMode(settings.manual_mode);
       } catch (error) {
         console.error('Failed to load project settings:', error);
       }
@@ -80,6 +84,38 @@ const ProjectModeToggle: React.FC = () => {
       console.error('Failed to update worktree setting:', error);
       // Revert on error
       setWorktreeEnabled(!newValue);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleManualModeToggle = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedProject) {
+      console.error('No selected project');
+      return;
+    }
+
+    const newValue = event.target.checked;
+    console.log('Manual mode toggle clicked:', { newValue, projectId: selectedProject.id });
+    setLoading(true);
+
+    try {
+      console.log('Updating manual mode setting...');
+      await updateProjectSettings(selectedProject.id, {
+        manual_mode: newValue
+      });
+      console.log('Manual mode updated successfully');
+
+      setManualMode(newValue);
+
+      // Refresh projects to trigger CLAUDE.md regeneration
+      console.log('Refreshing projects...');
+      await refreshProjects();
+      console.log('Projects refreshed');
+    } catch (error) {
+      console.error('Failed to update manual mode setting:', error);
+      // Revert on error
+      setManualMode(!newValue);
     } finally {
       setLoading(false);
     }
@@ -145,6 +181,71 @@ const ProjectModeToggle: React.FC = () => {
           ? '3 columns: Backlog, In Progress, Done'
           : 'Full workflow with Git integration'}
       </Typography>
+
+      {/* Manual Mode Toggle - Show for all projects */}
+      <Tooltip
+        title={
+          manualMode
+            ? 'Manual Mode: You test and review tasks manually'
+            : 'Automated Mode: Testing agents and code review run automatically'
+        }
+        arrow
+      >
+        <FormControlLabel
+          control={
+            <Switch
+              checked={manualMode}
+              onChange={handleManualModeToggle}
+              disabled={loading}
+              size="small"
+              sx={{
+                '& .MuiSwitch-switchBase.Mui-checked': {
+                  color: '#3b82f6',
+                },
+                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                  backgroundColor: '#3b82f6',
+                },
+              }}
+            />
+          }
+          label={
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              {manualMode ? (
+                <ManualIcon sx={{ fontSize: 16, color: '#3b82f6' }} />
+              ) : (
+                <AutoIcon sx={{ fontSize: 16, color: '#10b981' }} />
+              )}
+              <Chip
+                label={manualMode ? 'MANUAL' : 'AUTO'}
+                size="small"
+                sx={{
+                  height: 20,
+                  fontSize: '0.7rem',
+                  fontWeight: 600,
+                  bgcolor: manualMode
+                    ? alpha('#3b82f6', 0.15)
+                    : alpha('#10b981', 0.15),
+                  color: manualMode ? '#3b82f6' : '#10b981',
+                  border: `1px solid ${manualMode
+                    ? alpha('#3b82f6', 0.3)
+                    : alpha('#10b981', 0.3)}`,
+                  '& .MuiChip-label': {
+                    px: 1,
+                  },
+                }}
+              />
+            </Box>
+          }
+          sx={{
+            ml: 2,
+            mr: 0,
+            display: 'flex',
+            '& .MuiFormControlLabel-label': {
+              ml: 0.5,
+            },
+          }}
+        />
+      </Tooltip>
 
       {/* Worktree Toggle - Only show in development mode */}
       {projectMode === 'development' && (

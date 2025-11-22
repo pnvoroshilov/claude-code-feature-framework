@@ -63,9 +63,21 @@ class HookFileService:
 
                 # Add hooks to event type (merge, don't replace)
                 for hook_matcher in event_hooks:
-                    # Check if this matcher already exists to avoid duplicates
-                    existing_matchers = [h.get("matcher") for h in settings["hooks"][event_type]]
-                    if hook_matcher.get("matcher") not in existing_matchers:
+                    # Check if this exact hook configuration already exists to avoid duplicates
+                    # Need to check the full hook structure, not just matcher
+                    # because multiple hooks can have the same matcher (e.g., "Bash")
+                    hook_exists = False
+                    for existing_hook in settings["hooks"][event_type]:
+                        # Compare matcher AND the command inside hooks
+                        if existing_hook.get("matcher") == hook_matcher.get("matcher"):
+                            # Check if commands are the same
+                            existing_commands = [h.get("command") for h in existing_hook.get("hooks", [])]
+                            new_commands = [h.get("command") for h in hook_matcher.get("hooks", [])]
+                            if existing_commands == new_commands:
+                                hook_exists = True
+                                break
+
+                    if not hook_exists:
                         settings["hooks"][event_type].append(hook_matcher)
 
             # Write settings back to file

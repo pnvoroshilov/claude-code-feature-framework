@@ -135,7 +135,7 @@ class ProjectSettingsBase(BaseModel):
     build_command: Optional[str] = None
     lint_command: Optional[str] = None
     worktree_enabled: bool = True
-    manual_mode: bool = False
+    manual_mode: bool = True  # Manual testing & review (true) vs Automated (false)
 
 
 class ProjectSettingsCreate(ProjectSettingsBase):

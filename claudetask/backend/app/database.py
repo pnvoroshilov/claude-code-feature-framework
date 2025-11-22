@@ -488,14 +488,6 @@ async def seed_default_hooks():
     from pathlib import Path
 
     async with AsyncSessionLocal() as session:
-        # Check if hooks already seeded
-        result = await session.execute(select(DefaultHook))
-        existing_hooks = result.scalars().first()
-
-        if existing_hooks:
-            print("Default hooks already seeded")
-            return
-
         # Load hooks from framework-assets/claude-hooks directory
         hooks_dir = Path(__file__).parent.parent.parent.parent / "framework-assets" / "claude-hooks"
 
@@ -503,9 +495,18 @@ async def seed_default_hooks():
             print(f"Warning: Hooks directory not found: {hooks_dir}")
             return
 
+        # Get existing hook file names
+        result = await session.execute(select(DefaultHook))
+        existing_hooks = result.scalars().all()
+        existing_file_names = {hook.file_name for hook in existing_hooks}
+
         hooks_to_seed = []
 
         for hook_file in hooks_dir.glob("*.json"):
+            # Skip if this hook file is already in the database
+            if hook_file.name in existing_file_names:
+                continue
+
             try:
                 with open(hook_file, 'r') as f:
                     hook_data = json.load(f)
@@ -526,9 +527,9 @@ async def seed_default_hooks():
         if hooks_to_seed:
             session.add_all(hooks_to_seed)
             await session.commit()
-            print(f"Seeded {len(hooks_to_seed)} default hooks")
+            print(f"Seeded {len(hooks_to_seed)} new default hooks")
         else:
-            print("No hooks found to seed")
+            print("No new hooks to seed (all hooks already in database)")
 
 
 async def seed_default_mcp_configs():

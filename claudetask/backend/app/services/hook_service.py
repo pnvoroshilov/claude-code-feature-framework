@@ -241,18 +241,12 @@ class HookService:
         if not hook:
             raise ValueError(f"Hook {hook_id} not found")
 
-        # Remove hook from settings.json
-        success = await self.file_service.remove_hook_from_settings(
-            project_path=project.path,
-            hook_name=hook.name
-        )
-
-        if not success:
-            logger.warning(f"Failed to remove hook from settings.json (may not exist)")
-
-        # Delete from project_hooks
+        # Delete from project_hooks FIRST
         await self.db.delete(project_hook)
         await self.db.commit()
+
+        # Rebuild settings.json with remaining enabled hooks
+        await self._rebuild_settings_json(project_id, project.path)
 
         logger.info(f"Disabled hook {hook.name} for project {project_id}")
 
@@ -816,9 +810,18 @@ class HookService:
 
                 # Add all matchers from this hook
                 for matcher_config in event_hooks:
-                    # Avoid duplicates by checking matcher name
-                    existing_matchers = [m.get("matcher") for m in merged_hooks_config[event_type]]
-                    if matcher_config.get("matcher") not in existing_matchers:
+                    # Avoid duplicates by checking matcher AND command
+                    hook_exists = False
+                    for existing_hook in merged_hooks_config[event_type]:
+                        if existing_hook.get("matcher") == matcher_config.get("matcher"):
+                            # Check if commands are the same
+                            existing_commands = [h.get("command") for h in existing_hook.get("hooks", [])]
+                            new_commands = [h.get("command") for h in matcher_config.get("hooks", [])]
+                            if existing_commands == new_commands:
+                                hook_exists = True
+                                break
+
+                    if not hook_exists:
                         merged_hooks_config[event_type].append(matcher_config)
 
         # Apply the merged configuration to settings.json
