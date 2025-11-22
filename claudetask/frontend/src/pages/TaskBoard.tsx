@@ -948,8 +948,17 @@ const TaskBoard: React.FC = () => {
               border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
             }}
           >
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
-              {/* Search - Compact width */}
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              spacing={2}
+              alignItems="center"
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                width: '100%'
+              }}
+            >
+              {/* Search - Left side */}
               <TextField
                 placeholder="Search tasks..."
                 value={searchQuery}
@@ -962,14 +971,14 @@ const TaskBoard: React.FC = () => {
                   ),
                 }}
                 sx={{
-                  width: { xs: '100%', md: '320px' },
+                  width: { xs: '100%', md: '400px' },
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
                   },
                 }}
               />
 
-              {/* Filter Toggle - Compact group */}
+              {/* Filter Toggle - Right side */}
               <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
                 <ToggleButtonGroup
                   value={activeFilter}
