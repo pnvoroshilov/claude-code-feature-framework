@@ -131,6 +131,8 @@ WHILE TRUE:
 ### Technical Reference (Use When Required)
 10. **[RAG Usage](./.claudetask/instructions/rag-usage.md)** - Semantic search and context gathering
 11. **[MCP Commands](./.claudetask/instructions/mcp-commands.md)** - Command reference and patterns
+12. **[AUTO Mode Monitoring](./.claudetask/instructions/auto-mode-monitoring.md)** - 🔴 CRITICAL for AUTO mode operation
+13. **[Test Command AUTO Mode](./.claudetask/instructions/test-command-auto-mode.md)** - 🔴 MANDATORY behavior for /test in AUTO mode
 
 ## 🚨 Common Scenarios - Quick Reference
 
@@ -182,6 +184,13 @@ mcp__claudetask__append_stage_result \
 ```
 
 See [mcp-commands.md](./.claudetask/instructions/mcp-commands.md) for examples.
+
+## 🤖 AUTO Mode Instructions - CRITICAL
+
+**When `manual_mode = false`, these instructions are MANDATORY:**
+
+- **[AUTO Mode Monitoring](./.claudetask/instructions/auto-mode-monitoring.md)** - 🔴 How to monitor and execute commands automatically
+- **[Test Command AUTO Mode](./.claudetask/instructions/test-command-auto-mode.md)** - 🔴 MUST execute /PR after successful tests
 
 ## 🔧 Project Configuration
 

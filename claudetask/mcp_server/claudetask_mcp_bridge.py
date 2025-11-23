@@ -2972,19 +2972,17 @@ Total chunks: {result['total_chunks']}"""
                 project_data = project_response.json()
                 project_mode = project_data.get("project_mode", "simple")
 
-                # Get project settings (contains worktree_enabled and manual modes)
+                # Get project settings (contains worktree_enabled and manual_mode)
                 settings_response = await client.get(f"{self.server_url}/api/projects/{self.project_id}/settings")
                 settings_response.raise_for_status()
                 settings_data = settings_response.json()
                 worktree_enabled = settings_data.get("worktree_enabled", True)
-                manual_testing_mode = settings_data.get("manual_testing_mode", True)
-                manual_review_mode = settings_data.get("manual_review_mode", True)
+                manual_mode = settings_data.get("manual_mode", False)
 
-                # Determine testing variant (UC-04)
-                testing_variant = "UC-04 Variant B (Manual Testing)" if manual_testing_mode else "UC-04 Variant A (Automated Testing)"
-                
-                # Determine review variant (UC-05)
-                review_variant = "UC-05 Variant B (Manual Review)" if manual_review_mode else "UC-05 Variant A (Auto-merge)"
+                # Determine workflow mode
+                workflow_mode = "Manual" if manual_mode else "Automated"
+                testing_variant = "UC-04 Variant B (Manual Testing)" if manual_mode else "UC-04 Variant A (Automated Testing)"
+                review_variant = "UC-05 Variant B (Manual Review)" if manual_mode else "UC-05 Variant A (Auto-merge)"
 
                 return [types.TextContent(
                     type="text",
@@ -2993,12 +2991,13 @@ Total chunks: {result['total_chunks']}"""
 📋 Current Configuration:
 - **Project Mode**: {project_mode}
 - **Worktree Enabled**: {worktree_enabled}
-- **Manual Testing Mode**: {manual_testing_mode} ({testing_variant})
-- **Manual Review Mode**: {manual_review_mode} ({review_variant})
+- **Workflow Mode**: {workflow_mode} (manual_mode={manual_mode})
+  - Testing: {testing_variant}
+  - Code Review: {review_variant}
 
-🎯 Workflow Variants:
-- Testing: {"Manual user testing required" if manual_testing_mode else "Automated testing agents"}
-- Review: {"Manual PR review & merge" if manual_review_mode else "Auto-merge after review"}
+🎯 Workflow Behavior:
+- Testing: {"Manual user testing required" if manual_mode else "Automated testing agents"}
+- Review: {"Manual PR review & merge" if manual_mode else "Auto-merge after review"}
 
 🎯 Instructions to Follow:
 {self._get_mode_instructions(project_mode, worktree_enabled)}
@@ -3015,8 +3014,9 @@ Use these settings to determine which workflow instructions to apply from CLAUDE
 📋 Using fallback defaults:
 - Project Mode: simple
 - Worktree Enabled: false
-- Manual Testing Mode: true (UC-04 Variant B)
-- Manual Review Mode: true (UC-05 Variant B)
+- Workflow Mode: Automated (manual_mode=false)
+  - Testing: UC-04 Variant A (Automated Testing)
+  - Code Review: UC-05 Variant A (Auto-merge)
 
 Apply SIMPLE mode instructions from CLAUDE.md"""
                 )]

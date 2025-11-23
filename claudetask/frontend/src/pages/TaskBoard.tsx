@@ -662,27 +662,6 @@ const TaskBoard: React.FC = () => {
               >
                 <MoreIcon sx={{ fontSize: 16 }} />
               </IconButton>
-
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (window.confirm(`Delete task "${task.title}"?`)) {
-                    deleteTaskMutation.mutate(task.id);
-                  }
-                }}
-                sx={{
-                  width: 24,
-                  height: 24,
-                  color: theme.palette.text.secondary,
-                  '&:hover': {
-                    background: alpha(theme.palette.error.main, 0.1),
-                    color: theme.palette.error.main,
-                  },
-                }}
-              >
-                <DeleteIcon sx={{ fontSize: 16 }} />
-              </IconButton>
             </Box>
           </Box>
 
@@ -1198,6 +1177,42 @@ const TaskBoard: React.FC = () => {
             </Box>
           </MenuItem>
         ))}
+
+        {/* Delete task option */}
+        {selectedTaskForStatus && (
+          <>
+            <Divider sx={{ my: 1 }} />
+            <MenuItem
+              onClick={() => {
+                if (window.confirm(`Delete task "${selectedTaskForStatus.title}"?`)) {
+                  deleteTaskMutation.mutate(selectedTaskForStatus.id);
+                  handleStatusMenuClose();
+                }
+              }}
+              sx={{
+                py: 1.5,
+                color: 'error.main',
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.error.main, 0.08),
+                }
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
+                <Box sx={{ color: 'error.main' }}>
+                  <DeleteIcon sx={{ fontSize: 20 }} />
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    Delete Task
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Permanently remove this task
+                  </Typography>
+                </Box>
+              </Box>
+            </MenuItem>
+          </>
+        )}
       </Menu>
 
       {/* Confirmation Dialog */}

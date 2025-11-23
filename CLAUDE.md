@@ -174,6 +174,13 @@ mcp__claudetask__append_stage_result \
 
 See [mcp-commands.md](./.claudetask/instructions/mcp-commands.md) for examples.
 
+## 🤖 AUTO Mode Instructions - CRITICAL
+
+**When `manual_mode = false`, these instructions are MANDATORY:**
+
+11. **[AUTO Mode Monitoring](./.claudetask/instructions/auto-mode-monitoring.md)** - 🔴 How to monitor and execute commands automatically
+12. **[Test Command AUTO Mode](./.claudetask/instructions/test-command-auto-mode.md)** - 🔴 MUST execute /PR after successful tests
+
 ## 🔧 Project Configuration
 
 **Project Information:**

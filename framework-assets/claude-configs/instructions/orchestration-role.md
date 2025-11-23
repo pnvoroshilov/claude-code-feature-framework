@@ -66,8 +66,9 @@ LOOP FOREVER:
    - IN AUTO MODE (manual_mode = false):
      * /test command handles everything
      * When tests complete:
-       → If tests PASSED: Execute /PR {task_id} command automatically
+       → If tests PASSED: 🔴 MUST Execute /PR {task_id} command IMMEDIATELY
        → If tests FAILED: Execute /start-develop command automatically
+     * ⚠️ CRITICAL: Do NOT just say "ready for PR" - EXECUTE the command!
 
    🔍 CODE REVIEW STATUS:
    - IN MANUAL MODE (manual_mode = true):

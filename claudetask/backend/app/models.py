@@ -146,7 +146,6 @@ class ProjectSettings(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), unique=True, nullable=False)
-    claude_config = Column(Text, nullable=True)  # CLAUDE.md content
     auto_mode = Column(Boolean, default=False)
     auto_priority_threshold = Column(Enum(TaskPriority), default=TaskPriority.HIGH)
     max_parallel_tasks = Column(Integer, default=3)
@@ -154,9 +153,7 @@ class ProjectSettings(Base):
     build_command = Column(String, nullable=True)
     lint_command = Column(String, nullable=True)
     worktree_enabled = Column(Boolean, default=True, nullable=False)  # Enable/disable git worktrees
-    manual_mode = Column(Boolean, default=False, nullable=False)  # DEPRECATED: Use manual_testing_mode and manual_review_mode
-    manual_testing_mode = Column(Boolean, default=True, nullable=False)  # UC-04: Manual (True) vs Automated (False) testing
-    manual_review_mode = Column(Boolean, default=True, nullable=False)  # UC-05: Manual (True) vs Auto-merge (False) review
+    manual_mode = Column(Boolean, default=False, nullable=False)  # Manual (True) vs Automated (False) for UC-04 Testing & UC-05 Code Review
 
     # Relationships
     project = relationship("Project", back_populates="settings")

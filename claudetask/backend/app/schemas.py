@@ -127,7 +127,6 @@ class TaskInDB(TaskBase):
 
 # Project Settings Schemas
 class ProjectSettingsBase(BaseModel):
-    claude_config: Optional[str] = None
     auto_mode: bool = False
     auto_priority_threshold: TaskPriority = TaskPriority.HIGH
     max_parallel_tasks: int = 3
