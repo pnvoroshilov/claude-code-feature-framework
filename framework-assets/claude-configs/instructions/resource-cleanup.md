@@ -20,6 +20,7 @@ When task is marked as Done:
 3. ✅ Test server processes (frontend, backend)
 4. ✅ Occupied ports
 5. ✅ Testing URLs from task
+6. ✅ Git worktree (if no remote repository)
 
 ## Automated Cleanup Command (PREFERRED)
 
@@ -206,6 +207,31 @@ Before marking task as Done:
 - [ ] All ports released
 - [ ] Testing URLs cleared
 - [ ] Claude session completed
+- [ ] Worktree merged if no remote (see [local-worktree-merge.md](local-worktree-merge.md))
+
+## 🔀 Git Worktree Cleanup
+
+**For projects WITHOUT remote repository:**
+
+When task is in "Pull Request" status and no remote exists:
+1. First merge changes locally - see **[Local Worktree Merge](local-worktree-merge.md)**
+2. Then remove worktree as part of cleanup
+
+```bash
+# Check if remote exists
+git remote -v
+
+# If NO remote, merge first
+git checkout main
+git merge feature/task-{id} --no-ff
+
+# Then cleanup worktree
+git worktree remove worktrees/task-{id}
+git branch -d feature/task-{id}
+git worktree prune
+```
+
+**⚠️ CRITICAL**: Never remove worktree before merging changes!
 - [ ] Cleanup results saved with `append_stage_result`
 - [ ] Task status updated to "Done"
 - [ ] User notified of completion

@@ -133,6 +133,7 @@ WHILE TRUE:
 11. **[MCP Commands](./.claudetask/instructions/mcp-commands.md)** - Command reference and patterns
 12. **[AUTO Mode Monitoring](./.claudetask/instructions/auto-mode-monitoring.md)** - 🔴 CRITICAL for AUTO mode operation
 13. **[Test Command AUTO Mode](./.claudetask/instructions/test-command-auto-mode.md)** - 🔴 MANDATORY behavior for /test in AUTO mode
+14. **[Local Worktree Merge](./.claudetask/instructions/local-worktree-merge.md)** - Merging worktrees without remote repository
 
 ## 🚨 Common Scenarios - Quick Reference
 

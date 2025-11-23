@@ -181,6 +181,10 @@ See [mcp-commands.md](./.claudetask/instructions/mcp-commands.md) for examples.
 11. **[AUTO Mode Monitoring](./.claudetask/instructions/auto-mode-monitoring.md)** - 🔴 How to monitor and execute commands automatically
 12. **[Test Command AUTO Mode](./.claudetask/instructions/test-command-auto-mode.md)** - 🔴 MUST execute /PR after successful tests
 
+## 🔀 Git Workflow Instructions
+
+13. **[Local Worktree Merge](./.claudetask/instructions/local-worktree-merge.md)** - How to merge worktrees when no remote repository exists
+
 ## 🔧 Project Configuration
 
 **Project Information:**
