@@ -156,9 +156,30 @@ Documents created:
 Ready for user review and approval."
 ```
 
-### 🔴 STEP 8: Wait for User Approval
+### 🔴 STEP 8: Check Workflow Mode and Transition
 
-**User reviews analysis documents:**
+**CRITICAL: Check `manual_mode` setting first!**
+
+```bash
+mcp__claudetask__get_project_settings
+```
+
+#### If `manual_mode = false` (AUTO MODE):
+**DO NOT wait for user approval. Automatically proceed:**
+
+1. Update status to "In Progress" immediately
+2. Execute `/start-develop` command
+3. Continue autonomous workflow
+
+```bash
+mcp:update_status {id} "In Progress"
+SlashCommand("/start-develop")
+```
+
+#### If `manual_mode = true` (MANUAL MODE):
+**Wait for user approval:**
+
+- Inform user that analysis is complete
 - User checks `worktrees/task-{id}/Analyze/task-{id}/Requirements/`
 - User checks `worktrees/task-{id}/Analyze/task-{id}/Design/`
 - If approved: User presses **"In Progress"** button
@@ -166,7 +187,8 @@ Ready for user review and approval."
 
 ### 🔴 STEP 9: Transition to In Progress
 
-When user presses "In Progress" button:
+**AUTO MODE:** Already transitioned in Step 8
+**MANUAL MODE:** When user presses "In Progress" button:
 
 ```bash
 mcp:update_status {id} "In Progress"
@@ -193,7 +215,7 @@ After successful analysis:
 - ✅ Requirements documented in `worktrees/task-{id}/Analyze/task-{id}/Requirements/`
 - ✅ Technical design documented in `worktrees/task-{id}/Analyze/task-{id}/Design/`
 - ✅ Test cases defined by System Architect
-- ✅ User approved the analysis
+- ✅ User approved the analysis (MANUAL MODE) OR auto-transitioned (AUTO MODE)
 - ✅ Task status: "In Progress"
 
 ## Analysis Quality Checklist
@@ -207,7 +229,8 @@ Before transitioning to In Progress:
 - [ ] Both agents analyzed other active tasks
 - [ ] Both agents reviewed docs/ folder
 - [ ] Test cases (UI & Backend) are defined
-- [ ] User reviewed and approved the analysis
+- [ ] Checked `manual_mode` setting via `mcp__claudetask__get_project_settings`
+- [ ] User reviewed and approved (MANUAL MODE) OR auto-transitioned (AUTO MODE)
 - [ ] Stage result saved with `append_stage_result`
 - [ ] Status updated to "In Progress"
 
@@ -217,17 +240,21 @@ Before transitioning to In Progress:
 - Do analysis yourself (always delegate to agents)
 - Create requirements documents yourself (Requirements Analyst does it)
 - Create design documents yourself (System Architect does it)
-- Skip user review and approval
-- Move to In Progress before user approval
+- Skip user review and approval in MANUAL MODE
+- Wait for user approval in AUTO MODE (auto-transition immediately!)
+- Move to In Progress before analysis is complete
 - Setup test environment during Analysis (wait for Testing status)
 - Forget to tell agents to analyze other active tasks and docs/
+- Forget to check `manual_mode` setting before deciding workflow
 
 ✅ **DO**:
 - Delegate to `requirements-analyst` agent
 - Delegate to `system-architect` agent
 - Let agents ask user questions if needed
 - Ensure agents check task queue and docs/
-- Wait for user approval before transitioning
+- Check `manual_mode` via `mcp__claudetask__get_project_settings`
+- AUTO MODE: Auto-transition and execute `/start-develop`
+- MANUAL MODE: Wait for user approval before transitioning
 - Save stage results at key points
 - Verify all documents are created before proceeding
 
