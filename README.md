@@ -7,7 +7,13 @@ A comprehensive task management framework designed specifically for Claude Code 
 - **Visual Task Board**: Kanban-style interface for managing tasks across different stages
 - **Claude Code Integration**: Seamless MCP (Model Context Protocol) integration with Claude
 - **Automated Workflow**: Tasks are automatically analyzed and implemented by Claude
+- **Project Memory System**: Automatic conversation persistence with RAG-based semantic search
+  - No context loss between sessions
+  - Intelligent summarization of project knowledge
+  - ChromaDB-powered semantic search
+- **AUTO Mode**: Fully autonomous task execution with automatic PR creation
 - **Git Worktree Support**: Isolated development environments for each task
+- **Local Merge Workflow**: Complete workflow for projects without remote repositories
 - **Technology Agnostic**: Works with any programming language or framework
 - **Coordinator-Executor Pattern**: Claude acts as coordinator, delegating work to specialized agents
 
@@ -361,9 +367,26 @@ npm test
 
 ## 📖 Documentation
 
-- [Use Cases](use-cases.md) - Detailed usage scenarios
-- [Framework Workflow](framework-workflow.md) - Technical workflow details
-- [Requirements](requirements.md) - Complete requirements specification
+### Getting Started
+- [Installation & Setup](#quick-start) - Complete installation guide
+- [Project Setup](#project-setup-in-claudetask) - First project configuration
+
+### Core Features
+- [Project Memory System](docs/features/memory-system.md) - Cross-session context preservation
+- [AUTO Mode](docs/features/auto-mode.md) - Autonomous task execution
+
+### Guides
+- [Local Worktree Merge](docs/guides/local-worktree-merge.md) - Merging without remote repository
+- [Testing Workflow](docs/how-to-switch-testing-modes.md) - Manual and automated testing
+
+### Architecture
+- [System Architecture](docs/architecture/overview.md) - Complete technical overview
+- [Intelligent Workflow](docs/architecture/intelligent-workflow.md) - 7-phase development workflow
+- [Hooks System](docs/architecture/hooks-system.md) - Automation with Claude Code hooks
+
+### API Reference
+- [MCP Tools](docs/api/mcp-tools.md) - Complete MCP command reference
+- [REST API Endpoints](docs/api/endpoints/) - Backend API documentation
 
 ## 🤝 Contributing
 
@@ -577,15 +600,23 @@ For issues and questions:
    - Environment information (OS, versions)
    - Steps to reproduce
 
-## 🎯 Roadmap
+## 🎯 Recent Updates
 
-- [ ] **RAG-Enhanced Analysis** - Semantic code search for better context (✅ Completed)
+- **Project Memory System** (2025-11-23) - Automatic conversation persistence with RAG search
+- **AUTO Mode Improvements** (2025-11-22) - Automatic PR creation after successful tests
+- **Local Worktree Merge** (2025-11-22) - Complete workflow for projects without remote repos
+- **RAG-Enhanced Analysis** (2025-11-20) - Semantic code search for better context
+
+## 🗺️ Roadmap
+
+- [x] **RAG-Enhanced Analysis** - Semantic code search for better context (✅ Completed)
+- [x] **Project Memory System** - Cross-session context preservation (✅ Completed)
 - [ ] Advanced agent configurations with custom tools
 - [ ] Integration with more Git providers (GitHub, GitLab, Bitbucket)
-- [ ] Real-time task notifications via WebSocket
+- [ ] Real-time task notifications via WebSocket (Partial - WebSocket infrastructure exists)
 - [ ] Performance metrics and analytics dashboard
 - [ ] Plugin system for custom agents
-- [ ] Multi-project workspace support
+- [ ] Multi-project workspace support (✅ Exists, needs enhancement)
 - [ ] Task templates and automation workflows
 - [ ] Integration with CI/CD pipelines
 - [ ] Mobile-friendly UI

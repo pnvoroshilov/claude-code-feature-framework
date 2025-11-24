@@ -124,7 +124,18 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 - Complete agent refresh to remove deprecated configurations
 - See [Framework Updates Documentation](./framework-updates.md)
 
-### 8. File Browser System
+### 8. Project Memory System
+- Automatic conversation persistence across sessions
+- Project summary generation and maintenance (3-5 pages)
+- RAG-based semantic search using ChromaDB
+- Session context loading at startup
+- Message indexing with embeddings (all-MiniLM-L6-v2)
+- Historical knowledge retrieval
+- Cross-session context preservation
+- Automatic memory hooks (enabled by default)
+- See [Memory System Documentation](../features/memory-system.md)
+
+### 9. File Browser System
 - GitHub-style file browsing interface
 - Monaco Editor integration for code editing
 - Project-scoped file access
@@ -275,6 +286,10 @@ The system uses SQLite with the following main tables:
 - **project_mcp_configs**: Junction table for project-MCP enablement
 - **agents**: Subagent configurations
 - **project_settings**: Per-project settings including worktree_enabled field
+- **conversation_memory**: All conversation messages with metadata
+- **project_summaries**: Condensed project knowledge (3-5 pages)
+- **memory_rag_status**: RAG indexing tracking
+- **memory_sessions**: Session context loading tracking
 
 See [Database Migrations Documentation](../deployment/database-migrations.md) for complete migration history and [database-design.md](./database-design.md) for detailed schema documentation.
 
@@ -297,6 +312,7 @@ All endpoints follow REST conventions:
 /api/projects/{id}/subagents         # Subagent management
 /api/projects/{id}/instructions      # Custom instructions
 /api/projects/{id}/files             # File browser and editor
+/api/projects/{id}/memory            # Memory management
 /api/sessions                        # Claude sessions
 /api/editor                          # File editor endpoints (legacy)
 ```
@@ -590,4 +606,139 @@ User controls critical workflow transitions:
 
 ---
 
-Last updated: 2025-11-21
+---
+
+## Project Memory System (2025-11-23)
+
+The framework now includes an intelligent memory system that preserves conversation context across sessions, eliminating the need to re-explain project architecture and decisions.
+
+### Memory Components
+
+**Database Tables**:
+- `conversation_memory`: Stores all user/assistant/system messages
+- `project_summaries`: Maintains 3-5 page condensed project knowledge
+- `memory_rag_status`: Tracks RAG indexing for semantic search
+- `memory_sessions`: Session context loading statistics
+
+**RAG Integration**:
+- ChromaDB collections per project (`memory_{project_id}`)
+- Embedding model: `all-MiniLM-L6-v2`
+- Automatic real-time indexing of conversations
+- Semantic search for historical context retrieval
+
+**Memory Hooks** (enabled by default):
+- `memory-conversation-capture`: Automatically saves all messages
+- `memory-session-summarizer`: Updates project summary after sessions
+
+### Automatic Context Loading
+
+At session start, Claude Code automatically receives:
+1. **Project Summary**: 3-5 pages of architecture, decisions, patterns
+2. **Recent Messages**: Last 50 messages for immediate context
+3. **RAG Results**: Top 20 semantically relevant historical messages
+
+### API Endpoints
+
+New memory management endpoints:
+```
+POST /api/projects/{id}/memory/messages      # Save message
+GET  /api/projects/{id}/memory/context       # Get full context
+PUT  /api/projects/{id}/memory/summary       # Update summary
+POST /api/projects/{id}/memory/search        # Search memories
+GET  /api/projects/{id}/memory/stats         # Memory statistics
+```
+
+### MCP Tools
+
+Memory-related MCP commands:
+- `mcp__claudetask__get_project_memory_context`: Load full context
+- `mcp__claudetask__save_conversation_message`: Save important insight
+- `mcp__claudetask__update_project_summary`: Update project knowledge
+- `mcp__claudetask__search_project_memories`: Semantic search
+
+### Benefits
+
+- **No Context Loss**: Sessions start with full project understanding
+- **Knowledge Accumulation**: Gets smarter with each interaction
+- **Pattern Recognition**: Historical solutions automatically recalled
+- **Faster Onboarding**: New sessions don't need re-explanation
+
+**See**: [Memory System Documentation](../features/memory-system.md) for complete details
+
+---
+
+## AUTO Mode Improvements (2025-11-22)
+
+Enhanced autonomous task execution with automatic PR creation after successful tests.
+
+### Key Improvement
+
+**Before**: Even in AUTO mode, user had to manually execute `/PR` after tests passed.
+
+**After**: In AUTO mode (`manual_mode = false`), `/PR` executes automatically after successful tests.
+
+### AUTO Mode Workflow
+
+When `manual_mode = false`:
+1. Task automatically selected from queue
+2. Analysis performed automatically
+3. Implementation done automatically
+4. Tests setup automatically
+5. **User tests manually** (only pause point)
+6. After `/PR` or successful tests: **PR created automatically**
+7. Loop continues with next task
+
+### Configuration
+
+```bash
+# Enable AUTO mode
+mcp__claudetask__update_project_settings --manual_mode=false
+
+# Check current mode
+mcp__claudetask__get_project_settings
+```
+
+**See**: [AUTO Mode Documentation](../features/auto-mode.md) for complete workflow details
+
+---
+
+## Local Worktree Merge (2025-11-22)
+
+Added comprehensive workflow for merging task changes when project has no remote repository.
+
+### Use Case
+
+For projects without GitHub/GitLab hosting:
+- No remote repository configured
+- Task development done in local worktrees
+- Need to merge changes to main branch locally
+
+### Merge Process
+
+```bash
+# Verify no remote
+git remote -v  # Should be empty
+
+# Merge locally
+git checkout main
+git merge feature/task-{id} --no-ff -m "Merge task #{id} [skip-hook]"
+
+# Cleanup
+git worktree remove worktrees/task-{id}
+git branch -d feature/task-{id}
+git worktree prune
+```
+
+### Key Features
+
+- Safe merge verification steps
+- Conflict resolution strategies
+- Complete cleanup procedures
+- `[skip-hook]` tag prevents hook recursion
+- Alternative rebase workflow option
+
+**See**: [Local Worktree Merge Guide](../guides/local-worktree-merge.md) for step-by-step instructions
+
+---
+
+Last updated: 2025-11-24

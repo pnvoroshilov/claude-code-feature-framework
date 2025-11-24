@@ -73,6 +73,19 @@ Claude Code skills documentation for extended capabilities.
 - `toon-format.md` - TOON Format skill for token-efficient data serialization
 - `usecase-writer.md` - UseCase Writer skill for requirements documentation
 
+### `/features/`
+Core framework features and capabilities.
+
+**Features:**
+- `memory-system.md` - Project memory and conversation persistence
+- `auto-mode.md` - Autonomous task execution workflow
+
+### `/guides/`
+Step-by-step guides for specific tasks.
+
+**Guides:**
+- `local-worktree-merge.md` - Merging task changes without remote repository
+
 ### `/examples/`
 Practical usage examples and code snippets.
 
@@ -142,15 +155,18 @@ To manually trigger documentation update:
 **Recommended Reading Order:**
 
 1. `architecture/overview.md` - Understand the system architecture
-2. `architecture/intelligent-workflow.md` - Learn the complete development workflow
-3. `claudetask/slash-commands.md` - Master workflow automation commands
-4. `architecture/project-modes.md` - Understand SIMPLE vs DEVELOPMENT modes
-5. `api/mcp-tools.md` - MCP tool reference and usage patterns
-6. `deployment/database-migrations.md` - Database schema evolution and migration history
-7. `architecture/framework-updates.md` - Framework update system and file synchronization
-8. `architecture/hooks-system.md` - Hooks system and automation workflow
-9. `api/endpoints/claude-sessions.md` - Claude session management API
-10. `components/README.md` - UI component architecture
+2. `features/memory-system.md` - Learn about conversation persistence
+3. `features/auto-mode.md` - Understand autonomous task execution
+4. `architecture/intelligent-workflow.md` - Learn the complete development workflow
+5. `claudetask/slash-commands.md` - Master workflow automation commands
+6. `architecture/project-modes.md` - Understand SIMPLE vs DEVELOPMENT modes
+7. `api/mcp-tools.md` - MCP tool reference and usage patterns
+8. `guides/local-worktree-merge.md` - Merging without remote repository
+9. `deployment/database-migrations.md` - Database schema evolution and migration history
+10. `architecture/framework-updates.md` - Framework update system and file synchronization
+11. `architecture/hooks-system.md` - Hooks system and automation workflow
+12. `api/endpoints/claude-sessions.md` - Claude session management API
+13. `components/README.md` - UI component architecture
 
 ## Technology Stack
 
@@ -172,7 +188,30 @@ To manually trigger documentation update:
 
 ## Recent Updates
 
-**Latest Changes (2025-11-21):**
+**Latest Changes (2025-11-24):**
+- ✅ **Project Memory System**: Automatic conversation persistence with RAG search
+  - Database tables: `conversation_memory`, `project_summaries`, `memory_rag_status`, `memory_sessions`
+  - ChromaDB integration for semantic search
+  - Automatic context loading at session start (project summary + last 50 messages + RAG results)
+  - Memory hooks enabled by default (`memory-conversation-capture`, `memory-session-summarizer`)
+  - MCP tools for memory management
+  - Documentation: `features/memory-system.md`
+- ✅ **AUTO Mode Improvements**: Automatic PR creation after successful tests
+  - `/PR` command executes automatically after tests pass in AUTO mode
+  - Eliminates manual step in fully autonomous workflow
+  - Documentation: `features/auto-mode.md`
+- ✅ **Local Worktree Merge Guide**: Complete workflow for projects without remote
+  - Step-by-step merge process for local-only projects
+  - Conflict resolution strategies
+  - Complete cleanup procedures
+  - `[skip-hook]` tag usage for preventing recursion
+  - Documentation: `guides/local-worktree-merge.md`
+- ✅ **Skills System YAML Format Fix**: Correct frontmatter format for all skills
+  - Fixed YAML frontmatter in skills-creator agent
+  - Updated all default skills to use proper format
+  - Consistent skill metadata structure
+
+**Previous Changes (2025-11-21):**
 - ✅ **Modular Instruction System**: CLAUDE.md refactored into focused instruction files
   - 10 modular instruction files in `.claudetask/instructions/`
   - Just-in-time instruction loading
@@ -417,18 +456,20 @@ New documentation is automatically created when:
 - [ ] Performance optimization guides
 
 **Documentation Metrics:**
-- Total files: 32 active, 3 archived
-- API endpoints documented: 8 (Hooks, Skills, Subagents, MCP Configs, Sessions, File Browser, Settings, RAG)
-- MCP tools documented: 16+ tools with complete reference
+- Total files: 36 active, 3 archived
+- API endpoints documented: 8 (Hooks, Skills, Subagents, MCP Configs, Sessions, File Browser, Settings, RAG, Memory)
+- MCP tools documented: 20+ tools with complete reference (including memory tools)
 - Slash commands documented: 10+ commands with full examples
 - Workflow phases documented: 7 phases in intelligent workflow
 - Components documented: 8 (FileBrowser, RealTerminal, ClaudeSessions, MCPConfigs, etc.)
-- Hooks documented: 8 framework hooks (including inject-docs-update)
+- Hooks documented: 10 framework hooks (including memory hooks)
 - Skills documented: 16 default skills + custom skill system
-- Modular instructions documented: 10 instruction files
+- Features documented: 2 (Memory System, AUTO Mode)
+- Guides documented: 1 (Local Worktree Merge)
+- Modular instructions documented: 13 instruction files
 - Specialized agents documented: 10+ agents (requirements-analyst, system-architect, pr-merge-agent, etc.)
-- Database migrations documented: 8 complete migrations (including manual mode)
-- Last full update: 2025-11-21
+- Database migrations documented: 9 complete migrations (including memory tables)
+- Last full update: 2025-11-24
 - Auto-update status: Active and operational
 
 ## Key Features Documented
@@ -449,15 +490,23 @@ New documentation is automatically created when:
 - **Dynamic CLAUDE.md**: Auto-regenerated based on settings
 
 ### Automation System
-- **MCP tools**: 16+ tools for task and project management
+- **MCP tools**: 20+ tools for task, project, and memory management
 - **Specialized agents**: 10+ expert agents for different phases
-- **Hooks system**: 8 framework hooks for automation
-- **Skills system**: 2 default skills (TOON Format, UseCase Writer)
+- **Hooks system**: 10 framework hooks for automation (including memory hooks)
+- **Skills system**: 16 default skills + custom skill support
+- **AUTO mode**: Fully autonomous task execution
 - **WebSocket updates**: Real-time project and task synchronization
+
+### Memory and Intelligence
+- **Project memory**: Automatic conversation persistence across sessions
+- **RAG search**: Semantic search over historical conversations
+- **Context preservation**: No context loss between sessions
+- **Intelligent summarization**: 3-5 page project summaries
+- **ChromaDB integration**: Vector database for embeddings
 
 ---
 
 **Documentation System Status:** ✅ Active
-**Last Auto-Update:** 2025-11-21
+**Last Auto-Update:** 2025-11-24
 **Auto-Update Trigger:** Post-merge hook with [skip-hook] prevention
 **Maintainer:** documentation-updater-agent
