@@ -131,9 +131,10 @@ WHILE TRUE:
 ### Technical Reference (Use When Required)
 10. **[RAG Usage](./.claudetask/instructions/rag-usage.md)** - Semantic search and context gathering
 11. **[MCP Commands](./.claudetask/instructions/mcp-commands.md)** - Command reference and patterns
-12. **[AUTO Mode Monitoring](./.claudetask/instructions/auto-mode-monitoring.md)** - 🔴 CRITICAL for AUTO mode operation
-13. **[Test Command AUTO Mode](./.claudetask/instructions/test-command-auto-mode.md)** - 🔴 MANDATORY behavior for /test in AUTO mode
-14. **[Local Worktree Merge](./.claudetask/instructions/local-worktree-merge.md)** - Merging worktrees without remote repository
+12. **[Memory System](./.claudetask/instructions/memory-system.md)** - 🧠 Automatic context persistence and knowledge management
+13. **[AUTO Mode Monitoring](./.claudetask/instructions/auto-mode-monitoring.md)** - 🔴 CRITICAL for AUTO mode operation
+14. **[Test Command AUTO Mode](./.claudetask/instructions/test-command-auto-mode.md)** - 🔴 MANDATORY behavior for /test in AUTO mode
+15. **[Local Worktree Merge](./.claudetask/instructions/local-worktree-merge.md)** - Merging worktrees without remote repository
 
 ## 🚨 Common Scenarios - Quick Reference
 
@@ -193,6 +194,60 @@ See [mcp-commands.md](./.claudetask/instructions/mcp-commands.md) for examples.
 - **[AUTO Mode Monitoring](./.claudetask/instructions/auto-mode-monitoring.md)** - 🔴 How to monitor and execute commands automatically
 - **[Test Command AUTO Mode](./.claudetask/instructions/test-command-auto-mode.md)** - 🔴 MUST execute /PR after successful tests
 
+## 🧠 Project Memory System
+
+**Automatic Context Loading - Enabled by Default!**
+
+The framework includes an intelligent memory system that automatically:
+- 📚 Loads project summary (3-5 pages) at session start
+- 🕐 Retrieves last 50 messages for recent context
+- 🔍 Performs RAG search for relevant historical information
+- 💾 Saves all conversations automatically via hooks
+
+### How Memory Works
+
+1. **Automatic Capture** (via default hooks):
+   - `Memory Conversation Capture` hook - saves all messages
+   - `Memory Session Summarizer` hook - updates project summary
+   - Both hooks are enabled by default for all projects
+
+2. **Context Loading**:
+   - Automatically loads at session start via hook
+   - No manual action required
+
+3. **Manual Memory Tools** (optional):
+
+**Load full context:**
+```bash
+mcp__claudetask__get_project_memory_context
+```
+
+**Save important insight:**
+```bash
+mcp__claudetask__save_conversation_message \
+  --message_type="assistant" \
+  --content="Key architectural decision: ..."
+```
+
+**Update project summary:**
+```bash
+mcp__claudetask__update_project_summary \
+  --trigger="important_decision" \
+  --new_insights="Critical finding: ..."
+```
+
+**Search memories:**
+```bash
+mcp__claudetask__search_project_memories \
+  --query="authentication patterns"
+```
+
+### Memory Benefits
+- ✅ **No context loss** - Everything persists between sessions
+- ✅ **Knowledge accumulation** - Project gets smarter over time
+- ✅ **Pattern recognition** - Learn from past solutions
+- ✅ **Faster onboarding** - Instant context for new tasks
+
 ## 🔧 Project Configuration
 
 **Project Information:**
@@ -226,7 +281,8 @@ See [mcp-commands.md](./.claudetask/instructions/mcp-commands.md) for examples.
 6. [Analysis Phase](./.claudetask/instructions/analysis-phase.md) - Requirements and design
 7. [In Progress Phase](./.claudetask/instructions/in-progress-phase.md) - Implementation coordination
 8. [Testing Workflow](./.claudetask/instructions/testing-workflow.md) - Testing phase
-9. Other instructions as needed for specific scenarios
+9. [Memory System](./.claudetask/instructions/memory-system.md) - How memory persistence works
+10. Other instructions as needed for specific scenarios
 
 **Remember:** You don't need to memorize everything. Just know which instruction file to read when you need guidance on a specific task.
 

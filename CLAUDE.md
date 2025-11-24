@@ -185,6 +185,50 @@ See [mcp-commands.md](./.claudetask/instructions/mcp-commands.md) for examples.
 
 13. **[Local Worktree Merge](./.claudetask/instructions/local-worktree-merge.md)** - How to merge worktrees when no remote repository exists
 
+## 🧠 Project Memory System
+
+**Automatic Context Loading - No Action Required!**
+
+The framework now includes an intelligent memory system that automatically:
+- 📚 Loads project summary (3-5 pages) at session start
+- 🕐 Retrieves last 50 messages for recent context
+- 🔍 Performs RAG search for relevant historical information
+
+### Memory Management Tools
+
+When starting ANY session, the memory context is loaded automatically. You can also:
+
+**Load full context manually:**
+```bash
+mcp__claudetask__get_project_memory_context
+```
+
+**Save important insights:**
+```bash
+mcp__claudetask__save_conversation_message \
+  --message_type="assistant" \
+  --content="Important architectural decision: ..."
+```
+
+**Update project summary:**
+```bash
+mcp__claudetask__update_project_summary \
+  --trigger="important_decision" \
+  --new_insights="Key findings from implementation..."
+```
+
+**Search historical context:**
+```bash
+mcp__claudetask__search_project_memories \
+  --query="authentication implementation"
+```
+
+### Memory Persistence Benefits
+- ✅ **No context loss** between sessions
+- ✅ **Knowledge accumulation** across tasks
+- ✅ **Pattern recognition** from historical data
+- ✅ **Faster onboarding** for new tasks
+
 ## 🔧 Project Configuration
 
 **Project Information:**

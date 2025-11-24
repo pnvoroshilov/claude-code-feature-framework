@@ -970,3 +970,169 @@ Stage Results:
                 logger.debug(f"Removed {len(existing['ids'])} chunks for {file_path}")
         except Exception as e:
             logger.warning(f"Failed to remove chunks for {file_path}: {e}")
+
+    # ========================
+    # Memory Management Methods
+    # ========================
+
+    async def initialize_memory_collection(self, project_id: str):
+        """Initialize or get memory collection for a project"""
+        try:
+            collection_name = f"memory_{project_id[:8]}"  # Use first 8 chars of UUID
+
+            self.memory_collection = self.client.get_or_create_collection(
+                name=collection_name,
+                metadata={
+                    "type": "conversation_memory",
+                    "project_id": project_id,
+                    "embedding_model": self.config.embedding_model
+                }
+            )
+
+            logger.info(f"Memory collection initialized for project {project_id[:8]}")
+            return self.memory_collection
+
+        except Exception as e:
+            logger.error(f"Failed to initialize memory collection: {e}")
+            raise
+
+    async def index_conversation_message(
+        self,
+        project_id: str,
+        message_id: int,
+        content: str,
+        metadata: dict
+    ):
+        """Index a conversation message for RAG search"""
+        try:
+            # Ensure collection exists
+            if not hasattr(self, 'memory_collection'):
+                await self.initialize_memory_collection(project_id)
+
+            # Generate embedding
+            embedding = self.embedding_model.encode(content).tolist()
+
+            # Add to collection
+            self.memory_collection.add(
+                ids=[f"msg_{message_id}"],
+                documents=[content],
+                embeddings=[embedding],
+                metadatas=[metadata]
+            )
+
+            logger.debug(f"Indexed message {message_id} for project {project_id[:8]}")
+
+        except Exception as e:
+            logger.error(f"Failed to index message {message_id}: {e}")
+
+    async def search_memories(
+        self,
+        project_id: str,
+        query: str,
+        limit: int = 20,
+        filters: Optional[dict] = None
+    ) -> List[dict]:
+        """Search project memories using semantic search"""
+        try:
+            # Ensure collection exists
+            collection_name = f"memory_{project_id[:8]}"
+
+            # Try to get existing collection
+            try:
+                memory_collection = self.client.get_collection(collection_name)
+            except:
+                # Collection doesn't exist yet
+                logger.info(f"No memory collection found for project {project_id[:8]}")
+                return []
+
+            # Generate query embedding
+            query_embedding = self.embedding_model.encode(query).tolist()
+
+            # Build where clause
+            where_clause = {"project_id": project_id} if not filters else {**filters, "project_id": project_id}
+
+            # Perform search
+            results = memory_collection.query(
+                query_embeddings=[query_embedding],
+                n_results=limit,
+                where=where_clause if filters else None
+            )
+
+            # Format results
+            formatted_results = []
+            if results and results['documents']:
+                for i in range(len(results['documents'][0])):
+                    formatted_results.append({
+                        'content': results['documents'][0][i],
+                        'metadata': results['metadatas'][0][i] if results['metadatas'] else {},
+                        'score': 1 - results['distances'][0][i] if results['distances'] else 0  # Convert distance to similarity
+                    })
+
+            return formatted_results
+
+        except Exception as e:
+            logger.error(f"Memory search failed: {e}")
+            return []
+
+    async def get_memory_stats(self, project_id: str) -> dict:
+        """Get statistics about memory collection for a project"""
+        try:
+            collection_name = f"memory_{project_id[:8]}"
+
+            try:
+                memory_collection = self.client.get_collection(collection_name)
+                count = memory_collection.count()
+
+                return {
+                    "total_messages": count,
+                    "collection_name": collection_name,
+                    "status": "active"
+                }
+            except:
+                return {
+                    "total_messages": 0,
+                    "collection_name": collection_name,
+                    "status": "not_initialized"
+                }
+
+        except Exception as e:
+            logger.error(f"Failed to get memory stats: {e}")
+            return {
+                "total_messages": 0,
+                "error": str(e)
+            }
+
+    async def rebuild_memory_index(self, project_id: str, messages: List[dict]):
+        """Rebuild the entire memory index for a project"""
+        try:
+            collection_name = f"memory_{project_id[:8]}"
+
+            # Delete existing collection if it exists
+            try:
+                self.client.delete_collection(collection_name)
+                logger.info(f"Deleted existing memory collection for project {project_id[:8]}")
+            except:
+                pass
+
+            # Create new collection
+            await self.initialize_memory_collection(project_id)
+
+            # Index all messages
+            for msg in messages:
+                await self.index_conversation_message(
+                    project_id=project_id,
+                    message_id=msg['id'],
+                    content=msg['content'],
+                    metadata={
+                        "message_type": msg.get('message_type', 'unknown'),
+                        "timestamp": msg.get('timestamp', ''),
+                        "task_id": msg.get('task_id'),
+                        "session_id": msg.get('session_id')
+                    }
+                )
+
+            logger.info(f"Rebuilt memory index with {len(messages)} messages for project {project_id[:8]}")
+
+        except Exception as e:
+            logger.error(f"Failed to rebuild memory index: {e}")
+            raise

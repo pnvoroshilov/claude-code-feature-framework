@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, text
 from typing import List, Optional
 import os
 import logging
@@ -1779,6 +1779,419 @@ async def get_websocket_status(project_id: str):
         "total_connections": task_websocket_manager.get_connection_count(),
         "connected_projects": task_websocket_manager.get_connected_projects()
     }
+
+
+# ==========================
+# Memory Management Endpoints
+# ==========================
+
+@app.post("/api/projects/{project_id}/memory/messages")
+async def save_conversation_message(
+    project_id: str,
+    message: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """Save a conversation message to project memory"""
+    from sqlalchemy import text
+    import json
+    from datetime import datetime
+
+    try:
+        # Insert message into database
+        query = text("""
+            INSERT INTO conversation_memory
+            (project_id, session_id, task_id, message_type, content, timestamp, metadata)
+            VALUES (:project_id, :session_id, :task_id, :message_type, :content, :timestamp, :metadata)
+        """)
+
+        result = await db.execute(query, {
+            "project_id": project_id,
+            "session_id": message.get("session_id"),
+            "task_id": message.get("task_id"),
+            "message_type": message["message_type"],
+            "content": message["content"],
+            "timestamp": datetime.utcnow(),
+            "metadata": json.dumps(message.get("metadata", {}))
+        })
+
+        await db.commit()
+
+        # Get the inserted ID
+        message_id = result.lastrowid
+
+        # Index in RAG asynchronously
+        try:
+            # Import with absolute path from project root
+            import sys
+            from pathlib import Path
+            mcp_path = Path(__file__).parent.parent.parent / "mcp_server"
+            if str(mcp_path) not in sys.path:
+                sys.path.insert(0, str(mcp_path))
+
+            from rag.rag_service import RAGService, RAGConfig
+
+            # Initialize RAG service with config
+            config = RAGConfig(
+                chromadb_path=str(Path(__file__).parent.parent.parent / "mcp_server" / ".chroma_db")
+            )
+            rag_service = RAGService(config)
+            await rag_service.initialize()
+
+            # Index the message
+            await rag_service.index_conversation_message(
+                project_id=project_id,
+                message_id=message_id,
+                content=message["content"],
+                metadata=message.get("metadata", {})
+            )
+            logger.info(f"Message {message_id} indexed in RAG")
+        except ImportError as ie:
+            logger.warning(f"RAG module not available: {ie}")
+        except Exception as rag_error:
+            logger.warning(f"RAG indexing failed for message {message_id}: {rag_error}")
+            # Don't fail the request if RAG indexing fails
+
+        return {"id": message_id, "status": "saved"}
+
+    except Exception as e:
+        logger.error(f"Failed to save conversation message: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/projects/{project_id}/memory/summary")
+async def get_project_summary(
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get project summary"""
+    from sqlalchemy import text
+
+    try:
+        query = text("""
+            SELECT summary, key_decisions, tech_stack, patterns, gotchas, last_updated
+            FROM project_summaries
+            WHERE project_id = :project_id
+        """)
+
+        result = await db.execute(query, {"project_id": project_id})
+        row = result.first()
+
+        if row:
+            return {
+                "summary": row.summary,
+                "key_decisions": json.loads(row.key_decisions) if row.key_decisions else [],
+                "tech_stack": json.loads(row.tech_stack) if row.tech_stack else [],
+                "patterns": json.loads(row.patterns) if row.patterns else [],
+                "gotchas": json.loads(row.gotchas) if row.gotchas else [],
+                "last_updated": row.last_updated.isoformat() if row.last_updated and hasattr(row.last_updated, 'isoformat') else str(row.last_updated) if row.last_updated else None
+            }
+        else:
+            # Create initial summary if not exists
+            insert_query = text("""
+                INSERT INTO project_summaries
+                (project_id, summary, key_decisions, tech_stack, patterns, gotchas)
+                VALUES (:project_id, :summary, '[]', '[]', '[]', '[]')
+            """)
+
+            await db.execute(insert_query, {
+                "project_id": project_id,
+                "summary": "Project initialized. No summary available yet."
+            })
+            await db.commit()
+
+            return {
+                "summary": "Project initialized. No summary available yet.",
+                "key_decisions": [],
+                "tech_stack": [],
+                "patterns": [],
+                "gotchas": [],
+                "last_updated": None
+            }
+
+    except Exception as e:
+        logger.error(f"Failed to get project summary: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/projects/{project_id}/memory/messages")
+async def get_conversation_messages(
+    project_id: str,
+    limit: int = 50,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get conversation messages for a project"""
+    from sqlalchemy import text
+
+    try:
+        query = text("""
+            SELECT id, session_id, task_id, message_type, content, timestamp, metadata
+            FROM conversation_memory
+            WHERE project_id = :project_id
+            ORDER BY timestamp DESC
+            LIMIT :limit OFFSET :offset
+        """)
+
+        result = await db.execute(query, {
+            "project_id": project_id,
+            "limit": limit,
+            "offset": offset
+        })
+
+        messages = []
+        for row in result:
+            messages.append({
+                "id": row.id,
+                "session_id": row.session_id,
+                "task_id": row.task_id,
+                "message_type": row.message_type,
+                "content": row.content,
+                "timestamp": row.timestamp.isoformat() if row.timestamp and hasattr(row.timestamp, 'isoformat') else str(row.timestamp) if row.timestamp else None,
+                "metadata": json.loads(row.metadata) if row.metadata else {}
+            })
+
+        return messages
+
+    except Exception as e:
+        logger.error(f"Failed to get conversation messages: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/projects/{project_id}/memory/summary/update")
+async def update_project_summary(
+    project_id: str,
+    update_data: dict,
+    db: AsyncSession = Depends(get_db)
+):
+    """Update project summary with new insights"""
+    from sqlalchemy import text
+    from datetime import datetime
+
+    try:
+        trigger = update_data["trigger"]
+        new_insights = update_data["new_insights"]
+
+        # Get current summary
+        query = text("SELECT summary FROM project_summaries WHERE project_id = :project_id")
+        result = await db.execute(query, {"project_id": project_id})
+        row = result.first()
+
+        if row:
+            # Update existing summary
+            current_summary = row.summary or ""
+
+            # Simple append for now - in production would use Claude for intelligent merge
+            updated_summary = f"{current_summary}\n\n[{datetime.utcnow().isoformat()}] {trigger}:\n{new_insights}"
+
+            # Limit to ~5 pages (15000 chars)
+            if len(updated_summary) > 15000:
+                updated_summary = updated_summary[-15000:]
+
+            update_query = text("""
+                UPDATE project_summaries
+                SET summary = :summary, last_updated = :last_updated, version = version + 1
+                WHERE project_id = :project_id
+            """)
+
+            await db.execute(update_query, {
+                "project_id": project_id,
+                "summary": updated_summary,
+                "last_updated": datetime.utcnow()
+            })
+        else:
+            # Create new summary
+            insert_query = text("""
+                INSERT INTO project_summaries
+                (project_id, summary, key_decisions, tech_stack, patterns, gotchas, last_updated)
+                VALUES (:project_id, :summary, '[]', '[]', '[]', '[]', :last_updated)
+            """)
+
+            await db.execute(insert_query, {
+                "project_id": project_id,
+                "summary": new_insights,
+                "last_updated": datetime.utcnow()
+            })
+
+        await db.commit()
+        return {"status": "updated", "trigger": trigger}
+
+    except Exception as e:
+        logger.error(f"Failed to update project summary: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/test/memory-search")
+async def test_memory_search():
+    """Test endpoint to verify search works"""
+    return {"status": "ok", "message": "Search endpoint test works!"}
+
+@app.get("/api/projects/{project_id}/memory/stats")
+async def get_memory_stats(
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get memory statistics for a project"""
+    from sqlalchemy import text
+
+    try:
+        # Count messages
+        count_query = text("""
+            SELECT COUNT(*) as total_messages
+            FROM conversation_memory
+            WHERE project_id = :project_id
+        """)
+
+        result = await db.execute(count_query, {"project_id": project_id})
+        count = result.first().total_messages
+
+        # Get summary info
+        summary_query = text("""
+            SELECT last_updated, version
+            FROM project_summaries
+            WHERE project_id = :project_id
+        """)
+
+        summary_result = await db.execute(summary_query, {"project_id": project_id})
+        summary_row = summary_result.first()
+
+        return {
+            "total_messages": count,
+            "summary_last_updated": summary_row.last_updated.isoformat() if summary_row and summary_row.last_updated and hasattr(summary_row.last_updated, 'isoformat') else str(summary_row.last_updated) if summary_row and summary_row.last_updated else None,
+            "summary_version": summary_row.version if summary_row else 0,
+            "status": "active"
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get memory stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/projects/{project_id}/memory/search2")
+async def search_memories_v2(
+    project_id: str,
+    query: str,
+    limit: int = 20,
+    db: AsyncSession = Depends(get_db)
+):
+    """Simple memory search without RAG"""
+    from sqlalchemy import text
+
+    try:
+        logger.info(f"Memory search v2 for project {project_id}: {query}")
+
+        sql = text("""
+            SELECT id, message_type, content, timestamp, metadata
+            FROM conversation_memory
+            WHERE project_id = :project_id
+            AND content LIKE :pattern
+            ORDER BY timestamp DESC
+            LIMIT :limit
+        """)
+
+        result = await db.execute(
+            sql,
+            {"project_id": project_id, "pattern": f"%{query}%", "limit": limit}
+        )
+
+        messages = []
+        for row in result:
+            messages.append({
+                "id": row.id,
+                "message_type": row.message_type,
+                "content": row.content,
+                "timestamp": str(row.timestamp) if row.timestamp else None,
+                "metadata": json.loads(row.metadata) if row.metadata else {},
+                "score": 0.5
+            })
+
+        return messages
+
+    except Exception as e:
+        logger.error(f"Search v2 failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/projects/{project_id}/memory/search")
+async def search_project_memories(
+    project_id: str,
+    query: str,
+    limit: int = 20,
+    db: AsyncSession = Depends(get_db)
+):
+    """Search project memories using RAG semantic search"""
+    try:
+        logger.info(f"Searching memories for project {project_id}: {query}")
+
+        # Try RAG service first
+        try:
+            # Import with absolute path from project root
+            import sys
+            from pathlib import Path
+            mcp_path = Path(__file__).parent.parent.parent / "mcp_server"
+            if str(mcp_path) not in sys.path:
+                sys.path.insert(0, str(mcp_path))
+
+            from rag.rag_service import RAGService, RAGConfig
+
+            # Initialize RAG service with config
+            config = RAGConfig(
+                chromadb_path=str(Path(__file__).parent.parent.parent / "mcp_server" / ".chroma_db")
+            )
+            rag_service = RAGService(config)
+            await rag_service.initialize()
+
+            # Perform semantic search
+            results = await rag_service.search_memories(
+                project_id=project_id,
+                query=query,
+                limit=limit
+            )
+
+            logger.info(f"Found {len(results)} results for query: {query}")
+            return results
+
+        except Exception as rag_error:
+            logger.warning(f"RAG service not available: {rag_error}, falling back to text search")
+
+            # Fallback to simple text search - use raw SQL to avoid import issues
+            search_query = """
+                SELECT id, message_type, content, timestamp, metadata
+                FROM conversation_memory
+                WHERE project_id = :project_id
+                AND content LIKE :pattern
+                ORDER BY timestamp DESC
+                LIMIT :limit
+            """
+
+            # Use raw execute without text() wrapper
+            from sqlalchemy import text as sql_text
+            result = await db.execute(
+                sql_text(search_query),
+                {
+                    "project_id": project_id,
+                    "pattern": f"%{query}%",
+                    "limit": limit
+                }
+            )
+
+            messages = []
+            for row in result:
+                messages.append({
+                    "id": row.id,
+                    "message_type": row.message_type,
+                    "content": row.content,
+                    "timestamp": row.timestamp.isoformat() if row.timestamp and hasattr(row.timestamp, 'isoformat') else str(row.timestamp),
+                    "metadata": json.loads(row.metadata) if row.metadata else {},
+                    "score": 0.5  # Default score for text search
+                })
+
+            return messages
+
+    except Exception as e:
+        logger.error(f"Failed to search memories: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Mount static files for frontend

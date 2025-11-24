@@ -1,0 +1,49 @@
+{
+  "name": "Memory Conversation Capture",
+  "description": "Automatically captures all conversation messages to project memory for context persistence",
+  "category": "memory",
+  "hook_config": {
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "mcp",
+            "tool": "save_conversation_message",
+            "params": {
+              "message_type": "assistant",
+              "content": "$TOOL_OUTPUT"
+            }
+          }
+        ]
+      }
+    ],
+    "PreUserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "mcp",
+            "tool": "save_conversation_message",
+            "params": {
+              "message_type": "user",
+              "content": "$USER_INPUT"
+            }
+          }
+        ]
+      }
+    ],
+    "OnSessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "mcp",
+            "tool": "get_project_memory_context",
+            "params": {}
+          }
+        ]
+      }
+    ]
+  },
+  "setup_instructions": "This hook automatically captures all conversation messages to the project memory database. It also loads the project context at session start. Requires the ClaudeTask MCP server to be running.",
+  "dependencies": ["claudetask-mcp"]
+}

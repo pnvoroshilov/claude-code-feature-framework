@@ -1,0 +1,39 @@
+{
+  "name": "Memory Session Summarizer",
+  "description": "Automatically summarizes session insights and updates project memory on session end or important events",
+  "category": "memory",
+  "hook_config": {
+    "OnSessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "mcp",
+            "tool": "update_project_summary",
+            "params": {
+              "trigger": "session_end",
+              "new_insights": "Session completed. Key activities: $SESSION_SUMMARY"
+            }
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "condition": "contains(TOOL_OUTPUT, 'architecture') || contains(TOOL_OUTPUT, 'critical') || contains(TOOL_OUTPUT, 'important')",
+        "hooks": [
+          {
+            "type": "mcp",
+            "tool": "update_project_summary",
+            "params": {
+              "trigger": "important_decision",
+              "new_insights": "Important change made: $TOOL_DESCRIPTION"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "setup_instructions": "This hook automatically triggers project summary updates at key moments: session end and when important architectural decisions are made. Works with the ClaudeTask memory system.",
+  "dependencies": ["claudetask-mcp"]
+}

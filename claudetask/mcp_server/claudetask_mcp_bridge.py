@@ -695,6 +695,84 @@ class ClaudeTaskMCPServer:
                         },
                         "required": ["subagent_type", "status"]
                     }
+                ),
+                types.Tool(
+                    name="save_conversation_message",
+                    description="Save a conversation message to project memory",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "message_type": {
+                                "type": "string",
+                                "enum": ["user", "assistant", "system"],
+                                "description": "Type of message"
+                            },
+                            "content": {
+                                "type": "string",
+                                "description": "Full message content"
+                            },
+                            "task_id": {
+                                "type": "integer",
+                                "description": "Optional task ID"
+                            },
+                            "metadata": {
+                                "type": "object",
+                                "description": "Optional metadata"
+                            }
+                        },
+                        "required": ["message_type", "content"]
+                    }
+                ),
+                types.Tool(
+                    name="get_project_memory_context",
+                    description="Get full memory context for the current project",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {},
+                        "required": []
+                    }
+                ),
+                types.Tool(
+                    name="update_project_summary",
+                    description="Update project summary with new insights",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "trigger": {
+                                "type": "string",
+                                "enum": ["session_end", "important_decision", "task_complete"],
+                                "description": "Event triggering the update"
+                            },
+                            "new_insights": {
+                                "type": "string",
+                                "description": "New insights to add to summary"
+                            }
+                        },
+                        "required": ["trigger", "new_insights"]
+                    }
+                ),
+                types.Tool(
+                    name="search_project_memories",
+                    description="Search project memory using RAG",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Search query"
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Max results to return",
+                                "default": 20
+                            },
+                            "filters": {
+                                "type": "object",
+                                "description": "Optional filters"
+                            }
+                        },
+                        "required": ["query"]
+                    }
                 )
             ]
 
@@ -812,6 +890,26 @@ class ClaudeTaskMCPServer:
                     )
                 elif name == "get_project_settings":
                     return await self._get_project_settings()
+                elif name == "save_conversation_message":
+                    return await self._save_conversation_message(
+                        arguments["message_type"],
+                        arguments["content"],
+                        arguments.get("task_id"),
+                        arguments.get("metadata")
+                    )
+                elif name == "get_project_memory_context":
+                    return await self._get_project_memory_context()
+                elif name == "update_project_summary":
+                    return await self._update_project_summary(
+                        arguments["trigger"],
+                        arguments["new_insights"]
+                    )
+                elif name == "search_project_memories":
+                    return await self._search_project_memories(
+                        arguments["query"],
+                        arguments.get("limit", 20),
+                        arguments.get("filters")
+                    )
                 else:
                     raise ValueError(f"Unknown tool: {name}")
                     
@@ -3055,6 +3153,189 @@ Apply SIMPLE mode instructions from CLAUDE.md"""
 **Unknown project mode: {project_mode}**
 Apply SIMPLE mode instructions as fallback.
 """
+
+    async def _save_conversation_message(
+        self,
+        message_type: str,
+        content: str,
+        task_id: Optional[int] = None,
+        metadata: Optional[dict] = None
+    ) -> list[types.TextContent]:
+        """Save a conversation message to project memory"""
+        async with httpx.AsyncClient() as client:
+            try:
+                project_id = await self._get_active_project_id()
+
+                # Save message via backend API
+                response = await client.post(
+                    f"{self.server_url}/api/projects/{project_id}/memory/messages",
+                    json={
+                        "message_type": message_type,
+                        "content": content,
+                        "task_id": task_id,
+                        "metadata": metadata
+                    }
+                )
+                response.raise_for_status()
+
+                result = response.json()
+                return [types.TextContent(
+                    type="text",
+                    text=f"✅ Message saved to project memory (ID: {result['id']})"
+                )]
+
+            except Exception as e:
+                self.logger.error(f"Error saving conversation message: {e}")
+                return [types.TextContent(
+                    type="text",
+                    text=f"❌ Failed to save message: {str(e)}"
+                )]
+
+    async def _get_project_memory_context(self) -> list[types.TextContent]:
+        """Get full memory context for the current project"""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                project_id = await self._get_active_project_id()
+
+                # Get project summary
+                summary_response = await client.get(
+                    f"{self.server_url}/api/projects/{project_id}/memory/summary"
+                )
+                summary_data = summary_response.json() if summary_response.status_code == 200 else None
+
+                # Get last 50 messages
+                messages_response = await client.get(
+                    f"{self.server_url}/api/projects/{project_id}/memory/messages?limit=50"
+                )
+                messages_data = messages_response.json() if messages_response.status_code == 200 else []
+
+                # Perform RAG search if current task exists
+                task_response = await client.get(f"{self.server_url}/api/mcp/current-task")
+                relevant_memories = []
+                if task_response.status_code == 200:
+                    current_task = task_response.json()
+                    if current_task and self.rag_initialized:
+                        # Search for relevant memories
+                        rag_results = await self.rag_service.search_memories(
+                            project_id=project_id,
+                            query=f"{current_task.get('title', '')} {current_task.get('description', '')}",
+                            limit=20
+                        )
+                        relevant_memories = rag_results if rag_results else []
+
+                # Format context
+                context = f"""📚 PROJECT MEMORY CONTEXT LOADED
+
+### 📋 Project Summary
+{summary_data.get('summary', 'No summary available yet.') if summary_data else 'No summary available yet.'}
+
+### 🕐 Last 50 Messages ({len(messages_data)} messages)
+"""
+
+                for msg in messages_data[-10:]:  # Show last 10 for brevity
+                    context += f"\n[{msg['timestamp']}] {msg['message_type'].upper()}: {msg['content'][:100]}..."
+
+                if len(messages_data) > 10:
+                    context += f"\n... and {len(messages_data) - 10} more messages"
+
+                if relevant_memories:
+                    context += f"\n\n### 🔍 Relevant Memories (RAG Search)\n"
+                    for memory in relevant_memories[:5]:
+                        context += f"- {memory.get('content', '')[:150]}...\n"
+
+                context += "\n\n✅ Context loaded successfully. You have full project history available."
+
+                return [types.TextContent(
+                    type="text",
+                    text=context
+                )]
+
+            except Exception as e:
+                self.logger.error(f"Error getting project memory context: {e}")
+                return [types.TextContent(
+                    type="text",
+                    text=f"⚠️ Could not load full memory context: {str(e)}\nContinuing without historical context."
+                )]
+
+    async def _update_project_summary(
+        self,
+        trigger: str,
+        new_insights: str
+    ) -> list[types.TextContent]:
+        """Update project summary with new insights"""
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                project_id = await self._get_active_project_id()
+
+                # Update summary via backend API
+                response = await client.post(
+                    f"{self.server_url}/api/projects/{project_id}/memory/summary/update",
+                    json={
+                        "trigger": trigger,
+                        "new_insights": new_insights
+                    }
+                )
+                response.raise_for_status()
+
+                return [types.TextContent(
+                    type="text",
+                    text=f"✅ Project summary updated (trigger: {trigger})"
+                )]
+
+            except Exception as e:
+                self.logger.error(f"Error updating project summary: {e}")
+                return [types.TextContent(
+                    type="text",
+                    text=f"❌ Failed to update summary: {str(e)}"
+                )]
+
+    async def _search_project_memories(
+        self,
+        query: str,
+        limit: int = 20,
+        filters: Optional[dict] = None
+    ) -> list[types.TextContent]:
+        """Search project memory using RAG"""
+        try:
+            if not self.rag_initialized:
+                return [types.TextContent(
+                    type="text",
+                    text="⚠️ RAG service not initialized. Memory search unavailable."
+                )]
+
+            project_id = await self._get_active_project_id()
+
+            # Perform RAG search
+            results = await self.rag_service.search_memories(
+                project_id=project_id,
+                query=query,
+                limit=limit,
+                filters=filters
+            )
+
+            if not results:
+                return [types.TextContent(
+                    type="text",
+                    text=f"No memories found for query: '{query}'"
+                )]
+
+            # Format results
+            output = f"🔍 Found {len(results)} relevant memories:\n\n"
+            for i, result in enumerate(results, 1):
+                output += f"{i}. {result.get('content', '')[:200]}...\n"
+                output += f"   Relevance: {result.get('score', 0):.2f}\n\n"
+
+            return [types.TextContent(
+                type="text",
+                text=output
+            )]
+
+        except Exception as e:
+            self.logger.error(f"Error searching project memories: {e}")
+            return [types.TextContent(
+                type="text",
+                text=f"❌ Search failed: {str(e)}"
+            )]
 
     async def run(self):
         """Run the MCP server"""
