@@ -33,6 +33,8 @@ React component documentation with props, usage examples, and patterns.
 - `Subagents.md` - Subagent management UI for specialized AI assistants
 - `Skills.md` - Skills management interface for extended capabilities
 - `MCPConfigs.md` - MCP server configuration management interface
+- `TaskBoard.md` - Task board with manual/AUTO mode toggle
+- `ProjectModeToggle.md` - Project mode switching between SIMPLE and DEVELOPMENT workflows
 
 ### `/architecture/`
 System architecture, design decisions, and database schema.
@@ -44,32 +46,25 @@ System architecture, design decisions, and database schema.
 - `hooks-system.md` - Hooks system architecture and script file workflow
 - `framework-updates.md` - Framework update system and file synchronization
 - `project-modes.md` - SIMPLE vs DEVELOPMENT mode workflows
-- `database-design.md` - Database schema and relationships (to be created)
-- `adr/*.md` - Architecture Decision Records (ADRs, to be created)
 
 ### `/deployment/`
 Setup and deployment guides for local development and production.
 
 **Guides:**
 - `database-migrations.md` - Database migration guide and complete history
-- `setup.md` - Local development environment setup (to be created)
-- `production.md` - Production deployment instructions (to be created)
 
 ### `/claudetask/`
 ClaudeTask framework documentation and workflow guides.
 
 **Guides:**
 - `slash-commands.md` - Complete slash command reference with examples
-- `workflow.md` - Task management workflow (to be created)
-- `mcp-integration.md` - MCP tools and integration patterns (to be created)
-- `worktree-guide.md` - Git worktree usage for feature development (to be created)
 
 ### `/skills/`
 Claude Code skills documentation for extended capabilities.
 
 **Skills:**
 - `README.md` - Skills overview and usage guide
-- `skills-system.md` - Complete skills system architecture and available skills
+- `skills-system.md` - Complete skills system architecture and available skills (16 default skills)
 - `toon-format.md` - TOON Format skill for token-efficient data serialization
 - `usecase-writer.md` - UseCase Writer skill for requirements documentation
 
@@ -77,8 +72,8 @@ Claude Code skills documentation for extended capabilities.
 Core framework features and capabilities.
 
 **Features:**
-- `memory-system.md` - Project memory and conversation persistence
-- `auto-mode.md` - Autonomous task execution workflow
+- `memory-system.md` - Project memory and conversation persistence with ChromaDB
+- `auto-mode.md` - Autonomous task execution workflow (AUTO mode)
 
 ### `/guides/`
 Step-by-step guides for specific tasks.
@@ -86,427 +81,124 @@ Step-by-step guides for specific tasks.
 **Guides:**
 - `local-worktree-merge.md` - Merging task changes without remote repository
 
-### `/examples/`
-Practical usage examples and code snippets.
-
-**Examples:**
-- `api-usage.md` - API integration examples (to be created)
-- `component-usage.md` - Component usage patterns (to be created)
-
 ### `/archive/`
 Historical documentation and bug reports (not actively maintained).
 
+**Archived Documents:**
+- `MCP_CONFIG_NORMALIZATION_FIX.md` - Historical MCP config fix
+- `MCP_SEARCH_PAGINATION_FIX.md` - Historical search pagination fix
+- `MCP_SEARCH_COMPLETE_FIX.md` - Historical search completion fix
+
+## Consolidated Documentation
+
+The following standalone files have been documented within the main structure:
+
+- **Testing Mode Configuration**: See `/architecture/project-modes.md` and `/features/auto-mode.md`
+- **Manual Mode Toggle**: See `/components/TaskBoard.md` and `/features/auto-mode.md`
+- **MCP Project ID Auto-Detection**: See `/architecture/framework-updates.md` and `/api/mcp-tools.md`
+
 ## Documentation Maintenance
 
-This documentation is **automatically updated** after every merge to the main branch via:
+### Automatic Updates
 
-1. **Hook**: `post-merge-documentation` (framework-assets/claude-hooks/)
-2. **Slash Command**: `/update-documentation` (triggered by hook)
-3. **Agent**: `documentation-updater-agent` (framework-assets/claude-agents/)
+Documentation is automatically updated via the post-merge documentation hook:
 
-### How It Works
+1. **Trigger**: Git push to main branch
+2. **Hook**: `post-merge-documentation` (PostToolUse event)
+3. **Agent**: Documentation Updater agent
+4. **Scope**: Comprehensive update of all affected documentation
+5. **Commit**: Auto-commits with `[skip-hook]` tag to prevent recursion
+
+### Update Workflow
 
 ```
-Git Push to Main
-      ↓
-PostToolUse Hook Triggered
-      ↓
-Parse Git Command (post-push-docs.sh)
-      ↓
-Check for [skip-hook] Tag
-      ↓
-URL Encode Project Path
-      ↓
-Call Backend API (/api/claude-sessions/execute-command)
-      ↓
-Launch Embedded Claude Session (task_id=0)
-      ↓
-Execute /update-documentation Command
-      ↓
-Documentation Updater Agent Analyzes Changes
-      ↓
-Update/Create/Delete Documentation Files
-      ↓
-Commit with [skip-hook] Tag
+Code Changes → Git Push → Hook Triggered → API Call → Claude Session → Update Docs → Auto-Commit
 ```
 
-### Documentation Principles
+### Hook Configuration
 
-- **Single Source of Truth** - No duplicate content across files
-- **No Versioning** - Only current state is documented (no v1/, v2/, old/)
-- **Auto-Update** - Overwrite existing files with latest information
-- **Auto-Create** - Generate docs for new features automatically
-- **Auto-Delete** - Remove docs for deleted features
+```json
+{
+  "PostToolUse": [{
+    "matcher": "tool==='Bash' && args.command.includes('git push')",
+    "hooks": [{
+      "type": "Custom",
+      "script_file": ".claude/hooks/post-push-docs.sh"
+    }]
+  }]
+}
+```
 
 ### Manual Updates
 
-To manually trigger documentation update:
+To manually trigger documentation updates:
 
 ```bash
-/update-documentation          # Update all documentation
-/update-documentation api      # Update only API docs
-/update-documentation components # Update only component docs
-/update-documentation architecture # Update only architecture docs
-/update-documentation deployment # Update only deployment docs
+# Via Claude Code slash command
+/update-documentation
+
+# Via backend API
+curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=/update-documentation"
 ```
 
-## Reading the Documentation
+## Documentation Standards
 
-**Recommended Reading Order:**
+### File Organization
 
-1. `architecture/overview.md` - Understand the system architecture
-2. `features/memory-system.md` - Learn about conversation persistence
-3. `features/auto-mode.md` - Understand autonomous task execution
-4. `architecture/intelligent-workflow.md` - Learn the complete development workflow
-5. `claudetask/slash-commands.md` - Master workflow automation commands
-6. `architecture/project-modes.md` - Understand SIMPLE vs DEVELOPMENT modes
-7. `api/mcp-tools.md` - MCP tool reference and usage patterns
-8. `guides/local-worktree-merge.md` - Merging without remote repository
-9. `deployment/database-migrations.md` - Database schema evolution and migration history
-10. `architecture/framework-updates.md` - Framework update system and file synchronization
-11. `architecture/hooks-system.md` - Hooks system and automation workflow
-12. `api/endpoints/claude-sessions.md` - Claude session management API
-13. `components/README.md` - UI component architecture
+- **Single Source of Truth**: Each concept documented in ONE place only
+- **No Versioning**: Only current documentation state (no v1, v2, old/ directories)
+- **No Duplication**: Reference other docs instead of duplicating content
+- **Clean Structure**: Clear hierarchy and logical grouping
 
-## Technology Stack
+### Content Guidelines
 
-**Documentation Formats:**
-- **Markdown** - All documentation files (.md)
-- **OpenAPI 3.0** - API specifications (.yaml, planned)
-- **Mermaid** - Diagrams and flowcharts (embedded in markdown)
+- **Markdown Format**: All documentation in `.md` files
+- **Code Examples**: Working, copy-pasteable examples
+- **API Specs**: OpenAPI 3.0 format for all APIs
+- **Timestamps**: Update "Last Updated" dates on changes
+- **Links**: Use relative paths for internal documentation links
 
-**Frontend Stack:**
-- React 18.x + TypeScript
-- Material-UI (MUI) v5
-- React Router v6
+### Update Strategy
 
-**Backend Stack:**
-- FastAPI (Python)
-- SQLAlchemy ORM
-- SQLite database
-- Pexpect for Claude process management
+- **UPDATE**: Overwrite existing files when content changes
+- **CREATE**: New documentation for new features/components
+- **DELETE**: Remove documentation for deleted features
+- **CONSOLIDATE**: Merge duplicate content into canonical location
 
-## Recent Updates
+## Quick Links
 
-**Latest Changes (2025-11-24):**
-- ✅ **Project Memory System**: Automatic conversation persistence with RAG search
-  - Database tables: `conversation_memory`, `project_summaries`, `memory_rag_status`, `memory_sessions`
-  - ChromaDB integration for semantic search
-  - Automatic context loading at session start (project summary + last 50 messages + RAG results)
-  - Memory hooks enabled by default (`memory-conversation-capture`, `memory-session-summarizer`)
-  - MCP tools for memory management
-  - Documentation: `features/memory-system.md`
-- ✅ **AUTO Mode Improvements**: Automatic PR creation after successful tests
-  - `/PR` command executes automatically after tests pass in AUTO mode
-  - Eliminates manual step in fully autonomous workflow
-  - Documentation: `features/auto-mode.md`
-- ✅ **Local Worktree Merge Guide**: Complete workflow for projects without remote
-  - Step-by-step merge process for local-only projects
-  - Conflict resolution strategies
-  - Complete cleanup procedures
-  - `[skip-hook]` tag usage for preventing recursion
-  - Documentation: `guides/local-worktree-merge.md`
-- ✅ **Skills System YAML Format Fix**: Correct frontmatter format for all skills
-  - Fixed YAML frontmatter in skills-creator agent
-  - Updated all default skills to use proper format
-  - Consistent skill metadata structure
+### Getting Started
+- [Project README](../README.md) - Installation and quick start
+- [Architecture Overview](./architecture/overview.md) - System architecture
+- [API Tools Reference](./api/mcp-tools.md) - Complete MCP command reference
 
-**Previous Changes (2025-11-21):**
-- ✅ **Modular Instruction System**: CLAUDE.md refactored into focused instruction files
-  - 10 modular instruction files in `.claudetask/instructions/`
-  - Just-in-time instruction loading
-  - Improved maintainability and clarity
-  - Documentation: `architecture/modular-instructions.md`
-- ✅ **Expanded Skills System**: 16 default skills for comprehensive development support
-  - Architecture Patterns (SOLID, DRY, KISS, Clean Architecture, DDD)
-  - Requirements Analysis, Technical Design
-  - API Development, API Integration
-  - UI Component Development
-  - Code Review, Database Migration
-  - Debug Helper, Deployment Helper
-  - Documentation Writer, Git Workflow
-  - Refactoring, Test Runner
-  - TOON Format, UseCase Writer
-  - Documentation: `skills/skills-system.md`
-- ✅ **Backend API Enhancements**: Improved skill/hook/subagent/MCP config management
-  - Skills API: skill_type parameter for default vs custom skills
-  - Skills API: New enable-all and disable-all bulk operations
-  - Hooks API: Comprehensive hook enable/disable workflow
-  - Hooks API: New enable-all and disable-all bulk operations
-  - Hooks API: Complete documentation in `api/endpoints/hooks.md`
-  - Subagents API: Agent management and delegation
-  - MCP Configs API: Configuration management
-- ✅ **Frontend UI Updates**: Enhanced Skills, Hooks, Subagents, MCPConfigs pages
-  - Improved filtering (all, default, custom, favorite, enabled)
-  - Search functionality across all management pages
-  - Better category visualization
-  - Real-time enable/disable feedback
-  - Bulk enable/disable operations for skills and hooks
-- ✅ **Intelligent Development Workflow**: Complete agent-driven workflow with slash commands
-  - New slash commands: `/start-feature`, `/start-develop`, `/test`, `/PR`, `/merge`
-  - Automated analysis phase with requirements-analyst and system-architect agents
-  - Structured development phases with Analyse/ and Tests/ folders
-  - Enhanced MCP start_claude_session with automatic context injection
-  - Comprehensive workflow documentation in `architecture/intelligent-workflow.md`
-- ✅ **Enhanced Settings Page**: Backend project settings management UI
-  - Manual Mode toggle for PR merge control
-  - Display of project mode and worktree settings
-  - Test/Build/Lint command configuration
-  - Real-time settings synchronization via WebSocket
-- ✅ **Worktree Service Enhancements**: Improved git worktree management
-  - Automatic main branch sync before worktree creation
-  - Worktree sync with latest main branch
-  - Task-specific folder creation (Analyse/, Tests/)
-  - README templates for analysis and testing folders
+### Core Features
+- [Memory System](./features/memory-system.md) - Persistent project memory with RAG
+- [AUTO Mode](./features/auto-mode.md) - Autonomous task execution
+- [Hooks System](./architecture/hooks-system.md) - Automated shell command hooks
+- [Skills System](./skills/skills-system.md) - Modular knowledge modules
 
-**Previous Changes (2025-11-20):**
-- ✅ **Explicit Project Mode Indicators in CLAUDE.md**: Mode visibility enhancement
-  - Every generated CLAUDE.md now shows clear project mode at the top
-  - Format: `# 🎯 PROJECT MODE: [SIMPLE|DEVELOPMENT]`
-  - Includes workflow description and characteristics
-  - Automatically inserted by `claude_config_generator.py`
-  - Ensures Claude Code always knows which mode project is using
-- ✅ **Project Mode Selection During Creation**: Mode configured at project setup
-  - Radio button selection in ProjectSetup page
-  - Default mode: SIMPLE
-  - Mode is immutable after creation (cannot be changed later)
-  - Explicit mode indicator inserted at top of CLAUDE.md
-- ✅ **Worktree Toggle Fixes**: Respect worktree_enabled in development mode
-  - Fixed worktree instruction generation in CLAUDE.md
-  - Proper conditional logic based on worktree_enabled setting
-  - Debug logging added to track mode and worktree state
-- ✅ **CLAUDE.md Regeneration Script**: New migration utility
-  - Location: `claudetask/backend/migrations/regenerate_claude_md.py`
-  - Usage: `python migrations/regenerate_claude_md.py <project_id>`
-  - Regenerates CLAUDE.md from database configuration
-  - Creates backup before overwriting (CLAUDE.md.backup)
-  - Updates `projects.claude_config` field in database
-  - Useful for syncing legacy projects with new explicit mode format
-- ✅ **New Hook: Documentation Update Injection**: UserPromptSubmit event hook for automatic recovery
-  - Companion to Post-Merge Documentation hook
-  - Detects pending documentation update markers
-  - Injects /update-documentation command into next user prompt
-  - One-time trigger with automatic cleanup
-  - Provides fallback when API calls fail
-  - Documentation: `architecture/hooks-system.md` Case Study 2
-- ✅ **Hooks Initialization Change**: Hooks no longer auto-enabled on project creation
-  - All hook scripts (.sh files) copied to .claude/hooks/ during initialization
-  - Scripts made executable automatically
-  - Empty .claude/settings.json created (no hooks enabled by default)
-  - Users enable hooks via UI as needed
-  - Prevents unwanted automation on new projects
-- ✅ **Framework Update System**: Automatic synchronization of framework files
-  - Updates hooks, commands, and agents in existing projects
-  - Preserves user customizations while updating framework components
-  - Updates hook scripts (.sh files) during framework sync
-  - Preserves .claude/settings.json (user's enabled hooks)
-  - Merges MCP configurations intelligently
-  - New documentation: `architecture/framework-updates.md`
-- ✅ **Database Migration 006**: CASCADE DELETE constraints for project deletion
-  - Automatic cascade deletion of all related records
-  - Orphaned record cleanup during migration
-  - Safer and simpler project deletion
-- ✅ **Database Migration 005**: Worktree toggle support
-  - Per-project worktree enable/disable
-  - Dynamic CLAUDE.md generation based on setting
-  - UI toggle in ProjectModeToggle component
-- ✅ **MCP get_project_settings Tool**: Dynamic project configuration access
-  - Read project mode (simple vs development)
-  - Check worktree_enabled status
-  - Access custom instructions dynamically
-  - Single source of truth in database
-- ✅ **Project Initialization**: Increased timeout to 30 seconds
-  - Accommodates directory trust initialization
-  - Better handling of Claude session startup
-- ✅ **RealTerminal v2.1**: WebSocket buffering and smart scroll management
-  - User scroll detection prevents auto-scroll interruption
-  - Buffered output writes reduce scroll jumping
-  - Extended scrollback buffer (10,000 lines)
-- ✅ **New Skills Added**: TOON Format and UseCase Writer as framework defaults
-  - TOON Format: Token-efficient data serialization (30-60% token savings)
-  - UseCase Writer: Professional requirements documentation (UML, Cockburn, IEEE 830)
-- ✅ **TaskBoard Enhancement**: File Browser navigation link added to header
-- ✅ **Mode Switch**: Project switched from SIMPLE to DEVELOPMENT mode
-- ✅ **Documentation Cleanup**: Removed 30+ obsolete documentation files
+### Development Guides
+- [Slash Commands](./claudetask/slash-commands.md) - Complete command reference
+- [Database Migrations](./deployment/database-migrations.md) - Schema evolution guide
+- [Local Worktree Merge](./guides/local-worktree-merge.md) - No-remote workflow
 
-**Previous Changes (2025-11-19):**
-- ✅ **FileBrowser v2.0.1**: UI/UX refinements and layout stability improvements
-  - Increased breadcrumb maxWidth from 80px to 200px for significantly better visibility
-  - Fixed editor panel layout to prevent full-width expansion on first file open
-  - Added null check for selectedFile in Editor component to prevent TypeScript errors
-  - Improved delete operation with proper null safety (captures deleted path before clearing dialog)
-  - Enhanced paste operations with auto-generated unique names to prevent file conflicts
-  - Improved header button alignment and visibility
-  - Replaced conditional rendering with visibility toggles to prevent layout shifts
-  - Added minimum width to button container for stable layout
-  - Fixed breadcrumb overflow handling with proper truncation
-  - Ensured file action buttons never wrap or disappear
-  - Added comprehensive layout documentation with best practices
+### API Reference
+- [Claude Sessions API](./api/endpoints/claude-sessions.md) - Session management
+- [Hooks API](./api/endpoints/hooks.md) - Hook configuration
+- [Skills API](./api/endpoints/skills.md) - Skills management
+- [RAG Indexing API](./api/endpoints/rag-indexing.md) - Codebase indexing
 
-**Previous Changes (2025-11-18):**
-- ✅ **FileBrowser v2.0**: Comprehensive file management system
-  - Create files and directories with modal dialogs
-  - Rename files and directories with validation
-  - Delete files and directories with confirmation
-  - Copy/paste files and directories with clipboard support
-  - Context menu for right-click operations
-  - Auto-generated unique names for paste operations
-  - Enhanced API with 4 new endpoints: create, rename, delete, copy
-- ✅ **API v2.0**: File management endpoints
-  - `POST /files/create` - Create files and directories
-  - `POST /files/rename` - Rename/move files and directories
-  - `POST /files/delete` - Delete files and directories
-  - `POST /files/copy` - Copy files and directories
-
-**Earlier Updates (2025-11-16):**
-- ✅ **Enhanced ClaudeSessions UI v2.1**: Structured content rendering for Claude API format
-- ✅ Fixed hook-triggered sessions to skip /start-feature command
-- ✅ Added task_id=0 support for hook sessions
-- ✅ Updated hooks system documentation with script_file workflow
-- ✅ Documented database migration 004 (script_file support)
-
-## Important Notes
-
-**Do NOT:**
-- ❌ Manually create versioned documentation (v1/, v2/, old/, archive/)
-- ❌ Duplicate content across multiple files
-- ❌ Keep documentation for deleted features
-
-**Always:**
-- ✅ Update existing files in place (overwrite)
-- ✅ Delete documentation when features are removed
-- ✅ Maintain single source of truth
-- ✅ Document current codebase state only
-
-## Contributing to Documentation
-
-### Automated Updates
-Documentation is primarily maintained by the `documentation-updater-agent`, which:
-- Analyzes git changes automatically
-- Updates relevant documentation files
-- Creates new docs for new features
-- Removes docs for deleted code
-
-### Manual Updates
-If you need to manually update documentation:
-
-1. Edit the relevant `.md` file in `docs/`
-2. Follow existing formatting and structure
-3. Ensure no duplication with other files
-4. Commit with descriptive message
-5. The auto-updater will maintain it going forward
-
-### Creating New Documentation
-New documentation is automatically created when:
-- New API endpoints are added
-- New React components are created
-- New architectural decisions are made
-- New deployment steps are required
-
-## Documentation Quality Standards
-
-**All documentation should include:**
-- Clear purpose and overview
-- Practical, copy-pasteable examples
-- Troubleshooting sections
-- Related links and cross-references
-- Last updated timestamp
-
-**Code Examples:**
-- Must be syntactically correct
-- Should be runnable as-is
-- Include necessary imports/setup
-- Show realistic use cases
-
-**API Documentation:**
-- Complete endpoint descriptions
-- Request/response examples
-- Error response examples
-- Authentication requirements (when applicable)
-- Rate limiting info (when applicable)
-
-## Troubleshooting Documentation
-
-**If documentation is outdated:**
-1. Run `/update-documentation` to trigger auto-update
-2. Or manually edit the file and commit
-3. Documentation will be updated on next merge to main
-
-**If documentation is missing:**
-1. Check if feature exists in codebase
-2. Run `/update-documentation` to generate
-3. Or manually create following templates in existing files
-
-**If documentation is duplicated:**
-1. Identify the authoritative source
-2. Delete duplicate files
-3. Update cross-references if needed
-
-## Documentation Roadmap
-
-**Planned Documentation:**
-- [ ] Complete API OpenAPI 3.0 specification
-- [ ] Frontend component library reference
-- [ ] Deployment guides (setup.md, production.md)
-- [ ] ClaudeTask workflow documentation
-- [ ] MCP integration patterns guide
-- [ ] Git worktree workflow guide
-- [ ] Architecture decision records (ADRs)
-- [ ] Database schema documentation
-- [ ] Performance optimization guides
-
-**Documentation Metrics:**
-- Total files: 36 active, 3 archived
-- API endpoints documented: 8 (Hooks, Skills, Subagents, MCP Configs, Sessions, File Browser, Settings, RAG, Memory)
-- MCP tools documented: 20+ tools with complete reference (including memory tools)
-- Slash commands documented: 10+ commands with full examples
-- Workflow phases documented: 7 phases in intelligent workflow
-- Components documented: 8 (FileBrowser, RealTerminal, ClaudeSessions, MCPConfigs, etc.)
-- Hooks documented: 10 framework hooks (including memory hooks)
-- Skills documented: 16 default skills + custom skill system
-- Features documented: 2 (Memory System, AUTO Mode)
-- Guides documented: 1 (Local Worktree Merge)
-- Modular instructions documented: 13 instruction files
-- Specialized agents documented: 10+ agents (requirements-analyst, system-architect, pr-merge-agent, etc.)
-- Database migrations documented: 9 complete migrations (including memory tables)
-- Last full update: 2025-11-24
-- Auto-update status: Active and operational
-
-## Key Features Documented
-
-### Intelligent Development Workflow
-- **Complete 7-phase workflow**: Backlog → Analysis → In Progress → Testing → Code Review → PR → Done
-- **Automated analysis agents**: requirements-analyst and system-architect
-- **Slash commands**: Quick workflow automation (`/start-feature`, `/test`, `/PR`, `/merge`)
-- **Git worktrees**: Isolated development environments per task
-- **Automatic context injection**: Analysis documents provided to development sessions
-- **Resource management**: Automatic cleanup of test servers and resources
-
-### Project Configuration
-- **Project modes**: SIMPLE (3-column) vs DEVELOPMENT (7-column) workflows
-- **Worktree toggle**: Enable/disable worktrees in DEVELOPMENT mode
-- **Manual mode**: Control PR merge approval requirements
-- **Settings API**: Complete project configuration management
-- **Dynamic CLAUDE.md**: Auto-regenerated based on settings
-
-### Automation System
-- **MCP tools**: 20+ tools for task, project, and memory management
-- **Specialized agents**: 10+ expert agents for different phases
-- **Hooks system**: 10 framework hooks for automation (including memory hooks)
-- **Skills system**: 16 default skills + custom skill support
-- **AUTO mode**: Fully autonomous task execution
-- **WebSocket updates**: Real-time project and task synchronization
-
-### Memory and Intelligence
-- **Project memory**: Automatic conversation persistence across sessions
-- **RAG search**: Semantic search over historical conversations
-- **Context preservation**: No context loss between sessions
-- **Intelligent summarization**: 3-5 page project summaries
-- **ChromaDB integration**: Vector database for embeddings
+### UI Components
+- [TaskBoard](./components/TaskBoard.md) - Task management interface
+- [ClaudeSessions](./components/ClaudeSessions.md) - Embedded sessions
+- [FileBrowser](./components/FileBrowser.md) - GitHub-style file browser
+- [Hooks Management](./components/Hooks.md) - Hooks UI
 
 ---
 
-**Documentation System Status:** ✅ Active
-**Last Auto-Update:** 2025-11-24
-**Auto-Update Trigger:** Post-merge hook with [skip-hook] prevention
-**Maintainer:** documentation-updater-agent
+**Documentation Version**: 2.0
+**Last Updated**: 2025-11-24
+**Total Documents**: 42
+**Auto-Updated**: Yes (via post-merge hook)
+**Status**: Current
