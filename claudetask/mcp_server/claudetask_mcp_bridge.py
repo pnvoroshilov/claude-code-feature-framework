@@ -778,142 +778,173 @@ class ClaudeTaskMCPServer:
 
         @self.server.call_tool()
         async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent]:
-            """Handle tool calls"""
+            """Handle tool calls with comprehensive logging"""
+            # Log incoming MCP call
+            self.logger.info(f"{'='*60}")
+            self.logger.info(f"🔵 MCP CALL RECEIVED: {name}")
+            self.logger.info(f"📥 Arguments: {json.dumps(arguments, indent=2, ensure_ascii=False)}")
+            self.logger.info(f"{'='*60}")
+
+            result = None
             try:
+                # Execute the appropriate MCP function
                 if name == "get_next_task":
-                    return await self._get_next_task()
+                    result = await self._get_next_task()
                 elif name == "get_task":
-                    return await self._get_task(arguments["task_id"])
+                    result = await self._get_task(arguments["task_id"])
                 elif name == "analyze_task":
-                    return await self._analyze_task(arguments["task_id"])
+                    result = await self._analyze_task(arguments["task_id"])
                 elif name == "update_status":
-                    return await self._update_status(
+                    result = await self._update_status(
                         arguments["task_id"],
                         arguments["status"],
                         arguments.get("comment")
                     )
                 elif name == "create_worktree":
-                    return await self._create_worktree(arguments["task_id"])
+                    result = await self._create_worktree(arguments["task_id"])
                 elif name == "verify_connection":
-                    return await self._verify_connection()
+                    result = await self._verify_connection()
                 elif name == "get_task_queue":
-                    return await self._get_task_queue()
+                    result = await self._get_task_queue()
                 elif name == "delegate_to_agent":
-                    return await self._delegate_to_agent(
+                    result = await self._delegate_to_agent(
                         arguments["task_id"],
                         arguments["agent_type"],
                         arguments["instructions"]
                     )
                 elif name == "get_tasks_needing_analysis":
-                    return await self._get_tasks_needing_analysis()
+                    result = await self._get_tasks_needing_analysis()
                 elif name == "update_task_analysis":
-                    return await self._update_task_analysis(
+                    result = await self._update_task_analysis(
                         arguments["task_id"],
                         arguments["analysis"]
                     )
                 elif name == "recommend_agent":
-                    return await self._recommend_agent(
+                    result = await self._recommend_agent(
                         arguments["task_type"],
                         arguments["status"],
                         arguments["title"],
                         arguments["description"]
                     )
                 elif name == "list_agents":
-                    return await self._list_agents()
+                    result = await self._list_agents()
                 elif name == "complete_task":
-                    return await self._complete_task(
+                    result = await self._complete_task(
                         arguments["task_id"],
                         arguments.get("create_pr", False)
                     )
                 elif name == "start_claude_session":
-                    return await self._start_claude_session(
+                    result = await self._start_claude_session(
                         arguments["task_id"],
                         arguments.get("context", "")
                     )
                 elif name == "get_session_status":
-                    return await self._get_session_status(
+                    result = await self._get_session_status(
                         arguments["task_id"]
                     )
                 elif name == "append_stage_result":
-                    return await self._append_stage_result(
+                    result = await self._append_stage_result(
                         arguments["task_id"],
                         arguments["status"],
                         arguments["summary"],
                         arguments.get("details")
                     )
                 elif name == "set_testing_urls":
-                    return await self._set_testing_urls(
+                    result = await self._set_testing_urls(
                         arguments["task_id"],
                         arguments["urls"]
                     )
                 elif name == "stop_session":
-                    return await self._stop_session(
+                    result = await self._stop_session(
                         arguments["task_id"]
                     )
                 elif name == "search_codebase":
-                    return await self._search_codebase(
+                    result = await self._search_codebase(
                         arguments["query"],
                         arguments.get("top_k", 20),
                         arguments.get("language"),
                         arguments.get("min_similarity")
                     )
                 elif name == "find_similar_tasks":
-                    return await self._find_similar_tasks(
+                    result = await self._find_similar_tasks(
                         arguments["task_description"],
                         arguments.get("top_k", 10)
                     )
                 elif name == "reindex_codebase":
-                    return await self._reindex_codebase(
+                    result = await self._reindex_codebase(
                         arguments.get("full_reindex", False)
                     )
                 elif name == "index_codebase":
-                    return await self._index_codebase()
+                    result = await self._index_codebase()
                 elif name == "index_files":
-                    return await self._index_files(
+                    result = await self._index_files(
                         arguments["file_paths"]
                     )
                 elif name == "complete_skill_creation_session":
-                    return await self._complete_skill_creation_session(
+                    result = await self._complete_skill_creation_session(
                         arguments["session_id"]
                     )
                 elif name == "update_custom_skill_status":
-                    return await self._update_custom_skill_status(
+                    result = await self._update_custom_skill_status(
                         arguments["skill_name"],
                         arguments["status"],
                         arguments.get("error_message")
                     )
                 elif name == "update_custom_subagent_status":
-                    return await self._update_custom_subagent_status(
+                    result = await self._update_custom_subagent_status(
                         arguments["subagent_type"],
                         arguments["status"],
                         arguments.get("error_message")
                     )
                 elif name == "get_project_settings":
-                    return await self._get_project_settings()
+                    result = await self._get_project_settings()
                 elif name == "save_conversation_message":
-                    return await self._save_conversation_message(
+                    result = await self._save_conversation_message(
                         arguments["message_type"],
                         arguments["content"],
                         arguments.get("task_id"),
                         arguments.get("metadata")
                     )
                 elif name == "get_project_memory_context":
-                    return await self._get_project_memory_context()
+                    result = await self._get_project_memory_context()
                 elif name == "update_project_summary":
-                    return await self._update_project_summary(
+                    result = await self._update_project_summary(
                         arguments["trigger"],
                         arguments["new_insights"]
                     )
                 elif name == "search_project_memories":
-                    return await self._search_project_memories(
+                    result = await self._search_project_memories(
                         arguments["query"],
                         arguments.get("limit", 20),
                         arguments.get("filters")
                     )
                 else:
                     raise ValueError(f"Unknown tool: {name}")
-                    
+
+                # Log successful result
+                if result:
+                    # Convert result for logging (truncate if too long)
+                    result_text = ""
+                    if isinstance(result, list) and result:
+                        if hasattr(result[0], 'text'):
+                            result_text = result[0].text[:500]  # First 500 chars
+                            if len(result[0].text) > 500:
+                                result_text += "...[truncated]"
+
+                    self.logger.info(f"{'='*60}")
+                    self.logger.info(f"✅ MCP CALL SUCCESS: {name}")
+                    self.logger.info(f"📤 Result preview: {result_text}")
+                    self.logger.info(f"{'='*60}")
+
+                return result
+
             except Exception as e:
+                # Log error
+                self.logger.error(f"{'='*60}")
+                self.logger.error(f"❌ MCP CALL ERROR: {name}")
+                self.logger.error(f"🔴 Error: {str(e)}")
+                self.logger.error(f"{'='*60}")
+
                 return [types.TextContent(
                     type="text",
                     text=f"Error executing {name}: {str(e)}"
@@ -3161,10 +3192,16 @@ Apply SIMPLE mode instructions as fallback.
         task_id: Optional[int] = None,
         metadata: Optional[dict] = None
     ) -> list[types.TextContent]:
-        """Save a conversation message to project memory"""
+        """Save a conversation message to project memory
+
+        Uses self.project_id from .mcp.json to ensure memory is stored
+        in the correct project (the one Claude Code is opened in).
+        """
         async with httpx.AsyncClient() as client:
             try:
-                project_id = await self._get_active_project_id()
+                # Use project_id from .mcp.json, not active project from backend
+                # This ensures memory is tied to the directory Claude Code is opened in
+                project_id = self.project_id
 
                 # Save message via backend API
                 response = await client.post(
@@ -3192,10 +3229,16 @@ Apply SIMPLE mode instructions as fallback.
                 )]
 
     async def _get_project_memory_context(self) -> list[types.TextContent]:
-        """Get full memory context for the current project"""
+        """Get full memory context for the current project
+
+        Uses self.project_id from .mcp.json to ensure memory is retrieved
+        from the correct project (the one Claude Code is opened in).
+        """
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
-                project_id = await self._get_active_project_id()
+                # Use project_id from .mcp.json, not active project from backend
+                # This ensures memory is tied to the directory Claude Code is opened in
+                project_id = self.project_id
 
                 # Get project summary
                 summary_response = await client.get(
@@ -3262,10 +3305,16 @@ Apply SIMPLE mode instructions as fallback.
         trigger: str,
         new_insights: str
     ) -> list[types.TextContent]:
-        """Update project summary with new insights"""
+        """Update project summary with new insights
+
+        Uses self.project_id from .mcp.json to ensure summary is updated
+        for the correct project (the one Claude Code is opened in).
+        """
         async with httpx.AsyncClient(timeout=30.0) as client:
             try:
-                project_id = await self._get_active_project_id()
+                # Use project_id from .mcp.json, not active project from backend
+                # This ensures memory is tied to the directory Claude Code is opened in
+                project_id = self.project_id
 
                 # Update summary via backend API
                 response = await client.post(
@@ -3295,7 +3344,11 @@ Apply SIMPLE mode instructions as fallback.
         limit: int = 20,
         filters: Optional[dict] = None
     ) -> list[types.TextContent]:
-        """Search project memory using RAG"""
+        """Search project memory using RAG
+
+        Uses self.project_id from .mcp.json to ensure search is performed
+        for the correct project (the one Claude Code is opened in).
+        """
         try:
             if not self.rag_initialized:
                 return [types.TextContent(
@@ -3303,7 +3356,9 @@ Apply SIMPLE mode instructions as fallback.
                     text="⚠️ RAG service not initialized. Memory search unavailable."
                 )]
 
-            project_id = await self._get_active_project_id()
+            # Use project_id from .mcp.json, not active project from backend
+            # This ensures memory is tied to the directory Claude Code is opened in
+            project_id = self.project_id
 
             # Perform RAG search
             results = await self.rag_service.search_memories(
@@ -3377,13 +3432,31 @@ Apply SIMPLE mode instructions as fallback.
 
 async def main():
     """Main entry point"""
+    # Configure logging for MCP calls
+    import logging
+    from pathlib import Path
+
     parser = argparse.ArgumentParser(description="ClaudeTask MCP Bridge Server")
     parser.add_argument("--project-id", required=True, help="Project ID")
     parser.add_argument("--project-path", required=True, help="Project path")
     parser.add_argument("--server", default="http://localhost:3333", help="Backend server URL")
-    
+
     args = parser.parse_args()
-    
+
+    # Create logs directory in project's .claudetask folder
+    project_path = Path(args.project_path)
+    log_dir = project_path / ".claudetask" / "logs" / "mcp"
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(),  # Console output
+            logging.FileHandler(log_dir / 'mcp_calls.log')  # File output in project's .claudetask folder
+        ]
+    )
+
     server = ClaudeTaskMCPServer(
         project_id=args.project_id,
         project_path=args.project_path,

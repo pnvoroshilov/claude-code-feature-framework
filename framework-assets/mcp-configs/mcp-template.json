@@ -1,12 +1,13 @@
 {
   "mcpServers": {
     "claudetask": {
-      "command": "/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/claudetask/mcp_server/venv/bin/python",
+      "command": "{{FRAMEWORK_VENV_PYTHON}}",
       "args": [
-        "/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/claudetask/mcp_server/native_stdio_server.py"
+        "{{FRAMEWORK_MCP_SERVER_SCRIPT}}"
       ],
       "env": {
-        "CLAUDETASK_PROJECT_PATH": "/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework",
+        "CLAUDETASK_PROJECT_ID": "{{PROJECT_ID}}",
+        "CLAUDETASK_PROJECT_PATH": "{{PROJECT_PATH}}",
         "CLAUDETASK_BACKEND_URL": "http://localhost:3333"
       }
     },
