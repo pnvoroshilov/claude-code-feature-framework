@@ -1,39 +1,11 @@
 {
   "name": "Memory Session Summarizer",
-  "description": "Automatically summarizes session insights and updates project memory on session end or important events",
+  "description": "DEPRECATED: Claude Code does not support OnSessionEnd event. Use manual summary updates via MCP tool: mcp__claudetask__update_project_summary",
   "category": "memory",
-  "hook_config": {
-    "OnSessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "mcp",
-            "tool": "update_project_summary",
-            "params": {
-              "trigger": "session_end",
-              "new_insights": "Session completed. Key activities: $SESSION_SUMMARY"
-            }
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "condition": "contains(TOOL_OUTPUT, 'architecture') || contains(TOOL_OUTPUT, 'critical') || contains(TOOL_OUTPUT, 'important')",
-        "hooks": [
-          {
-            "type": "mcp",
-            "tool": "update_project_summary",
-            "params": {
-              "trigger": "important_decision",
-              "new_insights": "Important change made: $TOOL_DESCRIPTION"
-            }
-          }
-        ]
-      }
-    ]
-  },
-  "setup_instructions": "This hook automatically triggers project summary updates at key moments: session end and when important architectural decisions are made. Works with the ClaudeTask memory system.",
+  "deprecated": true,
+  "deprecation_reason": "Claude Code hooks only support: PreToolUse, PostToolUse, UserPromptSubmit, Notification, Stop. OnSessionEnd is not available.",
+  "alternative": "Call mcp__claudetask__update_project_summary manually when important decisions are made, or configure CLAUDE.md to trigger updates at key moments.",
+  "hook_config": {},
+  "setup_instructions": "This hook is deprecated. Instead, use the update_project_summary MCP tool directly when you need to save important insights.",
   "dependencies": ["claudetask-mcp"]
 }

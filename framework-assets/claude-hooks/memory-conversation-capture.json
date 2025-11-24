@@ -1,38 +1,38 @@
 {
   "name": "Memory Conversation Capture",
-  "description": "Automatically captures all conversation messages to project memory for context persistence",
+  "description": "Automatically captures user and assistant messages to project memory via bash hook",
   "category": "memory",
   "hook_config": {
-    "PostToolUse": [
+    "UserPromptSubmit": [
       {
         "matcher": "*",
         "hooks": [
           {
-            "type": "mcp",
-            "tool": "save_conversation_message",
-            "params": {
-              "message_type": "assistant",
-              "content": "$TOOL_OUTPUT"
-            }
+            "type": "command",
+            "command": ".claude/hooks/memory-capture.sh"
           }
         ]
       }
     ],
-    "PreUserPromptSubmit": [
+    "Stop": [
       {
+        "matcher": "*",
         "hooks": [
           {
-            "type": "mcp",
-            "tool": "save_conversation_message",
-            "params": {
-              "message_type": "user",
-              "content": "$USER_INPUT"
-            }
+            "type": "command",
+            "command": ".claude/hooks/memory-capture.sh"
           }
         ]
       }
     ]
   },
-  "setup_instructions": "This hook automatically captures all conversation messages to the project memory database. Context loading is handled via CLAUDE.md instructions (mandatory MCP call before first response). Requires the ClaudeTask MCP server to be running.",
-  "dependencies": ["claudetask-mcp"]
+  "required_files": [
+    {
+      "source": "framework-assets/claude-hooks/memory-capture.sh",
+      "destination": ".claude/hooks/memory-capture.sh",
+      "executable": true
+    }
+  ],
+  "setup_instructions": "This hook captures conversation messages via bash script that calls the backend API. Requires ClaudeTask backend running and project_id configured in .mcp.json.",
+  "dependencies": ["claudetask-backend"]
 }
