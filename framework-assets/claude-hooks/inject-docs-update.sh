@@ -4,19 +4,20 @@
 # Checks for pending documentation update marker and adds context to trigger /update-documentation
 
 PROJECT_ROOT="$(pwd)"
-LOGDIR="$PROJECT_ROOT/.claude/logs/hooks"
-MARKER_FILE="$LOGDIR/.docs-update-pending"
-LOGFILE="$LOGDIR/user-prompt-$(date +%Y%m%d).log"
+LOGDIR="$PROJECT_ROOT/.claudetask/logs/hooks"
+MARKER_FILE="$PROJECT_ROOT/.claude/logs/hooks/.docs-update-pending"
+LOGFILE="$LOGDIR/hooks.log"
 
-# Create log directory
+# Create log directories
 mkdir -p "$LOGDIR" 2>/dev/null
+mkdir -p "$(dirname "$MARKER_FILE")" 2>/dev/null
 
 # Log hook execution
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] UserPromptSubmit hook triggered" >> "$LOGFILE"
+echo "$(date '+%Y-%m-%d %H:%M:%S') | inject-docs-update | START | UserPromptSubmit hook triggered" >> "$LOGFILE"
 
 # Check if documentation update is pending
 if [ -f "$MARKER_FILE" ]; then
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Documentation update marker found - injecting context" >> "$LOGFILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') | inject-docs-update | INFO | Documentation update marker found - injecting context" >> "$LOGFILE"
 
     # Remove marker file (one-time trigger)
     rm -f "$MARKER_FILE"
@@ -32,9 +33,9 @@ if [ -f "$MARKER_FILE" ]; then
 }
 EOF
 
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Documentation update context injected successfully" >> "$LOGFILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') | inject-docs-update | SUCCESS | Documentation update context injected successfully" >> "$LOGFILE"
 else
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] No documentation update pending - proceeding normally" >> "$LOGFILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') | inject-docs-update | SUCCESS | No documentation update pending - proceeding normally" >> "$LOGFILE"
     # Return empty JSON to approve without modification
     echo '{}'
 fi

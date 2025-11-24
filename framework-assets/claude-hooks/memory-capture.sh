@@ -10,8 +10,8 @@
 # - Stop: { "transcript": [...], "sessionId": "..." }
 
 PROJECT_ROOT="$(pwd)"
-LOGDIR="$PROJECT_ROOT/.claude/logs/hooks"
-LOGFILE="$LOGDIR/memory-capture-$(date +%Y%m%d).log"
+LOGDIR="$PROJECT_ROOT/.claudetask/logs/hooks"
+LOGFILE="$LOGDIR/hooks.log"
 
 # Create log directory
 mkdir -p "$LOGDIR" 2>/dev/null
@@ -32,9 +32,9 @@ if [ -z "$PROJECT_ID" ]; then
     PROJECT_ID="${CLAUDETASK_PROJECT_ID:-}"
 fi
 
-# If no project ID, skip silently
+# If no project ID, skip with logging
 if [ -z "$PROJECT_ID" ]; then
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] No project ID found, skipping memory capture" >> "$LOGFILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') | memory-capture | SKIPPED | No project ID found, skipping memory capture" >> "$LOGFILE"
     echo '{}'
     exit 0
 fi
@@ -43,7 +43,9 @@ fi
 HOOK_TYPE=$(echo "$INPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); print('user' if 'userPrompt' in d else 'stop' if 'transcript' in d else 'unknown')" 2>/dev/null)
 
 log_message() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOGFILE"
+    local status="$1"
+    local message="$2"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') | memory-capture | $status | $message" >> "$LOGFILE"
 }
 
 save_message() {
@@ -62,9 +64,9 @@ save_message() {
         2>/dev/null)
 
     if [ $? -eq 0 ]; then
-        log_message "Saved $msg_type message to memory"
+        log_message "SUCCESS" "Saved $msg_type message to memory"
     else
-        log_message "Failed to save $msg_type message: $response"
+        log_message "ERROR" "Failed to save $msg_type message: $response"
     fi
 }
 
@@ -74,7 +76,7 @@ case "$HOOK_TYPE" in
         USER_PROMPT=$(echo "$INPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('userPrompt', ''))" 2>/dev/null)
 
         if [ -n "$USER_PROMPT" ]; then
-            log_message "UserPromptSubmit hook - saving user message"
+            log_message "START" "UserPromptSubmit hook - saving user message"
             save_message "user" "$USER_PROMPT"
         fi
         ;;
@@ -100,13 +102,13 @@ for msg in reversed(transcript):
 " 2>/dev/null)
 
         if [ -n "$LAST_ASSISTANT" ]; then
-            log_message "Stop hook - saving assistant response"
+            log_message "START" "Stop hook - saving assistant response"
             save_message "assistant" "$LAST_ASSISTANT"
         fi
         ;;
 
     *)
-        log_message "Unknown hook type, input: ${INPUT:0:200}"
+        log_message "SKIPPED" "Unknown hook type, input: ${INPUT:0:200}"
         ;;
 esac
 
