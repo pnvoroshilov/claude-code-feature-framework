@@ -1,18 +1,8 @@
 ---
 name: technical-design
-description: |
-  Comprehensive document formats and templates for technical architecture design, test cases, and conflict analysis.
-  Use when users mention: technical requirements, architecture design, technical specifications, test cases,
-  conflict analysis, integration points, architecture decisions, ADR, risk analysis, database schema,
-  API design, component design, system design, technical documentation, implementation plan.
-allowed-tools:
-  - Read
-  - Write
-  - Edit
-  - Grep
-  - Glob
-tags: [architecture, design, technical-requirements, test-cases, conflict-analysis, adr, integration]
+description: Comprehensive document formats and templates for technical architecture design test cases and conflict analysis
 version: 2.0.0
+tags: [architecture, design, technical-requirements, test-cases, conflict-analysis, adr, integration]
 ---
 
 # Technical Design Skill

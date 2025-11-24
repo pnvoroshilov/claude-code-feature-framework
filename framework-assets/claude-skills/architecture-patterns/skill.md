@@ -1,16 +1,8 @@
 ---
 name: architecture-patterns
-description: |
-  Provides comprehensive guidance on software architecture patterns, design principles, and best practices.
-  Use when users mention: SOLID principles, DRY, KISS, clean architecture, domain-driven design, DDD,
-  microservices, design patterns, architectural patterns, code structure, software design, refactoring,
-  anti-patterns, code quality, separation of concerns, dependency injection, layered architecture.
-allowed-tools:
-  - Read
-  - Write
-  - Edit
-  - Grep
-  - Glob
+description: Comprehensive guidance on software architecture patterns design principles and best practices including SOLID DDD microservices and clean architecture
+version: 1.0.0
+tags: [architecture, design-patterns, solid, ddd, microservices, clean-code, best-practices]
 ---
 
 # Architecture Patterns Skill

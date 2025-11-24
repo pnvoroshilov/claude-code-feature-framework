@@ -1,16 +1,8 @@
 ---
 name: requirements-analysis
-description: |
-  Comprehensive requirements discovery and analysis framework for transforming user requests into detailed,
-  actionable specifications. Use when users mention: requirements gathering, user stories, use cases, functional
-  requirements, non-functional requirements, acceptance criteria, business requirements, feature specifications,
-  requirements documentation, project scope, stakeholder needs, definition of done, or requirements elicitation.
-allowed-tools:
-  - Read
-  - Write
-  - Edit
-  - Grep
-  - Glob
+description: Comprehensive requirements discovery and analysis framework for transforming user requests into detailed actionable specifications
+version: 1.0.0
+tags: [requirements, analysis, user-stories, specifications, acceptance-criteria, documentation]
 ---
 
 # Requirements Analysis Skill

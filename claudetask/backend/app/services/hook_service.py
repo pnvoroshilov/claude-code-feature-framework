@@ -745,6 +745,12 @@ class HookService:
         is_enabled: bool
     ) -> HookInDB:
         """Convert database model to DTO"""
+        from datetime import datetime
+
+        # Ensure datetime fields are never None
+        created_at = hook.created_at if hook.created_at is not None else datetime.utcnow()
+        updated_at = hook.updated_at if hook.updated_at is not None else datetime.utcnow()
+
         return HookInDB(
             id=hook.id,
             name=hook.name,
@@ -758,8 +764,8 @@ class HookService:
             is_favorite=getattr(hook, "is_favorite", False),
             status=getattr(hook, "status", None),
             created_by=getattr(hook, "created_by", "system"),
-            created_at=hook.created_at,
-            updated_at=hook.updated_at
+            created_at=created_at,
+            updated_at=updated_at
         )
 
     def _generate_hook_file_name(self, hook_name: str) -> str:
