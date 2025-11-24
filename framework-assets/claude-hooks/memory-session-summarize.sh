@@ -55,25 +55,36 @@ if [ -z "$TRANSCRIPT_PATH" ] || [ ! -f "$TRANSCRIPT_PATH" ]; then
     exit 0
 fi
 
-# Extract session summary from transcript file
+# Extract session summary from transcript file (JSONL format)
 # Look for key activities: file edits, commands run, decisions made
 SESSION_SUMMARY=$(python3 -c "
-import json, sys
+import json
 
 try:
+    # Read JSONL file - each line is a separate JSON object
+    messages = []
     with open('$TRANSCRIPT_PATH', 'r') as f:
-        transcript = json.load(f)
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+                if obj.get('type') in ('user', 'assistant'):
+                    messages.append(obj)
+            except:
+                continue
 
     # Collect key activities
     activities = []
     files_modified = set()
     commands_run = []
 
-    for msg in transcript:
-        role = msg.get('role', '')
+    for entry in messages:
+        msg = entry.get('message', {})
         content = msg.get('content', '')
 
-        # Handle content as list of blocks
+        # Handle content as list of blocks (assistant messages)
         if isinstance(content, list):
             for block in content:
                 if block.get('type') == 'tool_use':
@@ -106,7 +117,8 @@ try:
         summary_parts.append(f\"Activities: {'; '.join(activities[:3])}\")
 
     # Get last user request for context
-    for msg in reversed(transcript):
+    for entry in reversed(messages):
+        msg = entry.get('message', {})
         if msg.get('role') == 'user':
             user_content = msg.get('content', '')
             if isinstance(user_content, str) and len(user_content) > 10:
@@ -119,7 +131,7 @@ try:
         print('Session completed with no significant changes')
 
 except Exception as e:
-    print(f'Session analysis error: {str(e)[:50]}')
+    pass
 " 2>/dev/null)
 
 # Only update if we have a meaningful summary

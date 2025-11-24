@@ -94,27 +94,41 @@ case "$HOOK_TYPE" in
             exit 0
         fi
 
-        # Extract last assistant message from transcript file
+        # Extract last assistant message from transcript file (JSONL format)
         LAST_ASSISTANT=$(python3 -c "
-import json, sys
+import json
 
 try:
+    messages = []
     with open('$TRANSCRIPT_PATH', 'r') as f:
-        transcript = json.load(f)
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+                # Look for assistant messages
+                if obj.get('type') == 'assistant':
+                    msg = obj.get('message', {})
+                    if msg.get('role') == 'assistant':
+                        messages.append(msg)
+            except:
+                continue
 
-    # transcript is an array of messages
-    for msg in reversed(transcript):
-        if msg.get('role') == 'assistant':
-            content = msg.get('content', '')
-            if isinstance(content, list):
-                # Content is array of content blocks
-                texts = [c.get('text', '') for c in content if c.get('type') == 'text']
-                print(' '.join(texts)[:2000])  # Limit to 2000 chars
-            else:
-                print(str(content)[:2000])
-            break
+    # Get last assistant message
+    if messages:
+        msg = messages[-1]
+        content = msg.get('content', '')
+        if isinstance(content, list):
+            # Content is array of content blocks
+            texts = [c.get('text', '') for c in content if c.get('type') == 'text']
+            result = ' '.join(texts)[:2000]
+            if result:
+                print(result)
+        elif isinstance(content, str):
+            print(content[:2000])
 except Exception as e:
-    print('')
+    pass
 " 2>/dev/null)
 
         if [ -n "$LAST_ASSISTANT" ]; then
