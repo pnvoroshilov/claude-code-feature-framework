@@ -18,6 +18,10 @@
           {
             "type": "command",
             "command": ".claude/hooks/inject-docs-update.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/memory-capture.sh"
           }
         ]
       }
@@ -40,6 +44,10 @@
           {
             "type": "command",
             "command": "if command -v osascript &> /dev/null; then osascript -e 'display notification \"Task completed\" with title \"Claude Code\"'; elif command -v notify-send &> /dev/null; then notify-send 'Claude Code' 'Task completed'; fi"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/memory-capture.sh"
           }
         ]
       }
