@@ -46,14 +46,23 @@ fi
 
 log_message "START" "Analyzing session for summary update"
 
-# Extract session summary from transcript
+# Get transcript path from input
+TRANSCRIPT_PATH=$(echo "$INPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('transcript_path', ''))" 2>/dev/null)
+
+if [ -z "$TRANSCRIPT_PATH" ] || [ ! -f "$TRANSCRIPT_PATH" ]; then
+    log_message "SKIPPED" "No transcript_path or file not found"
+    echo '{}'
+    exit 0
+fi
+
+# Extract session summary from transcript file
 # Look for key activities: file edits, commands run, decisions made
-SESSION_SUMMARY=$(echo "$INPUT" | python3 -c "
+SESSION_SUMMARY=$(python3 -c "
 import json, sys
 
 try:
-    d = json.load(sys.stdin)
-    transcript = d.get('transcript', [])
+    with open('$TRANSCRIPT_PATH', 'r') as f:
+        transcript = json.load(f)
 
     # Collect key activities
     activities = []

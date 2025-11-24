@@ -40,7 +40,9 @@ if [ -z "$PROJECT_ID" ]; then
 fi
 
 # Determine hook type from input
-HOOK_TYPE=$(echo "$INPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); print('user' if 'userPrompt' in d else 'stop' if 'transcript' in d else 'unknown')" 2>/dev/null)
+# Stop event has: session_id, transcript_path (path to transcript file)
+# UserPromptSubmit has: userPrompt, sessionId
+HOOK_TYPE=$(echo "$INPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); print('user' if 'userPrompt' in d else 'stop' if 'transcript_path' in d or 'session_id' in d else 'unknown')" 2>/dev/null)
 
 log_message() {
     local status="$1"
@@ -83,27 +85,43 @@ case "$HOOK_TYPE" in
 
     "stop")
         # Stop event - save assistant's last response
-        # Extract last assistant message from transcript
-        LAST_ASSISTANT=$(echo "$INPUT" | python3 -c "
+        # Stop event provides transcript_path (path to transcript JSON file)
+        TRANSCRIPT_PATH=$(echo "$INPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('transcript_path', ''))" 2>/dev/null)
+
+        if [ -z "$TRANSCRIPT_PATH" ] || [ ! -f "$TRANSCRIPT_PATH" ]; then
+            log_message "SKIPPED" "Stop hook - no transcript_path or file not found"
+            echo '{}'
+            exit 0
+        fi
+
+        # Extract last assistant message from transcript file
+        LAST_ASSISTANT=$(python3 -c "
 import json, sys
-d = json.load(sys.stdin)
-transcript = d.get('transcript', [])
-# Find last assistant message
-for msg in reversed(transcript):
-    if msg.get('role') == 'assistant':
-        content = msg.get('content', '')
-        if isinstance(content, list):
-            # Content is array of content blocks
-            texts = [c.get('text', '') for c in content if c.get('type') == 'text']
-            print(' '.join(texts)[:2000])  # Limit to 2000 chars
-        else:
-            print(str(content)[:2000])
-        break
+
+try:
+    with open('$TRANSCRIPT_PATH', 'r') as f:
+        transcript = json.load(f)
+
+    # transcript is an array of messages
+    for msg in reversed(transcript):
+        if msg.get('role') == 'assistant':
+            content = msg.get('content', '')
+            if isinstance(content, list):
+                # Content is array of content blocks
+                texts = [c.get('text', '') for c in content if c.get('type') == 'text']
+                print(' '.join(texts)[:2000])  # Limit to 2000 chars
+            else:
+                print(str(content)[:2000])
+            break
+except Exception as e:
+    print('')
 " 2>/dev/null)
 
         if [ -n "$LAST_ASSISTANT" ]; then
             log_message "START" "Stop hook - saving assistant response"
             save_message "assistant" "$LAST_ASSISTANT"
+        else
+            log_message "SKIPPED" "Stop hook - no assistant message found in transcript"
         fi
         ;;
 
