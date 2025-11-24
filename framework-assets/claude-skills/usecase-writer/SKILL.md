@@ -1,16 +1,8 @@
 ---
 name: usecase-writer
-description: |
-  Expert in creating comprehensive, detailed UseCases from requirements following UML, Cockburn,
-  IEEE 830, and industry best practices. Use when writing use cases, defining user flows,
-  creating acceptance criteria, documenting scenarios, analyzing requirements, or defining
-  system interactions. Covers actors, preconditions, postconditions, main flows, alternative
-  flows, extensions, and exceptions. Helps transform requirements into testable, clear use case
-  documentation.
-allowed-tools:
-  - Read
-  - Write
-  - Grep
+description: Expert in creating comprehensive detailed UseCases from requirements following UML Cockburn IEEE 830 and industry best practices for user flows and acceptance criteria
+version: 1.0.0
+tags: [usecase, requirements, uml, user-flows, documentation, acceptance-criteria]
 ---
 
 # UseCase Writer Expert

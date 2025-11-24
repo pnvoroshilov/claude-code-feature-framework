@@ -1,6 +1,8 @@
 ---
 name: skills-creator
 description: Creating comprehensive multi-file Claude Code skills following official documentation structure with TOON format
+version: 1.0.0
+tags: [skills, creation, documentation, toon-format, claude-code]
 tools: Read, Write, Edit, Grep, Bash, Glob
 ---
 
@@ -178,15 +180,16 @@ Every `SKILL.md` must start with:
 ```yaml
 ---
 name: skill-name              # Lowercase, numbers, hyphens only (max 64 chars)
-description: |                # CRITICAL for autonomous discovery (max 1024 chars)
-  Clear description of what the skill does AND when Claude should use it.
-  Include trigger terms users would mention.
-allowed-tools:                # Optional: Restrict tools (Read, Write, Edit, etc.)
-  - Read
-  - Write
-  - Bash
+description: Clear description of what the skill does AND when Claude should use it  # Max 1024 chars
+version: 1.0.0               # Semantic version (major.minor.patch)
+tags: [tag1, tag2, tag3]     # Relevant tags for categorization and discovery
 ---
 ```
+
+**Note**: The description should be a single line (not multiline with |) and clearly state:
+- What the skill does (specific capability)
+- When Claude should use it (trigger scenarios)
+- Include trigger terms users would mention
 
 ### ⚠️ CRITICAL: Description Field Requirements
 

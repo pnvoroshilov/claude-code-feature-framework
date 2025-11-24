@@ -1,10 +1,8 @@
 ---
 name: toon-format
-description: |
-  Expert in TOON (Token-Oriented Object Notation) - a compact data format for LLM applications.
-  Use this skill when converting JSON to TOON, optimizing token usage, working with structured
-  data for AI agents, or reducing API costs. Covers encoding, decoding, best practices, and
-  token efficiency optimization for LLM interactions.
+description: Expert in TOON (Token-Oriented Object Notation) compact data format for LLM applications with 30-60% token reduction vs JSON
+version: 1.0.0
+tags: [toon, data-format, token-optimization, json-conversion, llm-efficiency]
 ---
 
 # TOON Format Expert
