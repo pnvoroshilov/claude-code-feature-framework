@@ -4,6 +4,24 @@
 **Use Cases:** UC-02 (Review and Select Development Path), UC-03 (Development)
 **Trigger:** User presses "In Progress" button after Analysis approval
 
+## 🤖 AUTO MODE Behavior
+
+**CRITICAL: Check mode first:**
+```bash
+mcp__claudetask__get_project_settings
+# Check manual_mode value
+```
+
+### If `manual_mode = false` (AUTO MODE):
+- ✅ `/start-develop` command is **automatically executed** when status changes to "In Progress"
+- ✅ No user intervention required
+- ✅ Claude autonomously coordinates development
+- 📖 See [auto-mode-monitoring.md](auto-mode-monitoring.md) for details
+
+### If `manual_mode = true` (MANUAL MODE):
+- ⏸️ Wait for user to manually execute `/start-develop`
+- ⏸️ User controls when development begins
+
 ---
 
 ## 📋 Phase Overview
@@ -206,11 +224,25 @@ Ready for testing"
 mcp:update_status {id} "Testing"
 ```
 
+### 🤖 AUTO MODE Transition to Testing
+
+**When `manual_mode = false`:**
+- ✅ Status automatically changes to "Testing"
+- ✅ Orchestrator detects the transition
+- ✅ `/test {task_id}` command is **automatically executed**
+- ✅ No user intervention required
+- 📖 See [test-command-auto-mode.md](test-command-auto-mode.md) for testing automation
+
+**When `manual_mode = true`:**
+- ✅ Status changes to "Testing"
+- ⏸️ Wait for user to manually execute `/test {task_id}`
+
 ### Postconditions (UC-02)
 - ✅ PR created
 - ✅ Code developed according to `/Analyze` specs
 - ✅ All DoD criteria met
 - ✅ Task transitioned to "Testing" status
+- ✅ AUTO MODE: Next command queued for automatic execution
 
 ---
 

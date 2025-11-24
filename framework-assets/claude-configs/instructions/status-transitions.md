@@ -2,6 +2,17 @@
 
 ⚠️ **This file describes DEVELOPMENT MODE workflow only. For SIMPLE mode, see [project-modes.md](project-modes.md)**
 
+## 🤖 AUTO MODE vs MANUAL MODE
+
+**CRITICAL: Check project settings first:**
+```bash
+mcp__claudetask__get_project_settings
+# Check manual_mode value
+```
+
+- **`manual_mode = true`** - Follow standard instructions below
+- **`manual_mode = false`** (AUTO MODE) - See [AUTO MODE Section](#auto-mode-status-transitions) for automated command execution
+
 ## Status Flow with Agent Delegation (DEVELOPMENT MODE)
 
 ```
@@ -219,3 +230,120 @@ mcp__claudetask__append_stage_result --task_id=23 --status="Code Review" \
 Issues found: None
 Ready for PR creation"
 ```
+
+## 🤖 AUTO MODE Status Transitions
+
+**When `manual_mode = false`, the following automated transitions occur:**
+
+### Command Execution Mapping
+
+| Status Change | Automatic Command | Use Case Reference |
+|--------------|-------------------|-------------------|
+| Analysis → In Progress | `/start-develop` | UC-02 |
+| In Progress → Testing | `/test {task_id}` | UC-04 |
+| Testing → Code Review | `/PR {task_id}` (if tests pass) | UC-05 |
+| Testing → In Progress | `/start-develop` (if tests fail) | UC-04 |
+| Code Review → Pull Request | (automatic after review) | UC-05 |
+| Pull Request → Done | (automatic merge if enabled) | UC-05 |
+
+### AUTO MODE Monitoring Loop
+
+```python
+# Orchestrator continuously monitors (every 30 seconds):
+WHILE TRUE:
+    for task in active_tasks:
+        current_status = get_task_status(task.id)
+
+        if status_changed(task.previous_status, current_status):
+            # Execute appropriate command based on transition
+            handle_auto_mode_transition(task.id, current_status)
+
+            # Save stage result for transition
+            append_stage_result(task.id, current_status, "AUTO MODE transition")
+
+            # Update tracking
+            task.previous_status = current_status
+```
+
+### Testing Configuration Check
+
+**CRITICAL for UC-04**: Check `manual_testing_mode` setting:
+
+```bash
+mcp__claudetask__get_project_settings
+# Check both manual_mode and manual_testing_mode
+```
+
+- **`manual_testing_mode = false`** → Automated testing with web-tester agent
+- **`manual_testing_mode = true`** → Manual testing with environment setup
+
+### Preventing Duplicate Commands
+
+**Track executed commands per task:**
+
+```python
+executed_commands[task_id] = set()
+
+def execute_if_not_done(task_id, command):
+    if command not in executed_commands[task_id]:
+        SlashCommand(command)
+        executed_commands[task_id].add(command)
+        return True
+    return False
+```
+
+### Handling Manual UI Updates
+
+**If user changes status manually, orchestrator must catch up:**
+
+```bash
+# Detect manual transition
+if status == "Code Review" and "/PR" not in executed_commands[task_id]:
+    # Execute missed command
+    SlashCommand(f"/PR {task_id}")
+    append_stage_result("Executed missed /PR command after manual transition")
+```
+
+### Complete AUTO MODE Flow Example
+
+```
+1. Task in Backlog
+   ↓
+2. User/System triggers Analysis (UC-01)
+   ↓
+3. Analysis complete → Status: "In Progress"
+   ↓
+4. 🤖 AUTO: Execute /start-develop (UC-02)
+   ↓
+5. Development complete → Status: "Testing"
+   ↓
+6. 🤖 AUTO: Execute /test {id} (UC-04)
+   ↓
+7a. Tests pass → Status: "Code Review"
+    ↓
+    🤖 AUTO: Execute /PR {id} (UC-05)
+    ↓
+    Review passes → Status: "Pull Request"
+    ↓
+    🤖 AUTO: Merge if enabled → Status: "Done"
+
+7b. Tests fail → Status: "In Progress"
+    ↓
+    🤖 AUTO: Execute /start-develop
+    ↓
+    (Loop back to step 4)
+```
+
+### AUTO MODE Success Criteria
+
+✅ All transitions trigger commands within 1 minute
+✅ No duplicate commands executed
+✅ Stage results document every transition
+✅ Manual updates detected and handled
+✅ Commands match Use Case specifications
+
+### Related Documentation
+
+- [auto-mode-monitoring.md](auto-mode-monitoring.md) - Detailed AUTO MODE instructions
+- [test-command-auto-mode.md](test-command-auto-mode.md) - Testing automation
+- [Workflow/new_workflow_usecases.md](../../../Workflow/new_workflow_usecases.md) - Complete UC specifications
