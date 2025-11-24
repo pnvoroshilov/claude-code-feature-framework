@@ -106,4 +106,4 @@ CUSTOM_INSTRUCTIONS.md
 .*cache/
 
 # Git worktrees
-worktrees/
+worktrees/.chroma_db/
