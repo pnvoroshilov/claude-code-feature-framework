@@ -32,6 +32,8 @@ import {
   FormControlLabel,
   LinearProgress,
   Pagination,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -48,6 +50,9 @@ import {
   Timeline as TimelineIcon,
   Functions as FunctionsIcon,
   Storage as StorageIcon,
+  Hub as MCPIcon,
+  Webhook as HooksIcon,
+  SkipNext as SkippedIcon,
 } from '@mui/icons-material';
 import { useProject } from '../context/ProjectContext';
 
