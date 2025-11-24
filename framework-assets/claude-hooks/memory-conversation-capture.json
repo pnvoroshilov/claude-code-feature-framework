@@ -31,19 +31,8 @@
           }
         ]
       }
-    ],
-    "OnSessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "mcp",
-            "tool": "get_project_memory_context",
-            "params": {}
-          }
-        ]
-      }
     ]
   },
-  "setup_instructions": "This hook automatically captures all conversation messages to the project memory database. It also loads the project context at session start. Requires the ClaudeTask MCP server to be running.",
+  "setup_instructions": "This hook automatically captures all conversation messages to the project memory database. Context loading is handled via CLAUDE.md instructions (mandatory MCP call before first response). Requires the ClaudeTask MCP server to be running.",
   "dependencies": ["claudetask-mcp"]
 }

@@ -14,13 +14,31 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from mcp_server.claudetask_mcp_bridge import ClaudeTaskMCPServer
 
-# Setup logging to stderr so it doesn't interfere with stdio
+# Initial basic logging to stderr (will be reconfigured with file handler later)
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     stream=sys.stderr
 )
 logger = logging.getLogger(__name__)
+
+
+def setup_file_logging(project_path: str):
+    """Setup file logging to project's .claudetask folder"""
+    log_dir = Path(project_path) / ".claudetask" / "logs" / "mcp"
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    log_file = log_dir / "mcp_calls.log"
+
+    # Add file handler to root logger so all loggers write to file
+    file_handler = logging.FileHandler(log_file, encoding='utf-8')
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+
+    # Add to root logger
+    logging.getLogger().addHandler(file_handler)
+
+    logger.info(f"MCP call logging enabled to: {log_file}")
 
 async def get_project_id_by_path(project_path: str, backend_url: str) -> str | None:
     """
@@ -78,6 +96,9 @@ async def main():
             logger.info(f"Auto-detected project ID: {detected_id}")
         else:
             logger.warning(f"Could not auto-detect project ID, using configured value: {args.project_id}")
+
+    # Setup file logging to project's .claudetask folder
+    setup_file_logging(args.project_path)
 
     logger.info(f"Starting ClaudeTask MCP STDIO server for project {final_project_id}")
 

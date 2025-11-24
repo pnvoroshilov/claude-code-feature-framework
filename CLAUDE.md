@@ -9,6 +9,34 @@
 - ⛔ NEVER mark tasks as "Done" without explicit user request
 - ⛔ NEVER transition from "Code Review" to "Done"
 
+---
+
+## 🧠 MANDATORY: Load Project Context Before ANY Response
+
+**⚠️ THIS IS A BLOCKING REQUIREMENT - DO NOT SKIP**
+
+Before responding to ANY user message, you MUST load the project memory context:
+
+```
+1. WAIT for MCP servers to be ready (claudetask MCP must be available)
+2. CALL: mcp__claudetask__get_project_memory_context
+3. ONLY THEN proceed with user's request
+```
+
+**Why this matters:**
+- Project memory contains critical context from previous sessions
+- Without it, you may make decisions that contradict past agreements
+- Historical patterns and architectural decisions are stored there
+
+**If MCP is not ready:**
+- Wait and retry `mcp__claudetask__get_project_memory_context`
+- Do NOT respond to user until context is loaded
+- If after 3 retries MCP is still unavailable, inform user about the issue
+
+**Context loading is SILENT - do not mention it to user unless there's an error.**
+
+---
+
 ## 📋 Project Mode Configuration
 
 This project's mode is indicated in the marker below. **READ THE MODE MARKER** to understand which workflow to follow:
@@ -187,21 +215,23 @@ See [mcp-commands.md](./.claudetask/instructions/mcp-commands.md) for examples.
 
 ## 🧠 Project Memory System
 
-**Automatic Context Loading - No Action Required!**
+**Context Loading via MCP - MANDATORY at Session Start**
 
-The framework now includes an intelligent memory system that automatically:
-- 📚 Loads project summary (3-5 pages) at session start
-- 🕐 Retrieves last 50 messages for recent context
-- 🔍 Performs RAG search for relevant historical information
+The framework includes an intelligent memory system. You MUST call `mcp__claudetask__get_project_memory_context` before your first response (see CRITICAL INSTRUCTIONS above).
+
+**What context loading provides:**
+- 📚 Project summary (3-5 pages of accumulated knowledge)
+- 🕐 Last 50 conversation messages for recent context
+- 🔍 RAG-powered search for relevant historical information
 
 ### Memory Management Tools
 
-When starting ANY session, the memory context is loaded automatically. You can also:
-
-**Load full context manually:**
+**Primary context loading (MANDATORY before first response):**
 ```bash
 mcp__claudetask__get_project_memory_context
 ```
+
+**Additional memory tools:**
 
 **Save important insights:**
 ```bash
@@ -244,6 +274,7 @@ mcp__claudetask__search_project_memories \
 ## ✅ Success Checklist
 
 **Effective Orchestration:**
+- ✅ **Load project context** via `mcp__claudetask__get_project_memory_context` before first response
 - ✅ 100% delegation rate - Never do technical work yourself
 - ✅ Always read appropriate instruction before acting
 - ✅ Save stage results for every status transition
