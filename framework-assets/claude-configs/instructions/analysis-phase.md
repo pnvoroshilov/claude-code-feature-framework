@@ -12,10 +12,12 @@
 
 When analysis starts:
 - ✅ Backend creates worktree: `worktrees/task-{id}/`
-- ✅ Backend creates folders: `worktrees/task-{id}/Analyze/Requirements/` and `worktrees/task-{id}/Analyze/Design/`
+- ✅ Backend creates folders: `worktrees/task-{id}/Analyze/task-{id}/Requirements/` and `worktrees/task-{id}/Analyze/task-{id}/Design/`
 - ✅ Claude Code session starts with `/start-feature {task_id}` command
 
 **You don't create these manually - backend handles it automatically.**
+
+**⚠️ IMPORTANT:** Analysis documents are stored in `worktrees/task-{id}/Analyze/task-{id}/` folder. The nested `task-{id}` ensures documents are versioned in git and associated with the correct task.
 
 ## Your Role as Orchestrator
 
@@ -44,7 +46,7 @@ Extract:
 - Analyze requirements using RAG and docs/
 - Check other active tasks for conflicts
 - Create comprehensive requirements documentation
-- Save documents to `worktrees/task-{id}/Analyze/Requirements/`
+- Save documents to `worktrees/task-{id}/Analyze/task-{id}/Requirements/`
 
 **Your delegation:**
 
@@ -65,7 +67,7 @@ Task ID: {task_id}
 Task description: [paste full description]
 Initial requirements: [paste any requirements provided]
 
-Output Location: worktrees/task-{id}/Analyze/Requirements/
+Output Location: worktrees/task-{id}/Analyze/task-{id}/Requirements/
 Create files: requirements.md, acceptance-criteria.md, constraints.md
 
 The agent knows how to format requirements documents - just provide the task context."
@@ -78,7 +80,7 @@ The agent knows how to format requirements documents - just provide the task con
 - Agent will check other active tasks automatically
 - Agent will analyze docs/ folder systematically
 - Wait for agent to complete and save documents
-- Verify documents exist in `worktrees/task-{id}/Analyze/Requirements/`
+- Verify documents exist in `worktrees/task-{id}/Analyze/task-{id}/Requirements/`
 
 ### 🔴 STEP 4: Delegate to System Architect Agent
 
@@ -90,7 +92,7 @@ The agent knows how to format requirements documents - just provide the task con
 - Study docs/ folder and codebase systematically
 - Create Technical Requirements: what to change, where, and why
 - Write test cases (UI & Backend)
-- Save documentation in `worktrees/task-{id}/Analyze/Design/`
+- Save documentation in `worktrees/task-{id}/Analyze/task-{id}/Design/`
 
 **Your delegation:**
 
@@ -108,9 +110,9 @@ Extract: architecture patterns, API contracts, component interfaces, technical c
 
 **STEP 3: Create Technical Design**
 Task ID: {task_id}
-Requirements location: worktrees/task-{id}/Analyze/Requirements/
+Requirements location: worktrees/task-{id}/Analyze/task-{id}/Requirements/
 
-Output Location: worktrees/task-{id}/Analyze/Design/
+Output Location: worktrees/task-{id}/Analyze/task-{id}/Design/
 Create files: technical-requirements.md, test-cases.md, architecture-decisions.md, conflict-analysis.md
 
 The agent knows how to create design documents and test cases - just provide the task context."
@@ -122,7 +124,7 @@ The agent knows how to create design documents and test cases - just provide the
 - Agent will analyze other active tasks automatically
 - Agent will study codebase and architecture
 - Wait for agent to complete and save documents
-- Verify documents exist in `worktrees/task-{id}/Analyze/Design/`
+- Verify documents exist in `worktrees/task-{id}/Analyze/task-{id}/Design/`
 
 ### 🔴 STEP 6: Notify User for Review
 
@@ -131,8 +133,8 @@ The agent knows how to create design documents and test cases - just provide the
 ```
 "Analysis phase completed for Task #{task_id}:
 
-✅ Requirements documented in: worktrees/task-{id}/Analyze/Requirements/
-✅ Technical design created in: worktrees/task-{id}/Analyze/Design/
+✅ Requirements documented in: worktrees/task-{id}/Analyze/task-{id}/Requirements/
+✅ Technical design created in: worktrees/task-{id}/Analyze/task-{id}/Design/
 
 Please review the analysis documents. If everything is ok, press 'In Progress' button to proceed with implementation."
 ```
@@ -148,8 +150,8 @@ mcp__claudetask__append_stage_result \
 System Architect Agent: Completed technical design and test cases
 
 Documents created:
-- worktrees/task-{id}/Analyze/Requirements/
-- worktrees/task-{id}/Analyze/Design/
+- worktrees/task-{id}/Analyze/task-{id}/Requirements/
+- worktrees/task-{id}/Analyze/task-{id}/Design/
 
 Ready for user review and approval."
 ```
@@ -157,8 +159,8 @@ Ready for user review and approval."
 ### 🔴 STEP 8: Wait for User Approval
 
 **User reviews analysis documents:**
-- User checks `worktrees/task-{id}/Analyze/Requirements/`
-- User checks `worktrees/task-{id}/Analyze/Design/`
+- User checks `worktrees/task-{id}/Analyze/task-{id}/Requirements/`
+- User checks `worktrees/task-{id}/Analyze/task-{id}/Design/`
 - If approved: User presses **"In Progress"** button
 - If changes needed: User provides feedback and you restart analysis
 
@@ -187,9 +189,9 @@ See [status-transitions.md](status-transitions.md) for In Progress phase.
 ## Postconditions
 
 After successful analysis:
-- ✅ All analysis artifacts stored in `worktrees/task-{id}/Analyze/`
-- ✅ Requirements documented in `Analyze/Requirements/`
-- ✅ Technical design documented in `Analyze/Design/`
+- ✅ All analysis artifacts stored in `worktrees/task-{id}/Analyze/task-{id}/`
+- ✅ Requirements documented in `worktrees/task-{id}/Analyze/task-{id}/Requirements/`
+- ✅ Technical design documented in `worktrees/task-{id}/Analyze/task-{id}/Design/`
 - ✅ Test cases defined by System Architect
 - ✅ User approved the analysis
 - ✅ Task status: "In Progress"
@@ -198,8 +200,8 @@ After successful analysis:
 
 Before transitioning to In Progress:
 
-- [ ] Requirements documents exist in `worktrees/task-{id}/Analyze/Requirements/`
-- [ ] Design documents exist in `worktrees/task-{id}/Analyze/Design/`
+- [ ] Requirements documents exist in `worktrees/task-{id}/Analyze/task-{id}/Requirements/`
+- [ ] Design documents exist in `worktrees/task-{id}/Analyze/task-{id}/Design/`
 - [ ] Requirements Analyst Agent completed their work
 - [ ] System Architect Agent completed their work
 - [ ] Both agents analyzed other active tasks
@@ -237,7 +239,7 @@ Before transitioning to In Progress:
 - Analyzes docs/ folder systematically
 - Asks questions if needed
 - Creates requirements documentation with RAG context
-- Saves to `Analyze/Requirements/`
+- Saves to `worktrees/task-{id}/Analyze/task-{id}/Requirements/`
 
 **System Architect Agent:**
 - Assesses task complexity (SIMPLE/MODERATE/COMPLEX)
@@ -247,6 +249,6 @@ Before transitioning to In Progress:
 - Studies codebase with RAG
 - Creates technical requirements
 - Writes test cases (UI & Backend)
-- Saves to `Analyze/Design/`
+- Saves to `worktrees/task-{id}/Analyze/task-{id}/Design/`
 
 **Your responsibility:** Orchestrate and coordinate, don't do their work.
