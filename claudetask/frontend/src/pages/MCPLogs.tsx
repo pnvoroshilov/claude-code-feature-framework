@@ -88,30 +88,81 @@ interface LogStats {
   log_file_modified?: string;
 }
 
+interface HookExecution {
+  id: number;
+  hook_name: string;
+  timestamp: string;
+  end_timestamp?: string;
+  status: 'running' | 'success' | 'error' | 'skipped';
+  message: string | null;
+  error: string | null;
+  logs: Array<{
+    timestamp: string;
+    hook_name: string;
+    status: string;
+    message: string;
+  }>;
+}
+
+interface HookStats {
+  total_executions: number;
+  success_count: number;
+  error_count: number;
+  skipped_count: number;
+  success_rate: number;
+  hooks_used: Record<string, number>;
+  unique_hooks: number;
+  project_name?: string;
+  log_file?: string;
+  log_file_exists: boolean;
+  log_file_size_kb?: number;
+  log_file_modified?: string;
+}
+
 const MCPLogs: React.FC = () => {
   const theme = useTheme();
   const { selectedProject } = useProject();
 
+  // Tab state
+  const [activeTab, setActiveTab] = useState(0);
+
+  // MCP Logs state
   const [calls, setCalls] = useState<MCPCall[]>([]);
   const [stats, setStats] = useState<LogStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Hooks Logs state
+  const [hookExecutions, setHookExecutions] = useState<HookExecution[]>([]);
+  const [hookStats, setHookStats] = useState<HookStats | null>(null);
+  const [hookLoading, setHookLoading] = useState(true);
+  const [hookError, setHookError] = useState<string | null>(null);
 
   // Filters
   const [search, setSearch] = useState('');
   const [toolFilter, setToolFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
 
+  // Hooks Filters
+  const [hookSearch, setHookSearch] = useState('');
+  const [hookFilter, setHookFilter] = useState('');
+  const [hookStatusFilter, setHookStatusFilter] = useState('');
+
   // Pagination
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [limit] = useState(50);
+
+  // Hooks Pagination
+  const [hookPage, setHookPage] = useState(1);
+  const [hookTotal, setHookTotal] = useState(0);
 
   // Auto-refresh
   const [autoRefresh, setAutoRefresh] = useState(false);
 
   // Expanded rows
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const [expandedHookRows, setExpandedHookRows] = useState<Set<number>>(new Set());
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -146,29 +197,76 @@ const MCPLogs: React.FC = () => {
     }
   }, []);
 
+  // Hook logs fetching
+  const fetchHookLogs = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      params.append('limit', limit.toString());
+      params.append('offset', ((hookPage - 1) * limit).toString());
+      if (hookSearch) params.append('search', hookSearch);
+      if (hookFilter) params.append('hook_filter', hookFilter);
+      if (hookStatusFilter) params.append('status_filter', hookStatusFilter);
+
+      const response = await fetch(`/api/mcp-logs/hooks?${params.toString()}`);
+      const data = await response.json();
+
+      setHookExecutions(data.executions || []);
+      setHookTotal(data.total || 0);
+      setHookError(null);
+    } catch (err) {
+      setHookError('Failed to fetch hook logs');
+      console.error('Error fetching hook logs:', err);
+    } finally {
+      setHookLoading(false);
+    }
+  }, [hookPage, limit, hookSearch, hookFilter, hookStatusFilter]);
+
+  const fetchHookStats = useCallback(async () => {
+    try {
+      const response = await fetch('/api/mcp-logs/hooks/stats');
+      const data = await response.json();
+      setHookStats(data);
+    } catch (err) {
+      console.error('Error fetching hook stats:', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchLogs();
     fetchStats();
-  }, [fetchLogs, fetchStats]);
+    fetchHookLogs();
+    fetchHookStats();
+  }, [fetchLogs, fetchStats, fetchHookLogs, fetchHookStats]);
 
   // Auto-refresh
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (autoRefresh) {
       interval = setInterval(() => {
-        fetchLogs();
-        fetchStats();
+        if (activeTab === 0) {
+          fetchLogs();
+          fetchStats();
+        } else {
+          fetchHookLogs();
+          fetchHookStats();
+        }
       }, 3000);
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [autoRefresh, fetchLogs, fetchStats]);
+  }, [autoRefresh, activeTab, fetchLogs, fetchStats, fetchHookLogs, fetchHookStats]);
 
   const handleRefresh = () => {
-    setLoading(true);
-    fetchLogs();
-    fetchStats();
+    if (activeTab === 0) {
+      setLoading(true);
+      fetchLogs();
+      fetchStats();
+    } else {
+      setHookLoading(true);
+      fetchHookLogs();
+      fetchHookStats();
+    }
   };
 
   const handleClearLogs = async () => {
@@ -184,6 +282,19 @@ const MCPLogs: React.FC = () => {
     }
   };
 
+  const handleClearHookLogs = async () => {
+    if (!window.confirm('Are you sure you want to clear all hook logs?')) return;
+
+    try {
+      const response = await fetch('/api/mcp-logs/hooks', { method: 'DELETE' });
+      if (response.ok) {
+        handleRefresh();
+      }
+    } catch (err) {
+      setHookError('Failed to clear hook logs');
+    }
+  };
+
   const toggleRowExpand = (id: number) => {
     const newExpanded = new Set(expandedRows);
     if (newExpanded.has(id)) {
@@ -194,22 +305,38 @@ const MCPLogs: React.FC = () => {
     setExpandedRows(newExpanded);
   };
 
+  const toggleHookRowExpand = (id: number) => {
+    const newExpanded = new Set(expandedHookRows);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedHookRows(newExpanded);
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'success':
         return <SuccessIcon sx={{ color: theme.palette.success.main }} />;
       case 'error':
         return <ErrorIcon sx={{ color: theme.palette.error.main }} />;
+      case 'skipped':
+        return <SkippedIcon sx={{ color: theme.palette.info.main }} />;
+      case 'running':
+        return <PendingIcon sx={{ color: theme.palette.warning.main }} />;
       default:
         return <PendingIcon sx={{ color: theme.palette.warning.main }} />;
     }
   };
 
   const getStatusChip = (status: string) => {
-    const colors: Record<string, 'success' | 'error' | 'warning'> = {
+    const colors: Record<string, 'success' | 'error' | 'warning' | 'info'> = {
       success: 'success',
       error: 'error',
       pending: 'warning',
+      running: 'warning',
+      skipped: 'info',
     };
     return (
       <Chip
@@ -231,6 +358,7 @@ const MCPLogs: React.FC = () => {
   };
 
   const uniqueTools = stats?.tools_used ? Object.keys(stats.tools_used) : [];
+  const uniqueHooks = hookStats?.hooks_used ? Object.keys(hookStats.hooks_used) : [];
 
   if (!selectedProject) {
     return (
@@ -248,10 +376,10 @@ const MCPLogs: React.FC = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
           <Typography variant="h4" fontWeight={700}>
-            MCP Logs
+            Logs
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            View and analyze MCP (Model Context Protocol) call logs for {selectedProject?.name || 'current project'}
+            View and analyze MCP calls and Hook executions for {selectedProject?.name || 'current project'}
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -270,13 +398,38 @@ const MCPLogs: React.FC = () => {
               <RefreshIcon />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Clear all logs">
-            <IconButton onClick={handleClearLogs} color="error">
+          <Tooltip title={activeTab === 0 ? "Clear MCP logs" : "Clear Hook logs"}>
+            <IconButton onClick={activeTab === 0 ? handleClearLogs : handleClearHookLogs} color="error">
               <DeleteIcon />
             </IconButton>
           </Tooltip>
         </Box>
       </Box>
+
+      {/* Tabs */}
+      <Paper sx={{ mb: 3 }}>
+        <Tabs
+          value={activeTab}
+          onChange={(_, newValue) => setActiveTab(newValue)}
+          indicatorColor="primary"
+          textColor="primary"
+        >
+          <Tab
+            icon={<MCPIcon />}
+            iconPosition="start"
+            label={`MCP Calls ${stats?.total_calls ? `(${stats.total_calls})` : ''}`}
+          />
+          <Tab
+            icon={<HooksIcon />}
+            iconPosition="start"
+            label={`Hooks ${hookStats?.total_executions ? `(${hookStats.total_executions})` : ''}`}
+          />
+        </Tabs>
+      </Paper>
+
+      {/* MCP Tab Content */}
+      {activeTab === 0 && (
+        <>
 
       {/* Stats Cards */}
       {stats && (
@@ -644,6 +797,324 @@ const MCPLogs: React.FC = () => {
               ))}
           </Box>
         </Paper>
+      )}
+        </>
+      )}
+
+      {/* Hooks Tab Content */}
+      {activeTab === 1 && (
+        <>
+          {/* Hook Stats Cards */}
+          {hookStats && (
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12} sm={6} md={3}>
+                <Card
+                  sx={{
+                    background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.primary.main, 0.05)} 100%)`,
+                    border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                  }}
+                >
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <HooksIcon sx={{ color: theme.palette.primary.main }} />
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Total Executions
+                      </Typography>
+                    </Box>
+                    <Typography variant="h4" fontWeight={700}>
+                      {hookStats.total_executions}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Card
+                  sx={{
+                    background: `linear-gradient(135deg, ${alpha(theme.palette.success.main, 0.1)} 0%, ${alpha(theme.palette.success.main, 0.05)} 100%)`,
+                    border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`,
+                  }}
+                >
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <SuccessIcon sx={{ color: theme.palette.success.main }} />
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Success
+                      </Typography>
+                    </Box>
+                    <Typography variant="h4" fontWeight={700} color="success.main">
+                      {hookStats.success_count}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Card
+                  sx={{
+                    background: `linear-gradient(135deg, ${alpha(theme.palette.error.main, 0.1)} 0%, ${alpha(theme.palette.error.main, 0.05)} 100%)`,
+                    border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`,
+                  }}
+                >
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <ErrorIcon sx={{ color: theme.palette.error.main }} />
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Errors
+                      </Typography>
+                    </Box>
+                    <Typography variant="h4" fontWeight={700} color="error.main">
+                      {hookStats.error_count}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Card
+                  sx={{
+                    background: `linear-gradient(135deg, ${alpha(theme.palette.info.main, 0.1)} 0%, ${alpha(theme.palette.info.main, 0.05)} 100%)`,
+                    border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
+                  }}
+                >
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <TimelineIcon sx={{ color: theme.palette.info.main }} />
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Success Rate
+                      </Typography>
+                    </Box>
+                    <Typography variant="h4" fontWeight={700}>
+                      {hookStats.success_rate}%
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+          )}
+
+          {/* Hook Filters */}
+          <Paper sx={{ p: 2, mb: 3 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Search hook logs..."
+                  value={hookSearch}
+                  onChange={(e) => setHookSearch(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Hook</InputLabel>
+                  <Select
+                    value={hookFilter}
+                    label="Hook"
+                    onChange={(e) => setHookFilter(e.target.value)}
+                  >
+                    <MenuItem value="">All Hooks</MenuItem>
+                    {uniqueHooks.map((hook) => (
+                      <MenuItem key={hook} value={hook}>
+                        {hook}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={3}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={hookStatusFilter}
+                    label="Status"
+                    onChange={(e) => setHookStatusFilter(e.target.value)}
+                  >
+                    <MenuItem value="">All Statuses</MenuItem>
+                    <MenuItem value="success">Success</MenuItem>
+                    <MenuItem value="error">Error</MenuItem>
+                    <MenuItem value="running">Running</MenuItem>
+                    <MenuItem value="skipped">Skipped</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={2}>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  onClick={() => {
+                    setHookSearch('');
+                    setHookFilter('');
+                    setHookStatusFilter('');
+                  }}
+                >
+                  Clear
+                </Button>
+              </Grid>
+            </Grid>
+          </Paper>
+
+          {/* Hook Logs Table */}
+          <TableContainer component={Paper}>
+            {hookLoading && <LinearProgress />}
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell width={50} />
+                  <TableCell>Timestamp</TableCell>
+                  <TableCell>Hook Name</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Message</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {hookError ? (
+                  <TableRow>
+                    <TableCell colSpan={5}>
+                      <Alert severity="error">{hookError}</Alert>
+                    </TableCell>
+                  </TableRow>
+                ) : hookExecutions.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5}>
+                      <Alert severity="info">
+                        No hook executions found. Hooks will appear here once they are triggered.
+                      </Alert>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  hookExecutions.map((exec) => (
+                    <React.Fragment key={exec.id}>
+                      <TableRow
+                        hover
+                        sx={{ cursor: 'pointer' }}
+                        onClick={() => toggleHookRowExpand(exec.id)}
+                      >
+                        <TableCell>
+                          <IconButton size="small">
+                            {expandedHookRows.has(exec.id) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                          </IconButton>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                            {formatTimestamp(exec.timestamp)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={exec.hook_name}
+                            sx={{
+                              fontFamily: 'monospace',
+                              fontWeight: 600,
+                              backgroundColor: alpha(theme.palette.secondary.main, 0.1),
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>{getStatusChip(exec.status)}</TableCell>
+                        <TableCell>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontFamily: 'monospace',
+                              fontSize: '0.75rem',
+                              maxWidth: 350,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              color: exec.error ? theme.palette.error.main : 'inherit',
+                            }}
+                          >
+                            {exec.error || exec.message?.slice(0, 80) || '-'}
+                            {exec.message && exec.message.length > 80 ? '...' : ''}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell colSpan={5} sx={{ py: 0 }}>
+                          <Collapse in={expandedHookRows.has(exec.id)} timeout="auto" unmountOnExit>
+                            <Box sx={{ p: 2, backgroundColor: alpha(theme.palette.background.default, 0.5) }}>
+                              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                                Full Message
+                              </Typography>
+                              <Paper
+                                sx={{
+                                  p: 1.5,
+                                  backgroundColor: exec.error
+                                    ? alpha(theme.palette.error.main, 0.1)
+                                    : theme.palette.mode === 'dark'
+                                    ? '#1a1a2e'
+                                    : '#f5f5f5',
+                                  maxHeight: 200,
+                                  overflow: 'auto',
+                                }}
+                              >
+                                <pre
+                                  style={{
+                                    margin: 0,
+                                    fontFamily: 'monospace',
+                                    fontSize: '0.75rem',
+                                    whiteSpace: 'pre-wrap',
+                                    color: exec.error ? theme.palette.error.main : 'inherit',
+                                  }}
+                                >
+                                  {exec.error || exec.message || 'No details available'}
+                                </pre>
+                              </Paper>
+                            </Box>
+                          </Collapse>
+                        </TableCell>
+                      </TableRow>
+                    </React.Fragment>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          {/* Hook Pagination */}
+          {hookTotal > limit && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+              <Pagination
+                count={Math.ceil(hookTotal / limit)}
+                page={hookPage}
+                onChange={(_, newPage) => setHookPage(newPage)}
+                color="primary"
+              />
+            </Box>
+          )}
+
+          {/* Most Used Hooks */}
+          {hookStats && hookStats.hooks_used && Object.keys(hookStats.hooks_used).length > 0 && (
+            <Paper sx={{ p: 2, mt: 3 }}>
+              <Typography variant="h6" fontWeight={600} gutterBottom>
+                Most Used Hooks
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {Object.entries(hookStats.hooks_used)
+                  .slice(0, 10)
+                  .map(([hook, count]) => (
+                    <Chip
+                      key={hook}
+                      label={`${hook} (${count})`}
+                      onClick={() => setHookFilter(hook)}
+                      sx={{
+                        fontFamily: 'monospace',
+                        cursor: 'pointer',
+                        '&:hover': {
+                          backgroundColor: alpha(theme.palette.secondary.main, 0.2),
+                        },
+                      }}
+                    />
+                  ))}
+              </Box>
+            </Paper>
+          )}
+        </>
       )}
     </Box>
   );

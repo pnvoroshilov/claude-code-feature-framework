@@ -51,7 +51,7 @@ const menuItems = [
   { text: 'Skills', icon: <SkillsIcon />, path: '/skills' },
   { text: 'Hooks', icon: <HooksIcon />, path: '/hooks' },
   { text: 'MCP Configs', icon: <MCPIcon />, path: '/mcp-configs' },
-  { text: 'MCP Logs', icon: <LogsIcon />, path: '/mcp-logs' },
+  { text: 'Logs', icon: <LogsIcon />, path: '/mcp-logs' },
   { text: 'Subagents', icon: <SubagentIcon />, path: '/subagents' },
   { text: 'Project Instructions', icon: <InstructionsIcon />, path: '/instructions' },
   { text: 'Project Setup', icon: <SetupIcon />, path: '/setup' },
