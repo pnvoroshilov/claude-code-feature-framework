@@ -40,7 +40,7 @@ CREATE TABLE default_hooks (
 
 **Key Fields:**
 - `name`: Unique hook identifier (e.g., "Post-Merge Documentation Update")
-- `category`: Hook category (logging, formatting, version-control, etc.)
+- `category`: Hook category (logging, formatting, version-control, memory, etc.)
 - `file_name`: JSON configuration filename (e.g., "post-merge-documentation.json")
 - `script_file`: **NEW in v004** - Optional separate shell script (e.g., "post-push-docs.sh")
 - `hook_config`: JSON object defining hook events and commands
@@ -85,6 +85,16 @@ CREATE TABLE project_hooks (
     enabled_by VARCHAR(100)
 );
 ```
+
+## Hook Categories
+
+| Category | Purpose | Examples |
+|----------|---------|----------|
+| `memory` | Project memory and knowledge capture | Conversation capture, file edit tracking |
+| `version-control` | Git workflow automation | Post-merge docs, RAG indexing |
+| `logging` | Activity tracking and audit | Command logging, tool usage tracking |
+| `formatting` | Code quality and style | Auto-formatting, linting |
+| `notifications` | User alerts and updates | Desktop notifications, status updates |
 
 ## Script File Support (Migration 004)
 
@@ -135,7 +145,11 @@ Migration 004 introduced the `script_file` column to separate hook configuration
 ```
 framework-assets/claude-hooks/
 ├── post-merge-documentation.json  # Hook configuration
-└── post-push-docs.sh              # Shell script implementation
+├── post-push-docs.sh              # Shell script implementation
+├── memory-capture.json            # Memory conversation capture config
+├── memory-capture.sh              # Memory conversation capture script
+├── memory-file-edit-capture.json  # NEW: File edit capture config
+└── memory-file-edit-capture.sh    # NEW: File edit capture script
 ```
 
 #### 2. Database Storage
@@ -291,6 +305,139 @@ Hooks receive JSON input via stdin:
 }
 ```
 
+## Default Hooks
+
+### 1. Memory Conversation Capture
+
+**Purpose**: Automatically captures conversation messages to project memory
+
+**Category**: `memory`
+
+**Events**: `Stop` (after Claude finishes responding)
+
+**Script**: `memory-capture.sh`
+
+**What it does**:
+- Captures conversation messages via Claude Code transcript file
+- Sends messages to backend API for storage
+- Enables project memory persistence across sessions
+- Required for GET project_memory_context to work
+
+**Configuration**:
+```json
+{
+  "name": "Memory Conversation Capture",
+  "category": "memory",
+  "hook_config": {
+    "Stop": [{
+      "matcher": "*",
+      "hooks": [{
+        "type": "command",
+        "command": ".claude/hooks/memory-capture.sh"
+      }]
+    }]
+  }
+}
+```
+
+### 2. Memory File Edit Capture (NEW)
+
+**Purpose**: Automatically captures file edit operations (Edit, Write, MultiEdit, Update) to project memory
+
+**Category**: `memory`
+
+**Events**: `PostToolUse` (Edit, Write, MultiEdit, Update)
+
+**Script**: `memory-file-edit-capture.sh`
+
+**What it does**:
+- Detects file edit operations (Edit, Write, MultiEdit, Update tools)
+- Extracts file path and creates meaningful summary
+- Saves to project memory via backend API
+- Provides edit history and context for future sessions
+
+**Configuration**:
+```json
+{
+  "name": "Memory File Edit Capture",
+  "category": "memory",
+  "hook_config": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [{"type": "command", "command": ".claude/hooks/memory-file-edit-capture.sh"}]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [{"type": "command", "command": ".claude/hooks/memory-file-edit-capture.sh"}]
+      },
+      {
+        "matcher": "MultiEdit",
+        "hooks": [{"type": "command", "command": ".claude/hooks/memory-file-edit-capture.sh"}]
+      },
+      {
+        "matcher": "Update",
+        "hooks": [{"type": "command", "command": ".claude/hooks/memory-file-edit-capture.sh"}]
+      }
+    ]
+  }
+}
+```
+
+**Key Features**:
+- Tool-specific summaries (Edit vs Write vs MultiEdit)
+- Captures file paths and content previews
+- Metadata includes event_type, tool_name, file_path
+- Graceful failure if backend unavailable
+
+### 3. Memory Session Summarizer
+
+**Purpose**: Periodically updates project summary based on conversation history
+
+**Category**: `memory`
+
+**Events**: `Stop` (after Claude finishes responding)
+
+**Script**: `memory-session-summarize.sh`
+
+**What it does**:
+- Checks if 30+ messages accumulated since last summary
+- Triggers project summary update via backend API
+- Accumulates knowledge over time
+- Reduces summarization frequency (optimized from 50 to 30 messages)
+
+### 4. Post-Merge Documentation Update
+
+**Purpose**: Automatically updates documentation after merging to main branch
+
+**Category**: `version-control`
+
+**Events**: `PostToolUse` (Bash tool after git push/merge)
+
+**Script**: `post-push-docs.sh`
+
+**What it does**:
+- Detects git push/merge to main branch
+- Calls backend API to execute `/update-documentation` command
+- Launches embedded Claude session with documentation updater agent
+- Prevents recursion with lock files and `[skip-hook]` tag
+
+### 5. Post-Merge RAG Indexing
+
+**Purpose**: Indexes documentation for semantic search after git merges
+
+**Category**: `version-control`
+
+**Events**: `PostToolUse` (Bash tool after git push)
+
+**Script**: `post-merge-rag-indexing.sh`
+
+**What it does**:
+- Detects git push commands (including simple `git push`)
+- Triggers RAG indexing of `docs/` directory
+- Enables semantic search across project documentation
+- Skips if `[skip-rag]` tag in commit message
+
 ## Case Study 1: Post-Merge Documentation Hook
 
 ### Version 2.0.0 Architecture
@@ -383,127 +530,70 @@ Documentation Updater Agent Runs
 Commit with [skip-hook] Tag
 ```
 
-## Case Study 2: Documentation Update Injection Hook
+## Case Study 2: Memory File Edit Capture Hook
 
-### Version 1.0.0 Architecture
+### Architecture
 
-The inject-docs-update hook demonstrates UserPromptSubmit event handling and automatic recovery mechanisms.
+The memory file edit capture hook demonstrates PostToolUse event handling for multiple tools:
 
 #### Components
 
-1. **Hook Configuration** (`inject-docs-update.json`):
-   - Defines UserPromptSubmit event with wildcard matcher
+1. **Hook Configuration** (`memory-file-edit-capture.json`):
+   - Defines PostToolUse events for Edit, Write, MultiEdit, Update tools
    - References separate script file
-   - Works in conjunction with post-merge documentation hook
-   - Category: version-control
+   - Category: memory
+   - Required files list for installation
 
-2. **Shell Script** (`inject-docs-update.sh`):
-   - Checks for `.docs-update-pending` marker file
-   - Injects documentation update instruction into user prompt
-   - Removes marker after injection (one-time trigger)
-   - Provides comprehensive logging
+2. **Shell Script** (`memory-file-edit-capture.sh`):
+   - Receives tool execution data via stdin
+   - Filters for file edit tools (Edit, Write, MultiEdit, Update)
+   - Extracts file path and creates meaningful summary
+   - Calls backend API to save to project memory
+   - Includes metadata (event_type, tool_name, file_path)
 
 #### Key Features
 
-**Marker File Detection:**
-```bash
-MARKER_FILE="$LOGDIR/.docs-update-pending"
-
-if [ -f "$MARKER_FILE" ]; then
-    echo "Documentation update marker found - injecting context"
-    rm -f "$MARKER_FILE"  # One-time trigger
-fi
-```
-
-**Context Injection via JSON:**
-```bash
-cat << 'EOF'
-{
-  "hookSpecificOutput": {
-    "hookEventName": "UserPromptSubmit",
-    "additionalContext": "🔔 AUTOMATIC DOCUMENTATION UPDATE REQUIRED\n\n📚 Execute: /update-documentation"
-  }
-}
-EOF
-```
-
-**One-Time Trigger:**
-- Marker file created by post-push-docs.sh if API call fails
-- Detected on next user prompt submission
-- Automatically removed after injection
-- Prevents repeated injections
-
-#### Workflow Integration
-
-The inject-docs-update hook works as a recovery mechanism for failed documentation updates:
-
-```
-Post-Merge Hook Executes
-      ↓
-Attempts API Call to /update-documentation
-      ↓
-API Call Fails (backend unavailable)
-      ↓
-Creates .docs-update-pending Marker
-      ↓
-User Submits Next Prompt
-      ↓
-UserPromptSubmit Hook Triggered
-      ↓
-Detects Marker File
-      ↓
-Injects /update-documentation Context
-      ↓
-Removes Marker (one-time)
-      ↓
-Claude Receives Instruction
-      ↓
-Documentation Update Executes
-```
-
-#### Use Cases
-
-1. **API Failure Recovery**: When backend is temporarily unavailable
-2. **Delayed Execution**: Documentation update on next user interaction
-3. **Non-Blocking**: Post-merge hook doesn't block on API failures
-4. **Automatic Recovery**: No manual intervention required
-
-#### Hook Configuration
-
+**Multi-Tool Matching:**
 ```json
 {
-  "name": "Documentation Update Injection",
-  "description": "Injects documentation update instruction into user prompt when marker file exists",
-  "category": "version-control",
-  "version": "1.0.0",
-  "hook_config": {
-    "UserPromptSubmit": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/inject-docs-update.sh"
-          }
-        ]
-      }
-    ]
-  },
-  "script_file": "inject-docs-update.sh",
-  "dependencies": ["bash"],
-  "related_hooks": ["post-merge-documentation"]
+  "PostToolUse": [
+    {"matcher": "Edit", "hooks": [...]},
+    {"matcher": "Write", "hooks": [...]},
+    {"matcher": "MultiEdit", "hooks": [...]},
+    {"matcher": "Update", "hooks": [...]}
+  ]
 }
 ```
 
-#### Logging
-
-All injection events are logged to `.claude/logs/hooks/user-prompt-YYYYMMDD.log`:
-
+**Tool-Specific Summaries:**
+```python
+# Python extraction logic
+if tool_name == 'Edit':
+    summary = f'Edited {file_path}: replaced "{old_str}..." with "{new_str}..."'
+elif tool_name == 'Write':
+    summary = f'Wrote file {file_path}: {content_preview}...'
+elif tool_name == 'MultiEdit':
+    summary = f'Multi-edited {file_path}: {len(edits)} changes'
+elif tool_name == 'Update':
+    summary = f'Updated {file_path}: replaced "{old_str}..." with "{new_str}..."'
 ```
-[2025-11-20 19:45:12] UserPromptSubmit hook triggered
-[2025-11-20 19:45:12] Documentation update marker found - injecting context
-[2025-11-20 19:45:12] Documentation update context injected successfully
+
+**Memory API Call:**
+```bash
+PAYLOAD="{\"message_type\": \"assistant\", \"content\": \"$ESCAPED_CONTENT\", \"metadata\": {\"event_type\": \"file_edit\", \"tool_name\": \"$TOOL_NAME\", \"file_path\": \"$FILE_PATH\"}}"
+
+curl -s -X POST "$BACKEND_URL/api/projects/$PROJECT_ID/memory/messages" \
+    -H "Content-Type: application/json" \
+    -d "$PAYLOAD"
 ```
+
+#### Benefits
+
+1. **Complete Edit History**: Track all file modifications
+2. **Context for Future Sessions**: Understand what files changed and why
+3. **Tool Coverage**: Captures all file edit operations
+4. **Graceful Failure**: Continues if backend unavailable
+5. **Structured Metadata**: Event type, tool, file path for querying
 
 ## Service Layer
 

@@ -153,6 +153,22 @@ These work without manual intervention:
 - **Trigger Threshold (2025-11-25)**: Summarization now triggers every 30 messages (reduced from 50)
 - **Benefit**: More frequent knowledge consolidation for better context retention
 
+#### Memory File Edit Capture (NEW - 2025-11-26)
+- **Enabled by default**: Yes (for new projects after migration)
+- **Purpose**: Automatically captures file edit operations to project memory
+- **Hook type**: PostToolUse (Edit, Write, MultiEdit, Update tools)
+- **Status**: Available for all projects
+- **What it captures**:
+  - File edit operations (Edit, Write, MultiEdit, Update)
+  - File paths and modification summaries
+  - Tool-specific context (what tool was used, what changed)
+  - Structured metadata (event_type, tool_name, file_path)
+- **Benefits**:
+  - Complete edit history tracking
+  - Context for future sessions about file modifications
+  - Understand what files changed and why
+  - Track refactoring and code evolution patterns
+
 ### Manual Commands
 
 For specific memory operations:
