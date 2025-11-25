@@ -200,6 +200,14 @@ async def seed_default_skills():
                 category="Architecture",
                 file_name="architecture-patterns/SKILL.md",
                 is_favorite=True
+            ),
+            # Python Refactoring skill
+            DefaultSkill(
+                name="Python Refactor",
+                description="Expert Python code refactoring using Clean Architecture, DDD, and SOLID principles for transforming legacy systems into maintainable domain-driven designs",
+                category="Quality",
+                file_name="python-refactor/SKILL.md",
+                is_favorite=True
             )
         ]
 
@@ -467,6 +475,42 @@ async def seed_default_skills():
                 skill_type="default",
                 priority=2,
                 reason="Helpful for designing system architecture following established patterns"
+            ),
+            # Python Refactor recommendations
+            AgentSkillRecommendation(
+                agent_name="refactoring-expert",
+                skill_id=skills["Python Refactor"],
+                skill_type="default",
+                priority=1,
+                reason="Essential for Python refactoring with Clean Architecture and DDD patterns"
+            ),
+            AgentSkillRecommendation(
+                agent_name="backend-architect",
+                skill_id=skills["Python Refactor"],
+                skill_type="default",
+                priority=1,
+                reason="Critical for designing clean Python backend architecture"
+            ),
+            AgentSkillRecommendation(
+                agent_name="python-api-expert",
+                skill_id=skills["Python Refactor"],
+                skill_type="default",
+                priority=1,
+                reason="Important for structuring FastAPI applications with Clean Architecture"
+            ),
+            AgentSkillRecommendation(
+                agent_name="python-expert",
+                skill_id=skills["Python Refactor"],
+                skill_type="default",
+                priority=1,
+                reason="Core skill for Python code quality and architectural patterns"
+            ),
+            AgentSkillRecommendation(
+                agent_name="fullstack-code-reviewer",
+                skill_id=skills["Python Refactor"],
+                skill_type="default",
+                priority=2,
+                reason="Useful for reviewing Python code against Clean Architecture principles"
             )
         ]
 
