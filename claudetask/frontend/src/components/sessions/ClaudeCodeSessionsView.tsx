@@ -42,7 +42,7 @@ import {
   Folder as FolderIcon,
   CheckCircle as CheckCircleIcon,
   AccessTime as AccessTimeIcon,
-  StorageIcon,
+  Storage as StorageIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 import { format } from 'date-fns';

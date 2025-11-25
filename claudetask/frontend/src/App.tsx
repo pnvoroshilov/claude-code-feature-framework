@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Box } from '@mui/material';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { ReactQueryDevtools } from 'react-query/devtools';
@@ -10,8 +10,7 @@ import Dashboard from './pages/Dashboard';
 import ProjectSetup from './pages/ProjectSetup';
 import ProjectManager from './pages/ProjectManager';
 import TaskBoard from './pages/TaskBoard';
-import ClaudeSessions from './pages/ClaudeSessions';
-import ClaudeCodeSessions from './pages/ClaudeCodeSessions';
+import Sessions from './pages/Sessions';
 import Skills from './pages/Skills';
 import Hooks from './pages/Hooks';
 import MCPConfigs from './pages/MCPConfigs';
@@ -82,8 +81,8 @@ function App() {
                     <Route path="/projects" element={<ProjectManager />} />
                     <Route path="/projects/:projectId/files" element={<FileBrowser />} />
                     <Route path="/tasks" element={<TaskBoard />} />
-                    <Route path="/sessions" element={<ClaudeSessions />} />
-                    <Route path="/claude-code-sessions" element={<ClaudeCodeSessions />} />
+                    <Route path="/sessions/*" element={<Sessions />} />
+                    <Route path="/claude-code-sessions" element={<Navigate to="/sessions/claude-code" replace />} />
                     <Route path="/skills" element={<Skills />} />
                     <Route path="/hooks" element={<Hooks />} />
                     <Route path="/mcp-configs" element={<MCPConfigs />} />

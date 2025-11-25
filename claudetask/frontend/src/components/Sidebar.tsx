@@ -46,8 +46,7 @@ const menuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
   { text: 'Task Board', icon: <TaskIcon />, path: '/tasks' },
   { text: 'Projects', icon: <ProjectIcon />, path: '/projects' },
-  { text: 'Claude Sessions', icon: <TerminalIcon />, path: '/sessions' },
-  { text: 'Claude Code Sessions', icon: <HistoryIcon />, path: '/claude-code-sessions' },
+  { text: 'Sessions', icon: <TerminalIcon />, path: '/sessions' },
   { text: 'Skills', icon: <SkillsIcon />, path: '/skills' },
   { text: 'Hooks', icon: <HooksIcon />, path: '/hooks' },
   { text: 'MCP Configs', icon: <MCPIcon />, path: '/mcp-configs' },
@@ -168,7 +167,10 @@ const Sidebar: React.FC<SidebarProps> = ({ open, collapsed, onClose }) => {
       >
         <List sx={{ p: 0 }}>
           {menuItems.map((item) => {
-            const isActive = location.pathname === item.path;
+            // Check if current path matches, including sub-routes for Sessions
+            const isActive = item.path === '/sessions'
+              ? location.pathname.startsWith('/sessions')
+              : location.pathname === item.path;
             return (
               <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
                 <Tooltip
