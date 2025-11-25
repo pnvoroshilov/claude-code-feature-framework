@@ -17,22 +17,22 @@ Please read the [CUSTOM_INSTRUCTIONS.md](./CUSTOM_INSTRUCTIONS.md) file in the p
 ## Task Workflow (7 Columns)
 - **Backlog**: New tasks waiting to be analyzed
 - **Analysis**: Understanding requirements and planning
-- **In Progress**: Active development without worktrees
+- **In Progress**: Active development with Git worktrees
 - **Testing**: Running tests and validation
 - **Code Review**: Peer review of changes
 - **PR**: Pull Request created and awaiting merge
 - **Done**: Completed and merged
 
 ## What this means:
-- ✅ **Full Git workflow** - Branches and PRs (no worktrees)
+- ✅ **Full Git workflow** - Branches, worktrees, PRs
 - ✅ **Complete development lifecycle** - From analysis to deployment
 - ✅ **Version control** - Proper branching and merge strategy
 - ✅ **Quality gates** - Testing and code review required
-- ❌ **Worktrees**: Disabled - work directly in main branch
+- ✅ **Worktrees**: Enabled - isolated task workspaces
 
 ## Your approach:
 1. Follow the complete task workflow through all statuses
-2. Work in main branch or feature branches (worktrees disabled)
+2. Create worktrees for each task
 3. Use proper branching strategy
 4. Create PRs and wait for review
 5. Ensure tests pass before moving forward
@@ -127,10 +127,10 @@ This project's mode is indicated in the marker below. **READ THE MODE MARKER** t
 
 # 🎯 PROJECT MODE: DEVELOPMENT
 
-**This project uses DEVELOPMENT mode with full 7-column workflow.**
+**This project uses DEVELOPMENT mode with full 6-column workflow.**
 
 📖 **[Understanding Project Modes](./.claudetask/instructions/project-modes.md)**
-- DEVELOPMENT mode: Full workflow with Analysis, Testing, Code Review, PR
+- DEVELOPMENT mode: Full workflow with Analysis, Testing, Code Review (includes PR management)
 - SIMPLE mode: Simplified 3-column workflow (Backlog → In Progress → Done)
 
 ---
@@ -161,7 +161,8 @@ If `CUSTOM_INSTRUCTIONS.md` exists in the project root, **READ IT FIRST**. Custo
 
 #### Task Status Management
 📖 **[Status Transitions](./.claudetask/instructions/status-transitions.md)** - When moving between statuses
-- Backlog → Analysis → In Progress → Testing → Code Review → PR → Done
+- Backlog → Analysis → In Progress → Testing → Code Review → Done
+- Code Review now includes PR creation and management (PR status removed)
 - Auto-transition rules
 - Stage results (mandatory for every transition)
 
@@ -219,8 +220,7 @@ WHILE TRUE:
      - "Analysis" → Read analysis-phase.md
      - "In Progress" → Read in-progress-phase.md
      - "Testing" → Read testing-workflow.md
-     - "Code Review" → Read status-transitions.md
-     - "Pull Request" → Read status-transitions.md
+     - "Code Review" → Read status-transitions.md (includes PR management)
      - "Done" → Read resource-cleanup.md
 
   3. Save stage results: mcp__claudetask__append_stage_result

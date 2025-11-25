@@ -87,10 +87,10 @@ This project's mode is indicated in the marker below. **READ THE MODE MARKER** t
 
 # 🎯 PROJECT MODE: DEVELOPMENT
 
-**This project uses DEVELOPMENT mode with full 7-column workflow.**
+**This project uses DEVELOPMENT mode with full 6-column workflow.**
 
 📖 **[Understanding Project Modes](./.claudetask/instructions/project-modes.md)**
-- DEVELOPMENT mode: Full workflow with Analysis, Testing, Code Review, PR
+- DEVELOPMENT mode: Full workflow with Analysis, Testing, Code Review (includes PR management)
 - SIMPLE mode: Simplified 3-column workflow (Backlog → In Progress → Done)
 
 ---
@@ -121,7 +121,8 @@ If `CUSTOM_INSTRUCTIONS.md` exists in the project root, **READ IT FIRST**. Custo
 
 #### Task Status Management
 📖 **[Status Transitions](./.claudetask/instructions/status-transitions.md)** - When moving between statuses
-- Backlog → Analysis → In Progress → Testing → Code Review → PR → Done
+- Backlog → Analysis → In Progress → Testing → Code Review → Done
+- Code Review now includes PR creation and management (PR status removed)
 - Auto-transition rules
 - Stage results (mandatory for every transition)
 
@@ -179,8 +180,7 @@ WHILE TRUE:
      - "Analysis" → Read analysis-phase.md
      - "In Progress" → Read in-progress-phase.md
      - "Testing" → Read testing-workflow.md
-     - "Code Review" → Read status-transitions.md
-     - "Pull Request" → Read status-transitions.md
+     - "Code Review" → Read status-transitions.md (includes PR management)
      - "Done" → Read resource-cleanup.md
 
   3. Save stage results: mcp__claudetask__append_stage_result

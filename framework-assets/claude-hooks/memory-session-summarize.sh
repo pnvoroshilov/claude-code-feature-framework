@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Memory Session Summarizer Hook
-# Checks if summarization is needed (every 50 messages) and updates project summary
+# Checks if summarization is needed (every 30 messages) and updates project summary
 #
 # Hook event: Stop
 #
@@ -40,8 +40,8 @@ log_message() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOGFILE"
 }
 
-# Check if summarization is needed (threshold = 50 messages)
-SHOULD_SUMMARIZE=$(curl -s "$BACKEND_URL/api/projects/$PROJECT_ID/memory/should-summarize?threshold=50" 2>/dev/null)
+# Check if summarization is needed (threshold = 30 messages)
+SHOULD_SUMMARIZE=$(curl -s "$BACKEND_URL/api/projects/$PROJECT_ID/memory/should-summarize?threshold=30" 2>/dev/null)
 
 if [ -z "$SHOULD_SUMMARIZE" ]; then
     log_message "Failed to check summarization status - backend not available"
@@ -53,7 +53,7 @@ NEED_SUMMARY=$(echo "$SHOULD_SUMMARIZE" | python3 -c "import json,sys; d=json.lo
 MESSAGES_SINCE=$(echo "$SHOULD_SUMMARIZE" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('messages_since_last_summary', 0))" 2>/dev/null)
 
 if [ "$NEED_SUMMARY" != "true" ]; then
-    log_message "Skipping summarization - only $MESSAGES_SINCE messages since last summary (threshold: 50)"
+    log_message "Skipping summarization - only $MESSAGES_SINCE messages since last summary (threshold: 30)"
     echo '{}'
     exit 0
 fi
@@ -137,7 +137,7 @@ ESCAPED_SUMMARY=$(echo "$SUMMARY" | python3 -c "import json,sys; print(json.dump
 # Update project summary
 RESPONSE=$(curl -s -X POST "$BACKEND_URL/api/projects/$PROJECT_ID/memory/summary/update" \
     -H "Content-Type: application/json" \
-    -d "{\"trigger\": \"auto_summarize_50\", \"new_insights\": $ESCAPED_SUMMARY, \"last_summarized_message_id\": $LAST_MSG_ID}" \
+    -d "{\"trigger\": \"auto_summarize_30\", \"new_insights\": $ESCAPED_SUMMARY, \"last_summarized_message_id\": $LAST_MSG_ID}" \
     --connect-timeout 5 \
     --max-time 10 \
     2>/dev/null)

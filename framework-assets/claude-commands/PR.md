@@ -101,15 +101,13 @@ Task(
 ```bash
 # 1. Save stage result
 mcp__claudetask__append_stage_result --task_id={{TASK_ID}} --status="Code Review" \
-  --summary="Code review APPROVED" \
+  --summary="Code review APPROVED - PR ready for merge" \
   --details="All checks passed. Proceeding to merge."
-
-# 2. Update status to PR
-mcp__claudetask__update_status --task_id={{TASK_ID}} --status="PR" \
-  --comment="Code review passed"
 ```
 
 Then **IMMEDIATELY** execute: `SlashCommand("/merge {{TASK_ID}}")`
+
+**Note:** Code Review status now includes PR management (PR status was removed).
 
 **If CHANGES_REQUIRED:**
 
@@ -133,11 +131,12 @@ Then in AUTO mode, execute: `SlashCommand("/start-develop")`
 **When `manual_mode = false` and code review APPROVED:**
 
 1. ✅ Save stage result
-2. ✅ Update status to "PR"
-3. ✅ **IMMEDIATELY** execute `/merge {{TASK_ID}}`
-4. ❌ **DO NOT** say "awaiting user verification"
-5. ❌ **DO NOT** wait for user action
-6. ❌ **DO NOT** stop and ask for confirmation
+2. ✅ **IMMEDIATELY** execute `/merge {{TASK_ID}}`
+3. ❌ **DO NOT** say "awaiting user verification"
+4. ❌ **DO NOT** wait for user action
+5. ❌ **DO NOT** stop and ask for confirmation
+
+**Note:** PR status was removed. Code Review now handles both review and PR management.
 
 The workflow must be FULLY AUTOMATIC:
 ```

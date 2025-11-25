@@ -66,9 +66,8 @@ class ClaudeTaskMCPServer:
             "Feature": {
                 "Analysis": "requirements-analyst",  # UC-01: Requirements Writer
                 "In Progress": "frontend-developer",
-                "PR": "fullstack-code-reviewer",     # UC-02: Create PR
                 "Testing": None,  # Manual testing (UC-04 Variant B)
-                "Code Review": "fullstack-code-reviewer"
+                "Code Review": "fullstack-code-reviewer"  # Code Review + PR creation
             },
             "Bug": {
                 "Ready": "backend-architect",
@@ -186,9 +185,9 @@ class ClaudeTaskMCPServer:
             }
         }
 
-        # Status progression flow (Updated per UC-02: PR before Testing)
+        # Status progression flow (6 columns - PR merged into Code Review)
         self.status_flow = [
-            "Backlog", "Analysis", "In Progress", "PR",
+            "Backlog", "Analysis", "In Progress",
             "Testing", "Code Review", "Done"
         ]
 
@@ -289,7 +288,7 @@ class ClaudeTaskMCPServer:
                             },
                             "status": {
                                 "type": "string",
-                                "enum": ["Backlog", "Analysis", "Ready", "In Progress", "Testing", "Code Review", "PR", "Done", "Blocked"],
+                                "enum": ["Backlog", "Analysis", "Ready", "In Progress", "Testing", "Code Review", "Done", "Blocked"],
                                 "description": "New status for the task"
                             },
                             "comment": {
@@ -486,7 +485,7 @@ class ClaudeTaskMCPServer:
                             },
                             "status": {
                                 "type": "string",
-                                "enum": ["Analysis", "In Progress", "Testing", "Code Review", "PR", "Done"],
+                                "enum": ["Analysis", "In Progress", "Testing", "Code Review", "Done"],
                                 "description": "Current status/stage of the task"
                             },
                             "summary": {
@@ -1149,9 +1148,9 @@ Recommended Agent: {recommended_agent}
             elif status == "Analysis":
                 handler = "YOU (Coordinator)"
                 commands = "mcp:analyze_task <task_id>"
-            elif status == "PR":
-                handler = "USER (Manual)"
-                commands = "Manual review and testing, then click 'Done' button (sends /merge command)"
+            elif status == "Code Review":
+                handler = "USER (Manual) + AGENT"
+                commands = "Code review agent + PR creation + Manual review, then click 'Done' button (sends /merge command)"
             else:
                 handler = f"AGENT: {agent}"
                 commands = f"1. mcp:delegate_to_agent <task_id> {agent} '<instructions>' (registers intent)\n     2. /task \"{agent}\" \"<full task details>\" (ACTUAL delegation)"
@@ -1465,33 +1464,21 @@ Description:
 - Path: {worktree.get('path')}
 """
                 
-                # Special instructions for Code Review status
+                # Special instructions for Code Review status (includes PR creation)
                 pr_instructions = ""
                 if status == "Code Review":
                     pr_instructions = f"""
 
-📝 CODE REVIEW COMPLETED - CREATE PR NOW:
+📝 CODE REVIEW STATUS - REVIEW + PR CREATION:
 
-After code review is complete, create a Pull Request:
-1. Use mcp:complete_task {task_id} true (creates PR)
-2. Then update status: mcp:update_status {task_id} PR
-3. Task will enter PR status for manual review
-4. User will test and review PR manually
-5. User will click 'Done' button which sends /merge command
-"""
-                
-                # Special instructions for PR status
-                if status == "PR":
-                    pr_instructions = f"""
-
-🔍 PULL REQUEST CREATED - AWAITING MANUAL REVIEW:
-
-Task is now in PR status. Required actions:
-1. USER: Manually review the Pull Request
-2. USER: Test the implementation 
-3. USER: Approve/request changes on GitHub
-4. USER: Click 'Done' button in UI (will send /merge command)
-5. SYSTEM: /merge command will:
+This status combines code review and PR management:
+1. Run code review agent (fullstack-code-reviewer)
+2. Create Pull Request: mcp:complete_task {task_id} true
+3. USER: Manually review the Pull Request on GitHub
+4. USER: Test the implementation
+5. USER: Approve/request changes
+6. USER: Click 'Done' button in UI (will send /merge command)
+7. SYSTEM: /merge command will:
    - Merge PR to main branch
    - Clean up worktree
    - Update status to Done
@@ -3170,19 +3157,19 @@ Apply SIMPLE mode instructions from CLAUDE.md"""
                 return """
 **Apply Mode 2 Instructions from CLAUDE.md:**
 - DEVELOPMENT Mode with Worktrees
-- Full 7-column workflow
+- Full 6-column workflow
 - Create worktrees for each task
 - Use git branching and PRs
-- Backlog → Analysis → In Progress → Testing → Code Review → PR → Done
+- Backlog → Analysis → In Progress → Testing → Code Review → Done
 """
             else:
                 return """
 **Apply Mode 3 Instructions from CLAUDE.md:**
 - DEVELOPMENT Mode without Worktrees
-- Full 7-column workflow
+- Full 6-column workflow
 - Work in main/feature branches (NO worktrees)
 - Use git branching and PRs
-- Backlog → Analysis → In Progress → Testing → Code Review → PR → Done
+- Backlog → Analysis → In Progress → Testing → Code Review → Done
 """
         else:
             return f"""
@@ -3251,9 +3238,9 @@ Apply SIMPLE mode instructions as fallback.
                 )
                 summary_data = summary_response.json() if summary_response.status_code == 200 else None
 
-                # Get last 50 messages
+                # Get last 30 messages
                 messages_response = await client.get(
-                    f"{self.server_url}/api/projects/{project_id}/memory/messages?limit=50"
+                    f"{self.server_url}/api/projects/{project_id}/memory/messages?limit=30"
                 )
                 messages_data = messages_response.json() if messages_response.status_code == 200 else []
 
@@ -3277,14 +3264,12 @@ Apply SIMPLE mode instructions as fallback.
 ### 📋 Project Summary
 {summary_data.get('summary', 'No summary available yet.') if summary_data else 'No summary available yet.'}
 
-### 🕐 Last 50 Messages ({len(messages_data)} messages)
+### 🕐 Last 30 Messages ({len(messages_data)} messages)
 """
 
-                for msg in messages_data[-10:]:  # Show last 10 for brevity
-                    context += f"\n[{msg['timestamp']}] {msg['message_type'].upper()}: {msg['content'][:100]}..."
-
-                if len(messages_data) > 10:
-                    context += f"\n... and {len(messages_data) - 10} more messages"
+                for msg in messages_data:  # Show all 30 messages for full context
+                    content_preview = msg['content'][:150] if len(msg['content']) > 150 else msg['content']
+                    context += f"\n[{msg['timestamp']}] {msg['message_type'].upper()}: {content_preview}..."
 
                 if relevant_memories:
                     context += f"\n\n### 🔍 Relevant Memories (RAG Search)\n"

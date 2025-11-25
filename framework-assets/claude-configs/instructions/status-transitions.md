@@ -16,8 +16,10 @@ mcp__claudetask__get_project_settings
 ## Status Flow with Agent Delegation (DEVELOPMENT MODE)
 
 ```
-Backlog → Analysis → In Progress → Testing → Code Review → Pull Request → Done
+Backlog → Analysis → In Progress → Testing → Code Review → Done
 ```
+
+**Note:** Code Review status now includes PR creation and management (PR status was removed).
 
 ## Detailed Status Transition Rules
 
@@ -159,39 +161,36 @@ See detailed instructions in [testing-workflow.md](testing-workflow.md)
 - ✅ **СРАЗУ** выполнить `/PR {task_id}`
 - ❌ НЕ ждать команды пользователя
 
-### Code Review → Pull Request
+### Code Review Status (includes PR creation)
 
-**After code review complete**:
-```bash
-# Update to Pull Request status
-mcp:update_status {id} "Pull Request"
+**Code Review status now combines code review AND PR management:**
 
-# Create PR (see pr-merge-phase.md for details)
-```
+1. **Code Review Phase**:
+   - Run code review agent (fullstack-code-reviewer)
+   - Address review findings
 
-- ✅ After code review complete → Update to "Pull Request"
-- ✅ **CREATE PR ONLY** (no merge, no testing)
-- ❌ **DO NOT** merge to main
-- ❌ **DO NOT** run tests
+2. **PR Creation Phase**:
+   ```bash
+   # Create PR after review
+   mcp:complete_task {id} true
+   ```
+
+3. **Manual Review Phase**:
+   - ✅ User manually reviews PR on GitHub
+   - ✅ User tests the implementation
+   - ✅ User approves/requests changes
+   - ✅ User clicks 'Done' button → sends /merge command
 
 ### 🔴🔴🔴 CODE REVIEW STATUS RESTRICTIONS
 
 **⛔ IF TASK IS IN "CODE REVIEW" STATUS:**
-- ❌ **NEVER** transition to "Done"
+- ❌ **NEVER** transition to "Done" automatically
 - ❌ **NEVER** delete worktree
 - ❌ **NEVER** delete branch
 - ❌ **NEVER** close the task
 - ❌ **NEVER** clean up any resources
-- ✅ **ONLY** allowed transition: Code Review → Pull Request (after review complete)
-- ✅ **WAIT** for user's explicit instruction to proceed
-
-### Pull Request Status → NO AUTO ACTIONS
-
-**⚠️ FULL STOP - No automatic actions**:
-- ✅ Wait for user to handle PR merge
-- ❌ **DO NOT** attempt to merge or update
-- ❌ **DO NOT** transition to Done
-- ❌ **DO NOT** clean up resources
+- ✅ **ONLY** allowed transition: Code Review → Done (after user clicks 'Done' button)
+- ✅ **WAIT** for user's explicit instruction via /merge command
 
 ### 🧹 Task Completion → CLEANUP ALL RESOURCES
 
@@ -267,8 +266,7 @@ Ready for PR creation"
 | In Progress → Testing | `/test {task_id}` | UC-04 |
 | Testing → Code Review | `/PR {task_id}` (if tests pass) | UC-05 |
 | Testing → In Progress | `/start-develop` (if tests fail) | UC-04 |
-| Code Review → Pull Request | (automatic after review) | UC-05 |
-| Pull Request → Done | (automatic merge if enabled) | UC-05 |
+| Code Review → Done | `/merge {task_id}` (user triggered) | UC-05 |
 
 ### AUTO MODE Monitoring Loop
 
@@ -347,9 +345,11 @@ if status == "Code Review" and "/PR" not in executed_commands[task_id]:
     ↓
     🤖 AUTO: Execute /PR {id} (UC-05)
     ↓
-    Review passes → Status: "Pull Request"
+    PR created, waiting for user review
     ↓
-    🤖 AUTO: Merge if enabled → Status: "Done"
+    👤 USER: Reviews PR, clicks 'Done' → /merge {id}
+    ↓
+    Status: "Done"
 
 7b. Tests fail → Status: "In Progress"
     ↓

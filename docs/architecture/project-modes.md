@@ -149,10 +149,12 @@ When **worktrees are disabled**, the mode section changes to:
 2. Work in main branch or feature branches (worktrees disabled)
 ```
 
-### Task Workflow (7 Columns)
+### Task Workflow (6 Columns)
 ```
-Backlog → Analysis → In Progress → Testing → Code Review → PR → Done
+Backlog → Analysis → In Progress → Testing → Code Review → Done
 ```
+
+**Note:** Code Review now includes PR creation and management (PR status removed).
 
 ### Characteristics
 - **Full Git Workflow**: Feature branches, worktrees (optional), pull requests
