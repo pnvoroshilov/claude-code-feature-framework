@@ -20,7 +20,7 @@ Backlog → In Progress → Done
 Backlog → Analysis → In Progress → Testing → Code Review → Done
 ```
 
-**Note:** Code Review now includes PR creation and management (PR status was removed).
+**Important Change (2025-11-26):** The workflow was simplified from 7 to 6 columns. The separate "PR" status was merged into "Code Review". Pull request creation and management now occur during the Code Review phase.
 
 ### 2. Auto-Command Dispatch (⭐ NEW FEATURE)
 
@@ -38,9 +38,8 @@ This eliminates manual command typing and context switching!
 | Backlog → **Analysis** | `/start-feature {task-id}` | UC-01: Triggers analysis phase with requirements and architecture |
 | Analysis → **In Progress** | `/start-develop` | UC-02: Starts development after analysis complete |
 | In Progress → **Testing** | `/test` (if manual_testing_mode=false) | UC-04: Automated testing when manual mode disabled |
-| Testing → **Code Review** | `/PR` (if manual_review_mode=false) | UC-05: Automated review and merge when manual mode disabled |
-| Code Review → **PR** | None | Handled by /PR command in previous step |
-| PR → **Done** | None | Task completion |
+| Testing → **Code Review** | `/PR` (if manual_review_mode=false) | UC-05: Automated review and PR creation when manual mode disabled |
+| Code Review → **Done** | User merges PR manually | Task completion after PR approval and merge |
 
 **Manual Mode Behavior:**
 - When `manual_testing_mode=true` (default), Testing status does NOT send `/test` command - user must test manually
@@ -358,6 +357,6 @@ case 'Ready for QA':
 
 ---
 
-**Last Updated**: 2025-11-21
-**Version**: 2.1.0 (Workflow Commands + Manual Mode Support)
+**Last Updated**: 2025-11-26
+**Version**: 2.2.0 (6-Column Workflow + Manual Mode Support)
 **Maintainer**: Claude Code Feature Framework Team

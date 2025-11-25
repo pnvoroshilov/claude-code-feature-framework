@@ -145,7 +145,13 @@ Get aggregate statistics across Claude Code sessions.
 
 **GET** `/api/claude-sessions/active-sessions`
 
-Get currently running Claude Code sessions.
+Get currently running Claude Code sessions - **only project-related processes**.
+
+**Filtering Logic** (Enhanced 2025-11-26):
+- Includes: Claude processes with `--cwd` or `--working-dir` pointing to user project directories
+- Excludes: System subprocesses, node internals, helper processes, Electron/Chrome renderer processes
+- Excludes: System paths (`/var/folders/`, `/Applications/`, `/System/`, `/Library/`, `/tmp/`, `/private/`)
+- Removes duplicates by PID
 
 **Response:**
 ```json
@@ -153,17 +159,22 @@ Get currently running Claude Code sessions.
   "success": true,
   "active_sessions": [
     {
-      "pid": 12345,
+      "pid": "12345",
       "cpu": "5.2",
       "mem": "2.1",
       "started": "10:30",
       "working_dir": "/path/to/project",
-      "command": "claude code --working-dir ..."
+      "project_name": "project",
+      "command": "claude code --cwd /path/to/project"
     }
   ],
   "count": 1
 }
 ```
+
+**New Fields (2025-11-26)**:
+- `project_name`: Extracted from working directory path (e.g., "project" from "/path/to/project")
+- Enhanced filtering ensures only meaningful project sessions are shown
 
 ### 7. Kill Session
 

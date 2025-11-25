@@ -138,7 +138,7 @@ When a project is created in DEVELOPMENT mode, the generated `CLAUDE.md` contain
 When **worktrees are disabled**, the mode section changes to:
 
 ```markdown
-## Task Workflow (7 Columns)
+## Task Workflow (6 Columns)
 - **In Progress**: Active development without worktrees
 
 ## What this means:
@@ -153,7 +153,7 @@ When **worktrees are disabled**, the mode section changes to:
 Backlog → Analysis → In Progress → Testing → Code Review → Done
 ```
 
-**Important Change (2025-11-25):** The workflow has been simplified from 7 to 6 columns. The separate "PR" status has been merged into "Code Review". Pull request creation and management now occur during the Code Review phase.
+**Important Change (2025-11-26):** The workflow has been simplified from 7 to 6 columns. The separate "PR" status has been merged into "Code Review". Pull request creation and management now occur during the Code Review phase.
 
 ### Characteristics
 - **Full Git Workflow**: Feature branches, worktrees (optional), pull requests
@@ -301,7 +301,7 @@ mode_indicator = f"""
 
 **This project is configured in {mode_upper} mode.**
 
-## Task Workflow ({'3 Columns' if project_mode == 'simple' else '7 Columns'})
+## Task Workflow ({'3 Columns' if project_mode == 'simple' else '6 Columns'})
 """
 ```
 
@@ -416,7 +416,7 @@ def generate_claude_md(
     else:  # development mode
         worktree_text = "with Git worktrees" if worktree_enabled else "without worktrees"
         mode_indicator += f"""
-## Task Workflow (7 Columns)
+## Task Workflow (6 Columns)
 - **In Progress**: Active development {worktree_text}
 
 ## What this means:
@@ -635,6 +635,7 @@ python migrations/regenerate_claude_md.py <project_id>
 
 **Current Project Mode**: DEVELOPMENT
 **Worktree Setting**: Enabled
-**Last Updated**: 2025-11-20
+**Workflow Columns**: 6 (PR merged into Code Review as of 2025-11-26)
+**Last Updated**: 2025-11-26
 **Mode Selection**: At project creation (immutable)
 **Mode Visibility**: Explicit indicator in CLAUDE.md

@@ -641,12 +641,14 @@ git worktree remove --force worktrees/task-[id]
 - ✅ Analysis phase with automated agents
 - ✅ Worktrees for isolated development (optional toggle)
 - ✅ Testing phase with test environment
-- ✅ Code Review before merge
+- ✅ Code Review before merge (includes PR creation and management)
 - ✅ Pull Requests required
 
-**Workflow**: Backlog → Analysis → In Progress → Testing → Code Review → PR → Done
+**Workflow**: Backlog → Analysis → In Progress → Testing → Code Review → Done (6 columns)
 
 **Worktree Toggle**: Can enable/disable worktrees in DEVELOPMENT mode while keeping full workflow.
+
+**Note:** As of 2025-11-26, the workflow was simplified from 7 to 6 columns by merging PR status into Code Review.
 
 ---
 

@@ -198,17 +198,19 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 ---
 
-**Documentation Version**: 2.4
-**Last Updated**: 2025-11-25
+**Documentation Version**: 2.5
+**Last Updated**: 2025-11-26
 **Total Documents**: 44
 **Auto-Updated**: Yes (via post-merge hook)
 **Status**: Current
 
-**Latest Changes (v2.4)**:
-- **Workflow Simplification**: Updated DEVELOPMENT mode from 7 to 6 columns (PR merged into Code Review)
-- **Testing Skills**: Added comprehensive testing suite (Unit, Integration, UI, Security Best Practices)
+**Latest Changes (v2.5)**:
+- **Workflow Simplification**: Confirmed 6-column DEVELOPMENT workflow (PR status merged into Code Review as of 2025-11-26)
+- **Testing Skills**: Comprehensive testing suite with Unit, Integration, and UI Testing skills including Playwright MCP configuration
+- **Memory File Edit Capture**: New hook for automatically capturing file edit operations (Edit, Write, MultiEdit, Update tools)
 - **Memory System**: Centralized ChromaDB storage, improved session tracking, reduced summarization threshold to 30 messages
-- **Architecture Skills**: Enhanced with infrastructure patterns, decision frameworks, and scalability patterns
-- **Settings API**: Added test configuration fields (test_directory, test_framework, auto_merge_tests, test_staging_dir)
-- **Sessions UI**: Unified Claude Code and Task sessions interface with consolidated tabs
-- **Skills Total**: Now 21 default skills (was 16) with enhanced refactoring and architecture guidance
+- **Active Sessions Filtering**: Enhanced filtering logic to show only project-related Claude Code sessions (excludes system subprocesses)
+- **Sessions UI**: Unified Claude Code and Task sessions with consolidated tab interface
+- **Architecture & Refactoring Skills**: Enhanced with infrastructure patterns, scalability patterns, and decision frameworks
+- **Security Best Practices**: New comprehensive security skill covering OWASP Top 10, authentication, and secure coding
+- **Skills Total**: 21 default skills with enhanced testing and architecture guidance

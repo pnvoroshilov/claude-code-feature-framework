@@ -43,10 +43,12 @@ claudetask/backend/migrations/
 - `agents` - Agent configurations
 
 **Key Features:**
-- Task status enumeration (Backlog, Analysis, In Progress, Testing, Code Review, PR, Done, Blocked)
+- Task status enumeration (Backlog, Analysis, In Progress, Testing, Code Review, Done, Blocked)
 - Project mode support (simple, development)
 - Custom instructions per project
 - Task priority and type management
+
+**Note:** As of 2025-11-26, PR status was merged into Code Review (6-column workflow).
 
 ### 002: Add Skills and Subagents Tables
 
