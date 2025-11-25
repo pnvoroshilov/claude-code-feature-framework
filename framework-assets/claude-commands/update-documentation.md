@@ -95,6 +95,28 @@ The documentation-updater-agent will:
 
 I'll relay the completion report to you when the agent finishes.
 
+### Step 4: Commit and Push Documentation Changes
+
+After the documentation-updater-agent completes, I MUST commit and push the changes:
+
+```bash
+# Check if there are documentation changes
+git status --porcelain docs/
+
+# If changes exist, commit them
+git add docs/
+git commit -m "[skip-hook] docs: Update documentation after merge
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+
+# Push changes
+git push
+```
+
+**IMPORTANT**: The commit message MUST include `[skip-hook]` tag to prevent infinite loop (hook triggers update → update commits → hook triggers again).
+
 ## What to Expect
 
 The documentation-updater-agent will:

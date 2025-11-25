@@ -1,95 +1,179 @@
 ---
-allowed-tools: [Bash, Read, Write, Edit, MultiEdit, Glob, Grep, WebSearch, WebFetch, Task]
+allowed-tools: [Bash, Read, Write, Edit, Glob, Grep, Task, Skill]
 argument-hint: [task-id]
 description: Complete a task by merging PR, cleaning worktree, and stopping session
 ---
 
 # /merge Command - Complete Task and Merge PR
 
-You've been asked to complete Task {{TASK_ID}} by merging its pull request and cleaning up the development environment.
+Complete Task {{TASK_ID}} by merging its branch to main and cleaning up.
 
-## EXECUTE THESE STEPS IN ORDER:
+## EXECUTION: Delegate to pr-merge-agent with merge-skill
 
-### 1. Verify Task Status
-First, check that the task is in PR status and has an open pull request:
+**⚠️ IMPORTANT: This command delegates work to a specialized agent with merge expertise!**
+
+### Step 1: Get Task Details
 ```bash
-mcp:get_task {{TASK_ID}}
+mcp__claudetask__get_task --task_id={{TASK_ID}}
 ```
 
-### 2. Merge Pull Request
-Use MCP to complete the task, which will:
-- Merge the pull request to main branch
-- Delete the feature branch
-- Remove the worktree
-```bash
-mcp:complete_task {{TASK_ID}}
+Extract:
+- `git_branch` - branch name to merge
+- `worktree_path` - path to cleanup (if exists)
+- `project_id` - for project path lookup
+
+### Step 2: Delegate to PR Merge Agent
+
+Use the Task tool to spawn `pr-merge-agent`:
+
+```
+Task(
+  subagent_type="pr-merge-agent",
+  prompt="""
+  Complete merge for Task #{{TASK_ID}}:
+
+  **Branch to merge:** <branch_name>
+  **Project path:** <project_path>
+  **Worktree path:** <worktree_path or "none">
+
+  ## FIRST: Load merge-skill for expert guidance
+
+  **⚠️ MANDATORY: Use Skill tool to load merge-skill BEFORE any git operations!**
+
+  ```
+  Skill("merge-skill")
+  ```
+
+  The merge-skill provides:
+  - Merge strategies (fast-forward, 3-way, squash)
+  - Conflict resolution techniques
+  - Recovery operations if something goes wrong
+  - Best practices for safe merging
+
+  ## Then execute tasks (in order):
+
+  1. **Pre-merge validation:**
+     - cd to project path
+     - git fetch origin
+     - Check branch exists: git branch --list <branch_name>
+     - Check for conflicts: git diff main...<branch_name>
+
+  2. **Execute merge (following merge-skill best practices):**
+     - git checkout main
+     - git pull origin main
+     - git merge <branch_name> --no-ff -m "Merge task #{{TASK_ID}}: <branch_name>"
+
+  3. **Handle conflicts (if any):**
+     - Use merge-skill conflict resolution techniques
+     - Document resolved conflicts in commit message
+     - If unresolvable, abort and report
+
+  4. **Push to remote (CRITICAL!):**
+     - git push origin main
+     - Verify: git status should show "up to date with origin/main"
+     - If push fails, retry up to 3 times
+
+  5. **Cleanup:**
+     - Delete local branch: git branch -d <branch_name>
+     - Delete remote branch: git push origin --delete <branch_name>
+     - Remove worktree if exists: git worktree remove <worktree_path> --force
+     - Prune worktrees: git worktree prune
+
+  6. **Report results:**
+     - Merge commit hash
+     - Push status (success/failure)
+     - Conflicts resolved (if any)
+     - Cleanup status
+  """
+)
 ```
 
-### 3. Update Task Status to Done
-After successful merge, update the task status:
+### Step 3: Update Task Status (after agent completes successfully)
+
 ```bash
-mcp:update_status {{TASK_ID}} Done "PR merged, worktree cleaned"
+# Save stage result
+mcp__claudetask__append_stage_result --task_id={{TASK_ID}} --status="Done" \
+  --summary="Merged to main and pushed to remote" \
+  --details="Branch merged, pushed, and cleaned up by pr-merge-agent with merge-skill"
+
+# Update status to Done
+mcp__claudetask__update_status --task_id={{TASK_ID}} --status="Done" \
+  --comment="PR merged, branch deleted, worktree cleaned"
+
+# Stop session and cleanup resources
+mcp__claudetask__stop_session --task_id={{TASK_ID}}
 ```
 
-### 4. Stop Claude Session and Clean Resources
-Stop the Claude session and terminate all test servers:
-```bash
-mcp:stop_session {{TASK_ID}}
-```
-This will:
-- Complete the Claude session
-- Stop any embedded terminal sessions
-- Kill all test server processes (frontend/backend)
-- Free up ports for other tasks
+---
 
 ## Important Notes:
 
-⚠️ **CRITICAL**: This command should only be run when:
-- Task is in PR status
-- User has reviewed and approved the PR
-- All tests are passing
-- User clicked "Done" button to trigger this command
+⚠️ **Mode-Dependent Behavior**:
 
-🌳 **Worktree Cleanup**: The worktree at `./worktrees/task-{{TASK_ID}}` will be removed
+**AUTO Mode (manual_mode = false):**
+- This command is executed AUTOMATICALLY after code review passes
+- NO user action required - orchestrator triggers via `/PR`
 
-🔄 **Git Operations**:
-- Feature branch `feature/task-{{TASK_ID}}` will be merged
-- Branch will be deleted after merge
-- Changes will be in main branch
+**Manual Mode (manual_mode = true):**
+- User explicitly triggers this command after manual review
 
-📊 **Final State**:
-- Task status: Done
-- PR: Merged
-- Worktree: Removed
-- Branch: Deleted
-- Claude session: Completed
-- Terminal sessions: Stopped
-- Test servers: Terminated
-- Ports: Released
+---
 
-## Error Handling:
+## merge-skill Capabilities
 
-If merge fails:
-1. Check for merge conflicts
-2. Ensure PR is approved
-3. Verify tests are passing
-4. Report specific error to user
+The pr-merge-agent uses merge-skill which provides:
 
-## Completion Message:
+| Capability | Description |
+|------------|-------------|
+| **Merge Strategies** | Fast-forward, 3-way, squash, rebase |
+| **Conflict Resolution** | Manual and tool-assisted techniques |
+| **Complex Scenarios** | Renamed files, binary conflicts, refactoring |
+| **Recovery** | Abort, revert, reflog recovery |
+| **Best Practices** | Team workflows, commit conventions |
+
+---
+
+## Error Handling (agent should handle using merge-skill):
+
+### Merge Conflicts
+- Use merge-skill conflict resolution techniques
+- Document resolution in commit message
+- If unresolvable, `git merge --abort` and report
+
+### Push Failure
+- Retry push up to 3 times
+- Check remote status with `git remote -v`
+- If still fails, report credential/permission issue
+
+### Branch Not Found
+- Report error and stop - don't proceed
+
+---
+
+## Completion Report
 
 After successful completion, report:
 ```
 ✅ Task #{{TASK_ID}} Completed Successfully!
 
-- Pull Request: Merged ✓
-- Feature Branch: Deleted ✓
-- Worktree: Cleaned ✓
-- Task Status: Done ✓
-- Claude Session: Completed ✓
-- Terminal Sessions: Stopped ✓
-- Test Servers: Terminated ✓
-- Ports: Released ✓
+- Merged to main: ✓
+- Pushed to remote: ✓
+- Feature branch deleted: ✓
+- Remote branch deleted: ✓
+- Worktree cleaned: ✓
+- Task status: Done ✓
+- Session stopped: ✓
 
-The implementation is now in the main branch.
-All resources have been cleaned up.
+Merge commit: <hash>
+The implementation is now in main and pushed to origin.
 ```
+
+---
+
+## Why This Architecture?
+
+1. **Skill-based expertise** - merge-skill provides professional git workflows
+2. **Agent isolation** - pr-merge-agent handles git operations independently
+3. **Conflict resolution** - Expert guidance for handling merge conflicts
+4. **Recovery** - Knows how to abort and recover from failed merges
+5. **Reliability** - Agent has full git access and credentials

@@ -1,15 +1,14 @@
 ---
 description: Execute code review workflow - manual or automated based on project settings (UC-05)
 argument-hint: [task-id]
+allowed-tools: [Bash, Read, Write, Edit, Glob, Grep, Task]
 ---
 
 # Code Review Workflow - UC-05
 
-When you run this command, the system will execute the UC-05 code review workflow based on the project's `manual_mode` setting.
+Execute code review for Task {{TASK_ID}} based on project's `manual_mode` setting.
 
 ## Step 1: Check Project Settings
-
-First, determine which code review mode is enabled:
 
 ```bash
 mcp__claudetask__get_project_settings
@@ -17,125 +16,148 @@ mcp__claudetask__get_project_settings
 
 Look for: `"Manual Mode": True` or `False`
 
-## Step 2a: Manual Mode (manual_mode = true)
+---
 
-If Manual Mode is enabled, the user performs code review manually:
+## Step 2a: Manual Mode (manual_mode = true)
 
 ### Notify User
 ```
-✅ Task is ready for Code Review.
+✅ Task #{{TASK_ID}} is ready for Code Review.
 
 Manual Mode is enabled - please review the code manually:
-- Review the Pull Request on GitHub/GitLab
+- Review the changes in the feature branch
 - Check code quality and adherence to standards
 - Verify test coverage
 - Ensure DoD is met
-- Approve or request changes
 
-Update task status when review is complete.
+When review is complete, run: /merge {{TASK_ID}}
 ```
 
 ### Save Stage Result
 ```bash
-mcp__claudetask__append_stage_result --task_id={id} --status="Code Review" \
+mcp__claudetask__append_stage_result --task_id={{TASK_ID}} --status="Code Review" \
   --summary="Awaiting manual code review" \
-  --details="Manual mode enabled - user will review PR manually
-PR is ready for review
-Waiting for user approval or feedback"
+  --details="Manual mode - user will review and run /merge when ready"
 ```
 
-### Wait for User
-- User will review the PR manually
-- User will approve or request changes
-- User will update status when review is complete
-- **DO NOT auto-transition** - wait for user action
+**STOP HERE** - Wait for user to complete review and run `/merge`
+
+---
 
 ## Step 2b: Automated Mode (manual_mode = false)
 
-If Automated Mode is enabled, delegate to code review agent:
-
-### Get Task and PR Details
+### Get Task Details
 ```bash
-# Get task details
-mcp__claudetask__get_task --task_id={id}
-
-# Get PR information from task
-# The PR URL should be in task metadata
+mcp__claudetask__get_task --task_id={{TASK_ID}}
 ```
 
-### Delegate to Code Review Agent
+Extract: `git_branch`, `project_path`
 
-```bash
-mcp__claudetask__delegate_to_agent \
-  --task_id={id} \
-  --agent_type="fullstack-code-reviewer" \
-  --instructions="Review the PR for task #{id}. Check:
-- Code quality and best practices
-- Test coverage and passing tests
-- DoD compliance
-- Security vulnerabilities
-- Performance considerations
-- Architecture consistency
+### Delegate Code Review to Agent
 
-If approved: auto-merge PR and save review results.
-If issues found: document them and DO NOT merge.
+Use the Task tool to spawn `fullstack-code-reviewer`:
 
-Save review report in /Tests/Report/code-review.md"
+```
+Task(
+  subagent_type="fullstack-code-reviewer",
+  prompt="""
+  Perform code review for Task #{{TASK_ID}}:
+
+  **Branch:** <branch_name>
+  **Project path:** <project_path>
+
+  ## Your Tasks:
+
+  1. **Get the diff:**
+     ```bash
+     cd <project_path>
+     git fetch origin
+     git diff main...<branch_name>
+     ```
+
+  2. **Review for:**
+     - ✅ Code quality and best practices
+     - ✅ No security vulnerabilities (OWASP top 10)
+     - ✅ Proper error handling
+     - ✅ Code follows project conventions
+     - ✅ No hardcoded secrets or credentials
+     - ✅ Reasonable performance
+     - ✅ Tests cover new functionality
+
+  3. **Create review report:**
+     Write to: Tests/Report/code-review-{{TASK_ID}}.md
+
+  4. **Return verdict:**
+     - APPROVED - all checks pass
+     - CHANGES_REQUIRED - issues found (list them)
+  """
+)
 ```
 
-### Wait for Code Review Results
+### Process Review Results
 
-Monitor agent completion and check review report:
-- `/Tests/Report/code-review.md`
-
-### Analyze Review Results
-
-Review the code review report and determine:
-- ✅ Approved → Auto-merge PR and proceed
-- ❌ Changes required → Return to "In Progress"
-- ⚠️ Minor issues → Document and decide based on severity
-
-### Auto-Merge (if approved)
+**If APPROVED:**
 
 ```bash
-# If review passed, merge PR
-cd worktrees/task-{id}
-git checkout main
-git pull origin main
-git merge --no-ff task-{id}-branch
-git push origin main
+# 1. Save stage result
+mcp__claudetask__append_stage_result --task_id={{TASK_ID}} --status="Code Review" \
+  --summary="Code review APPROVED" \
+  --details="All checks passed. Proceeding to merge."
+
+# 2. Update status to PR
+mcp__claudetask__update_status --task_id={{TASK_ID}} --status="PR" \
+  --comment="Code review passed"
 ```
 
-### Save Stage Result
+Then **IMMEDIATELY** execute: `SlashCommand("/merge {{TASK_ID}}")`
+
+**If CHANGES_REQUIRED:**
 
 ```bash
-mcp__claudetask__append_stage_result --task_id={id} --status="Code Review" \
-  --summary="Automated code review completed" \
-  --details="Code Review: [APPROVED/CHANGES REQUIRED]
-Issues found: [count]
-Review report: /Tests/Report/code-review.md
-PR status: [MERGED/PENDING]"
+# 1. Save stage result with issues
+mcp__claudetask__append_stage_result --task_id={{TASK_ID}} --status="Code Review" \
+  --summary="Code review: Changes required" \
+  --details="Issues found: <list from agent>"
+
+# 2. Return to In Progress
+mcp__claudetask__update_status --task_id={{TASK_ID}} --status="In Progress" \
+  --comment="Code review failed: <issues>"
 ```
 
-### Auto-Transition Status
+Then in AUTO mode, execute: `SlashCommand("/start-develop")`
 
-**Based on review results:**
+---
 
-```bash
-# If review approved and PR merged
-mcp__claudetask__update_status --task_id={id} --status="Done" \
-  --comment="Code review passed, PR merged successfully"
+## ⚠️ CRITICAL FOR AUTO MODE
 
-# NOTE: In AUTO mode (manual_mode = false), task is marked Done.
-# In MANUAL mode, wait for user to mark as Done.
+**When `manual_mode = false` and code review APPROVED:**
 
-# If changes required
-mcp__claudetask__update_status --task_id={id} --status="In Progress" \
-  --comment="Code review failed: [list issues]"
+1. ✅ Save stage result
+2. ✅ Update status to "PR"
+3. ✅ **IMMEDIATELY** execute `/merge {{TASK_ID}}`
+4. ❌ **DO NOT** say "awaiting user verification"
+5. ❌ **DO NOT** wait for user action
+6. ❌ **DO NOT** stop and ask for confirmation
 
-# NOTE: In AUTO mode (manual_mode = false), orchestrator will automatically
-# execute /start-develop to fix issues. In MANUAL mode, wait for user action.
+The workflow must be FULLY AUTOMATIC:
 ```
+/PR → fullstack-code-reviewer → APPROVED → /merge → pr-merge-agent → Done
+```
+
+---
+
+## Flow Summary
+
+```
+Manual Mode:
+  /PR → Notify user → WAIT → user runs /merge → pr-merge-agent → Done
+
+Auto Mode:
+  /PR → fullstack-code-reviewer (review) → APPROVED → /merge → pr-merge-agent → Done
+  /PR → fullstack-code-reviewer (review) → REJECTED → /start-develop (fix issues)
+```
+
+---
 
 ## Usage
 
@@ -143,29 +165,8 @@ mcp__claudetask__update_status --task_id={id} --status="In Progress" \
 /PR [task-id]
 ```
 
-## Example
+## Preconditions
 
-```bash
-/PR 42
-```
-
-This will:
-1. ✅ Check project settings for review mode
-2. ✅ If manual mode: Notify user, wait for manual review
-3. ✅ If automated mode: Delegate to code review agent, auto-merge if approved
-
-## Required Preconditions
-
-- Task must be in "Code Review" status
+- Task must be in "Testing" or "Code Review" status
 - Testing must be complete
-- PR must exist
-- All tests must be passing
-
-## Notes
-
-- This implements UC-05 from `Workflow/new_workflow_usecases.md`
-- Supports both manual and automated code review modes
-- Mode is determined by `manual_mode` project setting
-- In manual mode: User reviews and merges PR manually
-- In automated mode: Code review agent analyzes and auto-merges if approved
-- **CRITICAL**: Only transitions to "Done" in automated mode with successful review
+- Feature branch must exist with commits

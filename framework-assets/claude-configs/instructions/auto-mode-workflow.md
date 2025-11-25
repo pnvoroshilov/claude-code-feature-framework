@@ -81,18 +81,27 @@
 4. СРАЗУ после PR → перейти к Этапу 5
 ```
 
-### Этап 5: CODE REVIEW → DONE
+### Этап 5: CODE REVIEW → PR → DONE
 
-**Триггер**: PR создан и код прошёл review
+**Триггер**: Код прошёл review (команда /PR завершилась успешно)
 
 **Действия (выполнять НЕМЕДЛЕННО):**
 ```
 1. mcp__claudetask__append_stage_result(task_id, "Code Review", "Review approved")
-2. Выполнить merge (через /merge или вручную)
-3. mcp__claudetask__stop_session(task_id)
-4. mcp__claudetask__update_status(task_id, "Done")
-5. Перейти к следующей задаче в очереди
+2. mcp__claudetask__update_status(task_id, "PR")
+3. SlashCommand("/merge {task_id}")  # ← ОБЯЗАТЕЛЬНО ВЫПОЛНИТЬ СРАЗУ!
+   # /merge автоматически:
+   # - Мержит PR в main
+   # - Удаляет worktree
+   # - Останавливает сессию
+   # - Обновляет статус на Done
+4. Перейти к следующей задаче в очереди
 ```
+
+**⚠️ КРИТИЧЕСКИ ВАЖНО:**
+- НЕ говорить "awaiting user verification"
+- НЕ ждать пользователя
+- СРАЗУ выполнять /merge после успешного code review
 
 ---
 
@@ -121,7 +130,9 @@
 | Analysis → In Progress | `/start-develop` | СРАЗУ после analysis |
 | In Progress → Testing | `/test {task_id}` | СРАЗУ после implementation |
 | Testing → Code Review | `/PR {task_id}` | СРАЗУ после успешных тестов |
-| Code Review → Done | `/merge {task_id}` | СРАЗУ после approve |
+| Code Review → PR → Done | `/merge {task_id}` | СРАЗУ после /PR (auto-triggered) |
+
+**⚠️ ВАЖНО:** В AUTO режиме `/merge` должен вызываться автоматически из `/PR` после успешного code review!
 
 ---
 

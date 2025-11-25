@@ -39,6 +39,7 @@ class GitWorkflowService:
             result = {
                 "success": False,
                 "merged": False,
+                "pushed": False,
                 "worktree_removed": False,
                 "branch_deleted": False,
                 "pr_url": None,
@@ -116,17 +117,30 @@ class GitWorkflowService:
                     
                     if merge_result.returncode == 0:
                         result["merged"] = True
-                        
+                        result["pushed"] = False  # Track push status
+
                         # Push to origin if we have it
                         if has_origin:
+                            logger.info(f"Pushing merged changes to origin/main...")
+                            # Include HOME and PATH for credential helper access
+                            env = os.environ.copy()
                             push_result = subprocess.run(
                                 ["git", "push", "origin", "main"],
                                 capture_output=True,
-                                text=True
+                                text=True,
+                                env=env
                             )
-                            
-                            if push_result.returncode != 0:
-                                result["errors"].append(f"Push failed: {push_result.stderr}")
+
+                            if push_result.returncode == 0:
+                                result["pushed"] = True
+                                logger.info("Push to origin/main successful")
+                            else:
+                                error_msg = push_result.stderr.strip() or push_result.stdout.strip()
+                                result["errors"].append(f"Push failed: {error_msg}")
+                                logger.error(f"Push failed: {error_msg}")
+                                # Log more details for debugging
+                                logger.error(f"Push stdout: {push_result.stdout}")
+                                logger.error(f"Push stderr: {push_result.stderr}")
                         else:
                             logger.info("No remote origin - skipping push")
                     else:
@@ -190,6 +204,7 @@ class GitWorkflowService:
             return {
                 "success": False,
                 "merged": False,
+                "pushed": False,
                 "worktree_removed": False,
                 "branch_deleted": False,
                 "pr_url": None,
