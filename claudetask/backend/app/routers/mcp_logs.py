@@ -199,7 +199,8 @@ async def get_mcp_logs(
             )]
 
         # Sort by timestamp (newest first)
-        calls.reverse()
+        # Use proper sorting by timestamp string (ISO format sorts correctly as string)
+        calls.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
 
         # Apply pagination
         total = len(calls)
@@ -597,7 +598,8 @@ async def get_hooks_logs(
             )]
 
         # Sort by timestamp (newest first)
-        executions.reverse()
+        # Use proper sorting by timestamp string (ISO format sorts correctly as string)
+        executions.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
 
         # Apply pagination
         total = len(executions)
