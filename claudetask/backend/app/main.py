@@ -41,6 +41,10 @@ from .routers import skills, mcp_configs, subagents, editor, instructions, hooks
 from .api import claude_sessions, rag
 
 # Import centralized config for paths
+import sys
+_claudetask_root = Path(__file__).parent.parent.parent.parent
+if str(_claudetask_root) not in sys.path:
+    sys.path.insert(0, str(_claudetask_root))
 from claudetask.config import get_config
 config = get_config()
 
