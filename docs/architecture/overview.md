@@ -621,10 +621,12 @@ The framework now includes an intelligent memory system that preserves conversat
 - `memory_sessions`: Session context loading statistics
 
 **RAG Integration**:
+- **Centralized ChromaDB**: Single instance at framework root `.claude/data/chromadb`
 - ChromaDB collections per project (`memory_{project_id}`)
 - Embedding model: `all-MiniLM-L6-v2`
 - Automatic real-time indexing of conversations
 - Semantic search for historical context retrieval
+- Shared database reduces memory overhead across projects
 
 **Memory Hooks** (enabled by default):
 - `memory-conversation-capture`: Automatically saves all messages

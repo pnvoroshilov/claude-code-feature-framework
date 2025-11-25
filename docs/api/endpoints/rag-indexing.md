@@ -210,8 +210,9 @@ Uses `GenericChunker` with:
 
 ### Storage
 - Vector DB: ChromaDB
-- Persistence: `.claudetask/chromadb`
+- Persistence: Framework root `.claude/data/chromadb` (centralized, shared across all projects)
 - Collection: `codebase_chunks`
+- **Note**: As of 2025-11-25, ChromaDB storage is centralized in the framework root directory, not per-project
 
 ---
 

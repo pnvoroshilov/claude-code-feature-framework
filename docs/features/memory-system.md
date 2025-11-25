@@ -94,11 +94,15 @@ CREATE TABLE memory_rag_status (
 
 ### RAG Collections
 
-Each project has its own ChromaDB collection:
-- Collection name: `memory_{project_id}`
-- Embedding model: `all-MiniLM-L6-v2`
-- Metadata filtering by date, task, message type
-- Automatic reindexing on updates
+**Centralized ChromaDB Storage** (as of 2025-11-25):
+- **Location**: Framework root `.claude/data/chromadb` (shared across all projects)
+- **Benefit**: Single vector database instance reduces memory overhead
+- **Collection per project**: Each project has its own collection `memory_{project_id}`
+- **Embedding model**: `all-MiniLM-L6-v2`
+- **Metadata filtering**: By date, task, message type
+- **Automatic reindexing**: On updates
+
+Previously, each project had its own ChromaDB directory. Now all projects share a centralized ChromaDB instance for better resource management.
 
 ## Automatic Workflow
 
@@ -200,6 +204,7 @@ Memory system is optimized for:
 - Real-time message indexing
 - Efficient vector search
 - Minimal impact on conversation latency
+- **Centralized ChromaDB**: Single database instance shared across projects reduces memory footprint
 
 ## Use Cases
 
