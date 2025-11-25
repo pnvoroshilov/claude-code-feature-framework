@@ -1,31 +1,5 @@
 {
   "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/post-push-docs.sh"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/inject-docs-update.sh"
-          },
-          {
-            "type": "command",
-            "command": ".claude/hooks/memory-capture.sh"
-          }
-        ]
-      }
-    ],
     "Notification": [
       {
         "matcher": "*",
@@ -44,10 +18,55 @@
           {
             "type": "command",
             "command": "if command -v osascript &> /dev/null; then osascript -e 'display notification \"Task completed\" with title \"Claude Code\"'; elif command -v notify-send &> /dev/null; then notify-send 'Claude Code' 'Task completed'; fi"
-          },
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/memory-capture.sh"
+            "command": "\"/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/.claude/hooks/memory-session-summarize.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/.claude/hooks/memory-capture.sh\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/.claude/hooks/post-merge-rag-indexing.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/.claude/hooks/post-push-docs.sh\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/.claude/hooks/memory-capture.sh\""
           }
         ]
       }

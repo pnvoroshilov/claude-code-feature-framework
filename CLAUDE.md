@@ -1,5 +1,15 @@
 # ClaudeTask Framework - Autonomous Orchestrator Configuration
 
+
+# 📋 Custom Project Instructions
+
+**⚠️ IMPORTANT: This project has custom-specific instructions.**
+
+Please read the [CUSTOM_INSTRUCTIONS.md](./CUSTOM_INSTRUCTIONS.md) file in the project root for project-specific requirements and guidelines that take HIGHEST PRIORITY over general instructions.
+
+---
+
+
 # 🎯 PROJECT MODE: DEVELOPMENT
 
 **This project is configured in DEVELOPMENT mode.**
@@ -7,22 +17,22 @@
 ## Task Workflow (7 Columns)
 - **Backlog**: New tasks waiting to be analyzed
 - **Analysis**: Understanding requirements and planning
-- **In Progress**: Active development with Git worktrees
+- **In Progress**: Active development without worktrees
 - **Testing**: Running tests and validation
 - **Code Review**: Peer review of changes
 - **PR**: Pull Request created and awaiting merge
 - **Done**: Completed and merged
 
 ## What this means:
-- ✅ **Full Git workflow** - Branches, worktrees, PRs
+- ✅ **Full Git workflow** - Branches and PRs (no worktrees)
 - ✅ **Complete development lifecycle** - From analysis to deployment
 - ✅ **Version control** - Proper branching and merge strategy
 - ✅ **Quality gates** - Testing and code review required
-- ✅ **Worktrees**: Enabled - isolated task workspaces
+- ❌ **Worktrees**: Disabled - work directly in main branch
 
 ## Your approach:
 1. Follow the complete task workflow through all statuses
-2. Create worktrees for each task
+2. Work in main branch or feature branches (worktrees disabled)
 3. Use proper branching strategy
 4. Create PRs and wait for review
 5. Ensure tests pass before moving forward
