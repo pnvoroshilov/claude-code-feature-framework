@@ -241,9 +241,10 @@ async def get_current_session_info():
 
 @router.get("/active-sessions")
 async def get_active_sessions():
-    """Get currently active Claude Code sessions"""
+    """Get currently active Claude Code sessions - only project-related processes"""
     try:
         import subprocess
+        import re
 
         # Get list of running claude processes
         result = subprocess.run(
@@ -253,34 +254,128 @@ async def get_active_sessions():
         )
 
         active = []
+        seen_pids = set()
+
         for line in result.stdout.split('\n'):
-            if 'claude' in line.lower() and ('code' in line.lower() or '/claude' in line.lower()):
-                # Parse process info
-                parts = line.split()
-                if len(parts) > 10:
-                    pid = parts[1]
-                    cpu = parts[2]
-                    mem = parts[3]
-                    started = parts[8]
-                    command = ' '.join(parts[10:])
+            line_lower = line.lower()
 
-                    # Extract working directory if available
-                    working_dir = "Unknown"
-                    if '--working-dir' in command:
-                        try:
-                            idx = command.index('--working-dir')
-                            working_dir = command.split()[idx + 1]
-                        except:
-                            pass
+            # Skip if no claude reference
+            if 'claude' not in line_lower:
+                continue
 
-                    active.append({
-                        "pid": pid,
-                        "cpu": cpu,
-                        "mem": mem,
-                        "started": started,
-                        "working_dir": working_dir,
-                        "command": command[:200]  # Limit length
-                    })
+            # Filter for actual Claude Code project processes
+            # Include: ONLY claude processes with --cwd/--working-dir pointing to user project directories
+            # Exclude: ALL system subprocesses, node internals, helper processes
+
+            is_project_session = False
+
+            # STRICT RULE: Must have --cwd or --working-dir flag
+            # This ensures we only show project-launched Claude sessions
+            if '--cwd' in line or '--working-dir' in line:
+                # Extract working directory
+                working_dir = None
+                try:
+                    if '--cwd' in line:
+                        match = re.search(r'--cwd[=\s]+([^\s]+)', line)
+                        if match:
+                            working_dir = match.group(1)
+                    elif '--working-dir' in line:
+                        match = re.search(r'--working-dir[=\s]+([^\s]+)', line)
+                        if match:
+                            working_dir = match.group(1)
+                except:
+                    pass
+
+                # Verify it's a valid user project directory (not system paths)
+                if working_dir:
+                    # Exclude system and temporary paths
+                    system_path_patterns = [
+                        '/var/folders/',
+                        '/Applications/',
+                        '/System/',
+                        '/Library/',
+                        '/tmp/',
+                        '/private/',
+                        '/.Trash/',
+                    ]
+                    is_system_path = any(pat in working_dir for pat in system_path_patterns)
+
+                    if not is_system_path:
+                        is_project_session = True
+
+            # Additional exclusions for node/electron subprocesses
+            exclude_patterns = [
+                '--type=',           # Electron/Chrome subprocess flags
+                'helper',
+                'renderer',
+                'gpu-process',
+                'utility',
+                'crashpad',
+                '/node_modules/',
+                'node ',
+                '/Contents/Frameworks/',
+            ]
+            is_excluded = any(pat in line for pat in exclude_patterns)
+
+            if is_excluded:
+                is_project_session = False
+
+            if not is_project_session:
+                continue
+
+            # Parse process info
+            parts = line.split()
+            if len(parts) > 10:
+                pid = parts[1]
+
+                # Skip duplicates
+                if pid in seen_pids:
+                    continue
+                seen_pids.add(pid)
+
+                cpu = parts[2]
+                mem = parts[3]
+                started = parts[8]
+                command = ' '.join(parts[10:])
+
+                # Extract working directory
+                working_dir = "Unknown"
+
+                # Try --cwd first (newer format)
+                if '--cwd' in command:
+                    try:
+                        match = re.search(r'--cwd[=\s]+([^\s]+)', command)
+                        if match:
+                            working_dir = match.group(1)
+                    except:
+                        pass
+                # Try --working-dir (older format)
+                elif '--working-dir' in command:
+                    try:
+                        match = re.search(r'--working-dir[=\s]+([^\s]+)', command)
+                        if match:
+                            working_dir = match.group(1)
+                    except:
+                        pass
+
+                # Extract project name from working directory
+                project_name = None
+                if working_dir != "Unknown":
+                    try:
+                        from pathlib import Path
+                        project_name = Path(working_dir).name
+                    except:
+                        pass
+
+                active.append({
+                    "pid": pid,
+                    "cpu": cpu,
+                    "mem": mem,
+                    "started": started,
+                    "working_dir": working_dir,
+                    "project_name": project_name,
+                    "command": command[:200]  # Limit length
+                })
 
         return {
             "success": True,

@@ -766,6 +766,10 @@ class ClaudeTaskMCPServer:
                                 "description": "Max results to return",
                                 "default": 20
                             },
+                            "session_id": {
+                                "type": "string",
+                                "description": "Filter by session ID. Use 'current' for current session, or provide specific UUID"
+                            },
                             "filters": {
                                 "type": "object",
                                 "description": "Optional filters"
@@ -916,6 +920,7 @@ class ClaudeTaskMCPServer:
                     result = await self._search_project_memories(
                         arguments["query"],
                         arguments.get("limit", 20),
+                        arguments.get("session_id"),
                         arguments.get("filters")
                     )
                 else:
@@ -3342,12 +3347,20 @@ Apply SIMPLE mode instructions as fallback.
         self,
         query: str,
         limit: int = 20,
+        session_id: Optional[str] = None,
         filters: Optional[dict] = None
     ) -> list[types.TextContent]:
         """Search project memory using RAG
 
         Uses self.project_id from .mcp.json to ensure search is performed
         for the correct project (the one Claude Code is opened in).
+
+        Args:
+            query: Search query
+            limit: Max results to return
+            session_id: Filter by session ID. Use 'current' for current session,
+                       'last' for previous session, or specific UUID
+            filters: Optional additional filters
         """
         try:
             if not self.rag_initialized:
@@ -3360,22 +3373,42 @@ Apply SIMPLE mode instructions as fallback.
             # This ensures memory is tied to the directory Claude Code is opened in
             project_id = self.project_id
 
+            # Handle special session_id values
+            resolved_session_id = None
+            if session_id:
+                if session_id.lower() == 'current':
+                    # Get current session from database
+                    resolved_session_id = await self._get_current_session_id(project_id)
+                elif session_id.lower() == 'last':
+                    # Get last (previous) session from database
+                    resolved_session_id = await self._get_last_session_id(project_id)
+                else:
+                    # Use provided UUID directly
+                    resolved_session_id = session_id
+
+            # Add session_id to filters if provided
+            search_filters = filters.copy() if filters else {}
+            if resolved_session_id:
+                search_filters['session_id'] = resolved_session_id
+
             # Perform RAG search
             results = await self.rag_service.search_memories(
                 project_id=project_id,
                 query=query,
                 limit=limit,
-                filters=filters
+                filters=search_filters if search_filters else None
             )
 
             if not results:
+                session_info = f" (session: {resolved_session_id[:8]}...)" if resolved_session_id else ""
                 return [types.TextContent(
                     type="text",
-                    text=f"No memories found for query: '{query}'"
+                    text=f"No memories found for query: '{query}'{session_info}"
                 )]
 
             # Format results
-            output = f"🔍 Found {len(results)} relevant memories:\n\n"
+            session_info = f" (session: {resolved_session_id[:8]}...)" if resolved_session_id else ""
+            output = f"🔍 Found {len(results)} relevant memories{session_info}:\n\n"
             for i, result in enumerate(results, 1):
                 output += f"{i}. {result.get('content', '')[:200]}...\n"
                 output += f"   Relevance: {result.get('score', 0):.2f}\n\n"
@@ -3391,6 +3424,34 @@ Apply SIMPLE mode instructions as fallback.
                 type="text",
                 text=f"❌ Search failed: {str(e)}"
             )]
+
+    async def _get_current_session_id(self, project_id: str) -> Optional[str]:
+        """Get the most recent session ID for a project"""
+        try:
+            import aiohttp
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.backend_url}/api/projects/{project_id}/memory/sessions/current"
+                async with session.get(url, timeout=5) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return data.get('session_id')
+        except Exception as e:
+            self.logger.warning(f"Failed to get current session: {e}")
+        return None
+
+    async def _get_last_session_id(self, project_id: str) -> Optional[str]:
+        """Get the previous (second most recent) session ID for a project"""
+        try:
+            import aiohttp
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.backend_url}/api/projects/{project_id}/memory/sessions/last"
+                async with session.get(url, timeout=5) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return data.get('session_id')
+        except Exception as e:
+            self.logger.warning(f"Failed to get last session: {e}")
+        return None
 
     async def run(self):
         """Run the MCP server"""

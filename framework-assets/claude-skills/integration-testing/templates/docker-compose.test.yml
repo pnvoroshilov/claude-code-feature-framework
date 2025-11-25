@@ -1,0 +1,318 @@
+# docker-compose.test.yml
+# Docker Compose configuration for integration test dependencies
+# Usage: docker-compose -f docker-compose.test.yml up -d
+
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: integration-test-postgres
+    environment:
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_pass
+      POSTGRES_DB: test_db
+      # Performance optimizations for testing
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
+    ports:
+      - "5433:5432"
+    # Use tmpfs for speed (data stored in memory)
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d test_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  # Redis Cache
+  redis-test:
+    image: redis:7-alpine
+    container_name: integration-test-redis
+    ports:
+      - "6380:6379"
+    command: redis-server --save "" --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - test-network
+
+  # RabbitMQ Message Broker
+  rabbitmq-test:
+    image: rabbitmq:3-management-alpine
+    container_name: integration-test-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: test_user
+      RABBITMQ_DEFAULT_PASS: test_pass
+      # Memory and performance settings
+      RABBITMQ_VM_MEMORY_HIGH_WATERMARK: 512MB
+    ports:
+      - "5673:5672"   # AMQP port
+      - "15673:15672" # Management UI
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  # MongoDB (for NoSQL testing)
+  mongodb-test:
+    image: mongo:6
+    container_name: integration-test-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: test_user
+      MONGO_INITDB_ROOT_PASSWORD: test_pass
+      MONGO_INITDB_DATABASE: test_db
+    ports:
+      - "27018:27017"
+    # Use tmpfs for speed
+    tmpfs:
+      - /data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  # Elasticsearch (for search testing)
+  elasticsearch-test:
+    image: elasticsearch:8.11.0
+    container_name: integration-test-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9201:9200"
+      - "9301:9300"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - test-network
+
+  # MinIO (S3-compatible storage)
+  minio-test:
+    image: minio/minio:latest
+    container_name: integration-test-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: test_user
+      MINIO_ROOT_PASSWORD: test_pass_12345
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  # LocalStack (AWS services emulator)
+  localstack-test:
+    image: localstack/localstack:latest
+    container_name: integration-test-localstack
+    environment:
+      - SERVICES=s3,sqs,sns,dynamodb,lambda
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    ports:
+      - "4566:4566"  # LocalStack gateway
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  # MySQL (alternative RDBMS)
+  mysql-test:
+    image: mysql:8
+    container_name: integration-test-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root_pass
+      MYSQL_DATABASE: test_db
+      MYSQL_USER: test_user
+      MYSQL_PASSWORD: test_pass
+    ports:
+      - "3307:3306"
+    command: --default-authentication-plugin=mysql_native_password
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - test-network
+
+  # Kafka (event streaming)
+  zookeeper-test:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: integration-test-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2182:2181"
+    networks:
+      - test-network
+
+  kafka-test:
+    image: confluentinc/cp-kafka:latest
+    container_name: integration-test-kafka
+    depends_on:
+      - zookeeper-test
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper-test:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - test-network
+
+  # Mailhog (email testing)
+  mailhog-test:
+    image: mailhog/mailhog:latest
+    container_name: integration-test-mailhog
+    ports:
+      - "1025:1025"  # SMTP port
+      - "8025:8025"  # Web UI
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8025"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - test-network
+
+networks:
+  test-network:
+    driver: bridge
+
+# ============================================================================
+# Minimal Configuration (Only Essential Services)
+# ============================================================================
+
+# docker-compose.test.minimal.yml
+# For faster startup when you only need basic services
+#
+# version: '3.8'
+#
+# services:
+#   postgres-test:
+#     image: postgres:15-alpine
+#     environment:
+#       POSTGRES_USER: test_user
+#       POSTGRES_PASSWORD: test_pass
+#       POSTGRES_DB: test_db
+#     ports:
+#       - "5433:5432"
+#     tmpfs:
+#       - /var/lib/postgresql/data
+#
+#   redis-test:
+#     image: redis:7-alpine
+#     ports:
+#       - "6380:6379"
+#     command: redis-server --save "" --appendonly no
+
+# ============================================================================
+# Usage Examples
+# ============================================================================
+
+# Start all services:
+# docker-compose -f docker-compose.test.yml up -d
+
+# Start specific services:
+# docker-compose -f docker-compose.test.yml up -d postgres-test redis-test
+
+# Stop all services:
+# docker-compose -f docker-compose.test.yml down
+
+# Stop and remove volumes:
+# docker-compose -f docker-compose.test.yml down -v
+
+# View logs:
+# docker-compose -f docker-compose.test.yml logs -f postgres-test
+
+# Check service health:
+# docker-compose -f docker-compose.test.yml ps
+
+# ============================================================================
+# wait-for-services.sh - Script to wait for all services to be ready
+# ============================================================================
+
+#!/bin/bash
+# wait-for-services.sh
+# Wait for all Docker Compose services to be healthy before running tests
+
+# set -e
+
+# echo "Waiting for PostgreSQL..."
+# until docker-compose -f docker-compose.test.yml exec -T postgres-test pg_isready -U test_user -d test_db; do
+#   sleep 1
+# done
+# echo "✓ PostgreSQL is ready"
+
+# echo "Waiting for Redis..."
+# until docker-compose -f docker-compose.test.yml exec -T redis-test redis-cli ping | grep -q PONG; do
+#   sleep 1
+# done
+# echo "✓ Redis is ready"
+
+# echo "Waiting for RabbitMQ..."
+# until docker-compose -f docker-compose.test.yml exec -T rabbitmq-test rabbitmq-diagnostics -q ping; do
+#   sleep 1
+# done
+# echo "✓ RabbitMQ is ready"
+
+# echo "All services are ready!"
+
+# ============================================================================
+# Environment Variables for Tests
+# ============================================================================
+
+# .env.test
+# Environment variables for integration tests
+#
+# DATABASE_URL=postgresql://test_user:test_pass@localhost:5433/test_db
+# REDIS_URL=redis://localhost:6380
+# RABBITMQ_URL=amqp://test_user:test_pass@localhost:5673
+# MONGODB_URL=mongodb://test_user:test_pass@localhost:27018/test_db
+# ELASTICSEARCH_URL=http://localhost:9201
+# MINIO_ENDPOINT=localhost:9000
+# MINIO_ACCESS_KEY=test_user
+# MINIO_SECRET_KEY=test_pass_12345
+# LOCALSTACK_ENDPOINT=http://localhost:4566
+# MYSQL_URL=mysql://test_user:test_pass@localhost:3307/test_db
+# SMTP_HOST=localhost
+# SMTP_PORT=1025

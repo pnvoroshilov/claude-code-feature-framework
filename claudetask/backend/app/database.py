@@ -162,9 +162,9 @@ async def seed_default_skills():
             ),
             DefaultSkill(
                 name="Refactoring",
-                description="Expert code refactoring and cleanup for maintainability, performance, and code quality improvement",
+                description="Expert code refactoring and cleanup for maintainability, performance, and code quality improvement. Includes scalability patterns (caching, pagination, high load, high availability), performance optimization, and practical decision frameworks.",
                 category="Quality",
-                file_name="refactoring/skill.md"
+                file_name="refactoring/SKILL.md"
             ),
             DefaultSkill(
                 name="Test Runner",
@@ -196,7 +196,7 @@ async def seed_default_skills():
             # Architecture Patterns skill
             DefaultSkill(
                 name="Architecture Patterns",
-                description="Comprehensive guide to software architecture patterns including SOLID principles, Clean Architecture, DDD, design patterns, and anti-patterns with practical examples",
+                description="Comprehensive guide to software architecture patterns including SOLID principles, Clean Architecture, DDD, design patterns, anti-patterns. Includes infrastructure patterns (microservices, Docker, Kubernetes, high availability) and decision frameworks for architectural choices.",
                 category="Architecture",
                 file_name="architecture-patterns/SKILL.md",
                 is_favorite=True

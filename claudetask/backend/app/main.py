@@ -2361,6 +2361,171 @@ async def search_project_memories(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/projects/{project_id}/memory/sessions/current")
+async def get_current_session(
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get the most recent session ID for a project"""
+    try:
+        from sqlalchemy import text
+
+        sql = text("""
+            SELECT session_id, MAX(timestamp) as last_activity
+            FROM conversation_memory
+            WHERE project_id = :project_id
+            AND session_id IS NOT NULL
+            GROUP BY session_id
+            ORDER BY last_activity DESC
+            LIMIT 1
+        """)
+
+        result = await db.execute(sql, {"project_id": project_id})
+        row = result.fetchone()
+
+        if row:
+            return {
+                "session_id": row.session_id,
+                "last_activity": str(row.last_activity)
+            }
+        else:
+            return {"session_id": None, "message": "No sessions found"}
+
+    except Exception as e:
+        logger.error(f"Failed to get current session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/projects/{project_id}/memory/sessions/last")
+async def get_last_session(
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get the previous (second most recent) session ID for a project"""
+    try:
+        from sqlalchemy import text
+
+        sql = text("""
+            SELECT session_id, MAX(timestamp) as last_activity
+            FROM conversation_memory
+            WHERE project_id = :project_id
+            AND session_id IS NOT NULL
+            GROUP BY session_id
+            ORDER BY last_activity DESC
+            LIMIT 2
+        """)
+
+        result = await db.execute(sql, {"project_id": project_id})
+        rows = result.fetchall()
+
+        if len(rows) >= 2:
+            # Return second most recent session
+            return {
+                "session_id": rows[1].session_id,
+                "last_activity": str(rows[1].last_activity)
+            }
+        elif len(rows) == 1:
+            # Only one session exists, return it
+            return {
+                "session_id": rows[0].session_id,
+                "last_activity": str(rows[0].last_activity),
+                "message": "Only one session exists"
+            }
+        else:
+            return {"session_id": None, "message": "No sessions found"}
+
+    except Exception as e:
+        logger.error(f"Failed to get last session: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/projects/{project_id}/memory/sessions")
+async def list_sessions(
+    project_id: str,
+    limit: int = 10,
+    db: AsyncSession = Depends(get_db)
+):
+    """List all sessions for a project with message counts"""
+    try:
+        from sqlalchemy import text
+
+        sql = text("""
+            SELECT
+                session_id,
+                MIN(timestamp) as start_time,
+                MAX(timestamp) as end_time,
+                COUNT(*) as message_count
+            FROM conversation_memory
+            WHERE project_id = :project_id
+            AND session_id IS NOT NULL
+            GROUP BY session_id
+            ORDER BY end_time DESC
+            LIMIT :limit
+        """)
+
+        result = await db.execute(sql, {"project_id": project_id, "limit": limit})
+        rows = result.fetchall()
+
+        sessions = []
+        for row in rows:
+            sessions.append({
+                "session_id": row.session_id,
+                "start_time": str(row.start_time),
+                "end_time": str(row.end_time),
+                "message_count": row.message_count
+            })
+
+        return {"sessions": sessions, "total": len(sessions)}
+
+    except Exception as e:
+        logger.error(f"Failed to list sessions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/projects/{project_id}/memory/sessions/{session_id}/messages")
+async def get_session_messages(
+    project_id: str,
+    session_id: str,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get all messages for a specific session"""
+    try:
+        from sqlalchemy import text
+
+        sql = text("""
+            SELECT id, message_type, content, timestamp, metadata
+            FROM conversation_memory
+            WHERE project_id = :project_id
+            AND session_id = :session_id
+            ORDER BY timestamp ASC
+            LIMIT :limit
+        """)
+
+        result = await db.execute(sql, {
+            "project_id": project_id,
+            "session_id": session_id,
+            "limit": limit
+        })
+        rows = result.fetchall()
+
+        messages = []
+        for row in rows:
+            messages.append({
+                "id": row.id,
+                "message_type": row.message_type,
+                "content": row.content,
+                "timestamp": str(row.timestamp),
+                "metadata": json.loads(row.metadata) if row.metadata else {}
+            })
+
+        return {"messages": messages, "total": len(messages), "session_id": session_id}
+
+    except Exception as e:
+        logger.error(f"Failed to get session messages: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Mount static files for frontend
 frontend_build_path = Path(__file__).parent.parent.parent / "frontend" / "build"
 if frontend_build_path.exists():

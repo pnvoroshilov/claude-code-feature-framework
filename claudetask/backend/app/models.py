@@ -28,8 +28,7 @@ class TaskStatus(str, enum.Enum):
     ANALYSIS = "Analysis"
     IN_PROGRESS = "In Progress"
     TESTING = "Testing"
-    CODE_REVIEW = "Code Review"
-    PR = "PR"  # Pull Request created, awaiting manual review
+    CODE_REVIEW = "Code Review"  # Code Review + PR creation (combined)
     DONE = "Done"
     BLOCKED = "Blocked"
 
@@ -167,7 +166,7 @@ class ProjectSettings(Base):
 
     # New testing configuration fields
     test_directory = Column(String, nullable=True, default="tests")  # Main test directory (e.g., "tests", "src/__tests__")
-    test_framework = Column(Enum(TestFramework), nullable=True, default=TestFramework.PYTEST)  # Test framework
+    test_framework = Column(Enum(TestFramework, values_callable=lambda x: [e.value for e in x]), nullable=True, default=TestFramework.PYTEST)  # Test framework
     auto_merge_tests = Column(Boolean, default=True, nullable=False)  # Auto-merge new tests after PR approval
     test_staging_dir = Column(String, nullable=True, default="tests/staging")  # Staging directory for new task tests
 

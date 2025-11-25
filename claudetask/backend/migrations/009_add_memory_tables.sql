@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS project_summaries (
     gotchas TEXT,                       -- JSON array of gotchas/issues
     last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
     version INTEGER DEFAULT 1,
+    last_summarized_message_id INTEGER DEFAULT 0,  -- Track last summarized message for efficient summarization
 
     -- Foreign key to projects table
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE

@@ -2,75 +2,99 @@
 
 ## Overview
 
-The Sessions page provides a unified interface for monitoring and managing both Claude Code sessions and task-based sessions. It consolidates session management into a single, tabbed interface with real-time process monitoring capabilities.
+The Sessions page provides a unified interface for monitoring and managing both Claude Code sessions and task-based development sessions. This consolidated view allows developers to track all AI-assisted work from a single location.
+
+**Version**: 2.0
+**Last Updated**: 2025-11-25
 
 ## Location
 
-```
-claudetask/frontend/src/pages/Sessions.tsx
-```
-
-## Purpose
-
-Central hub for:
-- Viewing and managing Claude Code native sessions
-- Monitoring task-based Claude sessions
-- Real-time system process tracking
-- Session termination and cleanup
+**Route**: `/sessions`
+**Component**: `claudetask/frontend/src/pages/Sessions.tsx`
+**Child Components**:
+- `ClaudeCodeSessionsView.tsx` - Native Claude Code session analytics
+- `TaskSessionsView.tsx` - Task-based session management
 
 ## Features
 
-### Unified Tab Interface
+### 1. Unified Tab Navigation
 
-Two main tabs for different session types:
+The page uses a tab-based interface to separate two types of sessions:
 
-1. **Claude Code Sessions** - Native Claude Code session analytics
-   - Session history browsing
-   - Message analysis
-   - Tool usage statistics
-   - Multi-project session discovery
+#### Claude Code Sessions Tab
+- Displays native Claude Code sessions launched from terminal
+- Analytics and metrics for each session
+- Session history and completion status
+- Process monitoring and resource usage
 
-2. **Task Sessions** - Task-based session management
-   - Sessions organized by tasks
-   - Testing URLs and status
-   - Session lifecycle management
-   - Task-specific session details
+#### Task Sessions Tab
+- Shows sessions associated with specific tasks
+- Task-based workflow tracking
+- Session context and outcomes
+- Integration with task lifecycle
 
-### Real-Time Process Monitor
+### 2. System Process Monitor
 
-Collapsible accordion panel showing active Claude Code processes:
+A collapsible accordion panel that displays active Claude Code processes in real-time:
 
-- **Live Process Stats**:
-  - Process ID (PID)
-  - CPU usage percentage
-  - Memory usage percentage
-  - Full command line
+**Features**:
+- Live process list with PID, CPU, and memory usage
+- Auto-refresh every 5 seconds (only when expanded)
+- Process termination controls
+- Visual indicators for resource consumption
+- Responsive grid layout (1-3 columns based on screen size)
 
-- **Auto-Refresh**: Updates every 5 seconds when expanded
-- **Process Control**: Terminate sessions directly from UI
-- **Visual Design**: Color-coded success theme with hover effects
+**API Endpoint**:
+```http
+GET /api/claude-sessions/active-sessions
+```
 
-### URL-Based Navigation
+**Response Format**:
+```json
+{
+  "active_sessions": [
+    {
+      "pid": "12345",
+      "cpu": "2.5",
+      "mem": "1.8",
+      "command": "claude -p /path/to/project"
+    }
+  ]
+}
+```
 
-Routes automatically managed:
-- `/sessions` → Redirects to `/sessions/claude-code`
-- `/sessions/claude-code` → Claude Code sessions tab
-- `/sessions/tasks` → Task sessions tab
+### 3. URL-Based State Management
 
-## Component Structure
+The page uses URL routing for persistent tab state:
 
-### State Management
+- `/sessions` → Redirects to `/sessions/claude-code` (default)
+- `/sessions/claude-code` → Claude Code Sessions tab
+- `/sessions/tasks` → Task Sessions tab
 
+**Benefits**:
+- Bookmarkable tab states
+- Browser back/forward navigation works
+- Shareable URLs for specific views
+- Preserves state on page refresh
+
+## Component Architecture
+
+### Sessions.tsx (Parent Component)
+
+**Responsibilities**:
+- Tab navigation and state management
+- URL routing synchronization
+- Process monitor UI and data fetching
+- Child component rendering
+
+**Key State**:
 ```typescript
 const [currentTab, setCurrentTab] = useState<TabValue>('claude-code');
 const [processMonitorExpanded, setProcessMonitorExpanded] = useState(false);
 const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
 ```
 
-### Tab Management
-
-Tab changes update both local state and URL:
-
+**Tab Change Handler**:
 ```typescript
 const handleTabChange = (_event: React.SyntheticEvent, newValue: TabValue) => {
   setCurrentTab(newValue);
@@ -78,133 +102,108 @@ const handleTabChange = (_event: React.SyntheticEvent, newValue: TabValue) => {
 };
 ```
 
-### Process Monitoring
+### ClaudeCodeSessionsView.tsx
 
-Fetches active sessions only when monitor is expanded:
+Displays analytics and history for native Claude Code sessions:
+
+- Session duration and completion time
+- Tools used and command history
+- Success/error status
+- Session metadata and context
+- Browsable session transcripts
+
+### TaskSessionsView.tsx
+
+Shows sessions tied to specific task workflows:
+
+- Task association and context
+- Session lifecycle tracking
+- Outcome documentation
+- Integration with task status
+- Related task information
+
+## UI Design
+
+### Color Theming
+
+The page uses dynamic accent colors based on the active tab:
 
 ```typescript
-useEffect(() => {
-  if (processMonitorExpanded) {
-    fetchActiveSessions(); // Fetch immediately
-    const interval = setInterval(fetchActiveSessions, 5000);
-    return () => clearInterval(interval);
-  }
-}, [processMonitorExpanded]);
+const tabAccentColor = currentTab === 'claude-code'
+  ? '#6366f1'  // Indigo for Claude Code
+  : theme.palette.primary.main;  // Primary color for Tasks
 ```
+
+**Applied to**:
+- Page title gradient
+- Tab indicator
+- Tab hover states
+- Focus states
+
+### Process Monitor Cards
+
+Each active session is displayed in a card with:
+
+**Visual Elements**:
+- Green-themed color scheme
+- Computer icon badge
+- CPU and memory chips
+- Monospace command display
+- Terminate button (red)
+
+**Styling**:
+```typescript
+sx={{
+  bgcolor: theme.palette.mode === 'dark' ? '#1e293b' : alpha(theme.palette.success.main, 0.02),
+  border: '1px solid',
+  borderColor: alpha(theme.palette.success.main, 0.2),
+  '&:hover': {
+    transform: 'translateY(-2px)',
+    boxShadow: `0 8px 16px ${alpha(theme.palette.success.main, 0.2)}`,
+  },
+}}
+```
+
+### Responsive Design
+
+**Grid Layout** (Process Monitor):
+- Mobile (xs): 1 column
+- Tablet (md): 2 columns
+- Desktop (lg): 3 columns
+
+**Tab Controls**:
+- Scrollable tabs on mobile
+- Fixed-width tabs on desktop
+- Auto-scroll for overflowing tabs
 
 ## API Integration
 
-### Get Active Sessions
+### Fetch Active Sessions
 
 **Endpoint**: `GET /api/claude-sessions/active-sessions`
 
-**Response**:
-```json
-{
-  "active_sessions": [
-    {
-      "pid": "12345",
-      "cpu": "15.2",
-      "mem": "8.3",
-      "command": "claude --project /path/to/project"
-    }
-  ]
-}
+**Usage**:
+```typescript
+const fetchActiveSessions = async () => {
+  try {
+    const response = await axios.get(`${API_BASE}/active-sessions`);
+    setActiveSessions(response.data.active_sessions || []);
+  } catch (error) {
+    console.error('Error fetching active sessions:', error);
+  }
+};
 ```
+
+**Polling Strategy**:
+- Only polls when process monitor is expanded
+- 5-second interval
+- Cleanup on component unmount or collapse
 
 ### Kill Session
 
 **Endpoint**: `POST /api/claude-sessions/sessions/{pid}/kill`
 
-**Process**:
-1. User clicks terminate button
-2. Confirmation dialog displays
-3. POST request sent with PID
-4. Session terminated via kill signal
-5. Process list refreshes
-
-## Visual Design
-
-### Dynamic Accent Color
-
-Tab-specific accent colors:
-- **Claude Code Sessions**: Indigo (`#6366f1`)
-- **Task Sessions**: Primary theme color
-
-Applied to:
-- Page title gradient
-- Tab indicator
-- Tab hover states
-
-### Process Monitor Design
-
-**Collapsed State**:
-- Minimal header with icon and count badge
-- Light border, no shadow
-- Hover effect on accordion summary
-
-**Expanded State**:
-- Grid layout (3 columns on desktop, 1 on mobile)
-- Color-coded process cards with success theme
-- Elevated shadow effect
-- Icon badges for CPU/Memory stats
-
-### Process Card Layout
-
-```
-┌─────────────────────────────────────┐
-│  🖥️  PID: 12345          [X]        │
-│      CPU: 15.2%  Mem: 8.3%          │
-│  ┌─────────────────────────────┐    │
-│  │ claude --project /path/...  │    │
-│  └─────────────────────────────┘    │
-└─────────────────────────────────────┘
-```
-
-## Sub-Components
-
-### ClaudeCodeSessionsView
-
-Shows Claude Code native session analytics:
-- Session file discovery
-- Message history
-- Tool usage patterns
-- Error tracking
-
-**Props**: None (self-contained)
-
-**Location**: `src/components/sessions/ClaudeCodeSessionsView.tsx`
-
-### TaskSessionsView
-
-Shows task-based session management:
-- Sessions grouped by task
-- Testing URLs display
-- Session status tracking
-- Session detail views
-
-**Props**: None (self-contained)
-
-**Location**: `src/components/sessions/TaskSessionsView.tsx`
-
-## Usage Example
-
-### Navigation
-
-```typescript
-import { useNavigate } from 'react-router-dom';
-
-const navigate = useNavigate();
-
-// Navigate to Claude Code sessions
-navigate('/sessions/claude-code');
-
-// Navigate to task sessions
-navigate('/sessions/tasks');
-```
-
-### Process Termination
-
+**Usage**:
 ```typescript
 const killSession = async (pid: string) => {
   if (!window.confirm(`Terminate Claude session (PID: ${pid})?`)) return;
@@ -213,34 +212,57 @@ const killSession = async (pid: string) => {
     await axios.post(`${API_BASE}/sessions/${pid}/kill`);
     await fetchActiveSessions();
     alert('Session terminated successfully');
-  } catch (error: any) {
-    alert(`Failed to kill session: ${error.response?.data?.detail}`);
+  } catch (error) {
+    alert(`Failed to kill session: ${error.response?.data?.detail || error.message}`);
   }
 };
 ```
 
-## Responsive Design
+## User Interactions
 
-### Desktop (md+)
-- Process cards: 3 columns
-- Tab labels: Full text (160px min-width)
-- Expanded process monitor with grid layout
+### Tab Switching
+1. Click tab or navigate via URL
+2. Route updates to `/sessions/{tab-name}`
+3. Active tab state changes
+4. Corresponding child component renders
+5. Color theme updates
 
-### Mobile (xs)
-- Process cards: 1 column (full width)
-- Tab labels: Compact (120px min-width)
-- Scrollable tabs with auto-scroll buttons
+### Process Monitoring
+1. Expand accordion panel
+2. Active sessions fetched immediately
+3. Auto-refresh starts (5s interval)
+4. View session details
+5. Optionally terminate session
+6. Collapse panel → polling stops
+
+### Session Termination
+1. Click terminate button on session card
+2. Confirmation dialog appears
+3. User confirms termination
+4. API call to kill process
+5. Session list refreshes
+6. Success/error feedback shown
 
 ## Accessibility
 
-### ARIA Labels
+### Keyboard Navigation
+- Tab controls are keyboard accessible
+- Process monitor accordion toggleable via keyboard
+- Terminate buttons focusable
+- Proper ARIA labels on all interactive elements
 
+### Screen Reader Support
 ```tsx
-<Tabs aria-label="Session type navigation">
+<Tabs
+  value={currentTab}
+  onChange={handleTabChange}
+  aria-label="Session type navigation"
+>
   <Tab
+    label="Claude Code Sessions"
+    value="claude-code"
     id="tab-claude-code"
     aria-controls="tabpanel-claude-code"
-    label="Claude Code Sessions"
   />
 </Tabs>
 
@@ -250,127 +272,148 @@ const killSession = async (pid: string) => {
   id="tabpanel-claude-code"
   aria-labelledby="tab-claude-code"
 >
-  {currentTab === 'claude-code' && <ClaudeCodeSessionsView />}
-</Box>
 ```
 
-### Accordion Accessibility
-
-```tsx
-<Accordion
-  expanded={processMonitorExpanded}
-  aria-label="Active process monitoring"
->
-  <AccordionSummary
-    aria-expanded={processMonitorExpanded}
-    aria-controls="process-monitor-content"
-  />
-  <AccordionDetails id="process-monitor-content">
-    {/* Process cards */}
-  </AccordionDetails>
-</Accordion>
-```
+### Visual Indicators
+- Clear active tab highlighting
+- Process status badges (CPU, memory)
+- Color-coded session states
+- Icon-based actions
 
 ## Performance Optimizations
 
 ### Conditional Polling
-
-Only polls for active sessions when process monitor is expanded:
-
+Only fetch active sessions when monitor is expanded:
 ```typescript
-// No polling when collapsed = zero API calls
-// Polling starts only when user expands monitor
+useEffect(() => {
+  if (processMonitorExpanded) {
+    fetchActiveSessions();
+    const interval = setInterval(fetchActiveSessions, 5000);
+    return () => clearInterval(interval);
+  }
+}, [processMonitorExpanded]);
 ```
 
-### Lazy Tab Rendering
-
-Tab panels only render when active:
-
-```tsx
+### Conditional Rendering
+Child components only render when their tab is active:
+```typescript
 {currentTab === 'claude-code' && <ClaudeCodeSessionsView />}
 {currentTab === 'tasks' && <TaskSessionsView />}
 ```
 
-## Integration with Backend
-
-### Active Sessions Endpoint
-
-Backend uses `ps` command to find Claude processes:
-
-```python
-# Returns list of active Claude Code processes
-# Filters by command pattern: "claude"
-# Extracts PID, CPU%, MEM%, and full command
+### Interval Cleanup
+Proper cleanup prevents memory leaks:
+```typescript
+return () => clearInterval(interval);
 ```
 
-### Session Termination
+## Integration with Other Features
 
-Backend sends `SIGTERM` signal to process:
+### Task Management
+- Task sessions linked to task board
+- Session outcomes update task status
+- Task context loaded in sessions
 
-```python
-# Validates PID exists
-# Sends kill signal
-# Returns success/failure
+### Hooks System
+- Session lifecycle triggers hooks
+- Hook events logged in sessions
+- Session metadata includes hook results
+
+### Memory System
+- Sessions saved to conversation memory
+- Context loaded from project memory
+- Session summaries auto-generated
+
+## Usage Example
+
+### Viewing Active Claude Sessions
+
+1. Navigate to `/sessions` (auto-redirects to Claude Code tab)
+2. Expand "System Processes" accordion
+3. View active sessions with resource usage
+4. Monitor CPU and memory consumption
+5. Terminate problematic sessions if needed
+
+### Reviewing Task Sessions
+
+1. Click "Task Sessions" tab
+2. Browse sessions by task
+3. View session outcomes and context
+4. Analyze task progression through sessions
+5. Review historical task work
+
+### Monitoring Long-Running Sessions
+
+1. Keep process monitor expanded
+2. Watch resource usage in real-time
+3. Identify performance issues
+4. Terminate runaway processes
+5. Diagnose session problems
+
+## Troubleshooting
+
+### Active Sessions Not Showing
+
+**Check API endpoint**:
+```bash
+curl http://localhost:3333/api/claude-sessions/active-sessions
+```
+
+**Verify backend is running**:
+```bash
+ps aux | grep uvicorn
+```
+
+### Tab Navigation Not Working
+
+**Check browser console** for routing errors
+
+**Verify React Router** is configured correctly
+
+### Process Monitor Not Updating
+
+**Check polling state**:
+- Ensure accordion is expanded
+- Verify interval is running
+- Check browser network tab
+
+**Verify API is responding**:
+```bash
+curl -X GET http://localhost:3333/api/claude-sessions/active-sessions
 ```
 
 ## Future Enhancements
 
 ### Planned Features
-- Session log streaming in real-time
-- Session health indicators (CPU/memory warnings)
-- Bulk session termination
 - Session filtering and search
-- Export session data
-- Session performance metrics dashboard
+- Export session transcripts
+- Session comparison tools
+- Advanced analytics and metrics
+- Session tagging and organization
 
-### UI Improvements
-- Dark mode process monitor theme refinement
-- Process card animations
-- Session timeline visualization
-- Quick actions menu for sessions
-
-## Troubleshooting
-
-### Process Monitor Not Updating
-
-**Issue**: Active sessions list doesn't refresh
-
-**Solution**:
-1. Ensure process monitor is expanded (polling only runs when expanded)
-2. Check backend `/api/claude-sessions/active-sessions` endpoint
-3. Verify 5-second polling interval is running
-4. Check browser console for API errors
-
-### Session Termination Fails
-
-**Issue**: Kill session button doesn't work
-
-**Solution**:
-1. Verify PID is valid and process still exists
-2. Check backend has permission to kill process
-3. Ensure backend user owns the process
-4. Try manual termination: `kill -TERM <PID>`
-
-### Tab Navigation Issues
-
-**Issue**: URL doesn't match active tab
-
-**Solution**:
-1. Clear browser cache
-2. Use direct URLs: `/sessions/claude-code` or `/sessions/tasks`
-3. Check React Router configuration
-4. Verify `useEffect` hook for URL sync
+### Under Consideration
+- Real-time WebSocket updates (replace polling)
+- Session replay functionality
+- Session collaboration tools
+- Custom session views
+- Integration with external monitoring tools
 
 ## Related Documentation
 
-- [ClaudeCodeSessionsView Component](./ClaudeCodeSessions.md) - Native session analytics
-- [TaskSessionsView Component](./TaskSessions.md) - Task-based session management
-- [Claude Sessions API](../api/endpoints/claude-sessions.md) - Backend API reference
+- [Claude Code Sessions Component](./ClaudeCodeSessions.md) - Claude Code session analytics
+- [Task Sessions Component](./TaskBoard.md) - Task management and sessions
+- [Claude Sessions API](../api/endpoints/claude-sessions.md) - API reference
+- [Hooks System](../architecture/hooks-system.md) - Session lifecycle hooks
 
----
+## Summary
 
-**Component Type**: Page Component
-**Category**: Session Management
-**Status**: Production Ready
-**Version**: 1.0
-**Last Updated**: 2025-11-25
+The Sessions page provides comprehensive monitoring and management of all AI-assisted development work:
+
+- **Unified Interface**: Single view for all session types
+- **Real-time Monitoring**: Live process tracking and resource usage
+- **URL-Based Navigation**: Bookmarkable, shareable tab states
+- **Process Control**: Direct session termination capabilities
+- **Performance Optimized**: Conditional polling and rendering
+- **Accessible**: Full keyboard and screen reader support
+
+This consolidated approach simplifies session management and provides developers with complete visibility into their AI-assisted workflows.
