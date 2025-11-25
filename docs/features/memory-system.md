@@ -138,6 +138,12 @@ These work without manual intervention:
 - **Purpose**: Saves all messages automatically
 - **Hook type**: Message interceptor
 - **Status**: Active on all projects
+- **Improvements (2025-11-25)**:
+  - Enhanced session ID tracking for both user prompts and assistant responses
+  - Improved logging with framework-centralized log directory
+  - Robust transcript parsing supporting Claude Code's JSONL format
+  - Better error handling and debugging capabilities
+  - Automatic fallback to framework root `.mcp.json` for project ID detection
 
 #### Memory Session Summarizer
 - **Enabled by default**: Yes

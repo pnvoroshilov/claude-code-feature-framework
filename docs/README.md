@@ -197,8 +197,13 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 ---
 
-**Documentation Version**: 2.1
+**Documentation Version**: 2.2
 **Last Updated**: 2025-11-25
 **Total Documents**: 43
 **Auto-Updated**: Yes (via post-merge hook)
 **Status**: Current
+
+**Latest Changes (v2.2)**:
+- Centralized ChromaDB storage documentation (all projects share framework root instance)
+- Enhanced memory-capture hook improvements (session tracking, logging, JSONL parsing)
+- Updated RAG indexing documentation with new storage location
