@@ -6,6 +6,21 @@ This directory contains documentation for React components in the ClaudeTask Fra
 
 ### Session Management
 
+#### [Sessions](./Sessions.md) (NEW)
+Unified tab interface for monitoring and managing all Claude sessions.
+
+**Features:**
+- Tabbed interface for Claude Code sessions and task sessions
+- Real-time process monitoring with CPU/memory stats
+- Collapsible process accordion (updates every 5 seconds when expanded)
+- Session termination capabilities
+- URL-based navigation
+- Dynamic accent colors per tab
+
+**Location:** `claudetask/frontend/src/pages/Sessions.tsx`
+
+**Status:** Production Ready (v1.0)
+
 #### [ClaudeSessions](./ClaudeSessions.md)
 Comprehensive interface for managing and monitoring embedded Claude Code task sessions.
 
@@ -394,14 +409,15 @@ When adding or updating components:
 
 ---
 
-**Last Updated**: 2025-11-21
-**Total Components Documented**: 8
+**Last Updated**: 2025-11-25
+**Total Components Documented**: 9
 **Documentation Status**: Active maintenance
 
 ## Component Documentation Index
 
 | Component | Category | Status | Version | Documentation |
 |-----------|----------|--------|---------|---------------|
+| Sessions | Session Management | Production Ready | v1.0 | [View](./Sessions.md) |
 | ClaudeSessions | Session Management | Active | v2.1 | [View](./ClaudeSessions.md) |
 | RealTerminal | Session Management | Active | v2.1 | [View](./RealTerminal.md) |
 | ClaudeCodeSessions | Session Management | Active | v1.0 | [View](./ClaudeCodeSessions.md) |

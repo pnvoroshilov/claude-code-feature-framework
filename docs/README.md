@@ -197,8 +197,8 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 ---
 
-**Documentation Version**: 2.0
-**Last Updated**: 2025-11-24
-**Total Documents**: 42
+**Documentation Version**: 2.1
+**Last Updated**: 2025-11-25
+**Total Documents**: 43
 **Auto-Updated**: Yes (via post-merge hook)
 **Status**: Current

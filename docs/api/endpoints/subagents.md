@@ -367,6 +367,215 @@ This endpoint is called by MCP tools (`mcp__claudetask__update_subagent_status`)
 - `404` - Subagent not found
 - `500` - Database or file system error
 
+---
+
+## Subagent Skills Management
+
+### GET `/api/projects/{project_id}/subagents/{subagent_id}/skills`
+
+Get all skills assigned to a subagent.
+
+**Query Parameters:**
+- `subagent_kind` (optional): `"default"` or `"custom"`, defaults to `"default"`
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "skill_id": 5,
+    "skill_type": "default",
+    "skill_name": "merge-skill",
+    "skill_description": "Expert Git merge and conflict resolution",
+    "skill_category": "git",
+    "assigned_at": "2025-11-25T10:00:00Z"
+  },
+  {
+    "id": 2,
+    "skill_id": 8,
+    "skill_type": "default",
+    "skill_name": "python-refactor",
+    "skill_description": "Clean Architecture refactoring for Python",
+    "skill_category": "refactoring",
+    "assigned_at": "2025-11-25T10:15:00Z"
+  }
+]
+```
+
+**Error Responses:**
+- `404` - Subagent not found
+- `500` - Database error
+
+### POST `/api/projects/{project_id}/subagents/{subagent_id}/skills/assign`
+
+Assign a single skill to a subagent.
+
+**Query Parameters:**
+- `skill_id` (required): ID of the skill to assign
+- `skill_type` (optional): `"default"` or `"custom"`, defaults to `"default"`
+- `subagent_kind` (optional): `"default"` or `"custom"`, defaults to `"default"`
+
+**Process:**
+1. Validates skill and subagent exist
+2. Creates assignment in `subagent_skills` junction table
+3. Returns skill assignment details
+
+**Request:**
+```http
+POST /api/projects/my-project/subagents/1/skills/assign?skill_id=5&skill_type=default&subagent_kind=default
+```
+
+**Response:**
+```json
+{
+  "id": 1,
+  "skill_id": 5,
+  "skill_type": "default",
+  "skill_name": "merge-skill",
+  "skill_description": "Expert Git merge and conflict resolution",
+  "skill_category": "git",
+  "assigned_at": "2025-11-25T10:00:00Z"
+}
+```
+
+**Error Responses:**
+- `400` - Skill already assigned or invalid type
+- `404` - Skill or subagent not found
+- `500` - Database error
+
+### POST `/api/projects/{project_id}/subagents/{subagent_id}/skills/unassign`
+
+Remove a skill assignment from a subagent.
+
+**Query Parameters:**
+- `skill_id` (required): ID of the skill to remove
+- `skill_type` (optional): `"default"` or `"custom"`, defaults to `"default"`
+- `subagent_kind` (optional): `"default"` or `"custom"`, defaults to `"default"`
+
+**Process:**
+1. Validates assignment exists
+2. Removes record from `subagent_skills` junction table
+3. Updates subagent markdown file to remove skill instructions
+
+**Request:**
+```http
+POST /api/projects/my-project/subagents/1/skills/unassign?skill_id=5&skill_type=default&subagent_kind=default
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Skill unassigned successfully"
+}
+```
+
+**Error Responses:**
+- `400` - Skill not assigned or invalid type
+- `404` - Skill or subagent not found
+- `500` - Database error
+
+### PUT `/api/projects/{project_id}/subagents/{subagent_id}/skills`
+
+Set all skills for a subagent (replaces existing assignments).
+
+**Query Parameters:**
+- `subagent_kind` (optional): `"default"` or `"custom"`, defaults to `"default"`
+
+**Request Body:**
+```json
+{
+  "skill_ids": [5, 8, 12],
+  "skill_types": ["default", "default", "custom"]
+}
+```
+
+**Process:**
+1. Removes all existing skill assignments
+2. Creates new assignments for provided skills
+3. Updates subagent markdown file with all skill instructions
+4. Synchronizes skill files to `.claudetask/agents/{subagent}/skills/`
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "skill_id": 5,
+    "skill_type": "default",
+    "skill_name": "merge-skill",
+    "skill_description": "Expert Git merge and conflict resolution",
+    "skill_category": "git",
+    "assigned_at": "2025-11-25T10:00:00Z"
+  },
+  {
+    "id": 2,
+    "skill_id": 8,
+    "skill_type": "default",
+    "skill_name": "python-refactor",
+    "skill_description": "Clean Architecture refactoring for Python",
+    "skill_category": "refactoring",
+    "assigned_at": "2025-11-25T10:00:00Z"
+  },
+  {
+    "id": 3,
+    "skill_id": 12,
+    "skill_type": "custom",
+    "skill_name": "graphql-optimization",
+    "skill_description": "GraphQL query optimization techniques",
+    "skill_category": "performance",
+    "assigned_at": "2025-11-25T10:00:00Z"
+  }
+]
+```
+
+**Skill File Synchronization:**
+
+When skills are assigned, the system automatically:
+1. Copies skill markdown files to `.claudetask/agents/{subagent_name}/skills/`
+2. Updates agent's AGENT.md file to include skill instructions
+3. Creates skill reference section in agent markdown
+
+Example agent file structure after skill assignment:
+```
+.claudetask/agents/backend-architect/
+├── AGENT.md                    # Agent instructions with skill references
+├── skills/
+│   ├── merge-skill/
+│   │   ├── SKILL.md
+│   │   ├── docs/
+│   │   └── examples/
+│   └── python-refactor/
+│       ├── SKILL.md
+│       ├── reference/
+│       └── templates/
+```
+
+**Error Responses:**
+- `400` - Invalid skill IDs or mismatched array lengths
+- `404` - Skill or subagent not found
+- `500` - Database or file system error
+
+### Skills Assignment Workflow
+
+```
+[Select Skills in UI]
+        ↓
+PUT /subagents/{id}/skills
+        ↓
+[Clear existing assignments]
+        ↓
+[Create new assignments in DB]
+        ↓
+[Copy skill files to agent folder]
+        ↓
+[Update agent markdown with skills]
+        ↓
+[Return new assignments]
+        ↓
+    Skills active for agent
+```
+
 ## Subagent Categories
 
 Default framework subagents are organized by category:

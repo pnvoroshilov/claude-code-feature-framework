@@ -39,7 +39,119 @@ skill-name/
 
 ## Available Default Skills
 
-### 1. Architecture Patterns
+### 1. Merge Skill (NEW)
+
+**Purpose**: Comprehensive Git branch merging strategies and conflict resolution
+
+**Location**: `framework-assets/claude-skills/merge-skill/`
+
+**Content**:
+- Branch merging strategies (fast-forward, 3-way merge, rebase, squash)
+- Pre-merge validation checklist
+- Conflict detection and markers analysis
+- Manual conflict resolution techniques
+- Tool-assisted resolution (mergetool, diff3)
+- Complex scenarios (renamed files, binary conflicts, submodules)
+- Large refactoring merge strategies
+- Recovery techniques (abort, revert, cherry-pick)
+- Best practices for team collaboration
+
+**Documentation Structure**:
+- `docs/best-practices.md` - Professional merge workflows
+- `docs/merge-strategies.md` - Different merge approaches
+- `docs/conflict-resolution.md` - Resolving conflicts step-by-step
+- `docs/complex-scenarios.md` - Advanced merge situations
+- `docs/recovery.md` - Undo and recovery techniques
+- `examples/simple-merge.md` - Basic merge workflows
+- `examples/text-conflicts.md` - Text conflict resolution examples
+
+**When to use**:
+- Merging feature branches into main
+- Resolving merge conflicts
+- Handling complex merge scenarios
+- Planning large-scale merges
+- Teaching Git merge best practices
+
+### 2. Python Refactor Skill (NEW)
+
+**Purpose**: Expert Python refactoring using Clean Architecture, DDD, and SOLID principles
+
+**Location**: `framework-assets/claude-skills/python-refactor/`
+
+**Content**:
+- Legacy code analysis and refactoring opportunities
+- Clean Architecture implementation for Python
+- Domain-Driven Design patterns (Entities, Value Objects, Aggregates)
+- Repository pattern for data access abstraction
+- Dependency injection (framework-agnostic with Dishka)
+- SOLID principles applied to Python code
+- Strangler Fig pattern for incremental migration
+- Testing strategy (unit, integration, E2E)
+- FastAPI integration with clean architecture
+- SQLAlchemy isolation in Infrastructure layer
+
+**Documentation Structure**:
+- `reference/clean-architecture.md` - Layered architecture guide
+- `reference/domain-modeling.md` - DDD entities and value objects
+- `reference/repository-pattern.md` - Data access abstraction
+- `reference/dependency-injection.md` - DI patterns in Python
+- `reference/strangler-fig.md` - Incremental refactoring strategy
+- `examples/fastapi-clean-arch.md` - FastAPI clean architecture example
+- `examples/legacy-refactoring.md` - Step-by-step legacy code refactoring
+- `templates/entity-template.py` - Domain entity template
+- `templates/repository-template.py` - Repository implementation template
+- `templates/use-case-template.py` - Use case/service layer template
+
+**When to use**:
+- Refactoring legacy Python code
+- Implementing clean architecture in Python
+- Applying DDD patterns
+- Isolating database logic from business logic
+- Setting up dependency injection
+- Migrating monoliths incrementally
+- Structuring FastAPI applications
+
+### 3. React Refactor Skill (NEW)
+
+**Purpose**: Expert React refactoring using Clean Architecture and modern hooks
+
+**Location**: `framework-assets/claude-skills/react-refactor/`
+
+**Content**:
+- Legacy React component analysis
+- Clean Architecture for React applications
+- Component pattern migration (HOC/Render Props to Hooks)
+- State management refactoring (Context, Redux, Zustand, Jotai)
+- Performance optimization (memo, useMemo, useCallback, virtualization)
+- TypeScript integration with React
+- Class to functional component conversion
+- Testing strategy with React Testing Library and Jest
+- Design system and component library patterns
+- Next.js clean architecture
+
+**Documentation Structure**:
+- `reference/clean-architecture.md` - React layered architecture
+- `reference/component-patterns.md` - Modern component patterns
+- `reference/state-management.md` - State management solutions
+- `reference/performance.md` - Performance optimization techniques
+- `reference/testing-patterns.md` - RTL and Jest patterns
+- `examples/nextjs-clean-arch.md` - Next.js clean architecture example
+- `examples/legacy-migration.md` - Class to functional migration
+- `templates/component-template.tsx` - Component structure template
+- `templates/hook-template.tsx` - Custom hook template
+- `templates/context-template.tsx` - Context provider template
+
+**When to use**:
+- Refactoring legacy React code
+- Converting class components to functional
+- Implementing clean architecture in React
+- Fixing prop drilling issues
+- Optimizing React performance
+- Adding TypeScript to React projects
+- Structuring Next.js applications
+- Creating design systems
+
+### 4. Architecture Patterns
 
 **Purpose**: Comprehensive software architecture guidance
 
@@ -61,7 +173,7 @@ skill-name/
 - Code review for architectural quality
 - Teaching architectural concepts
 
-### 2. Requirements Analysis
+### 5. Requirements Analysis
 
 **Purpose**: Business requirements gathering and documentation
 
@@ -79,7 +191,7 @@ skill-name/
 - Gathering requirements from stakeholders
 - Creating comprehensive requirements documentation
 
-### 3. Technical Design
+### 6. Technical Design
 
 **Purpose**: Technical specification and architecture documentation
 
@@ -97,7 +209,7 @@ skill-name/
 - Designing system components
 - Planning implementation approach
 
-### 4. TOON Format
+### 7. TOON Format
 
 **Purpose**: Token-efficient data serialization
 
@@ -114,7 +226,7 @@ skill-name/
 - Optimizing token usage
 - Storing structured data compactly
 
-### 5. UseCase Writer
+### 8. UseCase Writer
 
 **Purpose**: Professional use case documentation
 
@@ -131,7 +243,7 @@ skill-name/
 - Requirements engineering
 - System behavior specification
 
-### 6. API Development
+### 9. API Development
 
 **Purpose**: RESTful API design and implementation
 
@@ -150,7 +262,7 @@ skill-name/
 - Designing API architecture
 - API documentation
 
-### 7. API Integration
+### 10. API Integration
 
 **Purpose**: Third-party API integration patterns
 
@@ -168,7 +280,7 @@ skill-name/
 - Building API clients
 - Handling API errors
 
-### 8. UI Component Development
+### 11. UI Component Development
 
 **Purpose**: React component development patterns
 
@@ -187,7 +299,7 @@ skill-name/
 - UI/UX implementation
 - Frontend architecture
 
-### 9. Code Review
+### 12. Code Review
 
 **Purpose**: Comprehensive code review guidelines
 
@@ -205,7 +317,7 @@ skill-name/
 - Code quality assessment
 - Mentoring developers
 
-### 10. Database Migration
+### 13. Database Migration
 
 **Purpose**: Database schema evolution
 
@@ -223,7 +335,7 @@ skill-name/
 - Evolving database schema
 - Data migration tasks
 
-### 11. Debug Helper
+### 14. Debug Helper
 
 **Purpose**: Debugging strategies and tools
 
@@ -241,7 +353,7 @@ skill-name/
 - Performance issues
 - System behavior analysis
 
-### 12. Deployment Helper
+### 15. Deployment Helper
 
 **Purpose**: Deployment and DevOps guidance
 
@@ -259,7 +371,7 @@ skill-name/
 - CI/CD configuration
 - Production environment setup
 
-### 13. Documentation Writer
+### 16. Documentation Writer
 
 **Purpose**: Technical documentation creation
 
@@ -277,7 +389,7 @@ skill-name/
 - Creating API docs
 - User guide creation
 
-### 14. Git Workflow
+### 17. Git Workflow
 
 **Purpose**: Git version control patterns
 
@@ -295,7 +407,7 @@ skill-name/
 - Resolving conflicts
 - Branch management
 
-### 15. Refactoring
+### 18. Refactoring
 
 **Purpose**: Code refactoring strategies
 
@@ -313,7 +425,7 @@ skill-name/
 - Reducing technical debt
 - Code cleanup
 
-### 16. Test Runner
+### 19. Test Runner
 
 **Purpose**: Testing strategies and execution
 
@@ -589,7 +701,7 @@ VALUES ('my-skill', 'My new skill', 'development', 'framework-assets/claude-conf
 
 ---
 
-**Last Updated**: 2025-11-21
-**Version**: 1.0.0
-**Total Default Skills**: 16
+**Last Updated**: 2025-11-25
+**Version**: 2.0.0
+**Total Default Skills**: 19
 **Total Categories**: 5

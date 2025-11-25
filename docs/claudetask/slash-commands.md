@@ -12,7 +12,11 @@ Slash commands provide quick access to workflow automation features. They trigge
 - **Analysis Commands**: Generate requirements and architecture documentation
 - **Testing Commands**: Setup and manage test environments
 - **Review Commands**: Create PRs and manage code reviews
-- **Utility Commands**: Manage hooks, skills, and documentation
+- **Git Commands**: Version control and commit/push operations (NEW)
+- **Documentation Commands**: Automated documentation updates
+- **Skill Commands**: Manage Claude Code skills
+- **Hook Commands**: Configure automated workflow hooks
+- **Utility Commands**: General utilities and helpers
 
 ---
 
@@ -310,6 +314,92 @@ Worktree kept at: worktrees/task-42
 **Related Documentation**:
 - [Intelligent Workflow](../architecture/intelligent-workflow.md#phase-7-merge-and-completion)
 - [Resource Cleanup](../architecture/intelligent-workflow.md#72-cleanup-process)
+
+---
+
+## Git Commands
+
+### `/git-push`
+
+**Purpose**: Commit all changes and push to origin remote
+**Category**: Version Control
+**Allowed Tools**: Bash, Read, Glob, Grep
+
+**What it does**:
+1. Checks current git status and recent commit style
+2. Stages all modified and untracked files (`git add -A`)
+3. Analyzes changes to generate appropriate commit message
+4. Creates commit with conventional format (feat/fix/docs/etc)
+5. Pushes changes to origin remote
+6. Verifies successful push
+
+**Prerequisites**:
+- Git repository initialized
+- Remote named `origin` configured
+- User has push permissions to remote
+
+**Example Usage**:
+```
+/git-push
+```
+
+**Expected Output**:
+```
+Analyzing changes...
+📋 Modified files: 3
+📄 New files: 1
+
+Creating commit...
+✅ Changes committed and pushed!
+
+📝 Commit: a1b2c3d
+📌 Message: feat: Add Sessions page with unified tab interface
+🌿 Branch: main
+📁 Files changed: 4
+🚀 Pushed to: origin/main
+```
+
+**Commit Message Format**:
+The command automatically generates conventional commit messages:
+- `feat:` - New feature or functionality
+- `fix:` - Bug fix
+- `docs:` - Documentation only
+- `style:` - Formatting, no code change
+- `refactor:` - Code restructuring
+- `test:` - Adding tests
+- `chore:` - Maintenance tasks
+
+**Security Checks**:
+Before committing, the command verifies:
+- No secrets or credentials in changes (.env, API keys, passwords)
+- No sensitive files being committed
+- .gitignore is properly configured
+
+If sensitive files are detected, **commit is aborted** and user is alerted.
+
+**Error Handling**:
+
+**No changes to commit**:
+```
+ℹ️ No changes to commit. Working tree is clean.
+```
+
+**Remote has new commits (push rejected)**:
+```bash
+# Automatically attempts rebase and retry:
+git pull --rebase origin <branch>
+git push
+```
+
+**Permission denied**:
+```
+❌ Push failed: Permission denied
+Please check repository access and authentication.
+```
+
+**Related Documentation**:
+- [Git Workflow Command](../../framework-assets/claude-commands/git-push.md)
+- [Git Best Practices](../skills/git-workflow.md)
 
 ---
 
