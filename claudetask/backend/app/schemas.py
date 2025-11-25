@@ -22,8 +22,7 @@ class TaskStatus(str, Enum):
     ANALYSIS = "Analysis"
     IN_PROGRESS = "In Progress"
     TESTING = "Testing"
-    CODE_REVIEW = "Code Review"
-    PR = "PR"  # Pull Request created, awaiting manual review
+    CODE_REVIEW = "Code Review"  # Code Review + PR creation (combined)
     DONE = "Done"
     BLOCKED = "Blocked"
 
@@ -267,8 +266,8 @@ class SkillInDB(SkillBase):
     is_favorite: bool = False  # Mark as favorite (shows in Favorites tab)
     status: Optional[str] = None  # For custom skills: "creating", "active", "failed"
     created_by: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
