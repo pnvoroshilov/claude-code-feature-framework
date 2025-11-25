@@ -976,7 +976,7 @@ const TaskBoard: React.FC = () => {
           {statusColumns.map((column) => {
             const columnTasks = getTasksByStatus(column.status);
             return (
-              <Grid item xs={12} sm={6} md={4} lg={project?.project_mode === 'simple' ? 4 : 1.71} key={column.status}>
+              <Grid item xs={12} sm={6} md={4} lg={project?.project_mode === 'simple' ? 4 : 2} key={column.status}>
                 <Paper
                   sx={{
                     minHeight: '500px',
