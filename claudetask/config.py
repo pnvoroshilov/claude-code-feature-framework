@@ -69,13 +69,27 @@ class ClaudeTaskConfig:
         return f"sqlite:///{self.sqlite_db_path}"
 
     # =================================================================
-    # RAG / CHROMADB PATHS
+    # RAG / CHROMADB PATHS (CENTRALIZED FOR ALL PROJECTS)
     # =================================================================
 
     @property
+    def framework_root(self) -> Path:
+        """
+        Framework root directory (where ClaudeTask is installed).
+        This is ALWAYS the same regardless of which project is active.
+        Used for centralized storage like ChromaDB.
+        """
+        # This file is at: {framework_root}/claudetask/config.py
+        return Path(__file__).parent.parent.resolve()
+
+    @property
     def chromadb_dir(self) -> Path:
-        """ChromaDB directory for vector embeddings"""
-        return self.data_dir / "chromadb"
+        """
+        ChromaDB directory for vector embeddings.
+        CENTRALIZED: Always in framework's .claude/data/chromadb folder.
+        This ensures all projects share the same vector database.
+        """
+        return self.framework_root / ".claude" / "data" / "chromadb"
 
     @property
     def rag_index_metadata_path(self) -> Path:
