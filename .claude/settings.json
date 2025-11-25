@@ -58,6 +58,42 @@
             "command": "\"/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/.claude/hooks/post-push-docs.sh\""
           }
         ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/.claude/hooks/memory-file-edit-capture.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/.claude/hooks/memory-file-edit-capture.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/.claude/hooks/memory-file-edit-capture.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "Update",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/.claude/hooks/memory-file-edit-capture.sh\""
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [

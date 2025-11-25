@@ -1,0 +1,54 @@
+{
+  "name": "Memory File Edit Capture",
+  "description": "Automatically captures file edit operations (Edit, Write, MultiEdit, Update) to project memory",
+  "category": "memory",
+  "hook_config": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/memory-file-edit-capture.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/memory-file-edit-capture.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/memory-file-edit-capture.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Update",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/memory-file-edit-capture.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "required_files": [
+    {
+      "source": "framework-assets/claude-hooks/memory-file-edit-capture.sh",
+      "destination": ".claude/hooks/memory-file-edit-capture.sh",
+      "executable": true
+    }
+  ],
+  "setup_instructions": "This hook captures file edit operations via bash script that calls the backend API. Requires ClaudeTask backend running and project_id configured in .mcp.json.",
+  "dependencies": ["claudetask-backend"]
+}
