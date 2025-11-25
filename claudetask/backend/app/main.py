@@ -1985,6 +1985,8 @@ async def update_project_summary(
     try:
         trigger = update_data["trigger"]
         new_insights = update_data["new_insights"]
+        # Optional: update last_summarized_message_id if provided
+        last_message_id = update_data.get("last_summarized_message_id")
 
         # Get current summary
         query = text("SELECT summary FROM project_summaries WHERE project_id = :project_id")
@@ -2002,30 +2004,55 @@ async def update_project_summary(
             if len(updated_summary) > 15000:
                 updated_summary = updated_summary[-15000:]
 
-            update_query = text("""
-                UPDATE project_summaries
-                SET summary = :summary, last_updated = :last_updated, version = version + 1
-                WHERE project_id = :project_id
-            """)
-
-            await db.execute(update_query, {
-                "project_id": project_id,
-                "summary": updated_summary,
-                "last_updated": datetime.utcnow()
-            })
+            if last_message_id:
+                update_query = text("""
+                    UPDATE project_summaries
+                    SET summary = :summary, last_updated = :last_updated, version = version + 1,
+                        last_summarized_message_id = :last_message_id
+                    WHERE project_id = :project_id
+                """)
+                await db.execute(update_query, {
+                    "project_id": project_id,
+                    "summary": updated_summary,
+                    "last_updated": datetime.utcnow(),
+                    "last_message_id": last_message_id
+                })
+            else:
+                update_query = text("""
+                    UPDATE project_summaries
+                    SET summary = :summary, last_updated = :last_updated, version = version + 1
+                    WHERE project_id = :project_id
+                """)
+                await db.execute(update_query, {
+                    "project_id": project_id,
+                    "summary": updated_summary,
+                    "last_updated": datetime.utcnow()
+                })
         else:
             # Create new summary
-            insert_query = text("""
-                INSERT INTO project_summaries
-                (project_id, summary, key_decisions, tech_stack, patterns, gotchas, last_updated)
-                VALUES (:project_id, :summary, '[]', '[]', '[]', '[]', :last_updated)
-            """)
-
-            await db.execute(insert_query, {
-                "project_id": project_id,
-                "summary": new_insights,
-                "last_updated": datetime.utcnow()
-            })
+            if last_message_id:
+                insert_query = text("""
+                    INSERT INTO project_summaries
+                    (project_id, summary, key_decisions, tech_stack, patterns, gotchas, last_updated, last_summarized_message_id)
+                    VALUES (:project_id, :summary, '[]', '[]', '[]', '[]', :last_updated, :last_message_id)
+                """)
+                await db.execute(insert_query, {
+                    "project_id": project_id,
+                    "summary": new_insights,
+                    "last_updated": datetime.utcnow(),
+                    "last_message_id": last_message_id
+                })
+            else:
+                insert_query = text("""
+                    INSERT INTO project_summaries
+                    (project_id, summary, key_decisions, tech_stack, patterns, gotchas, last_updated)
+                    VALUES (:project_id, :summary, '[]', '[]', '[]', '[]', :last_updated)
+                """)
+                await db.execute(insert_query, {
+                    "project_id": project_id,
+                    "summary": new_insights,
+                    "last_updated": datetime.utcnow()
+                })
 
         await db.commit()
         return {"status": "updated", "trigger": trigger}
@@ -2079,6 +2106,64 @@ async def get_memory_stats(
     except Exception as e:
         logger.error(f"Failed to get memory stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/projects/{project_id}/memory/should-summarize")
+async def should_summarize(
+    project_id: str,
+    threshold: int = 50,
+    db: AsyncSession = Depends(get_db)
+):
+    """Check if project needs summarization (messages since last summary >= threshold)"""
+    from sqlalchemy import text
+
+    try:
+        # Get last summarized message id from project_summaries
+        summary_query = text("""
+            SELECT last_summarized_message_id, last_updated
+            FROM project_summaries
+            WHERE project_id = :project_id
+        """)
+        summary_result = await db.execute(summary_query, {"project_id": project_id})
+        summary_row = summary_result.first()
+
+        last_summarized_id = summary_row.last_summarized_message_id if summary_row and summary_row.last_summarized_message_id else 0
+
+        # Count messages since last summarization
+        if last_summarized_id > 0:
+            count_query = text("""
+                SELECT COUNT(*) as count
+                FROM conversation_memory
+                WHERE project_id = :project_id AND id > :last_id
+            """)
+            result = await db.execute(count_query, {"project_id": project_id, "last_id": last_summarized_id})
+        else:
+            count_query = text("""
+                SELECT COUNT(*) as count
+                FROM conversation_memory
+                WHERE project_id = :project_id
+            """)
+            result = await db.execute(count_query, {"project_id": project_id})
+
+        messages_since = result.first().count
+        should_run = messages_since >= threshold
+
+        return {
+            "should_summarize": should_run,
+            "messages_since_last_summary": messages_since,
+            "threshold": threshold,
+            "last_summarized_message_id": last_summarized_id
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to check summarization status: {e}")
+        # On error, don't block - return false
+        return {
+            "should_summarize": False,
+            "messages_since_last_summary": 0,
+            "threshold": threshold,
+            "error": str(e)
+        }
 
 
 @app.post("/api/projects/{project_id}/memory/rebuild-index")
