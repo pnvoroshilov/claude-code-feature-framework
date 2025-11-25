@@ -41,12 +41,25 @@ import BuildIcon from '@mui/icons-material/Build';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CategoryIcon from '@mui/icons-material/Category';
 import CloseIcon from '@mui/icons-material/Close';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import SettingsIcon from '@mui/icons-material/Settings';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import axios from 'axios';
 import { useProject } from '../context/ProjectContext';
 import CodeEditorDialog from '../components/CodeEditorDialog';
 
 // Remove /api suffix if present, since we add it manually in request paths
 const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:3333').replace(/\/api$/, '');
+
+interface SubagentSkillAssignment {
+  skill_id: number;
+  skill_type: 'default' | 'custom';
+  skill_name: string;
+  skill_description: string;
+  skill_category: string;
+  assigned_at: string;
+}
 
 interface Subagent {
   id: number;
@@ -61,8 +74,19 @@ interface Subagent {
   is_favorite?: boolean;
   status?: string;
   created_by?: string;
+  assigned_skills?: SubagentSkillAssignment[];
   created_at: string;
   updated_at: string;
+}
+
+interface Skill {
+  id: number;
+  name: string;
+  description: string;
+  category: string;
+  skill_type: string;
+  is_enabled: boolean;
+  is_favorite: boolean;
 }
 
 interface SubagentsResponse {
@@ -95,6 +119,12 @@ const Subagents: React.FC = () => {
   const [newSubagentName, setNewSubagentName] = useState('');
   const [newSubagentDescription, setNewSubagentDescription] = useState('');
   const [creating, setCreating] = useState(false);
+  const [skillsDialogOpen, setSkillsDialogOpen] = useState(false);
+  const [skillsDialogSubagent, setSkillsDialogSubagent] = useState<Subagent | null>(null);
+  const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
+  const [selectedSkillIds, setSelectedSkillIds] = useState<Set<string>>(new Set());
+  const [loadingSkills, setLoadingSkills] = useState(false);
+  const [savingSkills, setSavingSkills] = useState(false);
 
   // Categories for subagents
   const categories = [
@@ -272,6 +302,81 @@ const Subagents: React.FC = () => {
   const handleViewSubagent = (subagent: Subagent) => {
     setSelectedSubagent(subagent);
     setViewSubagentDialogOpen(true);
+  };
+
+  const handleOpenSkillsDialog = async (subagent: Subagent) => {
+    if (!selectedProject?.id) return;
+
+    setSkillsDialogSubagent(subagent);
+    setLoadingSkills(true);
+    setSkillsDialogOpen(true);
+
+    try {
+      // Fetch available skills from the project
+      const response = await axios.get<{
+        enabled: Skill[];
+        available_default: Skill[];
+        custom: Skill[];
+      }>(`${API_BASE_URL}/api/projects/${selectedProject.id}/skills/`);
+
+      // Combine all skills
+      const allSkills = [...response.data.available_default, ...response.data.custom];
+      setAvailableSkills(allSkills);
+
+      // Pre-select currently assigned skills
+      const assignedIds = new Set<string>(
+        (subagent.assigned_skills || []).map(s => `${s.skill_type}:${s.skill_id}`)
+      );
+      setSelectedSkillIds(assignedIds);
+    } catch (err: any) {
+      setError('Failed to fetch skills: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setLoadingSkills(false);
+    }
+  };
+
+  const handleToggleSkill = (skillId: number, skillType: string) => {
+    const key = `${skillType}:${skillId}`;
+    setSelectedSkillIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(key)) {
+        newSet.delete(key);
+      } else {
+        newSet.add(key);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSaveSkills = async () => {
+    if (!selectedProject?.id || !skillsDialogSubagent) return;
+
+    setSavingSkills(true);
+    try {
+      // Convert selected skills to arrays
+      const skillIds: number[] = [];
+      const skillTypes: string[] = [];
+
+      selectedSkillIds.forEach(key => {
+        const [type, id] = key.split(':');
+        skillTypes.push(type);
+        skillIds.push(parseInt(id, 10));
+      });
+
+      // Call API to set skills
+      await axios.put(
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/subagents/${skillsDialogSubagent.id}/skills?subagent_kind=${skillsDialogSubagent.subagent_kind}`,
+        { skill_ids: skillIds, skill_types: skillTypes }
+      );
+
+      // Refresh subagents to get updated skills
+      await fetchSubagents();
+      setSkillsDialogOpen(false);
+    } catch (err: any) {
+      setError('Failed to save skills: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setSavingSkills(false);
+    }
   };
 
   // Filter subagents based on active filter and search query
@@ -484,6 +589,20 @@ const Subagents: React.FC = () => {
                 </IconButton>
               </Tooltip>
             )}
+            <Tooltip title="Manage skills">
+              <IconButton
+                size="small"
+                onClick={() => handleOpenSkillsDialog(subagent)}
+                sx={{
+                  color: theme.palette.secondary.main,
+                  '&:hover': {
+                    background: alpha(theme.palette.secondary.main, 0.1),
+                  },
+                }}
+              >
+                <AutoFixHighIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
             <Tooltip title="Edit agent code">
               <IconButton
                 size="small"
@@ -586,6 +705,42 @@ const Subagents: React.FC = () => {
                       height: 20,
                       fontSize: '0.65rem',
                       borderColor: alpha(theme.palette.text.secondary, 0.2),
+                    }}
+                  />
+                )}
+              </Stack>
+            </Box>
+          )}
+          {/* Assigned Skills */}
+          {subagent.assigned_skills && subagent.assigned_skills.length > 0 && (
+            <Box>
+              <Typography variant="caption" color="text.secondary" display="block" mb={0.5}>
+                <AutoFixHighIcon sx={{ fontSize: 14, mr: 0.5, verticalAlign: 'middle' }} />
+                Skills ({subagent.assigned_skills.length}):
+              </Typography>
+              <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                {subagent.assigned_skills.slice(0, 3).map((skill) => (
+                  <Chip
+                    key={`${skill.skill_type}:${skill.skill_id}`}
+                    label={skill.skill_name}
+                    size="small"
+                    sx={{
+                      height: 20,
+                      fontSize: '0.65rem',
+                      background: `linear-gradient(135deg, ${alpha(theme.palette.secondary.main, 0.15)}, ${alpha(theme.palette.secondary.main, 0.05)})`,
+                      border: `1px solid ${alpha(theme.palette.secondary.main, 0.2)}`,
+                      color: theme.palette.secondary.main,
+                    }}
+                  />
+                ))}
+                {subagent.assigned_skills.length > 3 && (
+                  <Chip
+                    label={`+${subagent.assigned_skills.length - 3} more`}
+                    size="small"
+                    sx={{
+                      height: 20,
+                      fontSize: '0.65rem',
+                      background: alpha(theme.palette.text.secondary, 0.1),
                     }}
                   />
                 )}
@@ -1094,6 +1249,29 @@ const Subagents: React.FC = () => {
                 </Box>
               )}
 
+              {/* Assigned Skills */}
+              {selectedSubagent.assigned_skills && selectedSubagent.assigned_skills.length > 0 && (
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    <AutoFixHighIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />
+                    Assigned Skills ({selectedSubagent.assigned_skills.length})
+                  </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    {selectedSubagent.assigned_skills.map((skill) => (
+                      <Chip
+                        key={`${skill.skill_type}:${skill.skill_id}`}
+                        label={skill.skill_name}
+                        size="small"
+                        color="secondary"
+                        sx={{
+                          background: `linear-gradient(135deg, ${alpha(theme.palette.secondary.main, 0.2)}, ${alpha(theme.palette.secondary.main, 0.1)})`,
+                        }}
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+
               {/* Metadata */}
               <Box>
                 <Typography variant="caption" color="text.secondary" display="block">
@@ -1130,6 +1308,178 @@ const Subagents: React.FC = () => {
           }}
         />
       )}
+
+      {/* Manage Skills Dialog */}
+      <Dialog
+        open={skillsDialogOpen}
+        onClose={() => setSkillsDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            background: theme.palette.background.paper,
+          },
+        }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Typography variant="h5" fontWeight={600}>
+            Manage Skills
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {skillsDialogSubagent?.name && `Select skills for ${skillsDialogSubagent.name}`}
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          {loadingSkills ? (
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+              <CircularProgress size={48} />
+            </Box>
+          ) : (
+            <Stack spacing={2} mt={2}>
+              <Alert
+                severity="info"
+                icon={<AutoFixHighIcon />}
+                sx={{
+                  borderRadius: 2,
+                  '& .MuiAlert-message': {
+                    fontSize: '0.875rem',
+                  },
+                }}
+              >
+                Skills extend agent capabilities. Selected skills will be available to this agent during task execution.
+              </Alert>
+
+              <Typography variant="subtitle2" color="text.secondary">
+                Available Skills ({availableSkills.length})
+              </Typography>
+
+              <Box
+                sx={{
+                  maxHeight: 400,
+                  overflowY: 'auto',
+                  pr: 1,
+                }}
+              >
+                <Grid container spacing={2}>
+                  {availableSkills.map((skill) => {
+                    const isSelected = selectedSkillIds.has(`${skill.skill_type}:${skill.id}`);
+                    return (
+                      <Grid item xs={12} sm={6} key={`${skill.skill_type}:${skill.id}`}>
+                        <Paper
+                          onClick={() => handleToggleSkill(skill.id, skill.skill_type)}
+                          sx={{
+                            p: 2,
+                            cursor: 'pointer',
+                            borderRadius: 2,
+                            border: `1px solid ${
+                              isSelected
+                                ? theme.palette.primary.main
+                                : alpha(theme.palette.divider, 0.2)
+                            }`,
+                            background: isSelected
+                              ? `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)}, ${alpha(theme.palette.primary.main, 0.05)})`
+                              : 'transparent',
+                            transition: 'all 0.2s ease',
+                            '&:hover': {
+                              borderColor: theme.palette.primary.main,
+                              transform: 'translateY(-2px)',
+                              boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.15)}`,
+                            },
+                          }}
+                        >
+                          <Stack direction="row" spacing={1.5} alignItems="start">
+                            {isSelected ? (
+                              <CheckBoxIcon sx={{ color: theme.palette.primary.main }} />
+                            ) : (
+                              <CheckBoxOutlineBlankIcon sx={{ color: theme.palette.text.secondary }} />
+                            )}
+                            <Box flexGrow={1}>
+                              <Typography variant="subtitle2" fontWeight={600}>
+                                {skill.name}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{
+                                  display: '-webkit-box',
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: 'vertical',
+                                  overflow: 'hidden',
+                                }}
+                              >
+                                {skill.description}
+                              </Typography>
+                              <Stack direction="row" spacing={0.5} mt={1}>
+                                <Chip
+                                  label={skill.category}
+                                  size="small"
+                                  sx={{
+                                    height: 20,
+                                    fontSize: '0.65rem',
+                                  }}
+                                />
+                                <Chip
+                                  label={skill.skill_type}
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{
+                                    height: 20,
+                                    fontSize: '0.65rem',
+                                  }}
+                                />
+                              </Stack>
+                            </Box>
+                          </Stack>
+                        </Paper>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
+              </Box>
+
+              {availableSkills.length === 0 && (
+                <Box textAlign="center" py={4}>
+                  <AutoFixHighIcon sx={{ fontSize: 48, color: theme.palette.text.disabled, mb: 2 }} />
+                  <Typography variant="body1" color="text.secondary">
+                    No skills available. Enable some skills for this project first.
+                  </Typography>
+                </Box>
+              )}
+
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: 2,
+                  background: alpha(theme.palette.background.default, 0.5),
+                  border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                }}
+              >
+                <Typography variant="body2" fontWeight={500}>
+                  {selectedSkillIds.size} skill(s) selected
+                </Typography>
+              </Box>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={() => setSkillsDialogOpen(false)} sx={{ borderRadius: 2 }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSaveSkills}
+            variant="contained"
+            disabled={savingSkills}
+            sx={{
+              borderRadius: 2,
+              px: 3,
+              background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+            }}
+          >
+            {savingSkills ? <CircularProgress size={24} /> : 'Save Skills'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

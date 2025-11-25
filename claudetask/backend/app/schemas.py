@@ -361,6 +361,20 @@ class SubagentCreate(SubagentBase):
     tools_available: Optional[List[str]] = None
 
 
+class SubagentSkillAssignment(BaseModel):
+    """Schema for a skill assigned to a subagent"""
+    skill_id: int
+    skill_type: str  # "default" or "custom"
+    skill_name: str
+    skill_description: str
+    skill_category: str
+    skill_file_name: str  # File name/path used to derive skill command (e.g., "api-development/skill.md")
+    assigned_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class SubagentInDB(SubagentBase):
     id: int
     subagent_type: str  # The actual subagent_type used in Task tool
@@ -371,11 +385,18 @@ class SubagentInDB(SubagentBase):
     is_favorite: bool = False
     status: Optional[str] = None  # For custom subagents: "creating", "active", "failed"
     created_by: Optional[str] = None
+    assigned_skills: List[SubagentSkillAssignment] = []  # Skills assigned to this subagent
     created_at: datetime
     updated_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class SubagentSkillAssign(BaseModel):
+    """Schema for assigning skills to a subagent"""
+    skill_ids: List[int]
+    skill_types: List[str]  # Parallel array: "default" or "custom" for each skill_id
 
 
 class SubagentsResponse(BaseModel):

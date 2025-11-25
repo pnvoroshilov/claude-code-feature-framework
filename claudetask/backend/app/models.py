@@ -410,3 +410,21 @@ class ProjectHook(Base):
 
     # Relationships
     project = relationship("Project", back_populates="enabled_hooks")
+
+
+class SubagentSkill(Base):
+    """Junction table for subagent-skill many-to-many relationship"""
+    __tablename__ = "subagent_skills"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    subagent_id = Column(Integer, nullable=False)
+    subagent_type = Column(String(10), nullable=False)  # "default" or "custom"
+    skill_id = Column(Integer, nullable=False)
+    skill_type = Column(String(10), nullable=False)  # "default" or "custom"
+    assigned_at = Column(DateTime, default=datetime.utcnow)
+    assigned_by = Column(String(100), default="user")
+
+    # Unique constraint: one skill can only be assigned to one subagent once
+    __table_args__ = (
+        UniqueConstraint('subagent_id', 'subagent_type', 'skill_id', 'skill_type', name='uix_subagent_skill'),
+    )

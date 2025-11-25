@@ -8,9 +8,10 @@ from sqlalchemy import select, and_, or_
 from datetime import datetime
 
 from ..models import (
-    Project, DefaultSubagent, CustomSubagent, ProjectSubagent
+    Project, DefaultSubagent, CustomSubagent, ProjectSubagent,
+    SubagentSkill, DefaultSkill, CustomSkill
 )
-from ..schemas import SubagentInDB, SubagentCreate, SubagentsResponse
+from ..schemas import SubagentInDB, SubagentCreate, SubagentsResponse, SubagentSkillAssignment
 from .subagent_file_service import SubagentFileService
 from .subagent_creation_service import SubagentCreationService
 
@@ -61,6 +62,57 @@ class SubagentService:
         )
         custom_subagents = custom_subagents_result.scalars().all()
 
+        # Load all skill assignments for subagents (batch query for efficiency)
+        all_skill_assignments_result = await self.db.execute(
+            select(SubagentSkill)
+        )
+        all_skill_assignments = all_skill_assignments_result.scalars().all()
+
+        # Group assignments by subagent
+        skill_assignments_by_subagent = {}
+        for assignment in all_skill_assignments:
+            key = (assignment.subagent_id, assignment.subagent_type)
+            if key not in skill_assignments_by_subagent:
+                skill_assignments_by_subagent[key] = []
+            skill_assignments_by_subagent[key].append(assignment)
+
+        # Preload all skills for assignments
+        skill_details_cache = {}
+        for assignment in all_skill_assignments:
+            skill_key = (assignment.skill_id, assignment.skill_type)
+            if skill_key not in skill_details_cache:
+                if assignment.skill_type == "default":
+                    skill_result = await self.db.execute(
+                        select(DefaultSkill).where(DefaultSkill.id == assignment.skill_id)
+                    )
+                else:
+                    skill_result = await self.db.execute(
+                        select(CustomSkill).where(CustomSkill.id == assignment.skill_id)
+                    )
+                skill = skill_result.scalar_one_or_none()
+                if skill:
+                    skill_details_cache[skill_key] = skill
+
+        # Helper to build SubagentSkillAssignment list
+        def build_skill_assignments(subagent_id: int, subagent_kind: str) -> List[SubagentSkillAssignment]:
+            key = (subagent_id, subagent_kind)
+            assignments = skill_assignments_by_subagent.get(key, [])
+            result = []
+            for assignment in assignments:
+                skill_key = (assignment.skill_id, assignment.skill_type)
+                skill = skill_details_cache.get(skill_key)
+                if skill:
+                    result.append(SubagentSkillAssignment(
+                        skill_id=assignment.skill_id,
+                        skill_type=assignment.skill_type,
+                        skill_name=skill.name,
+                        skill_description=skill.description,
+                        skill_category=skill.category,
+                        skill_file_name=skill.file_name if hasattr(skill, 'file_name') else '',
+                        assigned_at=assignment.assigned_at
+                    ))
+            return result
+
         # Organize subagents
         enabled = []
         available_default = []
@@ -68,7 +120,8 @@ class SubagentService:
 
         for subagent in all_default_subagents:
             is_enabled = (subagent.id, "default") in enabled_subagent_ids
-            subagent_dto = self._to_subagent_dto(subagent, "default", is_enabled)
+            assigned_skills = build_skill_assignments(subagent.id, "default")
+            subagent_dto = self._to_subagent_dto(subagent, "default", is_enabled, assigned_skills=assigned_skills)
 
             # Always add to available_default (show all default subagents)
             available_default.append(subagent_dto)
@@ -84,7 +137,8 @@ class SubagentService:
         custom_dtos = []
         for subagent in custom_subagents:
             is_enabled = (subagent.id, "custom") in enabled_subagent_ids
-            subagent_dto = self._to_subagent_dto(subagent, "custom", is_enabled)
+            assigned_skills = build_skill_assignments(subagent.id, "custom")
+            subagent_dto = self._to_subagent_dto(subagent, "custom", is_enabled, assigned_skills=assigned_skills)
             custom_dtos.append(subagent_dto)
 
             # Add to favorites if marked as favorite
@@ -503,7 +557,7 @@ class SubagentService:
                     and_(
                         ProjectSubagent.project_id == project_id,
                         ProjectSubagent.subagent_id == subagent_id,
-                        ProjectSubagent.subagent_kind == "custom"
+                        ProjectSubagent.subagent_type == "custom"
                     )
                 )
             )
@@ -512,7 +566,7 @@ class SubagentService:
                 project_subagent = ProjectSubagent(
                     project_id=project_id,
                     subagent_id=subagent_id,
-                    subagent_kind="custom",
+                    subagent_type="custom",
                     enabled_at=datetime.utcnow(),
                     enabled_by="user"
                 )
@@ -729,12 +783,319 @@ class SubagentService:
         )
         return result.scalar_one_or_none()
 
+    # ========== Subagent Skills Methods ==========
+
+    async def get_subagent_skills(
+        self,
+        subagent_id: int,
+        subagent_kind: str
+    ) -> List[SubagentSkillAssignment]:
+        """
+        Get all skills assigned to a subagent
+
+        Args:
+            subagent_id: ID of the subagent
+            subagent_kind: Type of subagent ("default" or "custom")
+
+        Returns:
+            List of SubagentSkillAssignment with skill details
+        """
+        # Get all skill assignments for this subagent
+        result = await self.db.execute(
+            select(SubagentSkill).where(
+                and_(
+                    SubagentSkill.subagent_id == subagent_id,
+                    SubagentSkill.subagent_type == subagent_kind
+                )
+            )
+        )
+        assignments = result.scalars().all()
+
+        # Fetch skill details for each assignment
+        skill_assignments = []
+        for assignment in assignments:
+            if assignment.skill_type == "default":
+                skill_result = await self.db.execute(
+                    select(DefaultSkill).where(DefaultSkill.id == assignment.skill_id)
+                )
+            else:
+                skill_result = await self.db.execute(
+                    select(CustomSkill).where(CustomSkill.id == assignment.skill_id)
+                )
+
+            skill = skill_result.scalar_one_or_none()
+            if skill:
+                skill_assignments.append(SubagentSkillAssignment(
+                    skill_id=assignment.skill_id,
+                    skill_type=assignment.skill_type,
+                    skill_name=skill.name,
+                    skill_description=skill.description,
+                    skill_category=skill.category,
+                    skill_file_name=skill.file_name if hasattr(skill, 'file_name') else '',
+                    assigned_at=assignment.assigned_at
+                ))
+
+        return skill_assignments
+
+    async def assign_skill_to_subagent(
+        self,
+        subagent_id: int,
+        subagent_kind: str,
+        skill_id: int,
+        skill_type: str
+    ) -> SubagentSkillAssignment:
+        """
+        Assign a skill to a subagent
+
+        Args:
+            subagent_id: ID of the subagent
+            subagent_kind: Type of subagent ("default" or "custom")
+            skill_id: ID of the skill to assign
+            skill_type: Type of skill ("default" or "custom")
+
+        Returns:
+            SubagentSkillAssignment with skill details
+        """
+        # Validate subagent exists
+        if subagent_kind == "default":
+            subagent_result = await self.db.execute(
+                select(DefaultSubagent).where(DefaultSubagent.id == subagent_id)
+            )
+        else:
+            subagent_result = await self.db.execute(
+                select(CustomSubagent).where(CustomSubagent.id == subagent_id)
+            )
+
+        subagent = subagent_result.scalar_one_or_none()
+        if not subagent:
+            raise ValueError(f"Subagent {subagent_id} ({subagent_kind}) not found")
+
+        # Validate skill exists
+        if skill_type == "default":
+            skill_result = await self.db.execute(
+                select(DefaultSkill).where(DefaultSkill.id == skill_id)
+            )
+        else:
+            skill_result = await self.db.execute(
+                select(CustomSkill).where(CustomSkill.id == skill_id)
+            )
+
+        skill = skill_result.scalar_one_or_none()
+        if not skill:
+            raise ValueError(f"Skill {skill_id} ({skill_type}) not found")
+
+        # Check if already assigned
+        existing = await self.db.execute(
+            select(SubagentSkill).where(
+                and_(
+                    SubagentSkill.subagent_id == subagent_id,
+                    SubagentSkill.subagent_type == subagent_kind,
+                    SubagentSkill.skill_id == skill_id,
+                    SubagentSkill.skill_type == skill_type
+                )
+            )
+        )
+        if existing.scalar_one_or_none():
+            raise ValueError(f"Skill '{skill.name}' is already assigned to this subagent")
+
+        # Create assignment
+        assignment = SubagentSkill(
+            subagent_id=subagent_id,
+            subagent_type=subagent_kind,
+            skill_id=skill_id,
+            skill_type=skill_type,
+            assigned_at=datetime.utcnow(),
+            assigned_by="user"
+        )
+        self.db.add(assignment)
+        await self.db.commit()
+
+        logger.info(f"Assigned skill '{skill.name}' to subagent '{subagent.name}'")
+
+        return SubagentSkillAssignment(
+            skill_id=skill_id,
+            skill_type=skill_type,
+            skill_name=skill.name,
+            skill_description=skill.description,
+            skill_category=skill.category,
+            skill_file_name=skill.file_name if hasattr(skill, 'file_name') else '',
+            assigned_at=assignment.assigned_at
+        )
+
+    async def unassign_skill_from_subagent(
+        self,
+        subagent_id: int,
+        subagent_kind: str,
+        skill_id: int,
+        skill_type: str
+    ) -> None:
+        """
+        Remove a skill assignment from a subagent
+
+        Args:
+            subagent_id: ID of the subagent
+            subagent_kind: Type of subagent ("default" or "custom")
+            skill_id: ID of the skill to remove
+            skill_type: Type of skill ("default" or "custom")
+        """
+        # Find assignment
+        result = await self.db.execute(
+            select(SubagentSkill).where(
+                and_(
+                    SubagentSkill.subagent_id == subagent_id,
+                    SubagentSkill.subagent_type == subagent_kind,
+                    SubagentSkill.skill_id == skill_id,
+                    SubagentSkill.skill_type == skill_type
+                )
+            )
+        )
+        assignment = result.scalar_one_or_none()
+
+        if not assignment:
+            raise ValueError(f"Skill assignment not found")
+
+        await self.db.delete(assignment)
+        await self.db.commit()
+
+        logger.info(f"Removed skill {skill_id} from subagent {subagent_id}")
+
+    async def set_subagent_skills(
+        self,
+        project_id: str,
+        subagent_id: int,
+        subagent_kind: str,
+        skill_ids: List[int],
+        skill_types: List[str]
+    ) -> List[SubagentSkillAssignment]:
+        """
+        Set skills for a subagent (replaces all existing assignments)
+        Also updates the agent's markdown file with skill instructions.
+
+        Args:
+            project_id: ID of the project
+            subagent_id: ID of the subagent
+            subagent_kind: Type of subagent ("default" or "custom")
+            skill_ids: List of skill IDs to assign
+            skill_types: Parallel list of skill types ("default" or "custom")
+
+        Returns:
+            List of new SubagentSkillAssignment
+        """
+        if len(skill_ids) != len(skill_types):
+            raise ValueError("skill_ids and skill_types must have the same length")
+
+        # Get project for path
+        project = await self._get_project(project_id)
+        if not project:
+            raise ValueError(f"Project {project_id} not found")
+
+        # Validate subagent exists
+        if subagent_kind == "default":
+            subagent_result = await self.db.execute(
+                select(DefaultSubagent).where(DefaultSubagent.id == subagent_id)
+            )
+        else:
+            subagent_result = await self.db.execute(
+                select(CustomSubagent).where(CustomSubagent.id == subagent_id)
+            )
+
+        subagent = subagent_result.scalar_one_or_none()
+        if not subagent:
+            raise ValueError(f"Subagent {subagent_id} ({subagent_kind}) not found")
+
+        # Delete all existing assignments
+        existing_result = await self.db.execute(
+            select(SubagentSkill).where(
+                and_(
+                    SubagentSkill.subagent_id == subagent_id,
+                    SubagentSkill.subagent_type == subagent_kind
+                )
+            )
+        )
+        existing_assignments = existing_result.scalars().all()
+        for existing in existing_assignments:
+            await self.db.delete(existing)
+
+        # Flush deletions before creating new records
+        await self.db.flush()
+
+        # Create new assignments
+        new_assignments = []
+        for skill_id, skill_type in zip(skill_ids, skill_types):
+            # Validate skill exists
+            if skill_type == "default":
+                skill_result = await self.db.execute(
+                    select(DefaultSkill).where(DefaultSkill.id == skill_id)
+                )
+            else:
+                skill_result = await self.db.execute(
+                    select(CustomSkill).where(CustomSkill.id == skill_id)
+                )
+
+            skill = skill_result.scalar_one_or_none()
+            if not skill:
+                logger.warning(f"Skill {skill_id} ({skill_type}) not found, skipping")
+                continue
+
+            assignment = SubagentSkill(
+                subagent_id=subagent_id,
+                subagent_type=subagent_kind,
+                skill_id=skill_id,
+                skill_type=skill_type,
+                assigned_at=datetime.utcnow(),
+                assigned_by="user"
+            )
+            self.db.add(assignment)
+
+            new_assignments.append(SubagentSkillAssignment(
+                skill_id=skill_id,
+                skill_type=skill_type,
+                skill_name=skill.name,
+                skill_description=skill.description,
+                skill_category=skill.category,
+                skill_file_name=skill.file_name if hasattr(skill, 'file_name') else '',
+                assigned_at=assignment.assigned_at
+            ))
+
+        await self.db.commit()
+
+        logger.info(f"Set {len(new_assignments)} skills for subagent '{subagent.name}'")
+
+        # Update agent file with skills instructions
+        if new_assignments:
+            skills_data = [
+                {
+                    'name': s.skill_name,
+                    'description': s.skill_description,
+                    'category': s.skill_category,
+                    'file_name': s.skill_file_name
+                }
+                for s in new_assignments
+            ]
+            await self.file_service.update_agent_skills(
+                project_path=project.path,
+                subagent_type=subagent.subagent_type,
+                skills=skills_data,
+                source_type=subagent_kind
+            )
+        else:
+            # Remove skills section if no skills assigned
+            await self.file_service.update_agent_skills(
+                project_path=project.path,
+                subagent_type=subagent.subagent_type,
+                skills=[],
+                source_type=subagent_kind
+            )
+
+        return new_assignments
+
     def _to_subagent_dto(
         self,
         subagent: Any,
         subagent_kind: str,
         is_enabled: bool,
-        project_path: str = ""
+        project_path: str = "",
+        assigned_skills: List[SubagentSkillAssignment] = None
     ) -> SubagentInDB:
         """Convert DB model to DTO"""
         return SubagentInDB(
@@ -750,6 +1111,7 @@ class SubagentService:
             is_favorite=subagent.is_favorite if hasattr(subagent, 'is_favorite') else False,
             status=subagent.status if hasattr(subagent, 'status') else None,
             created_by=subagent.created_by if hasattr(subagent, 'created_by') else None,
+            assigned_skills=assigned_skills or [],
             created_at=subagent.created_at,
             updated_at=subagent.updated_at
         )

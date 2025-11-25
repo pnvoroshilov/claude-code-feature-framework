@@ -1,10 +1,11 @@
 """Service for subagent file system operations"""
 
 import os
+import re
 import shutil
 import logging
 import aiofiles
-from typing import Optional
+from typing import Optional, List, Dict
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -675,3 +676,187 @@ A task is successfully completed when:
         except Exception as e:
             logger.error(f"Error creating detailed agent file: {e}")
             return False
+
+    async def update_agent_skills(
+        self,
+        project_path: str,
+        subagent_type: str,
+        skills: List[Dict],
+        source_type: str = "default"
+    ) -> bool:
+        """
+        Update skills section in agent file's YAML frontmatter
+
+        Args:
+            project_path: Path to project root
+            subagent_type: Type identifier of subagent (e.g., "frontend-developer")
+            skills: List of skill dicts with 'name' and 'description'
+            source_type: "default" or "custom" subagent
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Determine file path
+            file_name = f"{subagent_type}.md"
+            file_path = os.path.join(project_path, ".claude", "agents", file_name)
+
+            if not os.path.exists(file_path):
+                logger.warning(f"Agent file not found for skills update: {file_path}")
+                return False
+
+            # Read current content
+            async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
+                content = await f.read()
+
+            # Parse YAML frontmatter
+            frontmatter_match = re.match(r'^---\n(.*?)\n---\n(.*)$', content, re.DOTALL)
+            if not frontmatter_match:
+                logger.warning(f"No YAML frontmatter found in {file_path}")
+                return False
+
+            frontmatter = frontmatter_match.group(1)
+            body = frontmatter_match.group(2)
+
+            # Remove existing skills line from frontmatter if present
+            frontmatter_lines = frontmatter.split('\n')
+            frontmatter_lines = [line for line in frontmatter_lines if not line.startswith('skills:')]
+
+            # Add new skills line to frontmatter if there are skills
+            if skills:
+                # Extract skill commands from file_name (same logic as in _generate_skills_section)
+                skill_commands = []
+                for skill in skills:
+                    file_name = skill.get('file_name', '')
+                    if file_name:
+                        if '/' in file_name:
+                            skill_cmd = file_name.split('/')[0]
+                        else:
+                            skill_cmd = file_name.replace('.md', '')
+                    else:
+                        skill_cmd = skill.get('name', 'unknown').lower().replace(' ', '-')
+                    skill_commands.append(skill_cmd)
+                skills_line = f"skills: {', '.join(skill_commands)}"
+                frontmatter_lines.append(skills_line)
+
+            new_frontmatter = '\n'.join(frontmatter_lines)
+
+            # Remove existing skills section from body if present
+            skills_markers = ["## 🎯 MANDATORY: Use Assigned Skills", "## Assigned Skills"]
+            for marker in skills_markers:
+                if marker in body:
+                    # Remove from marker to next ## or # (but not ---)
+                    pattern = re.escape(marker) + r'\n.*?(?=\n## |\n# )'
+                    body = re.sub(pattern, '', body, flags=re.DOTALL)
+
+            # Clean up any resulting triple newlines
+            body = re.sub(r'\n{3,}', '\n\n', body)
+            # Remove orphan --- at start of body (leftover from skills section)
+            body = re.sub(r'^---\n+', '', body)
+            body = body.lstrip('\n')
+
+            # Rebuild content with frontmatter
+            new_content = f"---\n{new_frontmatter}\n---\n"
+
+            # Add new skills section if there are skills
+            if skills:
+                skills_section = self._generate_skills_section(skills)
+                new_content += f"\n{skills_section}"
+
+            new_content += body
+
+            # Write updated content
+            async with aiofiles.open(file_path, 'w', encoding='utf-8') as f:
+                await f.write(new_content)
+
+            logger.info(f"Updated skills in agent file: {file_path} with {len(skills)} skills")
+
+            # Also update archive if it's a custom agent
+            if source_type == "custom":
+                archive_path = os.path.join(project_path, ".claudetask", "agents", file_name)
+                if os.path.exists(archive_path):
+                    async with aiofiles.open(archive_path, 'w', encoding='utf-8') as f:
+                        await f.write(new_content)
+                    logger.info(f"Updated skills in archived agent file: {archive_path}")
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error updating agent skills: {e}", exc_info=True)
+            return False
+
+    def _generate_skills_section(self, skills: List[Dict]) -> str:
+        """Generate markdown section for assigned skills with usage instructions"""
+        skill_names = [s.get('name', 'Unknown') for s in skills]
+
+        # Extract skill commands from file_name (e.g., "api-development/skill.md" -> "api-development")
+        skill_commands = []
+        for skill in skills:
+            file_name = skill.get('file_name', '')
+            if file_name:
+                # Extract skill command from file path
+                # "api-development/skill.md" -> "api-development"
+                # "business-requirements-analysis.md" -> "business-requirements-analysis"
+                if '/' in file_name:
+                    skill_cmd = file_name.split('/')[0]
+                else:
+                    skill_cmd = file_name.replace('.md', '')
+            else:
+                # Fallback: convert name to kebab-case
+                skill_cmd = skill.get('name', 'unknown').lower().replace(' ', '-')
+            skill_commands.append(skill_cmd)
+
+        section = "## 🎯 MANDATORY: Use Assigned Skills\n\n"
+        section += "**IMPORTANT**: You MUST use the following skills during your work:\n\n"
+        section += f"**Skills to invoke**: `{', '.join(skill_commands)}`\n\n"
+        section += "### How to Use Skills\n\n"
+        section += "Before starting your task, invoke each assigned skill using the Skill tool:\n\n"
+        section += "```\n"
+        for skill_cmd in skill_commands:
+            section += f'Skill: "{skill_cmd}"\n'
+        section += "```\n\n"
+
+        section += "### Assigned Skills Details\n\n"
+
+        for skill, skill_cmd in zip(skills, skill_commands):
+            name = skill.get('name', 'Unknown')
+            description = skill.get('description', '')
+            category = skill.get('category', '')
+
+            section += f"#### {name} (`{skill_cmd}`)\n"
+            if category:
+                section += f"**Category**: {category}\n\n"
+            if description:
+                section += f"{description}\n\n"
+
+        section += "---\n\n"
+        return section
+
+    async def get_agent_file_content(
+        self,
+        project_path: str,
+        subagent_type: str
+    ) -> Optional[str]:
+        """
+        Get content of agent file
+
+        Args:
+            project_path: Path to project root
+            subagent_type: Type identifier of subagent
+
+        Returns:
+            File content or None if not found
+        """
+        try:
+            file_name = f"{subagent_type}.md"
+            file_path = os.path.join(project_path, ".claude", "agents", file_name)
+
+            if os.path.exists(file_path):
+                async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
+                    return await f.read()
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Error reading agent file: {e}")
+            return None

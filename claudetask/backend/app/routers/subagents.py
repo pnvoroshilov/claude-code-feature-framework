@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
 from ..database import get_db
-from ..schemas import SubagentInDB, SubagentCreate, SubagentsResponse
+from ..schemas import SubagentInDB, SubagentCreate, SubagentsResponse, SubagentSkillAssignment, SubagentSkillAssign
 from ..services.subagent_service import SubagentService
 
 logger = logging.getLogger(__name__)
@@ -329,3 +329,127 @@ async def update_subagent_status(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to update subagent status: {str(e)}")
+
+
+# ========== Subagent Skills Endpoints ==========
+
+
+@router.get("/{subagent_id}/skills", response_model=List[SubagentSkillAssignment])
+async def get_subagent_skills(
+    project_id: str,
+    subagent_id: int,
+    subagent_kind: str = "default",
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get all skills assigned to a subagent
+
+    Returns list of skills with their details (name, description, category)
+    """
+    try:
+        service = SubagentService(db)
+        return await service.get_subagent_skills(subagent_id, subagent_kind)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get subagent skills: {str(e)}")
+
+
+@router.post("/{subagent_id}/skills/assign", response_model=SubagentSkillAssignment)
+async def assign_skill_to_subagent(
+    project_id: str,
+    subagent_id: int,
+    skill_id: int,
+    skill_type: str = "default",
+    subagent_kind: str = "default",
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Assign a single skill to a subagent
+
+    Args:
+        subagent_id: ID of the subagent
+        skill_id: ID of the skill to assign
+        skill_type: Type of skill ("default" or "custom")
+        subagent_kind: Type of subagent ("default" or "custom")
+    """
+    try:
+        service = SubagentService(db)
+        return await service.assign_skill_to_subagent(
+            subagent_id=subagent_id,
+            subagent_kind=subagent_kind,
+            skill_id=skill_id,
+            skill_type=skill_type
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to assign skill: {str(e)}")
+
+
+@router.post("/{subagent_id}/skills/unassign")
+async def unassign_skill_from_subagent(
+    project_id: str,
+    subagent_id: int,
+    skill_id: int,
+    skill_type: str = "default",
+    subagent_kind: str = "default",
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Remove a skill assignment from a subagent
+
+    Args:
+        subagent_id: ID of the subagent
+        skill_id: ID of the skill to remove
+        skill_type: Type of skill ("default" or "custom")
+        subagent_kind: Type of subagent ("default" or "custom")
+    """
+    try:
+        service = SubagentService(db)
+        await service.unassign_skill_from_subagent(
+            subagent_id=subagent_id,
+            subagent_kind=subagent_kind,
+            skill_id=skill_id,
+            skill_type=skill_type
+        )
+        return {"success": True, "message": "Skill unassigned successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to unassign skill: {str(e)}")
+
+
+@router.put("/{subagent_id}/skills", response_model=List[SubagentSkillAssignment])
+async def set_subagent_skills(
+    project_id: str,
+    subagent_id: int,
+    skills: SubagentSkillAssign,
+    subagent_kind: str = "default",
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Set all skills for a subagent (replaces existing assignments)
+
+    Also updates the agent's markdown file with skill instructions.
+
+    Args:
+        subagent_id: ID of the subagent
+        skills: Object with skill_ids and skill_types arrays
+        subagent_kind: Type of subagent ("default" or "custom")
+
+    Returns list of new skill assignments
+    """
+    try:
+        service = SubagentService(db)
+        return await service.set_subagent_skills(
+            project_id=project_id,
+            subagent_id=subagent_id,
+            subagent_kind=subagent_kind,
+            skill_ids=skills.skill_ids,
+            skill_types=skills.skill_types
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to set subagent skills: {str(e)}")
