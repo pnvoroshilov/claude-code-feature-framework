@@ -1,8 +1,80 @@
 # ClaudeTask Framework - Autonomous Orchestrator Configuration
 
-## 🔴🔴🔴 CRITICAL INSTRUCTIONS - READ FIRST
+# 🎯 PROJECT MODE: DEVELOPMENT
 
-**Before doing ANYTHING, read these critical restrictions:**
+**This project is configured in DEVELOPMENT mode.**
+
+## Task Workflow (7 Columns)
+- **Backlog**: New tasks waiting to be analyzed
+- **Analysis**: Understanding requirements and planning
+- **In Progress**: Active development with Git worktrees
+- **Testing**: Running tests and validation
+- **Code Review**: Peer review of changes
+- **PR**: Pull Request created and awaiting merge
+- **Done**: Completed and merged
+
+## What this means:
+- ✅ **Full Git workflow** - Branches, worktrees, PRs
+- ✅ **Complete development lifecycle** - From analysis to deployment
+- ✅ **Version control** - Proper branching and merge strategy
+- ✅ **Quality gates** - Testing and code review required
+- ✅ **Worktrees**: Enabled - isolated task workspaces
+
+## Your approach:
+1. Follow the complete task workflow through all statuses
+2. Create worktrees for each task
+3. Use proper branching strategy
+4. Create PRs and wait for review
+5. Ensure tests pass before moving forward
+
+---
+
+
+## 🔴🔴🔴 CRITICAL: CHECK MODE AND ACT IMMEDIATELY
+
+**⚠️ ПЕРВОЕ ДЕЙСТВИЕ при старте сессии - определить режим работы:**
+
+```
+1. ВЫЗОВИ: mcp__claudetask__get_project_settings
+2. ПРОВЕРЬ значение manual_mode:
+   - Если manual_mode = false → ЧИТАЙ секцию "AUTO MODE" ниже
+   - Если manual_mode = true → Работай в ручном режиме, жди команд
+```
+
+---
+
+## 🤖 AUTO MODE - НЕМЕДЛЕННЫЕ ДЕЙСТВИЯ (если manual_mode = false)
+
+**📖 ПРОЧИТАЙ СЕЙЧАС: [AUTO Mode Workflow](./.claudetask/instructions/auto-mode-workflow.md)**
+
+**В AUTO режиме ты ОБЯЗАН действовать БЕЗ ОЖИДАНИЯ команд пользователя:**
+
+```
+СРАЗУ ПОСЛЕ СТАРТА СЕССИИ:
+1. mcp__claudetask__get_project_memory_context  # загрузить контекст
+2. mcp__claudetask__get_task_queue              # получить задачи
+3. ДЛЯ КАЖДОЙ ЗАДАЧИ:
+   - Определить текущий статус
+   - ВЫПОЛНИТЬ соответствующую slash command
+   - ПЕРЕЙТИ к следующему статусу
+   - НЕ ОСТАНАВЛИВАТЬСЯ и НЕ СПРАШИВАТЬ
+
+КЛЮЧЕВЫЕ КОМАНДЫ (выполнять автоматически):
+- После Analysis → SlashCommand("/start-develop")
+- После Implementation → SlashCommand("/test {task_id}")
+- После Tests PASS → SlashCommand("/PR {task_id}")
+- После PR Approved → SlashCommand("/merge {task_id}")
+```
+
+**❌ В AUTO режиме ЗАПРЕЩЕНО:**
+- Писать "Ready for testing, waiting for your command"
+- Спрашивать "Should I proceed to next stage?"
+- Ждать подтверждения между этапами
+- Останавливаться после каждого статуса
+
+---
+
+## 🔴 CRITICAL RESTRICTIONS (для ЛЮБОГО режима)
 
 📖 **[CRITICAL RESTRICTIONS](./.claudetask/instructions/critical-restrictions.md)** - NEVER violate these rules
 - ⛔ NEVER delete worktrees without explicit user request
@@ -95,6 +167,12 @@ If `CUSTOM_INSTRUCTIONS.md` exists in the project root, **READ IT FIRST**. Custo
 - Systems analyst creates architecture.md
 - Auto-transition to "In Progress" when complete
 
+📖 **[In Progress Phase](./.claudetask/instructions/in-progress-phase.md)** - When task is in "In Progress" status
+- Review and select development path (UC-02)
+- Coordinate implementation agents (UC-03)
+- Validate DoD compliance
+- Create PR and auto-transition to Testing
+
 📖 **[Testing Workflow](./.claudetask/instructions/testing-workflow.md)** - When task moves to "Testing" status
 - Setup test environment (find ports, start servers)
 - **🔴 MANDATORY**: Save testing URLs with `mcp__claudetask__set_testing_urls`
@@ -129,7 +207,7 @@ WHILE TRUE:
 
   2. For each task, read appropriate instruction:
      - "Analysis" → Read analysis-phase.md
-     - "In Progress" → Monitor for completion, read status-transitions.md
+     - "In Progress" → Read in-progress-phase.md
      - "Testing" → Read testing-workflow.md
      - "Code Review" → Read status-transitions.md
      - "Pull Request" → Read status-transitions.md
@@ -151,13 +229,23 @@ WHILE TRUE:
 4. **[Status Transitions](./.claudetask/instructions/status-transitions.md)** - Moving between statuses
 5. **[Agent Selection Guide](./.claudetask/instructions/agent-selection-guide.md)** - Choosing the right agent
 6. **[Analysis Phase](./.claudetask/instructions/analysis-phase.md)** - Requirements and architecture
-7. **[Testing Workflow](./.claudetask/instructions/testing-workflow.md)** - Manual testing setup
-8. **[Resource Cleanup](./.claudetask/instructions/resource-cleanup.md)** - Task completion
+7. **[In Progress Phase](./.claudetask/instructions/in-progress-phase.md)** - Implementation and development
+8. **[Testing Workflow](./.claudetask/instructions/testing-workflow.md)** - Manual testing setup
+9. **[Resource Cleanup](./.claudetask/instructions/resource-cleanup.md)** - Task completion
 
 ### Technical Reference (Use When Required)
-9. **[Documentation Usage](./.claudetask/instructions/documentation-usage.md)** - Using project docs from `docs/`
-10. **[RAG Usage](./.claudetask/instructions/rag-usage.md)** - Semantic search and context gathering
-11. **[MCP Commands](./.claudetask/instructions/mcp-commands.md)** - Command reference and patterns
+10. **[Documentation Usage](./.claudetask/instructions/documentation-usage.md)** - Using project docs from `docs/`
+11. **[RAG Usage](./.claudetask/instructions/rag-usage.md)** - Semantic search and context gathering
+12. **[MCP Commands](./.claudetask/instructions/mcp-commands.md)** - Command reference and patterns
+13. **[Memory System](./.claudetask/instructions/memory-system.md)** - 🧠 Automatic context persistence and knowledge management
+
+### AUTO Mode (CRITICAL - read when manual_mode = false)
+14. **[AUTO Mode Workflow](./.claudetask/instructions/auto-mode-workflow.md)** - 🔴🔴🔴 **ГЛАВНАЯ ИНСТРУКЦИЯ** для автоматического режима
+15. **[AUTO Mode Monitoring](./.claudetask/instructions/auto-mode-monitoring.md)** - Детали мониторинга в AUTO режиме
+16. **[Test Command AUTO Mode](./.claudetask/instructions/test-command-auto-mode.md)** - Обязательное выполнение /PR после тестов
+
+### Git Workflow
+17. **[Local Worktree Merge](./.claudetask/instructions/local-worktree-merge.md)** - Merging worktrees without remote repository
 
 ## 🚨 Common Scenarios - Quick Reference
 
@@ -170,15 +258,17 @@ WHILE TRUE:
 1. Read [status-transitions.md](./.claudetask/instructions/status-transitions.md)
 2. Save stage result
 3. Update to "In Progress"
-4. DO NOT setup test environment (wait for Testing status)
+4. Read [in-progress-phase.md](./.claudetask/instructions/in-progress-phase.md)
+5. DO NOT setup test environment (wait for Testing status)
 
 ### Implementation Complete
-1. Auto-detect completion
-2. Read [status-transitions.md](./.claudetask/instructions/status-transitions.md)
-3. Transition to "Testing"
-4. Read [testing-workflow.md](./.claudetask/instructions/testing-workflow.md)
-5. Setup test environment
-6. **🔴 CRITICAL**: Save testing URLs (mandatory!)
+1. Auto-detect completion (see [in-progress-phase.md](./.claudetask/instructions/in-progress-phase.md))
+2. Create PR with DoD validation
+3. Read [status-transitions.md](./.claudetask/instructions/status-transitions.md)
+4. Transition to "Testing"
+5. Read [testing-workflow.md](./.claudetask/instructions/testing-workflow.md)
+6. Setup test environment
+7. **🔴 CRITICAL**: Save testing URLs (mandatory!)
 
 ### User Requests Task Completion
 1. Check explicit request ("mark task X as done")
@@ -212,12 +302,18 @@ See [mcp-commands.md](./.claudetask/instructions/mcp-commands.md) for examples.
 
 **When `manual_mode = false`, these instructions are MANDATORY:**
 
-11. **[AUTO Mode Monitoring](./.claudetask/instructions/auto-mode-monitoring.md)** - 🔴 How to monitor and execute commands automatically
-12. **[Test Command AUTO Mode](./.claudetask/instructions/test-command-auto-mode.md)** - 🔴 MUST execute /PR after successful tests
+📖 **[AUTO Mode Workflow](./.claudetask/instructions/auto-mode-workflow.md)** - 🔴🔴🔴 **ГЛАВНАЯ ИНСТРУКЦИЯ для AUTO режима**
 
-## 🔀 Git Workflow Instructions
+**⚠️ В AUTO режиме вы ОБЯЗАНЫ:**
+1. **СРАЗУ** проверить `mcp__claudetask__get_project_settings` при старте
+2. **СРАЗУ** получить `mcp__claudetask__get_task_queue`
+3. **АВТОМАТИЧЕСКИ** выполнять slash commands без ожидания пользователя
+4. **НЕ ЖДАТЬ** разрешения на переход между статусами
+5. **НЕ СПРАШИВАТЬ** "should I proceed?" — просто делать
 
-13. **[Local Worktree Merge](./.claudetask/instructions/local-worktree-merge.md)** - How to merge worktrees when no remote repository exists
+**Дополнительные инструкции AUTO режима:**
+- **[AUTO Mode Monitoring](./.claudetask/instructions/auto-mode-monitoring.md)** - Детали мониторинга
+- **[Test Command AUTO Mode](./.claudetask/instructions/test-command-auto-mode.md)** - Обязательное выполнение /PR после тестов
 
 ## 🧠 Project Memory System
 
@@ -229,41 +325,52 @@ The framework includes an intelligent memory system. You MUST call `mcp__claudet
 - 📚 Project summary (3-5 pages of accumulated knowledge)
 - 🕐 Last 50 conversation messages for recent context
 - 🔍 RAG-powered search for relevant historical information
+- 💾 Automatic conversation capture via hooks
 
-### Memory Management Tools
+### How Memory Works
+
+1. **Context Loading (MANDATORY)**:
+   - Call `mcp__claudetask__get_project_memory_context` before first response
+   - Wait for MCP to be ready if needed
+   - Do NOT respond to user until context is loaded
+
+2. **Automatic Capture** (via default hooks):
+   - `Memory Conversation Capture` hook - saves all messages
+   - `Memory Session Summarizer` hook - updates project summary
+   - Both hooks are enabled by default for all projects
+
+3. **Additional Memory Tools**:
 
 **Primary context loading (MANDATORY before first response):**
 ```bash
 mcp__claudetask__get_project_memory_context
 ```
 
-**Additional memory tools:**
-
-**Save important insights:**
+**Save important insight:**
 ```bash
 mcp__claudetask__save_conversation_message \
   --message_type="assistant" \
-  --content="Important architectural decision: ..."
+  --content="Key architectural decision: ..."
 ```
 
 **Update project summary:**
 ```bash
 mcp__claudetask__update_project_summary \
   --trigger="important_decision" \
-  --new_insights="Key findings from implementation..."
+  --new_insights="Critical finding: ..."
 ```
 
-**Search historical context:**
+**Search memories:**
 ```bash
 mcp__claudetask__search_project_memories \
-  --query="authentication implementation"
+  --query="authentication patterns"
 ```
 
-### Memory Persistence Benefits
-- ✅ **No context loss** between sessions
-- ✅ **Knowledge accumulation** across tasks
-- ✅ **Pattern recognition** from historical data
-- ✅ **Faster onboarding** for new tasks
+### Memory Benefits
+- ✅ **No context loss** - Everything persists between sessions
+- ✅ **Knowledge accumulation** - Project gets smarter over time
+- ✅ **Pattern recognition** - Learn from past solutions
+- ✅ **Faster onboarding** - Instant context for new tasks
 
 ## 🔧 Project Configuration
 
@@ -296,7 +403,11 @@ mcp__claudetask__search_project_memories \
 3. [Orchestration Role](./.claudetask/instructions/orchestration-role.md) - Your responsibilities
 4. [Status Transitions](./.claudetask/instructions/status-transitions.md) - Workflow overview
 5. [Agent Selection Guide](./.claudetask/instructions/agent-selection-guide.md) - Choosing agents
-6. Other instructions as needed for specific phases
+6. [Analysis Phase](./.claudetask/instructions/analysis-phase.md) - Requirements and design
+7. [In Progress Phase](./.claudetask/instructions/in-progress-phase.md) - Implementation coordination
+8. [Testing Workflow](./.claudetask/instructions/testing-workflow.md) - Testing phase
+9. [Memory System](./.claudetask/instructions/memory-system.md) - How memory persistence works
+10. Other instructions as needed for specific scenarios
 
 **Remember:** You don't need to memorize everything. Just know which instruction file to read when you need guidance on a specific task.
 
@@ -310,3 +421,12 @@ mcp__claudetask__search_project_memories \
 - ✅ Maintain continuous monitoring loop
 
 **When in doubt, read the relevant instruction file. Don't guess - read and follow the documented workflow.**
+
+
+## Project Configuration
+- **Project Name**: Claude Code Feature Framework
+- **Path**: /Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework
+- **Technologies**: Not detected
+- **Test Command**: Not configured
+- **Build Command**: Not configured
+- **Lint Command**: Not configured
