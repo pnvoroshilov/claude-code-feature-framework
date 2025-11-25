@@ -17,6 +17,62 @@ class HookFileService:
         # Path to framework-assets/claude-hooks/
         self.framework_hooks_dir = self._get_framework_hooks_dir()
 
+    def _convert_to_absolute_path(self, command: str, project_path: str) -> str:
+        """
+        Convert relative hook script path to absolute path.
+
+        This is critical for worktree support - relative paths like .claude/hooks/script.sh
+        won't work when Claude Code runs from a worktree directory.
+
+        Args:
+            command: The command string (may be relative or absolute path)
+            project_path: The project root path
+
+        Returns:
+            Absolute path if command was relative .claude/hooks/ path, otherwise unchanged.
+            Paths with spaces are wrapped in quotes for shell compatibility.
+        """
+        if command.startswith(".claude/hooks/"):
+            # Convert relative path to absolute
+            absolute_path = os.path.join(project_path, command)
+            logger.debug(f"Converted relative hook path '{command}' to absolute '{absolute_path}'")
+
+            # Wrap in quotes if path contains spaces (for shell compatibility)
+            if ' ' in absolute_path:
+                absolute_path = f'"{absolute_path}"'
+                logger.debug(f"Added quotes for path with spaces: {absolute_path}")
+
+            return absolute_path
+
+        # For existing absolute paths, check if they need quotes
+        if command.startswith("/") and ' ' in command and not command.startswith('"'):
+            return f'"{command}"'
+
+        return command
+
+    def _convert_hook_config_to_absolute(self, hook_config: Dict[str, Any], project_path: str) -> Dict[str, Any]:
+        """
+        Convert all relative paths in hook config to absolute paths.
+
+        Args:
+            hook_config: Hook configuration with potentially relative paths
+            project_path: The project root path
+
+        Returns:
+            Hook configuration with absolute paths
+        """
+        import copy
+        converted_config = copy.deepcopy(hook_config)
+
+        for event_type, event_hooks in converted_config.items():
+            for hook_matcher in event_hooks:
+                if "hooks" in hook_matcher:
+                    for hook in hook_matcher["hooks"]:
+                        if "command" in hook:
+                            hook["command"] = self._convert_to_absolute_path(hook["command"], project_path)
+
+        return converted_config
+
     async def apply_hook_to_settings(
         self,
         project_path: str,
@@ -35,6 +91,8 @@ class HookFileService:
             True if successful, False otherwise
 
         Note: Hooks are stored in settings.json, NOT as separate files
+        Note: Relative paths (.claude/hooks/...) are converted to absolute paths
+              to support worktree environments
         """
         try:
             settings_path = os.path.join(project_path, ".claude", "settings.json")
@@ -55,8 +113,11 @@ class HookFileService:
             if "hooks" not in settings:
                 settings["hooks"] = {}
 
+            # Convert relative paths to absolute paths for worktree support
+            converted_hook_config = self._convert_hook_config_to_absolute(hook_config, project_path)
+
             # Merge hook configuration into settings
-            for event_type, event_hooks in hook_config.items():
+            for event_type, event_hooks in converted_hook_config.items():
                 # Initialize event type if doesn't exist
                 if event_type not in settings["hooks"]:
                     settings["hooks"][event_type] = []
@@ -84,7 +145,7 @@ class HookFileService:
             async with aiofiles.open(settings_path, 'w', encoding='utf-8') as f:
                 await f.write(json.dumps(settings, indent=2))
 
-            logger.info(f"Applied hook '{hook_name}' to settings.json")
+            logger.info(f"Applied hook '{hook_name}' to settings.json with absolute paths")
             return True
 
         except Exception as e:
@@ -285,6 +346,9 @@ class HookFileService:
 
         Returns:
             True if successful, False otherwise
+
+        Note: Relative paths (.claude/hooks/...) are converted to absolute paths
+              to support worktree environments
         """
         try:
             settings_path = os.path.join(project_path, ".claude", "settings.json")
@@ -301,14 +365,17 @@ class HookFileService:
                     if content.strip():
                         settings = json.loads(content)
 
+            # Convert relative paths to absolute paths for worktree support
+            converted_hooks = self._convert_hook_config_to_absolute(hooks, project_path)
+
             # Replace hooks section entirely
-            settings["hooks"] = hooks
+            settings["hooks"] = converted_hooks
 
             # Write settings back to file
             async with aiofiles.open(settings_path, 'w', encoding='utf-8') as f:
                 await f.write(json.dumps(settings, indent=2))
 
-            logger.info(f"Applied hooks configuration to settings.json")
+            logger.info(f"Applied hooks configuration to settings.json with absolute paths")
             return True
 
         except Exception as e:

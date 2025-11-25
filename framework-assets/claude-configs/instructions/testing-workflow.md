@@ -229,10 +229,20 @@ Reports: /Tests/Report/*.md"
 mcp__claudetask__update_status --task_id={id} --status="Code Review" \
   --comment="All automated tests passed"
 
+# 🔴🔴🔴 ОБЯЗАТЕЛЬНО СРАЗУ ВЫПОЛНИТЬ /PR COMMAND:
+SlashCommand("/PR {task_id}")
+
 # If critical issues found
 mcp__claudetask__update_status --task_id={id} --status="In Progress" \
   --comment="Critical test failures: [list issues]"
+SlashCommand("/start-develop")  # Вернуться к разработке
 ```
+
+**⚠️ КРИТИЧЕСКИ ВАЖНО для AUTO режима:**
+- После успешных тестов → **СРАЗУ** выполнить `SlashCommand("/PR {task_id}")`
+- НЕ писать "Ready for PR, run /PR when ready"
+- НЕ ждать команды пользователя
+- ВЫПОЛНИТЬ команду АВТОМАТИЧЕСКИ
 
 ## Automated Mode Workflow
 

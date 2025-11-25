@@ -63,13 +63,20 @@ Worktree: worktrees/task-{id}
 Ready for development
 ```
 
-4. ⛔ **STOP - DO NOT PROCEED FURTHER**
+4. **⚠️ BEHAVIOUR DEPENDS ON MODE:**
+
+   #### В MANUAL режиме (`manual_mode = true`):
+   - ⛔ **STOP - DO NOT PROCEED FURTHER**
    - ❌ DO NOT setup test servers
    - ❌ DO NOT start frontend/backend
-   - ❌ DO NOT prepare test environment
    - ❌ NO delegation to implementation agents
-   - ❌ NO coding or development
    - ✅ Wait for user's manual development
+
+   #### В AUTO режиме (`manual_mode = false`):
+   - ✅ **СРАЗУ** выполнить `SlashCommand("/start-develop")`
+   - ✅ Делегировать разработку соответствующим агентам
+   - ✅ После завершения → **СРАЗУ** перейти к Testing
+   - ❌ НЕ ждать команды пользователя
 
 **⚠️ IMPORTANT**: Test environments are ONLY setup when task moves to TESTING status, NOT during In Progress
 
@@ -115,25 +122,42 @@ WHEN CHECKING "IN PROGRESS" TASKS:
 5. **🔴🔴🔴 CRITICAL MANDATORY STEP**: Save testing URLs using `mcp__claudetask__set_testing_urls`
 6. Prepare test environment for user
 
-### 🧪 Testing Status → Prepare Environment ONLY
+### 🧪 Testing Status
 
 **When task moves from "In Progress" to "Testing":**
 
 See detailed instructions in [testing-workflow.md](testing-workflow.md)
 
-**Key Points**:
+**⚠️ BEHAVIOUR DEPENDS ON MODE:**
+
+#### В MANUAL режиме (`manual_mode = true`):
 - ✅ Setup test environment (find ports, start servers)
 - ✅ **MANDATORY**: Save testing URLs with `mcp__claudetask__set_testing_urls`
 - ✅ Save stage result with URLs
 - ❌ DO NOT delegate to testing agents
-- ❌ Wait for user manual testing
+- ✅ Wait for user manual testing
+
+#### В AUTO режиме (`manual_mode = false`):
+- ✅ **СРАЗУ** выполнить `SlashCommand("/test {task_id}")`
+- ✅ Дождаться завершения тестов
+- ✅ При успехе → **СРАЗУ** выполнить `SlashCommand("/PR {task_id}")`
+- ✅ При провале → **СРАЗУ** выполнить `SlashCommand("/start-develop")`
+- ❌ НЕ ЖДАТЬ команды пользователя
+- ❌ НЕ СПРАШИВАТЬ "should I proceed?"
 
 ### After Testing → Code Review
 
-**ONLY user can update status after manual testing**:
+**⚠️ BEHAVIOUR DEPENDS ON MODE:**
+
+#### В MANUAL режиме (`manual_mode = true`):
 - ❌ **NEVER** automatically move from Testing to Code Review
 - ✅ User decides when testing is complete
 - ✅ Prepare environment and wait
+
+#### В AUTO режиме (`manual_mode = false`):
+- ✅ **АВТОМАТИЧЕСКИ** переходить к Code Review после успешных тестов
+- ✅ **СРАЗУ** выполнить `/PR {task_id}`
+- ❌ НЕ ждать команды пользователя
 
 ### Code Review → Pull Request
 
