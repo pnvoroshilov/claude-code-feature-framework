@@ -1006,21 +1006,28 @@ Stage Results:
         """Index a conversation message for RAG search"""
         try:
             # Ensure collection exists
-            if not hasattr(self, 'memory_collection'):
+            if not hasattr(self, 'memory_collection') or self.memory_collection is None:
                 await self.initialize_memory_collection(project_id)
 
             # Generate embedding
             embedding = self.embedding_model.encode(content).tolist()
+
+            # Ensure metadata includes project_id (required for filtering in search)
+            # Filter out None values as ChromaDB doesn't accept them
+            full_metadata = {"project_id": project_id}
+            for key, value in metadata.items():
+                if value is not None:
+                    full_metadata[key] = value
 
             # Add to collection
             self.memory_collection.add(
                 ids=[f"msg_{message_id}"],
                 documents=[content],
                 embeddings=[embedding],
-                metadatas=[metadata]
+                metadatas=[full_metadata]
             )
 
-            logger.debug(f"Indexed message {message_id} for project {project_id[:8]}")
+            logger.info(f"Indexed message {message_id} for project {project_id[:8]} in collection {self.memory_collection.name}")
 
         except Exception as e:
             logger.error(f"Failed to index message {message_id}: {e}")
@@ -1045,17 +1052,29 @@ Stage Results:
                 logger.info(f"No memory collection found for project {project_id[:8]}")
                 return []
 
+            # Check collection count
+            collection_count = memory_collection.count()
+            logger.info(f"Memory collection {collection_name} has {collection_count} entries")
+
+            if collection_count == 0:
+                logger.info(f"No memories indexed yet for project {project_id[:8]}")
+                return []
+
             # Generate query embedding
             query_embedding = self.embedding_model.encode(query).tolist()
 
-            # Build where clause
-            where_clause = {"project_id": project_id} if not filters else {**filters, "project_id": project_id}
+            # Build where clause - always filter by project_id
+            where_clause = {"project_id": project_id}
+            if filters:
+                where_clause = {**filters, "project_id": project_id}
+
+            logger.info(f"Searching with where_clause: {where_clause}")
 
             # Perform search
             results = memory_collection.query(
                 query_embeddings=[query_embedding],
                 n_results=limit,
-                where=where_clause if filters else None
+                where=where_clause
             )
 
             # Format results

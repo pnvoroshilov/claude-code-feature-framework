@@ -1838,14 +1838,20 @@ async def save_conversation_message(
             rag_service = RAGService(config)
             await rag_service.initialize()
 
-            # Index the message
+            # Index the message with full metadata
+            message_metadata = {
+                "message_type": message.get("message_type", "unknown"),
+                "session_id": message.get("session_id"),
+                "task_id": message.get("task_id"),
+                **message.get("metadata", {})
+            }
             await rag_service.index_conversation_message(
                 project_id=project_id,
                 message_id=message_id,
                 content=message["content"],
-                metadata=message.get("metadata", {})
+                metadata=message_metadata
             )
-            logger.info(f"Message {message_id} indexed in RAG")
+            logger.info(f"Message {message_id} indexed in RAG for project {project_id[:8]}")
         except ImportError as ie:
             logger.warning(f"RAG module not available: {ie}")
         except Exception as rag_error:
@@ -2064,6 +2070,73 @@ async def get_memory_stats(
 
     except Exception as e:
         logger.error(f"Failed to get memory stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/projects/{project_id}/memory/rebuild-index")
+async def rebuild_memory_index(
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Rebuild the RAG index for project memory from existing messages"""
+    from sqlalchemy import text
+
+    try:
+        logger.info(f"Rebuilding memory index for project {project_id}")
+
+        # Get all messages for this project
+        query = text("""
+            SELECT id, session_id, task_id, message_type, content, timestamp, metadata
+            FROM conversation_memory
+            WHERE project_id = :project_id
+            ORDER BY timestamp ASC
+        """)
+
+        result = await db.execute(query, {"project_id": project_id})
+
+        messages = []
+        for row in result:
+            messages.append({
+                "id": row.id,
+                "session_id": row.session_id,
+                "task_id": row.task_id,
+                "message_type": row.message_type,
+                "content": row.content,
+                "timestamp": row.timestamp.isoformat() if row.timestamp and hasattr(row.timestamp, 'isoformat') else str(row.timestamp) if row.timestamp else None,
+                "metadata": json.loads(row.metadata) if row.metadata else {}
+            })
+
+        if not messages:
+            return {"status": "no_messages", "message": "No messages found to index"}
+
+        # Initialize RAG service
+        import sys
+        from pathlib import Path
+        mcp_path = Path(__file__).parent.parent.parent / "mcp_server"
+        if str(mcp_path) not in sys.path:
+            sys.path.insert(0, str(mcp_path))
+
+        from rag.rag_service import RAGService, RAGConfig
+
+        config = RAGConfig(
+            chromadb_path=str(Path(__file__).parent.parent.parent / "mcp_server" / ".chroma_db")
+        )
+        rag_service = RAGService(config)
+        await rag_service.initialize()
+
+        # Rebuild the index
+        await rag_service.rebuild_memory_index(project_id, messages)
+
+        logger.info(f"Rebuilt memory index with {len(messages)} messages for project {project_id[:8]}")
+
+        return {
+            "status": "success",
+            "messages_indexed": len(messages),
+            "project_id": project_id
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to rebuild memory index: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
