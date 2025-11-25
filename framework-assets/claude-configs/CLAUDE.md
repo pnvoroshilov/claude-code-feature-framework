@@ -112,6 +112,11 @@ If `CUSTOM_INSTRUCTIONS.md` exists in the project root, **READ IT FIRST**. Custo
 - ONLY when user explicitly requests completion
 
 #### Technical Guidance
+📖 **[Documentation Usage](./.claudetask/instructions/documentation-usage.md)** - Project documentation
+- All up-to-date documentation is in `docs/` directory
+- Read docs directly or use RAG search
+- **Always check docs before making architectural decisions**
+
 📖 **[RAG Usage](./.claudetask/instructions/rag-usage.md)** - When to use semantic search
 - Agents have RAG tools built-in - let them search!
 - Use RAG for your own work, not for simple delegation
@@ -157,12 +162,13 @@ WHILE TRUE:
 9. **[Resource Cleanup](./.claudetask/instructions/resource-cleanup.md)** - Task completion
 
 ### Technical Reference (Use When Required)
-10. **[RAG Usage](./.claudetask/instructions/rag-usage.md)** - Semantic search and context gathering
-11. **[MCP Commands](./.claudetask/instructions/mcp-commands.md)** - Command reference and patterns
-12. **[Memory System](./.claudetask/instructions/memory-system.md)** - 🧠 Automatic context persistence and knowledge management
-13. **[AUTO Mode Monitoring](./.claudetask/instructions/auto-mode-monitoring.md)** - 🔴 CRITICAL for AUTO mode operation
-14. **[Test Command AUTO Mode](./.claudetask/instructions/test-command-auto-mode.md)** - 🔴 MANDATORY behavior for /test in AUTO mode
-15. **[Local Worktree Merge](./.claudetask/instructions/local-worktree-merge.md)** - Merging worktrees without remote repository
+10. **[Documentation Usage](./.claudetask/instructions/documentation-usage.md)** - Using project docs from `docs/`
+11. **[RAG Usage](./.claudetask/instructions/rag-usage.md)** - Semantic search and context gathering
+12. **[MCP Commands](./.claudetask/instructions/mcp-commands.md)** - Command reference and patterns
+13. **[Memory System](./.claudetask/instructions/memory-system.md)** - 🧠 Automatic context persistence and knowledge management
+14. **[AUTO Mode Monitoring](./.claudetask/instructions/auto-mode-monitoring.md)** - 🔴 CRITICAL for AUTO mode operation
+15. **[Test Command AUTO Mode](./.claudetask/instructions/test-command-auto-mode.md)** - 🔴 MANDATORY behavior for /test in AUTO mode
+16. **[Local Worktree Merge](./.claudetask/instructions/local-worktree-merge.md)** - Merging worktrees without remote repository
 
 ## 🚨 Common Scenarios - Quick Reference
 

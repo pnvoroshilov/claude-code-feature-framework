@@ -37,6 +37,28 @@ Extract:
 - Initial requirements
 - Any attachments or context
 
+### 🔴 STEP 1.5: Read Project Documentation (MANDATORY)
+
+**Before delegating to agents, check `docs/` for existing documentation:**
+
+```bash
+# List available documentation
+ls docs/
+
+# Read relevant documentation
+Read docs/README.md
+Read docs/architecture.md
+Read docs/api.md
+```
+
+**Why this matters:**
+- `docs/` contains up-to-date project documentation
+- Existing architectural decisions MUST be followed
+- API contracts and patterns are documented there
+- Prevents duplicate or conflicting implementations
+
+See [documentation-usage.md](documentation-usage.md) for full guidance.
+
 ### 🔴 STEP 2: Delegate to Requirements Analyst Agent
 
 **Agent:** `requirements-analyst`

@@ -106,6 +106,11 @@ If `CUSTOM_INSTRUCTIONS.md` exists in the project root, **READ IT FIRST**. Custo
 - ONLY when user explicitly requests completion
 
 #### Technical Guidance
+📖 **[Documentation Usage](./.claudetask/instructions/documentation-usage.md)** - Project documentation
+- All up-to-date documentation is in `docs/` directory
+- Read docs directly or use RAG search
+- **Always check docs before making architectural decisions**
+
 📖 **[RAG Usage](./.claudetask/instructions/rag-usage.md)** - When to use semantic search
 - Agents have RAG tools built-in - let them search!
 - Use RAG for your own work, not for simple delegation
@@ -150,8 +155,9 @@ WHILE TRUE:
 8. **[Resource Cleanup](./.claudetask/instructions/resource-cleanup.md)** - Task completion
 
 ### Technical Reference (Use When Required)
-9. **[RAG Usage](./.claudetask/instructions/rag-usage.md)** - Semantic search and context gathering
-10. **[MCP Commands](./.claudetask/instructions/mcp-commands.md)** - Command reference and patterns
+9. **[Documentation Usage](./.claudetask/instructions/documentation-usage.md)** - Using project docs from `docs/`
+10. **[RAG Usage](./.claudetask/instructions/rag-usage.md)** - Semantic search and context gathering
+11. **[MCP Commands](./.claudetask/instructions/mcp-commands.md)** - Command reference and patterns
 
 ## 🚨 Common Scenarios - Quick Reference
 
