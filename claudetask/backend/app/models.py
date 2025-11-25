@@ -140,6 +140,16 @@ class ClaudeSession(Base):
     project = relationship("Project", back_populates="claude_sessions")
 
 
+class TestFramework(str, enum.Enum):
+    """Test framework enumeration"""
+    PYTEST = "pytest"
+    JEST = "jest"
+    VITEST = "vitest"
+    MOCHA = "mocha"
+    UNITTEST = "unittest"
+    CUSTOM = "custom"
+
+
 class ProjectSettings(Base):
     """Project settings model"""
     __tablename__ = "project_settings"
@@ -154,6 +164,12 @@ class ProjectSettings(Base):
     lint_command = Column(String, nullable=True)
     worktree_enabled = Column(Boolean, default=True, nullable=False)  # Enable/disable git worktrees
     manual_mode = Column(Boolean, default=False, nullable=False)  # Manual (True) vs Automated (False) for UC-04 Testing & UC-05 Code Review
+
+    # New testing configuration fields
+    test_directory = Column(String, nullable=True, default="tests")  # Main test directory (e.g., "tests", "src/__tests__")
+    test_framework = Column(Enum(TestFramework), nullable=True, default=TestFramework.PYTEST)  # Test framework
+    auto_merge_tests = Column(Boolean, default=True, nullable=False)  # Auto-merge new tests after PR approval
+    test_staging_dir = Column(String, nullable=True, default="tests/staging")  # Staging directory for new task tests
 
     # Relationships
     project = relationship("Project", back_populates="settings")

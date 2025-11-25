@@ -1,24 +1,25 @@
-# 🧪 Testing Workflow - Hybrid Testing Modes
+# Testing Workflow - Integrated Test Suite Management
 
-⚠️ **This applies to DEVELOPMENT MODE only. SIMPLE mode has no Testing status.**
+**This applies to DEVELOPMENT MODE only. SIMPLE mode has no Testing status.**
 
-## 📋 Testing Mode Configuration
+## Testing Mode Configuration
 
 **This project supports TWO testing modes controlled by `manual_mode` setting:**
 
-- **🔵 MANUAL MODE** (`manual_mode = true`) - UC-04 Variant B
+- **MANUAL MODE** (`manual_mode = true`) - UC-04 Variant B
   - User performs manual testing
   - Test servers started for user access
   - Testing URLs saved for persistence
   - User manually transitions status after testing
 
-- **🟢 AUTOMATED MODE** (`manual_mode = false`) - UC-04 Variant A
-  - Testing agents write and execute tests automatically
-  - Tests run in isolated environment
-  - Reports generated in `/Tests/Report`
+- **AUTOMATED MODE** (`manual_mode = false`) - UC-04 Variant A
+  - **NEW**: Run existing project tests first (regression check)
+  - Testing agents write and execute new tests
+  - New tests staged in `{test_staging_dir}/task-{id}/`
+  - Auto-merge tests into main suite after PR approval
   - Auto-transition based on test results
 
-## 🔍 Check Testing Mode BEFORE Starting
+## Check Testing Mode BEFORE Starting
 
 **FIRST, check project settings to determine which mode to use:**
 
@@ -26,28 +27,24 @@
 mcp__claudetask__get_project_settings
 ```
 
-Look for: `"Manual Testing Mode": True` or `False`
-
-## When Testing Phase Starts
-
-**Testing status is triggered when**:
-- Task transitions from "In Progress" to "Testing"
-- Implementation is detected as complete
-- User manually updates status to "Testing"
-
-**After detecting Testing phase, follow the workflow for the configured mode below.**
+Look for:
+- `"Manual Mode": True` or `False`
+- `"test_command"`: Command to run existing tests
+- `"test_directory"`: Main test directory
+- `"test_framework"`: pytest/jest/vitest/etc.
+- `"test_staging_dir"`: Staging directory for new tests
+- `"auto_merge_tests"`: Whether to auto-merge after PR
 
 ---
 
-# 🔵 MANUAL TESTING MODE (`manual_mode = true`)
+# MANUAL TESTING MODE (`manual_mode = true`)
 
-## 🚨🚨🚨 CRITICAL TESTING URL REQUIREMENT 🚨🚨🚨
+## CRITICAL TESTING URL REQUIREMENT
 
-**⛔ FAILURE TO SAVE TESTING URLs = CRITICAL ERROR**
 **You MUST save testing URLs IMMEDIATELY after starting test servers**
 **This is NOT optional - it is MANDATORY for task tracking**
 
-## 📋 MANUAL TESTING CHECKLIST (ALL STEPS REQUIRED)
+## MANUAL TESTING CHECKLIST (ALL STEPS REQUIRED)
 
 When task moves to "Testing" status in MANUAL mode:
 
@@ -74,34 +71,28 @@ cd worktrees/task-{id}
 PORT=FREE_FRONTEND_PORT npm start &
 ```
 
-### Step 4: 🔴 SAVE TESTING URLs (MANDATORY - DO NOT SKIP)
-
-**⚠️ YOU MUST EXECUTE THIS COMMAND IMMEDIATELY:**
+### Step 4: SAVE TESTING URLs (MANDATORY - DO NOT SKIP)
 
 ```bash
 mcp__claudetask__set_testing_urls --task_id={id} \
   --urls='{"frontend": "http://localhost:FREE_FRONTEND_PORT", "backend": "http://localhost:FREE_BACKEND_PORT"}'
 ```
 
-**⛔ DO NOT PROCEED WITHOUT SAVING URLs**
-**⛔ THIS IS NOT OPTIONAL - IT IS REQUIRED**
-**⛔ SKIPPING THIS STEP = TASK TRACKING FAILURE**
-
-### Step 5: Save Stage Result (ONLY AFTER URLs ARE SAVED)
+### Step 5: Save Stage Result
 
 ```bash
 mcp__claudetask__append_stage_result --task_id={id} --status="Testing" \
   --summary="Testing environment prepared with URLs saved" \
   --details="Backend: http://localhost:FREE_BACKEND_PORT
 Frontend: http://localhost:FREE_FRONTEND_PORT
-✅ URLs SAVED to task database for persistent access
+URLs SAVED to task database for persistent access
 Ready for manual testing"
 ```
 
-### Step 6: Notify User WITH CONFIRMATION
+### Step 6: Notify User and Wait
 
 ```
-✅ Testing environment ready and URLs SAVED to task:
+Testing environment ready and URLs SAVED to task:
 - Backend: http://localhost:FREE_BACKEND_PORT
 - Frontend: http://localhost:FREE_FRONTEND_PORT
 - URLs permanently saved to task #{id} for easy access
@@ -109,292 +100,363 @@ Ready for manual testing"
 Please perform manual testing and update status when complete.
 ```
 
-### Step 7: Wait for User Testing
-
-- ✅ User will manually test the implementation
-- ✅ User will update status when testing is complete
-- ❌ DO NOT delegate to testing agents
-- ❌ DO NOT auto-transition to next status
-
-## ⚠️ VALIDATION: If You Setup Test Environment WITHOUT Saving URLs
-
-**This is a CRITICAL ERROR that must be fixed:**
-
-The task tracking is INCOMPLETE if URLs are not saved because:
-- User cannot access test URLs later
-- URLs are not persisted in database
-- Task status is incomplete
-
-**If you forgot to save URLs, FIX IT IMMEDIATELY:**
-```bash
-# Get the actual ports from running processes
-lsof -i :PORT_NUMBER
-
-# Save URLs now
-mcp__claudetask__set_testing_urls --task_id={id} \
-  --urls='{"frontend": "http://localhost:ACTUAL_PORT", "backend": "http://localhost:ACTUAL_PORT"}'
-```
-
-## Manual Mode Restrictions
-
-❌ **DO NOT delegate to testing agents** - This is for MANUAL testing only
-❌ **DO NOT create automated tests** - Unless explicitly requested
-❌ **DO NOT auto-transition** - Wait for user to update status
-❌ **DO NOT run test commands** - User will test manually
-
-## Manual Mode Status Exit
-
-**User will update status when testing is complete:**
-
-- If tests pass → User updates to "Code Review"
-- If bugs found → User updates to "In Progress" to fix
-- If major issues → User may update to "Analysis" to re-evaluate
-
-**You should NEVER auto-transition from Testing status in MANUAL mode.**
+**NEVER auto-transition from Testing status in MANUAL mode.**
 
 ---
 
-# 🟢 AUTOMATED TESTING MODE (`manual_testing_mode = false`)
+# AUTOMATED TESTING MODE (`manual_mode = false`)
 
-## 📋 AUTOMATED TESTING CHECKLIST
+## NEW 5-STEP TESTING WORKFLOW
 
-When task moves to "Testing" status in AUTOMATED mode:
+### Step 1: Run EXISTING Project Tests (Regression Check)
 
-### Step 1: Read Analysis Documents
+**CRITICAL: Before creating new tests, verify existing tests still pass!**
+
 ```bash
-# Get task context
+# Get project settings for test command
+mcp__claudetask__get_project_settings
+
+# Run existing test suite
+# Use test_command from settings, default examples:
+# Python: pytest {test_directory} -v
+# Node: npm test
+# Custom: {test_command}
+```
+
+**Run the test command:**
+```bash
+# Example for pytest
+pytest tests/ -v --tb=short
+
+# Example for jest
+npm test
+
+# Example for custom command from settings
+{test_command}
+```
+
+**If existing tests FAIL:**
+```bash
+mcp__claudetask__append_stage_result --task_id={id} --status="Testing" \
+  --summary="REGRESSION DETECTED: Existing tests failed" \
+  --details="The implementation broke existing tests.
+Failed tests: [list failed tests]
+Action: Returning to development to fix regression"
+
+mcp__claudetask__update_status --task_id={id} --status="In Progress" \
+  --comment="Regression detected: existing tests failed"
+
+SlashCommand("/start-develop")
+```
+
+**If existing tests PASS → Continue to Step 2**
+
+### Step 2: Create NEW Tests for This Task
+
+**Delegate to testing agents to create task-specific tests:**
+
+```bash
+# Get task details and analysis docs
 mcp__claudetask__get_task --task_id={id}
-
-# Read analysis docs in worktree
-cat worktrees/task-{id}/Analyze/Requirements/*
-cat worktrees/task-{id}/Analyze/Design/*
 ```
 
-### Step 2: Determine Test Types
-Based on analysis docs and DoD, determine which tests are needed:
-- ✅ UI/Frontend tests (web-tester agent)
-- ✅ Backend/API tests (quality-engineer agent)
-- ✅ Integration tests (if multiple components changed)
+**Read project test settings:**
+- `test_directory`: Where existing tests live (e.g., "tests")
+- `test_framework`: Which framework to use (pytest/jest/vitest)
+- `test_staging_dir`: Where to put new tests (e.g., "tests/staging")
 
-### Step 3: Delegate to Testing Agents
-
-**For Frontend/UI Testing:**
+**Create staging directory for this task:**
 ```bash
-# Use web-tester agent for E2E browser testing
-mcp__claudetask__delegate_to_agent \
-  --task_id={id} \
-  --agent_type="web-tester" \
-  --instructions="Read /Analyze docs and DoD. Create and execute UI tests per test plan. Save results in /Tests/Report/ui-tests.md"
+mkdir -p {test_staging_dir}/task-{id}
 ```
 
-**For Backend Testing:**
+**Delegate test creation:**
+
+**For Backend/Unit Tests (quality-engineer agent):**
+```
+Task agent: quality-engineer
+
+Instructions:
+Read the task analysis documents in /Analyze folder.
+Create unit tests for the new functionality implemented in this task.
+Follow the project's test patterns from {test_directory}.
+Use {test_framework} framework.
+
+Save tests to: {test_staging_dir}/task-{id}/
+File naming: test_{feature_name}.py (or .test.ts for JS)
+
+Tests should cover:
+- All new functions/methods
+- Edge cases
+- Error handling
+- Integration with existing code
+```
+
+**For Frontend/E2E Tests (web-tester agent):**
+```
+Task agent: web-tester
+
+Instructions:
+Read the task analysis documents in /Analyze folder.
+Create E2E tests for any UI changes in this task.
+Use Playwright for browser testing.
+
+Save tests to: {test_staging_dir}/task-{id}/
+File naming: e2e_{feature_name}.spec.ts
+
+Tests should cover:
+- User flows
+- UI interactions
+- Visual elements
+```
+
+### Step 3: Run NEW Tests in Isolation
+
+**Run only the new tests to verify they work:**
+
 ```bash
-# Use quality-engineer for backend/API testing
-mcp__claudetask__delegate_to_agent \
-  --task_id={id} \
-  --agent_type="quality-engineer" \
-  --instructions="Read /Analyze docs and DoD. Create pytest tests for backend APIs. Test all endpoints from test plan. Run tests and save results in /Tests/Report/backend-tests.md"
+# For pytest
+pytest {test_staging_dir}/task-{id}/ -v
+
+# For jest
+npm test -- --testPathPattern="staging/task-{id}"
+
+# For vitest
+npx vitest run {test_staging_dir}/task-{id}/
 ```
 
-### Step 4: Wait for Test Results
+**If new tests FAIL:**
+- Review and fix the tests (may be test bugs, not code bugs)
+- Or return to development if code needs fixes
+- Retry Step 3
 
-Monitor agent completion and collect test reports from:
-- `/Tests/Report/ui-tests.md`
-- `/Tests/Report/backend-tests.md`
+**If new tests PASS → Continue to Step 4**
 
-### Step 5: Analyze Test Results
+### Step 4: Run ALL Tests Together
 
-Review all test reports and determine:
-- ✅ All tests passed → Proceed to Step 6
-- ❌ Critical failures → Return to "In Progress"
-- ⚠️ Minor issues → Document and proceed (or return based on severity)
+**Verify new tests don't conflict with existing tests:**
 
-### Step 6: Save Stage Result
+```bash
+# Run full suite including staging
+# For pytest
+pytest {test_directory}/ {test_staging_dir}/task-{id}/ -v
+
+# For jest
+npm test
+
+# For vitest
+npx vitest run
+```
+
+**If combined tests FAIL:**
+- Investigate conflicts
+- Fix test isolation issues
+- Retry
+
+**If ALL tests PASS → Continue to Step 5**
+
+### Step 5: Save Results and Transition
 
 ```bash
 mcp__claudetask__append_stage_result --task_id={id} --status="Testing" \
-  --summary="Automated testing completed" \
-  --details="UI Tests: [PASS/FAIL count]
-Backend Tests: [PASS/FAIL count]
-Total: [X passed, Y failed]
-Reports: /Tests/Report/*.md"
-```
+  --summary="All tests passed - ready for code review" \
+  --details="REGRESSION CHECK: All existing tests PASS
+NEW TESTS CREATED:
+- {test_staging_dir}/task-{id}/test_*.py
+COMBINED TEST RUN: ALL PASS
 
-### Step 7: Auto-Transition Status
+Tests will be merged to main suite after PR approval."
 
-**Based on test results:**
-
-```bash
-# If all tests passed
 mcp__claudetask__update_status --task_id={id} --status="Code Review" \
   --comment="All automated tests passed"
 
-# 🔴🔴🔴 ОБЯЗАТЕЛЬНО СРАЗУ ВЫПОЛНИТЬ /PR COMMAND:
+# AUTO MODE: Execute next command immediately!
 SlashCommand("/PR {task_id}")
-
-# If critical issues found
-mcp__claudetask__update_status --task_id={id} --status="In Progress" \
-  --comment="Critical test failures: [list issues]"
-SlashCommand("/start-develop")  # Вернуться к разработке
-```
-
-**⚠️ КРИТИЧЕСКИ ВАЖНО для AUTO режима:**
-- После успешных тестов → **СРАЗУ** выполнить `SlashCommand("/PR {task_id}")`
-- НЕ писать "Ready for PR, run /PR when ready"
-- НЕ ждать команды пользователя
-- ВЫПОЛНИТЬ команду АВТОМАТИЧЕСКИ
-
-## Automated Mode Workflow
-
-✅ **DO delegate to testing agents** - Use web-tester, python-expert
-✅ **DO create automated tests** - Required for automated mode
-✅ **DO auto-transition** - Based on test results
-✅ **DO generate test reports** - Save in `/Tests/Report/`
-
-## Automated Mode Status Exit
-
-**Auto-transition based on test results:**
-
-- All tests pass → Auto-update to "Code Review"
-- Critical failures → Auto-update to "In Progress" with details
-- Blocking issues → May return to "Analysis" if design flaws found
-
-**You SHOULD auto-transition from Testing status in AUTOMATED mode.**
-
-## Port Management Best Practices
-
-### Default Ports:
-- Backend: 3333
-- Frontend: 3000
-
-### If Ports Occupied:
-1. Check with `lsof -i :PORT`
-2. Find alternative ports in safe ranges
-3. Use ports that won't conflict with other services
-
-### Port Ranges to Use:
-- Backend: 3333-5000 (avoid system ports < 3000)
-- Frontend: 3000-4000 (avoid 8000+, often used by other tools)
-
-## Troubleshooting
-
-### Port Already in Use:
-```bash
-# Find process using port
-lsof -i :PORT_NUMBER
-
-# Kill old process if safe
-kill PID_NUMBER
-
-# Or use different port
-```
-
-### Server Won't Start:
-- Check worktree directory exists
-- Ensure dependencies installed
-- Check for syntax errors in code
-- Look at server logs for errors
-
-### Frontend Not Accessible:
-- Check PORT environment variable
-- Ensure npm start completed successfully
-- Check browser console for errors
-- Verify REACT_APP_BACKEND_URL if needed
-
-## Complete Example
-
-```bash
-# 1. Check ports
-lsof -i :3333
-lsof -i :3000
-
-# 2. Start backend (port 3333 free)
-cd worktrees/task-42
-python -m uvicorn app.main:app --port 3333 --reload &
-
-# 3. Start frontend (port 3000 occupied, use 3001)
-PORT=3001 npm start &
-
-# 4. 🔴 MANDATORY: Save URLs
-mcp__claudetask__set_testing_urls --task_id=42 \
-  --urls='{"frontend": "http://localhost:3001", "backend": "http://localhost:3333"}'
-
-# 5. Save stage result
-mcp__claudetask__append_stage_result --task_id=42 --status="Testing" \
-  --summary="Testing environment ready with URLs saved" \
-  --details="Backend: http://localhost:3333
-Frontend: http://localhost:3001
-✅ URLs saved to database"
-
-# 6. Notify user
-echo "✅ Testing environment ready:
-- Backend: http://localhost:3333
-- Frontend: http://localhost:3001
-- URLs saved to task #42"
 ```
 
 ---
 
-# 📊 Mode Comparison Summary
+## TEST MERGE WORKFLOW (After PR Approval)
 
-| Feature | Manual Mode (true) | Automated Mode (false) |
-|---------|-------------------|------------------------|
+**When `auto_merge_tests = true` and PR is merged:**
+
+The `/merge` command will automatically:
+
+1. **Move tests from staging to main directory:**
+```bash
+# Move unit tests
+mv {test_staging_dir}/task-{id}/test_*.py {test_directory}/unit/
+
+# Move e2e tests
+mv {test_staging_dir}/task-{id}/e2e_*.spec.ts {test_directory}/e2e/
+
+# Clean up staging directory
+rm -rf {test_staging_dir}/task-{id}/
+```
+
+2. **Update test index if needed**
+
+3. **Commit test additions:**
+```bash
+git add {test_directory}/
+git commit -m "test: Add tests from task #{id}"
+```
+
+---
+
+## PROJECT TEST STRUCTURE
+
+**Recommended directory structure:**
+
+```
+project/
+├── {test_directory}/           # Main test directory (e.g., "tests")
+│   ├── unit/                   # Unit tests (permanent)
+│   │   ├── test_users.py
+│   │   ├── test_tasks.py
+│   │   └── ...
+│   ├── integration/            # Integration tests
+│   │   └── ...
+│   ├── e2e/                    # E2E tests
+│   │   └── ...
+│   └── conftest.py             # Shared fixtures (pytest)
+├── {test_staging_dir}/         # Staging for new tests (e.g., "tests/staging")
+│   ├── task-42/                # Tests for task 42 (before merge)
+│   │   ├── test_new_feature.py
+│   │   └── e2e_new_feature.spec.ts
+│   └── task-43/
+│       └── ...
+└── Tests/                      # Test REPORTS (markdown)
+    └── Report/
+        └── task-{id}-report.md
+```
+
+---
+
+## FRAMEWORK-SPECIFIC COMMANDS
+
+### pytest (Python)
+```bash
+# Run all tests
+pytest {test_directory}/ -v
+
+# Run with coverage
+pytest {test_directory}/ --cov=app --cov-report=term-missing
+
+# Run specific directory
+pytest {test_staging_dir}/task-{id}/ -v
+```
+
+### Jest (JavaScript/TypeScript)
+```bash
+# Run all tests
+npm test
+
+# Run with coverage
+npm test -- --coverage
+
+# Run specific pattern
+npm test -- --testPathPattern="task-{id}"
+```
+
+### Vitest
+```bash
+# Run all tests
+npx vitest run
+
+# Run with coverage
+npx vitest run --coverage
+
+# Run specific directory
+npx vitest run {test_staging_dir}/task-{id}/
+```
+
+---
+
+## AUTOMATED MODE CHECKLIST
+
+When task moves to "Testing" in AUTOMATED mode:
+
+1. **Run existing tests** (regression check)
+2. **Create new tests** via agents
+3. **Save new tests** in staging directory
+4. **Run new tests** in isolation
+5. **Run all tests** combined
+6. **Save stage result** with test summary
+7. **Auto-transition** to Code Review
+8. **Execute /PR command** immediately
+
+**Tests are MERGED to main suite only after PR is approved and merged.**
+
+---
+
+## MODE COMPARISON
+
+| Feature | Manual Mode | Automated Mode |
+|---------|-------------|----------------|
+| **Existing Tests** | Not run | Run first (regression check) |
+| **New Tests** | Not created | Created by agents |
+| **Test Location** | N/A | Staging dir → Main dir |
 | **Who Tests** | User manually | Testing agents |
-| **Test Servers** | ✅ Started for user access | ❌ Not needed |
-| **Testing URLs** | 🔴 MUST save URLs | ❌ Not required |
-| **Test Reports** | User documents findings | Auto-generated in `/Tests/Report/` |
-| **Status Transition** | User manually updates | Auto-transition based on results |
-| **Delegation** | ❌ Forbidden | ✅ Required |
-| **Test Creation** | ❌ Not created | ✅ Agents write tests |
+| **Test Servers** | Started for user | Not needed |
+| **Testing URLs** | MUST save | Not required |
+| **Status Transition** | User updates | Auto-transition |
+| **Test Merge** | N/A | After PR approval |
 
-## Decision Tree
+---
+
+## DECISION TREE
 
 ```
 Task enters "Testing" status
     ↓
 Check: mcp__claudetask__get_project_settings
     ↓
-manual_testing_mode = ?
+manual_mode = ?
     ↓
     ├─→ TRUE (Manual Mode)
     │   ├─→ Find free ports
     │   ├─→ Start test servers
-    │   ├─→ 🔴 SAVE testing URLs (mandatory!)
+    │   ├─→ SAVE testing URLs (mandatory!)
     │   ├─→ Save stage result
     │   ├─→ Notify user
     │   └─→ WAIT for user to update status
     │
     └─→ FALSE (Automated Mode)
-        ├─→ Read analysis docs
-        ├─→ Determine test types
-        ├─→ Delegate to testing agents
-        ├─→ Wait for test reports
-        ├─→ Analyze results
-        ├─→ Save stage result
-        └─→ AUTO-TRANSITION based on results
+        ├─→ STEP 1: Run existing tests
+        │   ├─→ FAIL → Return to In Progress
+        │   └─→ PASS → Continue
+        ├─→ STEP 2: Create new tests (staging)
+        ├─→ STEP 3: Run new tests in isolation
+        │   ├─→ FAIL → Fix and retry
+        │   └─→ PASS → Continue
+        ├─→ STEP 4: Run all tests combined
+        │   ├─→ FAIL → Investigate conflicts
+        │   └─→ PASS → Continue
+        ├─→ STEP 5: Save results
+        ├─→ Update to Code Review
+        └─→ Execute /PR {task_id}
 ```
 
-## Key Reminders by Mode
+---
 
-### Manual Mode Checklist:
-1. ✅ Find free ports
-2. ✅ Start servers
-3. ✅ **SAVE URLs** (mandatory!)
-4. ✅ Save stage result
-5. ✅ Notify user
-6. ✅ Wait for user testing
-7. ❌ NEVER auto-transition
+## TROUBLESHOOTING
 
-**The `set_testing_urls` command is NOT optional in Manual Mode - it MUST be called for proper task tracking.**
+### No test_command configured
+If `test_command` is not set, use framework defaults:
+- pytest: `pytest tests/ -v`
+- jest: `npm test`
+- vitest: `npx vitest run`
 
-### Automated Mode Checklist:
-1. ✅ Read analysis documents
-2. ✅ Determine test types
-3. ✅ Delegate to testing agents
-4. ✅ Wait for test completion
-5. ✅ Analyze test results
-6. ✅ Save stage result with test summary
-7. ✅ Auto-transition based on results
-8. ✅ Create test reports in `/Tests/Report/`
+### Staging directory doesn't exist
+Create it: `mkdir -p {test_staging_dir}/task-{id}`
 
-**Testing agents MUST be used in Automated Mode - manual testing is not applicable.**
+### Tests fail on merge
+- Check for import conflicts
+- Verify fixtures are available
+- Check test isolation (no shared state)
+
+### Agent doesn't create tests
+- Ensure analysis docs exist
+- Provide clear instructions
+- Check DoD for test requirements

@@ -124,6 +124,9 @@ export const activateProject = async (id: string): Promise<Project> => {
   return response.data;
 };
 
+// Test Framework enum
+export type TestFramework = 'pytest' | 'jest' | 'vitest' | 'mocha' | 'unittest' | 'custom';
+
 // Project Settings
 export interface ProjectSettings {
   id: number;
@@ -139,6 +142,12 @@ export interface ProjectSettings {
   manual_mode: boolean; // UC-04 & UC-05: Manual (true) vs Automated (false) for testing and code review
   manual_testing_mode?: boolean; // DEPRECATED: Use manual_mode instead
   manual_review_mode?: boolean; // DEPRECATED: Use manual_mode instead
+
+  // Testing configuration
+  test_directory?: string;  // Main test directory (e.g., "tests", "src/__tests__")
+  test_framework?: TestFramework;  // Test framework (pytest, jest, vitest, etc.)
+  auto_merge_tests?: boolean;  // Auto-merge new tests after PR approval
+  test_staging_dir?: string;  // Staging directory for new task tests
 }
 
 export const getProjectSettings = async (projectId: string): Promise<ProjectSettings> => {

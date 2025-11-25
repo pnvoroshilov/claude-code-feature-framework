@@ -85,13 +85,15 @@ Tight Coupling,Components highly dependent on each other,Changes cascade hard to
 
 **Complete documentation is split across multiple files:**
 
-documentation_files[8]{file,content,line_count}:
+documentation_files[10]{file,content,line_count}:
 reference/solid-principles.md,Detailed SOLID principles with examples,~480 lines
 reference/other-principles.md,DRY KISS and related principles,~200 lines
 reference/clean-architecture.md,Clean Architecture pattern and implementation,~250 lines
 reference/domain-driven-design.md,DDD concepts entities aggregates value objects,~280 lines
 reference/design-patterns.md,Common design patterns with examples,~350 lines
 reference/anti-patterns.md,Anti-patterns and solutions,~320 lines
+reference/infrastructure-patterns.md,Microservices Docker Kubernetes high availability,~450 lines
+reference/decision-frameworks.md,When to use caching pagination scaling microservices,~400 lines
 examples/backend-python.md,Python/FastAPI backend examples,~450 lines
 examples/frontend-react.md,React/TypeScript frontend examples,~450 lines
 
@@ -293,12 +295,19 @@ Documented Decisions,Significant choices recorded in ADRs,N/A
 
 **For detailed information, see:**
 
+### Core Principles
 - `/reference/solid-principles.md` - Complete SOLID principles guide
 - `/reference/other-principles.md` - DRY, KISS, and related principles
 - `/reference/clean-architecture.md` - Clean Architecture implementation
 - `/reference/domain-driven-design.md` - DDD concepts and patterns
 - `/reference/design-patterns.md` - Common design patterns
 - `/reference/anti-patterns.md` - Anti-patterns to avoid
+
+### Infrastructure & Scalability
+- `/reference/infrastructure-patterns.md` - Microservices, Docker, Kubernetes, high availability
+- `/reference/decision-frameworks.md` - When to use caching, pagination, scaling, microservices
+
+### Language-Specific Examples
 - `/examples/backend-python.md` - Python/FastAPI examples
 - `/examples/frontend-react.md` - React/TypeScript examples
 

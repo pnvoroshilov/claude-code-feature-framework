@@ -149,6 +149,7 @@ def save_order(order):
 - **[Best Practices](docs/best-practices.md)** - Industry-standard refactoring guidelines and workflows
 - **[Refactoring Patterns](docs/patterns.md)** - Complete catalog of refactoring techniques with examples
 - **[Advanced Topics](docs/advanced-topics.md)** - Large-scale refactoring, architecture migration, legacy code
+- **[Scalability Patterns](docs/scalability-patterns.md)** - Caching, pagination, high load, high availability patterns
 - **[Troubleshooting](docs/troubleshooting.md)** - Common refactoring problems and solutions
 - **[Tool Reference](docs/api-reference.md)** - IDE refactoring tools, static analyzers, automation
 

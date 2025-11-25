@@ -28,6 +28,16 @@ class TaskStatus(str, Enum):
     BLOCKED = "Blocked"
 
 
+class TestFramework(str, Enum):
+    """Test framework enumeration"""
+    PYTEST = "pytest"
+    JEST = "jest"
+    VITEST = "vitest"
+    MOCHA = "mocha"
+    UNITTEST = "unittest"
+    CUSTOM = "custom"
+
+
 # Project Schemas
 class ProjectBase(BaseModel):
     name: str
@@ -135,6 +145,12 @@ class ProjectSettingsBase(BaseModel):
     lint_command: Optional[str] = None
     worktree_enabled: bool = True
     manual_mode: bool = True  # Manual testing & review (true) vs Automated (false)
+
+    # Testing configuration
+    test_directory: Optional[str] = "tests"  # Main test directory
+    test_framework: Optional[TestFramework] = TestFramework.PYTEST  # Test framework
+    auto_merge_tests: bool = True  # Auto-merge new tests after PR approval
+    test_staging_dir: Optional[str] = "tests/staging"  # Staging directory for new task tests
 
 
 class ProjectSettingsCreate(ProjectSettingsBase):

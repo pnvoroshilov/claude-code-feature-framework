@@ -578,6 +578,69 @@ const Settings: React.FC = () => {
                     />
                   }
                 />
+
+                {/* Testing Configuration Section */}
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+                  Testing Configuration (AUTO Mode)
+                </Typography>
+
+                <SettingRow
+                  label="Test Directory"
+                  description="Main directory for project tests"
+                  control={
+                    <TextField
+                      size="small"
+                      value={backendSettings.test_directory || 'tests'}
+                      onChange={(e) => setBackendSettings({ ...backendSettings, test_directory: e.target.value })}
+                      placeholder="tests"
+                      sx={{ width: 250 }}
+                    />
+                  }
+                />
+                <SettingRow
+                  label="Test Framework"
+                  description="Testing framework used in project"
+                  control={
+                    <FormControl size="small" sx={{ width: 150 }}>
+                      <Select
+                        value={backendSettings.test_framework || 'pytest'}
+                        onChange={(e) => setBackendSettings({ ...backendSettings, test_framework: e.target.value as any })}
+                      >
+                        <MenuItem value="pytest">pytest</MenuItem>
+                        <MenuItem value="jest">Jest</MenuItem>
+                        <MenuItem value="vitest">Vitest</MenuItem>
+                        <MenuItem value="mocha">Mocha</MenuItem>
+                        <MenuItem value="unittest">unittest</MenuItem>
+                        <MenuItem value="custom">Custom</MenuItem>
+                      </Select>
+                    </FormControl>
+                  }
+                />
+                <SettingRow
+                  label="Test Staging Directory"
+                  description="Directory for new task tests before merge"
+                  control={
+                    <TextField
+                      size="small"
+                      value={backendSettings.test_staging_dir || 'tests/staging'}
+                      onChange={(e) => setBackendSettings({ ...backendSettings, test_staging_dir: e.target.value })}
+                      placeholder="tests/staging"
+                      sx={{ width: 250 }}
+                    />
+                  }
+                />
+                <SettingRow
+                  label="Auto-Merge Tests"
+                  description="Automatically merge new tests into main test suite after PR approval"
+                  control={
+                    <Switch
+                      checked={backendSettings.auto_merge_tests ?? true}
+                      onChange={(e) => setBackendSettings({ ...backendSettings, auto_merge_tests: e.target.checked })}
+                      color="primary"
+                    />
+                  }
+                />
               </>
             ) : (
               <Alert severity="info">
