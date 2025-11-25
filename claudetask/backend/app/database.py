@@ -208,6 +208,35 @@ async def seed_default_skills():
                 category="Quality",
                 file_name="python-refactor/SKILL.md",
                 is_favorite=True
+            ),
+            # Testing Skills
+            DefaultSkill(
+                name="Unit Testing",
+                description="Comprehensive unit testing best practices for creating, maintaining, and running unit tests. Covers pytest, Jest, test isolation, mocking strategies, TDD, and improving test coverage across Python, JavaScript, TypeScript and other languages.",
+                category="Testing",
+                file_name="unit-testing/SKILL.md",
+                is_favorite=False
+            ),
+            DefaultSkill(
+                name="Integration Testing",
+                description="Comprehensive integration testing best practices for testing component interactions, APIs, databases, and external services. Covers test environment setup, fixtures, database testing, API testing, and microservices validation.",
+                category="Testing",
+                file_name="integration-testing/SKILL.md",
+                is_favorite=False
+            ),
+            DefaultSkill(
+                name="UI Testing",
+                description="Comprehensive E2E and UI testing best practices covering Playwright, Cypress, Selenium, visual regression, accessibility testing, and Page Object Model patterns. Use for writing E2E tests, setting up test automation, and debugging flaky UI tests.",
+                category="Testing",
+                file_name="ui-testing/SKILL.md",
+                is_favorite=False
+            ),
+            DefaultSkill(
+                name="Security Best Practices",
+                description="Comprehensive security best practices skill covering OWASP Top 10, secure coding patterns, authentication/authorization, input validation, encryption, and security auditing. Use when implementing security measures or reviewing code for vulnerabilities.",
+                category="Security",
+                file_name="security-best-practices/SKILL.md",
+                is_favorite=False
             )
         ]
 
@@ -511,6 +540,49 @@ async def seed_default_skills():
                 skill_type="default",
                 priority=2,
                 reason="Useful for reviewing Python code against Clean Architecture principles"
+            ),
+            # Testing Skills recommendations
+            AgentSkillRecommendation(
+                agent_name="web-tester",
+                skill_id=skills["UI Testing"],
+                skill_type="default",
+                priority=1,
+                reason="Core skill for E2E and visual regression testing"
+            ),
+            AgentSkillRecommendation(
+                agent_name="quality-engineer",
+                skill_id=skills["Unit Testing"],
+                skill_type="default",
+                priority=1,
+                reason="Essential for comprehensive test coverage"
+            ),
+            AgentSkillRecommendation(
+                agent_name="quality-engineer",
+                skill_id=skills["Integration Testing"],
+                skill_type="default",
+                priority=2,
+                reason="Important for testing component interactions"
+            ),
+            AgentSkillRecommendation(
+                agent_name="backend-architect",
+                skill_id=skills["Integration Testing"],
+                skill_type="default",
+                priority=2,
+                reason="Essential for API and database testing"
+            ),
+            AgentSkillRecommendation(
+                agent_name="frontend-developer",
+                skill_id=skills["Unit Testing"],
+                skill_type="default",
+                priority=2,
+                reason="Important for React component testing"
+            ),
+            AgentSkillRecommendation(
+                agent_name="security-engineer",
+                skill_id=skills["Security Best Practices"],
+                skill_type="default",
+                priority=1,
+                reason="Core skill for security audits and vulnerability detection"
             )
         ]
 

@@ -72,6 +72,62 @@ Network interception,Full control,Full control,Limited
 Mobile testing,Yes - device emulation,Yes - viewport only,Yes - Appium needed
 Learning curve,Low-Medium,Low,Medium-High
 
+## Playwright MCP Server Configuration
+
+When using Playwright MCP (Model Context Protocol) server for browser automation with Claude Code or other AI agents, configure parallel browser sessions properly.
+
+### Key MCP Configuration Parameters
+
+playwright_mcp_params[6]{parameter,description,example}:
+--isolated,Keep browser profile in memory without saving to disk,npx @playwright/mcp --isolated
+--shared-browser-context,Reuse same browser context between all HTTP clients,npx @playwright/mcp --shared-browser-context
+--storage-state <path>,Load cookies/localStorage from file into isolated context,npx @playwright/mcp --storage-state auth.json
+--user-data-dir <path>,Persistent profile location for session data,npx @playwright/mcp --user-data-dir ./profile
+--viewport-size <size>,Browser viewport dimensions,npx @playwright/mcp --viewport-size 1920x1080
+--timeout-action <ms>,Action timeout in milliseconds (default 5000),npx @playwright/mcp --timeout-action 10000
+
+### MCP Configuration for Claude Code
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp",
+        "--isolated"
+      ]
+    }
+  }
+}
+```
+
+### Parallel Browser Sessions
+
+For multiple parallel browser instances, use `--isolated` mode:
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp",
+        "--isolated",
+        "--viewport-size", "1920x1080"
+      ]
+    }
+  }
+}
+```
+
+mcp_session_modes[3]{mode,description,use_case}:
+Persistent (default),Retains browser profile across sessions,Development testing with saved login state
+Isolated (--isolated),Fresh profile each session no disk writes,CI/CD parallel tests clean state
+Shared (--shared-browser-context),Multiple clients share one context,Team collaboration same session
+
+**IMPORTANT:** For parallel test execution, always use `--isolated` mode to prevent session conflicts between concurrent browser instances.
+
 ## Playwright Fundamentals (Recommended)
 
 Playwright is the recommended framework for new projects due to modern architecture, excellent tooling, and cross-browser support.
