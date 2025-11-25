@@ -112,13 +112,12 @@ When a project is created in DEVELOPMENT mode, the generated `CLAUDE.md` contain
 
 **This project is configured in DEVELOPMENT mode.**
 
-## Task Workflow (7 Columns)
+## Task Workflow (6 Columns)
 - **Backlog**: New tasks waiting to be analyzed
 - **Analysis**: Understanding requirements and planning
 - **In Progress**: Active development with Git worktrees
 - **Testing**: Running tests and validation
-- **Code Review**: Peer review of changes
-- **PR**: Pull Request created and awaiting merge
+- **Code Review**: Peer review of changes and PR management
 - **Done**: Completed and merged
 
 ## What this means:
@@ -154,7 +153,7 @@ When **worktrees are disabled**, the mode section changes to:
 Backlog → Analysis → In Progress → Testing → Code Review → Done
 ```
 
-**Note:** Code Review now includes PR creation and management (PR status removed).
+**Important Change (2025-11-25):** The workflow has been simplified from 7 to 6 columns. The separate "PR" status has been merged into "Code Review". Pull request creation and management now occur during the Code Review phase.
 
 ### Characteristics
 - **Full Git Workflow**: Feature branches, worktrees (optional), pull requests
@@ -196,15 +195,12 @@ Backlog → Analysis → In Progress → Testing → Code Review → Done
 - Code quality assessment
 - Security review
 - Documentation review
-- **Manual transition** to PR after review approved
-
-#### 6. Pull Request (PR)
-- PR created with proper description
+- **PR creation** during this phase (if not already created)
 - Awaiting merge approval
 - CI/CD checks (if configured)
-- **Manual merge** by user or team lead
+- **Manual merge** by user or team lead after review approval
 
-#### 7. Done
+#### 6. Done
 - Merged to main branch
 - Worktree cleaned up (if worktrees enabled)
 - Resources released
@@ -238,11 +234,9 @@ Backlog → Analysis → In Progress → Testing → Code Review → Done
 5. Coordinator delegates to reviewer → Code Review
    - Code quality assessment
    - Security review
-   - User manually transitions to PR
-6. Coordinator creates PR → PR
-   - PR description with changes summary
+   - PR created with changes summary
    - Awaits user merge approval
-7. User merges PR → Done
+6. User merges PR → Done
    - Coordinator cleans up worktree (if worktrees enabled)
    - Releases resources
    - Task archived
@@ -252,13 +246,13 @@ Backlog → Analysis → In Progress → Testing → Code Review → Done
 
 | Feature | SIMPLE Mode | DEVELOPMENT Mode |
 |---------|-------------|------------------|
-| **Statuses** | 3 (Backlog, In Progress, Done) | 7 (Full lifecycle) |
+| **Statuses** | 3 (Backlog, In Progress, Done) | 6 (Full lifecycle) |
 | **Git Workflow** | None (direct to main) | Feature branches + PRs |
 | **Worktrees** | No | Optional (toggle on/off) |
 | **Analysis Phase** | No | Yes (automatic delegation) |
 | **Testing Phase** | No | Yes (manual testing) |
-| **Code Review** | No | Yes (before merge) |
-| **Pull Requests** | No | Yes (required) |
+| **Code Review** | No | Yes (includes PR management) |
+| **Pull Requests** | No | Yes (created during Code Review) |
 | **Quality Gates** | None | Testing + Review |
 | **Team Size** | 1 developer | 1+ developers |
 | **Best For** | Prototypes, internal tools | Production, team projects |

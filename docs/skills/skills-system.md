@@ -301,9 +301,9 @@ skill-name/
 - Setting up secure APIs
 - Auditing existing code for security issues
 
-### 8. Architecture Patterns
+### 8. Architecture Patterns (ENHANCED)
 
-**Purpose**: Comprehensive software architecture guidance
+**Purpose**: Comprehensive software architecture guidance with infrastructure and scalability patterns
 
 **Location**: `framework-assets/claude-skills/architecture-patterns/`
 
@@ -316,14 +316,22 @@ skill-name/
 - Anti-patterns to avoid
 - Backend Python examples
 - Frontend React examples
-- Decision frameworks for architecture choices
-- Infrastructure patterns and scalability
+- **NEW: Decision frameworks** - Practical decision trees for architecture choices
+- **NEW: Infrastructure patterns** - Microservices, Docker, Kubernetes, high availability
+- **NEW: Scalability patterns** - Load balancing, caching strategies, database optimization
+
+**Documentation Structure**:
+- `SKILL.md` - Core architecture patterns guide
+- `reference/decision-frameworks.md` - Decision trees for optimization, caching, scaling
+- `reference/infrastructure-patterns.md` - Microservices, containerization, orchestration
 
 **When to use**:
 - Designing system architecture
 - Refactoring existing code
 - Code review for architectural quality
 - Teaching architectural concepts
+- Planning infrastructure and scalability
+- Making optimization decisions
 
 ### 9. Requirements Analysis
 
@@ -854,6 +862,7 @@ VALUES ('my-skill', 'My new skill', 'development', 'framework-assets/claude-conf
 ---
 
 **Last Updated**: 2025-11-25
-**Version**: 2.0.0
-**Total Default Skills**: 19
+**Version**: 2.1.0
+**Total Default Skills**: 21
 **Total Categories**: 5
+**Latest Additions**: Unit Testing, Integration Testing, UI Testing, Security Best Practices, enhanced Architecture Patterns with infrastructure patterns and decision frameworks

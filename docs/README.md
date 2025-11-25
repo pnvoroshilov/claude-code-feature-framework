@@ -198,16 +198,17 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 ---
 
-**Documentation Version**: 2.3
+**Documentation Version**: 2.4
 **Last Updated**: 2025-11-25
 **Total Documents**: 44
 **Auto-Updated**: Yes (via post-merge hook)
 **Status**: Current
 
-**Latest Changes (v2.3)**:
-- Added comprehensive testing skills documentation (Unit, Integration, UI, Security)
-- Documented new testing configuration fields (test_directory, test_framework, auto_merge_tests, test_staging_dir)
-- Updated Sessions page documentation for unified Claude Code and Task sessions interface
-- Updated Skills System with 5 new default skills (Unit Testing, Integration Testing, UI Testing, Security Best Practices, enhanced Architecture Patterns)
-- Enhanced Settings API documentation with test configuration fields
-- Fixed SkillInDB schema documentation (created_at/updated_at now optional)
+**Latest Changes (v2.4)**:
+- **Workflow Simplification**: Updated DEVELOPMENT mode from 7 to 6 columns (PR merged into Code Review)
+- **Testing Skills**: Added comprehensive testing suite (Unit, Integration, UI, Security Best Practices)
+- **Memory System**: Centralized ChromaDB storage, improved session tracking, reduced summarization threshold to 30 messages
+- **Architecture Skills**: Enhanced with infrastructure patterns, decision frameworks, and scalability patterns
+- **Settings API**: Added test configuration fields (test_directory, test_framework, auto_merge_tests, test_staging_dir)
+- **Sessions UI**: Unified Claude Code and Task sessions interface with consolidated tabs
+- **Skills Total**: Now 21 default skills (was 16) with enhanced refactoring and architecture guidance

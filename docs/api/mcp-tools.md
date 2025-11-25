@@ -87,7 +87,7 @@ Update the status of a task.
 
 **Parameters:**
 - `task_id` (required): Task ID
-- `status` (required): New status (Backlog, Analysis, In Progress, Testing, Code Review, PR, Done, Blocked)
+- `status` (required): New status (Backlog, Analysis, In Progress, Testing, Code Review, Done, Blocked)
 
 **Usage:**
 ```
@@ -164,7 +164,7 @@ Before starting work, check project settings:
    - Skip worktree creation
    - Work directly in main branch
 3. If `project_mode = "development"`:
-   - Use full 7-column workflow
+   - Use full 6-column workflow
    - Create worktrees if `worktree_enabled = true`
    - Follow complete git workflow
 ```
@@ -401,7 +401,7 @@ if [ "$settings.project_mode" = "simple" ]; then
   # Skip worktree creation
   # Work in main branch
 else
-  # Use 7-column workflow
+  # Use 6-column workflow
   if [ "$settings.worktree_enabled" = true ]; then
     mcp:create_worktree --task_id=$ID
   fi

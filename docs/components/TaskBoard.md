@@ -15,10 +15,12 @@ The TaskBoard is a Kanban-style task management interface that supports both **S
 Backlog → In Progress → Done
 ```
 
-#### Development Mode (7 columns)
+#### Development Mode (6 columns)
 ```
-Backlog → Analysis → In Progress → Testing → Code Review → PR → Done
+Backlog → Analysis → In Progress → Testing → Code Review → Done
 ```
+
+**Note:** Code Review now includes PR creation and management (PR status was removed).
 
 ### 2. Auto-Command Dispatch (⭐ NEW FEATURE)
 

@@ -150,6 +150,8 @@ These work without manual intervention:
 - **Purpose**: Updates project summary
 - **Hook type**: Session end
 - **Status**: Active on all projects
+- **Trigger Threshold (2025-11-25)**: Summarization now triggers every 30 messages (reduced from 50)
+- **Benefit**: More frequent knowledge consolidation for better context retention
 
 ### Manual Commands
 
