@@ -40,6 +40,10 @@ from .services.websocket_manager import task_websocket_manager
 from .routers import skills, mcp_configs, subagents, editor, instructions, hooks, file_browser, mcp_logs
 from .api import claude_sessions, rag
 
+# Import centralized config for paths
+from claudetask.config import get_config
+config = get_config()
+
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
@@ -1831,11 +1835,11 @@ async def save_conversation_message(
 
             from rag.rag_service import RAGService, RAGConfig
 
-            # Initialize RAG service with config
-            config = RAGConfig(
-                chromadb_path=str(Path(__file__).parent.parent.parent / "mcp_server" / ".chroma_db")
+            # Initialize RAG service with centralized config path
+            rag_config = RAGConfig(
+                chromadb_path=str(config.chromadb_dir)
             )
-            rag_service = RAGService(config)
+            rag_service = RAGService(rag_config)
             await rag_service.initialize()
 
             # Index the message with full metadata
@@ -2118,10 +2122,10 @@ async def rebuild_memory_index(
 
         from rag.rag_service import RAGService, RAGConfig
 
-        config = RAGConfig(
-            chromadb_path=str(Path(__file__).parent.parent.parent / "mcp_server" / ".chroma_db")
+        rag_config = RAGConfig(
+            chromadb_path=str(config.chromadb_dir)
         )
-        rag_service = RAGService(config)
+        rag_service = RAGService(rag_config)
         await rag_service.initialize()
 
         # Rebuild the index
@@ -2207,11 +2211,11 @@ async def search_project_memories(
 
             from rag.rag_service import RAGService, RAGConfig
 
-            # Initialize RAG service with config
-            config = RAGConfig(
-                chromadb_path=str(Path(__file__).parent.parent.parent / "mcp_server" / ".chroma_db")
+            # Initialize RAG service with centralized config path
+            rag_config = RAGConfig(
+                chromadb_path=str(config.chromadb_dir)
             )
-            rag_service = RAGService(config)
+            rag_service = RAGService(rag_config)
             await rag_service.initialize()
 
             # Perform semantic search
