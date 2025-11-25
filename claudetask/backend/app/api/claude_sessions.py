@@ -5,7 +5,11 @@ API endpoints for Claude Code sessions management
 from fastapi import APIRouter, HTTPException, Query
 from typing import Optional, List
 import logging
+import re
 from app.services.claude_sessions_reader import ClaudeSessionsReader
+
+# Session ID validation pattern (UUID format)
+SESSION_ID_PATTERN = re.compile(r'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$')
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -34,17 +38,21 @@ async def get_projects():
 @router.get("/projects/{project_name}/sessions")
 async def get_project_sessions(
     project_name: str,
-    project_dir: str = Query(None, description="Project directory path (optional, preferred)")
+    project_dir: str = Query(None, description="Project directory path (optional, preferred)"),
+    limit: int = Query(50, description="Number of sessions per page", gt=0, le=100),
+    offset: int = Query(0, description="Number of sessions to skip", ge=0)
 ):
     """
-    Get all sessions for a specific project
+    Get all sessions for a specific project with pagination
 
     Args:
         project_name: Project name (for backwards compatibility)
         project_dir: Project directory path (preferred)
+        limit: Number of sessions per page (default: 50)
+        offset: Number of sessions to skip (default: 0)
 
     Returns:
-        List of sessions with metadata
+        List of sessions with metadata and pagination info
     """
     try:
         from pathlib import Path
@@ -66,23 +74,36 @@ async def get_project_sessions(
                     logger.error(f"Failed to parse session {session_file.name}: {e}")
                     continue
 
-            # Sort by last timestamp
+            # Sort by last timestamp (BEFORE pagination)
             sessions = sorted(sessions, key=lambda x: x['last_timestamp'] or "", reverse=True)
+
+            # Apply pagination
+            total = len(sessions)
+            paginated_sessions = sessions[offset:offset + limit]
 
             return {
                 "success": True,
                 "project": project_name,
-                "sessions": sessions,
-                "total": len(sessions)
+                "sessions": paginated_sessions,
+                "total": total,
+                "limit": limit,
+                "offset": offset
             }
         else:
             # Fallback to old method
             sessions = sessions_reader.get_project_sessions(project_name)
+
+            # Apply pagination
+            total = len(sessions)
+            paginated_sessions = sessions[offset:offset + limit]
+
             return {
                 "success": True,
                 "project": project_name,
-                "sessions": sessions,
-                "total": len(sessions)
+                "sessions": paginated_sessions,
+                "total": total,
+                "limit": limit,
+                "offset": offset
             }
     except HTTPException:
         raise
@@ -109,6 +130,10 @@ async def get_session_details(
     """
     try:
         from pathlib import Path
+
+        # Validate session_id format to prevent path traversal attacks
+        if not SESSION_ID_PATTERN.match(session_id):
+            raise HTTPException(status_code=400, detail="Invalid session ID format. Must be a valid UUID.")
 
         # Get session file directly from directory
         session_file = Path(project_dir) / f"{session_id}.jsonl"
@@ -138,6 +163,23 @@ async def get_session_details(
                             else:
                                 content = entry.get("content", "")
 
+                            # SKIP EMPTY MESSAGES
+                            if isinstance(content, str):
+                                content_stripped = content.strip()
+                                if not content_stripped or content_stripped in ["", "...", "…"]:
+                                    continue
+                            elif isinstance(content, list):
+                                # For array content, check if any text blocks have actual content
+                                has_content = any(
+                                    block.get("text", "").strip()
+                                    for block in content
+                                    if isinstance(block, dict) and block.get("type") == "text"
+                                )
+                                if not has_content:
+                                    continue
+                            elif not content:
+                                continue
+
                             # Keep content as-is (don't convert to string if it's structured)
                             # This preserves the original structure for proper display
 
@@ -150,7 +192,8 @@ async def get_session_details(
                                 "parent_uuid": entry.get("parentUuid")
                             })
 
-                    except Exception:
+                    except Exception as e:
+                        logger.debug(f"Failed to parse message entry: {e}")
                         continue
 
             session["messages"] = messages
@@ -297,6 +340,7 @@ async def get_active_sessions():
                         '/tmp/',
                         '/private/',
                         '/.Trash/',
+                        '/Library/Caches/',
                     ]
                     is_system_path = any(pat in working_dir for pat in system_path_patterns)
 
@@ -314,6 +358,7 @@ async def get_active_sessions():
                 '/node_modules/',
                 'node ',
                 '/Contents/Frameworks/',
+                'mcp-server',        # MCP server processes
             ]
             is_excluded = any(pat in line for pat in exclude_patterns)
 
