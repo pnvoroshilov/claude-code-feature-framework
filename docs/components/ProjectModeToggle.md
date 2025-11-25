@@ -17,7 +17,7 @@ Project mode selector with worktree toggle for DEVELOPMENT mode configuration.
 
 ### Mode Toggle
 - **SIMPLE Mode**: Streamlined 3-column workflow (Backlog → In Progress → Done)
-- **DEVELOPMENT Mode**: Full 7-column workflow with quality gates
+- **DEVELOPMENT Mode**: Full 6-column workflow with quality gates (Code Review includes PR management)
 
 ### Worktree Toggle (DEVELOPMENT Mode Only)
 - **Enabled (Default)**: Isolated workspace per task in `worktrees/task-{id}/`

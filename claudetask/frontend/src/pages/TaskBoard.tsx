@@ -73,14 +73,13 @@ const simpleStatusColumns = [
   { status: 'Done', title: 'Done', color: '#darkgreen' },
 ];
 
-// Development mode: Full workflow with 7 columns
+// Development mode: Full workflow with 6 columns (PR merged into Code Review)
 const developmentStatusColumns = [
   { status: 'Backlog', title: 'Backlog', color: '#grey' },
   { status: 'Analysis', title: 'Analysis', color: '#blue' },
   { status: 'In Progress', title: 'In Progress', color: '#orange' },
   { status: 'Testing', title: 'Testing', color: '#purple' },
-  { status: 'Code Review', title: 'Code Review', color: '#brown' },
-  { status: 'PR', title: 'Pull Request', color: '#1976d2' },
+  { status: 'Code Review', title: 'Code Review', color: '#1976d2' },  // Now includes PR management
   { status: 'Done', title: 'Done', color: '#darkgreen' },
 ];
 
@@ -235,13 +234,12 @@ const TaskBoard: React.FC = () => {
 
           case 'Code Review':
             // UC-05: Testing → Code Review triggers /PR command
-            // The command handles both manual and automated modes
+            // Code Review now includes PR creation and management
             command = `/PR ${taskId}`;
             break;
 
-          case 'PR':
           case 'Done':
-            // No auto-commands for PR or Done statuses
+            // No auto-commands for Done status
             command = null;
             break;
 
@@ -352,7 +350,6 @@ const TaskBoard: React.FC = () => {
         case 'Analysis':
         case 'Testing':
         case 'Code Review':
-        case 'PR':
           return [
             { status: 'In Progress', label: 'Move to In Progress', icon: <StartIcon />, description: 'Simplify to In Progress status' },
             { status: 'Done', label: 'Mark Complete', icon: <CompleteIcon />, description: 'Task is complete', requiresConfirmation: true }
@@ -385,14 +382,10 @@ const TaskBoard: React.FC = () => {
             { status: 'Blocked', label: 'Mark as Blocked', icon: <BlockIcon />, description: 'Testing blocked by issues' }
           ];
         case 'Code Review':
+          // Code Review now includes PR creation and management
           return [
-            { status: 'PR', label: 'Create Pull Request', icon: <PRIcon />, description: 'Code approved, ready for PR' },
+            { status: 'Done', label: 'Complete (Merge PR)', icon: <CompleteIcon />, description: 'PR merged, task complete', requiresConfirmation: true },
             { status: 'In Progress', label: 'Rework Required', icon: <BackIcon />, description: 'Code changes requested' }
-          ];
-        case 'PR':
-          return [
-            { status: 'Done', label: 'Mark Complete', icon: <CompleteIcon />, description: 'PR merged, task complete', requiresConfirmation: true },
-            { status: 'Code Review', label: 'Back to Review', icon: <BackIcon />, description: 'PR changes requested' }
           ];
         case 'Blocked':
           return [
@@ -520,8 +513,7 @@ const TaskBoard: React.FC = () => {
       case 'Analysis': return <StartIcon />;
       case 'In Progress': return <CodeIcon />;
       case 'Testing': return <BugIcon />;
-      case 'Code Review': return <AssignmentIcon />;
-      case 'PR': return <PRIcon />;
+      case 'Code Review': return <PRIcon />;  // Code Review now includes PR
       case 'Done': return <CompleteIcon />;
       case 'Blocked': return <BlockIcon />;
       default: return <AssignmentIcon />;
@@ -1623,7 +1615,7 @@ const TaskBoard: React.FC = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          {selectedTask?.status === 'PR' && (
+          {selectedTask?.status === 'Code Review' && (
             <Button
               variant="contained"
               color="success"

@@ -40,7 +40,7 @@ export interface Task {
   description?: string;
   type: 'Feature' | 'Bug';
   priority: 'High' | 'Medium' | 'Low';
-  status: 'Backlog' | 'Analysis' | 'In Progress' | 'Testing' | 'Code Review' | 'PR' | 'Done' | 'Blocked';
+  status: 'Backlog' | 'Analysis' | 'In Progress' | 'Testing' | 'Code Review' | 'Done' | 'Blocked';
   analysis?: string;
   stage_results?: Array<{
     timestamp: string;

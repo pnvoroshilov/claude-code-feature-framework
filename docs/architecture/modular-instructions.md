@@ -73,7 +73,7 @@ The main `CLAUDE.md` file acts as an **orchestration hub** that references modul
 
 **Content**:
 - **SIMPLE mode**: 3-column workflow (Backlog → In Progress → Done)
-- **DEVELOPMENT mode**: 7-column workflow with analysis, testing, code review, PR
+- **DEVELOPMENT mode**: 6-column workflow with analysis, testing, code review (includes PR)
 - Mode detection and appropriate workflow selection
 - Worktree toggle in DEVELOPMENT mode
 
@@ -97,7 +97,7 @@ The main `CLAUDE.md` file acts as an **orchestration hub** that references modul
 **Purpose**: Document task status workflow and transition rules
 
 **Content**:
-- Status flow: Backlog → Analysis → In Progress → Testing → Code Review → PR → Done
+- Status flow: Backlog → Analysis → In Progress → Testing → Code Review → Done
 - Auto-transition rules
 - Manual transition requirements
 - Stage result requirements (mandatory for every transition)

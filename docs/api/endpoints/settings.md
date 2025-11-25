@@ -129,7 +129,9 @@ curl -X PUT http://localhost:3333/api/projects/abc-123/settings \
 
 **Description**: Determines the task workflow complexity:
 - **SIMPLE**: 3-column workflow (Backlog → In Progress → Done)
-- **DEVELOPMENT**: 7-column workflow (Backlog → Analysis → In Progress → Testing → Code Review → PR → Done)
+- **DEVELOPMENT**: 6-column workflow (Backlog → Analysis → In Progress → Testing → Code Review → Done)
+
+**Note:** Code Review status now includes PR creation and management.
 
 **Location**: Displayed explicitly at the top of CLAUDE.md and in Settings page.
 
