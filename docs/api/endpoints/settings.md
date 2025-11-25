@@ -43,6 +43,10 @@ Retrieve all settings for a specific project.
 - `test_command`: Command to run tests
 - `build_command`: Command to build project
 - `lint_command`: Command to run linter
+- `test_directory`: Main test directory path (default: "tests")
+- `test_framework`: Test framework being used (pytest, jest, vitest, mocha, unittest, custom)
+- `auto_merge_tests`: Auto-merge new tests after PR approval (default: true)
+- `test_staging_dir`: Staging directory for new task tests (default: "tests/staging")
 - `custom_settings`: JSON object for additional settings
 
 **Example Request**:
@@ -276,6 +280,135 @@ curl -X PUT http://localhost:3333/api/projects/abc-123/settings \
   "lint_command": "flake8"                   // Python linting
   "lint_command": "eslint src/"              // JavaScript linting
   "lint_command": "pylint src/**/*.py"       // Specific files
+}
+```
+
+---
+
+### Test Directory
+
+**Field**: `test_directory`
+**Type**: String (optional)
+**Default**: `"tests"`
+
+**Description**: Main directory where tests are located.
+
+**Examples**:
+```json
+{
+  "test_directory": "tests"                  // Default location
+  "test_directory": "src/__tests__"          // Jest convention
+  "test_directory": "test"                   // Alternative naming
+  "test_directory": "spec"                   // RSpec-style
+}
+```
+
+---
+
+### Test Framework
+
+**Field**: `test_framework`
+**Type**: String enum (optional)
+**Default**: `"pytest"`
+**Values**: `pytest`, `jest`, `vitest`, `mocha`, `unittest`, `custom`
+
+**Description**: Test framework used in the project.
+
+**Purpose**:
+- Enables framework-specific test commands
+- Guides test file generation
+- Determines test runner configuration
+- Used by AUTO mode testing workflow
+
+**Examples**:
+```json
+{
+  "test_framework": "pytest"    // Python projects
+  "test_framework": "jest"      // React/Node projects
+  "test_framework": "vitest"    // Vite-based projects
+  "test_framework": "mocha"     // Node.js projects
+  "test_framework": "unittest"  // Python standard library
+  "test_framework": "custom"    // Custom test setup
+}
+```
+
+---
+
+### Auto Merge Tests
+
+**Field**: `auto_merge_tests`
+**Type**: Boolean
+**Default**: `true`
+
+**Description**: Automatically merge new tests from task branches after PR approval.
+
+**Purpose**:
+- Streamlines test integration workflow
+- Ensures new tests are added to main test suite
+- Reduces manual test file management
+- Works with test staging directory
+
+**Workflow**:
+1. Task creates tests in staging directory
+2. PR includes tests for review
+3. After PR approval, tests auto-merge to main test directory
+4. Tests become part of project test suite
+
+**When to Disable**:
+- Manual test organization preferred
+- Tests require additional review
+- Custom test integration process
+
+**Examples**:
+```json
+{
+  "auto_merge_tests": true   // Auto-merge after PR approval (default)
+  "auto_merge_tests": false  // Manual test integration required
+}
+```
+
+---
+
+### Test Staging Directory
+
+**Field**: `test_staging_dir`
+**Type**: String (optional)
+**Default**: `"tests/staging"`
+
+**Description**: Temporary directory for new task-specific tests before integration.
+
+**Purpose**:
+- Isolate new tests during development
+- Review tests before merging to main suite
+- Organize tests by task
+- Enable gradual test integration
+
+**Structure Example**:
+```
+tests/
+├── staging/
+│   ├── task-123/
+│   │   ├── test_feature_a.py
+│   │   └── test_feature_b.py
+│   └── task-124/
+│       └── test_bugfix.py
+├── unit/
+├── integration/
+└── e2e/
+```
+
+**Workflow**:
+1. Task creates tests in `{test_staging_dir}/task-{id}/`
+2. Tests run in isolation during development
+3. After PR approval, tests move to appropriate directory
+4. Staging directory cleaned up
+
+**Examples**:
+```json
+{
+  "test_staging_dir": "tests/staging"        // Default location
+  "test_staging_dir": "test/new"             // Alternative naming
+  "test_staging_dir": "src/__tests__/staging" // Jest convention
 }
 ```
 
@@ -527,6 +660,10 @@ CREATE TABLE project_settings (
   test_command TEXT,
   build_command TEXT,
   lint_command TEXT,
+  test_directory TEXT DEFAULT 'tests',
+  test_framework TEXT DEFAULT 'pytest',
+  auto_merge_tests BOOLEAN DEFAULT 1 NOT NULL,
+  test_staging_dir TEXT DEFAULT 'tests/staging',
   custom_settings JSON,
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );

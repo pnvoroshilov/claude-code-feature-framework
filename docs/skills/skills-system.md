@@ -151,11 +151,161 @@ skill-name/
 - Structuring Next.js applications
 - Creating design systems
 
-### 4. Architecture Patterns
+### 4. Unit Testing Skill (NEW)
+
+**Purpose**: Comprehensive unit testing across multiple languages and frameworks
+
+**Location**: `framework-assets/claude-skills/unit-testing/`
+
+**Content**:
+- Test-Driven Development (TDD) workflow
+- AAA pattern (Arrange-Act-Assert)
+- Test fixture management and setup/teardown
+- Mocking strategies (objects, functions, modules)
+- Test coverage analysis and improvement
+- Parameterized and data-driven testing
+- Edge case identification and testing
+- Test organization and naming conventions
+- Framework-specific guides:
+  - Python: pytest, unittest
+  - JavaScript/TypeScript: Jest, Vitest, Mocha
+  - Comprehensive examples and templates
+
+**Documentation Structure**:
+- `README.md` - Overview and quick start
+- `SKILL.md` - Complete unit testing guide
+- `examples/python-pytest.md` - Python/pytest examples
+- `examples/javascript-jest.md` - JavaScript/Jest examples
+- `examples/typescript-vitest.md` - TypeScript/Vitest examples
+- `templates/test-template.py` - Unit test templates
+
+**When to use**:
+- Writing unit tests for new features
+- Improving test coverage
+- Refactoring tests
+- Teaching TDD practices
+- Setting up testing frameworks
+
+### 5. Integration Testing Skill (NEW)
+
+**Purpose**: End-to-end API and integration testing strategies
+
+**Location**: `framework-assets/claude-skills/integration-testing/`
+
+**Content**:
+- Integration test architecture and patterns
+- Test environment setup and isolation
+- Database testing strategies (fixtures, seeds, cleanup)
+- API endpoint testing (REST, GraphQL, WebSocket)
+- Third-party service mocking and stubbing
+- Docker-based test environments
+- Test data management and factories
+- Transaction management and rollback strategies
+- CI/CD integration testing pipelines
+- Framework-specific guides:
+  - Python: pytest with FastAPI/Flask
+  - JavaScript: Jest/Supertest with Express
+  - Docker Compose test configurations
+
+**Documentation Structure**:
+- `README.md` - Integration testing overview
+- `SKILL.md` - Complete integration testing guide
+- `examples/python-fastapi.md` - FastAPI integration tests
+- `examples/javascript-express.md` - Express integration tests
+- `templates/docker-compose.test.yml` - Docker test setup
+- `templates/pytest-config.py` - pytest configuration
+- `templates/jest-config.js` - Jest configuration
+- `reference/advanced-patterns.md` - Advanced testing patterns
+
+**When to use**:
+- Testing API endpoints
+- Setting up integration test suites
+- Testing database interactions
+- Mocking external services
+- CI/CD test pipeline setup
+
+### 6. UI Testing Skill (NEW)
+
+**Purpose**: Automated UI and browser testing with modern frameworks
+
+**Location**: `framework-assets/claude-skills/ui-testing/`
+
+**Content**:
+- Browser automation with Playwright/Selenium
+- Component testing strategies
+- Page Object Model (POM) pattern
+- Visual regression testing
+- Accessibility testing (a11y)
+- Cross-browser testing approaches
+- Test data management for UI tests
+- Screenshot comparison and diffing
+- Mobile and responsive testing
+- CI/CD integration for UI tests
+- Performance testing basics
+- Framework-specific guides:
+  - Playwright for modern web apps
+  - React Testing Library for components
+  - Cypress for E2E testing
+
+**Documentation Structure**:
+- `README.md` - UI testing overview
+- `SKILL.md` - Complete UI testing guide
+- `examples/playwright-basic.ts` - Basic Playwright examples
+- `examples/page-object-model.ts` - POM pattern implementation
+- `examples/visual-regression.ts` - Visual testing examples
+- `templates/playwright-config.ts` - Playwright configuration
+- `reference/selectors-guide.md` - CSS/XPath selector strategies
+
+**When to use**:
+- Writing E2E tests for web applications
+- Setting up visual regression testing
+- Testing component interactions
+- Cross-browser compatibility testing
+- Accessibility compliance testing
+
+### 7. Security Best Practices Skill (NEW)
+
+**Purpose**: Application security testing and secure coding practices
+
+**Location**: `framework-assets/claude-skills/security-best-practices/`
+
+**Content**:
+- OWASP Top 10 vulnerabilities
+- Authentication and authorization patterns
+- Input validation and sanitization
+- SQL injection prevention
+- XSS (Cross-Site Scripting) prevention
+- CSRF protection strategies
+- Secure session management
+- Password hashing and storage
+- API security (rate limiting, CORS)
+- Security testing checklist
+- Code review security guidelines
+
+**Documentation Structure**:
+- `README.md` - Security overview
+- `SKILL.md` - Complete security guide
+- `examples/jwt-authentication.md` - JWT implementation
+- `examples/sql-injection-prevention.md` - SQL injection defense
+- `examples/xss-prevention.md` - XSS defense patterns
+- `examples/csrf-protection.md` - CSRF token implementation
+- `reference/owasp-top-10.md` - OWASP vulnerabilities
+- `reference/authentication.md` - Auth patterns
+- `reference/input-validation.md` - Input validation strategies
+- `templates/code-review-checklist.md` - Security review checklist
+
+**When to use**:
+- Implementing authentication systems
+- Security code reviews
+- Preventing common vulnerabilities
+- Setting up secure APIs
+- Auditing existing code for security issues
+
+### 8. Architecture Patterns
 
 **Purpose**: Comprehensive software architecture guidance
 
-**Location**: `framework-assets/claude-configs/skills/architecture-patterns/`
+**Location**: `framework-assets/claude-skills/architecture-patterns/`
 
 **Content**:
 - SOLID principles with practical examples
@@ -166,6 +316,8 @@ skill-name/
 - Anti-patterns to avoid
 - Backend Python examples
 - Frontend React examples
+- Decision frameworks for architecture choices
+- Infrastructure patterns and scalability
 
 **When to use**:
 - Designing system architecture
@@ -173,7 +325,7 @@ skill-name/
 - Code review for architectural quality
 - Teaching architectural concepts
 
-### 5. Requirements Analysis
+### 9. Requirements Analysis
 
 **Purpose**: Business requirements gathering and documentation
 
@@ -191,7 +343,7 @@ skill-name/
 - Gathering requirements from stakeholders
 - Creating comprehensive requirements documentation
 
-### 6. Technical Design
+### 10. Technical Design
 
 **Purpose**: Technical specification and architecture documentation
 
@@ -209,7 +361,7 @@ skill-name/
 - Designing system components
 - Planning implementation approach
 
-### 7. TOON Format
+### 11. TOON Format
 
 **Purpose**: Token-efficient data serialization
 
@@ -226,7 +378,7 @@ skill-name/
 - Optimizing token usage
 - Storing structured data compactly
 
-### 8. UseCase Writer
+### 12. UseCase Writer
 
 **Purpose**: Professional use case documentation
 
@@ -243,7 +395,7 @@ skill-name/
 - Requirements engineering
 - System behavior specification
 
-### 9. API Development
+### 13. API Development
 
 **Purpose**: RESTful API design and implementation
 
@@ -262,7 +414,7 @@ skill-name/
 - Designing API architecture
 - API documentation
 
-### 10. API Integration
+### 14. API Integration
 
 **Purpose**: Third-party API integration patterns
 
@@ -280,7 +432,7 @@ skill-name/
 - Building API clients
 - Handling API errors
 
-### 11. UI Component Development
+### 15. UI Component Development
 
 **Purpose**: React component development patterns
 
@@ -299,7 +451,7 @@ skill-name/
 - UI/UX implementation
 - Frontend architecture
 
-### 12. Code Review
+### 16. Code Review
 
 **Purpose**: Comprehensive code review guidelines
 
@@ -317,7 +469,7 @@ skill-name/
 - Code quality assessment
 - Mentoring developers
 
-### 13. Database Migration
+### 17. Database Migration
 
 **Purpose**: Database schema evolution
 
@@ -335,7 +487,7 @@ skill-name/
 - Evolving database schema
 - Data migration tasks
 
-### 14. Debug Helper
+### 18. Debug Helper
 
 **Purpose**: Debugging strategies and tools
 
@@ -353,7 +505,7 @@ skill-name/
 - Performance issues
 - System behavior analysis
 
-### 15. Deployment Helper
+### 19. Deployment Helper
 
 **Purpose**: Deployment and DevOps guidance
 
@@ -371,7 +523,7 @@ skill-name/
 - CI/CD configuration
 - Production environment setup
 
-### 16. Documentation Writer
+### 20. Documentation Writer
 
 **Purpose**: Technical documentation creation
 
@@ -389,7 +541,7 @@ skill-name/
 - Creating API docs
 - User guide creation
 
-### 17. Git Workflow
+### 21. Git Workflow
 
 **Purpose**: Git version control patterns
 

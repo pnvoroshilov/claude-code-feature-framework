@@ -29,6 +29,7 @@ React component documentation with props, usage examples, and patterns.
 - `RealTerminal.md` - Terminal interface with WebSocket buffering and smart scroll management (v2.1)
 - `ClaudeSessions.md` - Embedded task session management UI with structured content rendering (v2.1)
 - `ClaudeCodeSessions.md` - Native Claude Code session analytics and browsing interface
+- `Sessions.md` - Unified Sessions page with Claude Code and Task sessions (v2.0)
 - `Hooks.md` - Hooks management UI for automated shell command configuration
 - `Subagents.md` - Subagent management UI for specialized AI assistants
 - `Skills.md` - Skills management interface for extended capabilities
@@ -64,7 +65,7 @@ Claude Code skills documentation for extended capabilities.
 
 **Skills:**
 - `README.md` - Skills overview and usage guide
-- `skills-system.md` - Complete skills system architecture and available skills (16 default skills)
+- `skills-system.md` - Complete skills system architecture and available skills (21 default skills including testing suite)
 - `toon-format.md` - TOON Format skill for token-efficient data serialization
 - `usecase-writer.md` - UseCase Writer skill for requirements documentation
 
@@ -197,13 +198,16 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 ---
 
-**Documentation Version**: 2.2
+**Documentation Version**: 2.3
 **Last Updated**: 2025-11-25
-**Total Documents**: 43
+**Total Documents**: 44
 **Auto-Updated**: Yes (via post-merge hook)
 **Status**: Current
 
-**Latest Changes (v2.2)**:
-- Centralized ChromaDB storage documentation (all projects share framework root instance)
-- Enhanced memory-capture hook improvements (session tracking, logging, JSONL parsing)
-- Updated RAG indexing documentation with new storage location
+**Latest Changes (v2.3)**:
+- Added comprehensive testing skills documentation (Unit, Integration, UI, Security)
+- Documented new testing configuration fields (test_directory, test_framework, auto_merge_tests, test_staging_dir)
+- Updated Sessions page documentation for unified Claude Code and Task sessions interface
+- Updated Skills System with 5 new default skills (Unit Testing, Integration Testing, UI Testing, Security Best Practices, enhanced Architecture Patterns)
+- Enhanced Settings API documentation with test configuration fields
+- Fixed SkillInDB schema documentation (created_at/updated_at now optional)
