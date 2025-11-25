@@ -45,7 +45,8 @@ if [ -f "$LOCKFILE" ]; then
 fi
 
 # Check if this is a git push/merge/pull command
-if echo "$BASH_CMD" | grep -qE '(git merge|gh pr merge|git pull.*origin.*(main|master)|git push.*origin.*(main|master))'; then
+# Note: "git push" without explicit origin/branch pushes to tracked upstream (usually origin/main)
+if echo "$BASH_CMD" | grep -qE '(git merge|gh pr merge|git pull.*origin.*(main|master)|git push( |$)|git push.*origin)'; then
     CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown')
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] Git command detected. Branch: $CURRENT_BRANCH" >> "$LOGFILE"
 
