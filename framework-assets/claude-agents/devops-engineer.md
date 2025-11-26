@@ -1,7 +1,7 @@
 ---
 name: devops-engineer
 description: Infrastructure automation, Docker, CI/CD pipelines, monitoring, and deployment specialist
-tools: Read, Write, Edit, Bash, Grep, WebFetch
+tools: Read, Write, Edit, Bash, Grep, WebFetch, Skill
 skills: deployment-helper, git-workflow, debug-helper
 ---
 

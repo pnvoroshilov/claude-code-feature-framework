@@ -1,7 +1,7 @@
 ---
 name: ux-ui-researcher
 description: User experience research, interface analysis, usability testing, design system evaluation, and user behavior insights specialist
-tools: Read, Write, WebFetch, Grep, Glob
+tools: Read, Write, WebFetch, Grep, Glob, Skill
 skills: ui-component, documentation-writer, ui-testing
 ---
 

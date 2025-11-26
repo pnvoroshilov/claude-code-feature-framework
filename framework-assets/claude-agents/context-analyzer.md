@@ -1,7 +1,7 @@
 ---
 name: context-analyzer
 description: Analyze codebase, documentation, and project files using RAG-powered semantic search to extract specific information efficiently
-tools: Bash, Glob, Grep, Read, WebFetch, TodoWrite, WebSearch, BashOutput, KillBash, mcp__claudetask__search_codebase, mcp__claudetask__find_similar_tasks
+tools: Bash, Glob, Grep, Read, WebFetch, TodoWrite, WebSearch, BashOutput, KillBash, mcp__claudetask__search_codebase, mcp__claudetask__find_similar_tasks, Skill
 skills: documentation-writer, architecture-patterns, debug-helper
 ---
 

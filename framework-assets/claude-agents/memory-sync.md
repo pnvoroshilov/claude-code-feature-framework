@@ -1,7 +1,7 @@
 ---
 name: memory-sync
 description: Automatically maintain project memory and context in background without blocking development flow
-tools: Read, Write, Glob, Grep
+tools: Read, Write, Glob, Grep, Skill
 skills: documentation-writer
 ---
 

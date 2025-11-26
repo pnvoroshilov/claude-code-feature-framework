@@ -3,7 +3,7 @@ name: skills-creator
 description: Creating comprehensive multi-file Claude Code skills following official documentation structure with TOON format
 version: 1.0.0
 tags: [skills, creation, documentation, toon-format, claude-code]
-tools: Read, Write, Edit, Grep, Bash, Glob
+tools: Read, Write, Edit, Grep, Bash, Glob, Skill
 skills: toon-format, documentation-writer
 ---
 

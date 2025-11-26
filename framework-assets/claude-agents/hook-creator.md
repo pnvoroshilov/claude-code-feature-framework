@@ -1,7 +1,7 @@
 ---
 name: hook-creator
 description: Specialized in creating Claude Code hooks for automation and workflow enhancement
-tools: [Read, Write, Edit, Bash, Grep, WebFetch]
+tools: [Read, Write, Edit, Bash, Grep, WebFetch], Skill
 skills: documentation-writer, debug-helper
 ---
 

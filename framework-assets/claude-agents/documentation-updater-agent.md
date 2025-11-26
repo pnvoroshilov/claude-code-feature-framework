@@ -1,7 +1,7 @@
 ---
 name: documentation-updater-agent
 description: Automatically update, create, and manage project documentation after code changes with no duplication or versioning
-tools: Read, Write, Edit, Glob, Grep, Bash
+tools: Read, Write, Edit, Glob, Grep, Bash, Skill
 skills: documentation-writer, technical-design, git-workflow
 ---
 

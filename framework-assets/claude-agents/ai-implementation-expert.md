@@ -1,7 +1,7 @@
 ---
 name: ai-implementation-expert
 description: AI/LLM Implementation Expert specializing in prompt engineering, LangChain, and multi-agent systems
-tools: Read, Write, Edit, MultiEdit, Bash, Grep
+tools: Read, Write, Edit, MultiEdit, Bash, Grep, Skill
 skills: architecture-patterns, debug-helper, documentation-writer, python-refactor
 ---
 

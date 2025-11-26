@@ -1,7 +1,7 @@
 ---
 name: quality-engineer
 description: Comprehensive testing strategies, quality assurance processes, and ensuring software reliability
-tools: Read, Write, Edit, Bash, Grep
+tools: Read, Write, Edit, Bash, Grep, Skill
 skills: unit-testing, integration-testing, ui-testing, test-runner, debug-helper
 ---
 

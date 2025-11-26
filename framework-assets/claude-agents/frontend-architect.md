@@ -1,7 +1,7 @@
 ---
 name: frontend-architect
 description: Designing scalable, maintainable frontend architectures and leading frontend development strategy
-tools: Read, Write, Edit, MultiEdit, Bash, Grep, mcp__claudetask__search_codebase, mcp__claudetask__find_similar_tasks
+tools: Read, Write, Edit, MultiEdit, Bash, Grep, mcp__claudetask__search_codebase, mcp__claudetask__find_similar_tasks, Skill
 skills: ui-component, architecture-patterns, react-refactor, api-integration, technical-design
 ---
 

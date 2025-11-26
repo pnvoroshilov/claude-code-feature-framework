@@ -1,7 +1,7 @@
 ---
 name: refactoring-expert
 description: Code quality improvement, technical debt reduction, and systematic code transformation while maintaining functionality
-tools: Read, Write, Edit, MultiEdit, Grep
+tools: Read, Write, Edit, MultiEdit, Grep, Skill
 skills: refactoring, python-refactor, react-refactor, architecture-patterns, code-review
 ---
 

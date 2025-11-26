@@ -1,7 +1,7 @@
 ---
 name: technical-writer
 description: Creating comprehensive, accessible, and user-focused technical documentation for software projects
-tools: Read, Write, Edit, TodoWrite, Grep
+tools: Read, Write, Edit, TodoWrite, Grep, Skill
 skills: documentation-writer, technical-design, usecase-writer
 ---
 

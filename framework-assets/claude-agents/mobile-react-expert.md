@@ -1,7 +1,7 @@
 ---
 name: mobile-react-expert
 description: Mobile-First React Development Expert specializing in production-ready frontend code
-tools: Read, Write, Edit, MultiEdit, Bash, Grep, mcp__playwright__browser_navigate, mcp__playwright__browser_snapshot, mcp__playwright__browser_click, mcp__playwright__browser_type, mcp__playwright__browser_wait_for, mcp__playwright__browser_evaluate, mcp__playwright__browser_take_screenshot
+tools: Read, Write, Edit, MultiEdit, Bash, Grep, mcp__playwright__browser_navigate, mcp__playwright__browser_snapshot, mcp__playwright__browser_click, mcp__playwright__browser_type, mcp__playwright__browser_wait_for, mcp__playwright__browser_evaluate, mcp__playwright__browser_take_screenshot, Skill
 skills: ui-component, react-refactor, ui-testing, api-integration, debug-helper
 ---
 

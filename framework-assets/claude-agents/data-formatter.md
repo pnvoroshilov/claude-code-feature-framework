@@ -1,7 +1,7 @@
 ---
 name: data-formatter
 description: Transform and format data between different structures and formats without side effects
-tools: Read, Write, Edit
+tools: Read, Write, Edit, Skill
 skills: toon-format
 ---
 

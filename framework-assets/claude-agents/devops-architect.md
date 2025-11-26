@@ -1,7 +1,7 @@
 ---
 name: devops-architect
 description: Designing scalable infrastructure, automation strategies, and comprehensive DevOps practices
-tools: Read, Write, Edit, Bash, Grep
+tools: Read, Write, Edit, Bash, Grep, Skill
 skills: deployment-helper, architecture-patterns, security-best-practices, documentation-writer
 ---
 

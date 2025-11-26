@@ -1,7 +1,7 @@
 ---
 name: api-validator
 description: Continuously validate API consistency and update OpenAPI specifications automatically in background
-tools: Read, Write, Edit, Grep, Glob, Bash
+tools: Read, Write, Edit, Grep, Glob, Bash, Skill
 skills: api-development, documentation-writer, integration-testing
 ---
 

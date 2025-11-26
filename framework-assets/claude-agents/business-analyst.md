@@ -1,7 +1,7 @@
 ---
 name: business-analyst
 description: Analyze business requirements, processes, and stakeholder needs to bridge the gap between business and technical teams
-tools: Read, Write, Edit, TodoWrite, Grep, Bash, mcp__claudetask__search_codebase, mcp__claudetask__find_similar_tasks
+tools: Read, Write, Edit, TodoWrite, Grep, Bash, mcp__claudetask__search_codebase, mcp__claudetask__find_similar_tasks, Skill
 skills: requirements-analysis, usecase-writer, documentation-writer, technical-design
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: backend-architect
 description: Design and implement scalable backend systems with Python FastAPI, databases, and microservices
-tools: Read, Write, Edit, MultiEdit, Bash, Grep, mcp__claudetask__search_codebase, mcp__claudetask__find_similar_tasks
+tools: Read, Write, Edit, MultiEdit, Bash, Grep, mcp__claudetask__search_codebase, mcp__claudetask__find_similar_tasks, Skill
 skills: api-development, database-migration, architecture-patterns, security-best-practices, python-refactor
 ---
 

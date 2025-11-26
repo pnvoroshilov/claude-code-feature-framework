@@ -1,7 +1,7 @@
 ---
 name: performance-engineer
 description: Analyzing, optimizing, and monitoring system performance across all application layers
-tools: Read, Write, Edit, MultiEdit, Bash, Grep
+tools: Read, Write, Edit, MultiEdit, Bash, Grep, Skill
 skills: refactoring, debug-helper, architecture-patterns
 ---
 

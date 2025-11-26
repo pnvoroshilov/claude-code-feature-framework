@@ -1,7 +1,7 @@
 ---
 name: systems-analyst
 description: Analyze existing systems, design solutions, and bridge technical architecture with business requirements using RAG-powered codebase search
-tools: Read, Write, Edit, Grep, Glob, Bash, mcp__claudetask__search_codebase, mcp__claudetask__find_similar_tasks
+tools: Read, Write, Edit, Grep, Glob, Bash, mcp__claudetask__search_codebase, mcp__claudetask__find_similar_tasks, Skill
 skills: architecture-patterns, requirements-analysis, documentation-writer, technical-design
 ---
 

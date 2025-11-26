@@ -1,7 +1,7 @@
 ---
 name: pr-merge-agent
 description: Handle PR creation, review coordination, and merge operations for completed tasks
-tools: Read, Write, Edit, Bash, Grep, Glob
+tools: Read, Write, Edit, Bash, Grep, Glob, Skill
 skills: merge-skill, git-workflow, code-review
 ---
 

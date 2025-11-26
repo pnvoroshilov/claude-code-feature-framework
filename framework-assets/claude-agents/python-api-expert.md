@@ -1,7 +1,7 @@
 ---
 name: python-api-expert
 description: Python FastAPI Backend Development Expert specializing in production-ready API development
-tools: Read, Write, Edit, MultiEdit, Bash, Grep
+tools: Read, Write, Edit, MultiEdit, Bash, Grep, Skill
 skills: api-development, database-migration, python-refactor, security-best-practices, unit-testing
 ---
 

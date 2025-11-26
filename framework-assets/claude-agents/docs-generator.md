@@ -1,7 +1,7 @@
 ---
 name: docs-generator
 description: Automatically generate and maintain project documentation in background after code changes
-tools: Read, Write, Glob, Grep, Bash
+tools: Read, Write, Glob, Grep, Bash, Skill
 skills: documentation-writer, technical-design
 ---
 

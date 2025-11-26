@@ -1,7 +1,7 @@
 ---
 name: security-engineer
 description: Application security, vulnerability assessment, and implementing security best practices
-tools: Read, Write, Edit, Grep, Bash
+tools: Read, Write, Edit, Grep, Bash, Skill
 skills: security-best-practices, code-review, debug-helper
 ---
 

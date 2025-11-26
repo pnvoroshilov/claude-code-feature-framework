@@ -1,7 +1,7 @@
 ---
 name: mcp-engineer
 description: MCP (Model Context Protocol) implementation specialist for Claude Code integration and tool development
-tools: Read, Write, Edit, MultiEdit, Bash, Grep
+tools: Read, Write, Edit, MultiEdit, Bash, Grep, Skill
 skills: api-development, architecture-patterns, documentation-writer, debug-helper
 ---
 

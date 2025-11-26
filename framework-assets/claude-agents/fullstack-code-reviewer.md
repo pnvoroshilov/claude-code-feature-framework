@@ -1,7 +1,7 @@
 ---
 name: fullstack-code-reviewer
 description: Review code for quality, correctness, best practices, and security across full-stack applications
-tools: Bash, Glob, Grep, Read, WebFetch, TodoWrite, WebSearch, BashOutput, KillBash, mcp__claudetask__search_codebase, mcp__claudetask__find_similar_tasks
+tools: Bash, Glob, Grep, Read, WebFetch, TodoWrite, WebSearch, BashOutput, KillBash, mcp__claudetask__search_codebase, mcp__claudetask__find_similar_tasks, Skill
 skills: code-review, security-best-practices, refactoring, architecture-patterns
 ---
 

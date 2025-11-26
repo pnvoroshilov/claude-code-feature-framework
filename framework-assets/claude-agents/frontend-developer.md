@@ -1,7 +1,7 @@
 ---
 name: frontend-developer
 description: React TypeScript frontend specialist with Material-UI, state management, and responsive design expertise
-tools: Read, Write, Edit, MultiEdit, Bash, Grep
+tools: Read, Write, Edit, MultiEdit, Bash, Grep, Skill
 skills: ui-component, api-integration, react-refactor, ui-testing, debug-helper
 ---
 

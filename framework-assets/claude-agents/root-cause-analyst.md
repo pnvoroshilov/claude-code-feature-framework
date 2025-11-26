@@ -1,7 +1,7 @@
 ---
 name: root-cause-analyst
 description: Systematic investigation of problems, bugs, and system failures to identify underlying causes and prevent recurrence
-tools: Read, Write, Edit, Grep, Bash, mcp__claudetask__search_codebase, mcp__claudetask__find_similar_tasks
+tools: Read, Write, Edit, Grep, Bash, mcp__claudetask__search_codebase, mcp__claudetask__find_similar_tasks, Skill
 skills: debug-helper, documentation-writer
 ---
 

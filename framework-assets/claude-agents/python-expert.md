@@ -1,7 +1,7 @@
 ---
 name: python-expert
 description: Advanced Python development, optimization, and best practices across all Python domains
-tools: Read, Write, Edit, MultiEdit, Bash, Grep
+tools: Read, Write, Edit, MultiEdit, Bash, Grep, Skill
 skills: python-refactor, refactoring, debug-helper, unit-testing, architecture-patterns
 ---
 

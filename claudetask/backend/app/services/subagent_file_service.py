@@ -722,6 +722,22 @@ A task is successfully completed when:
             frontmatter_lines = frontmatter.split('\n')
             frontmatter_lines = [line for line in frontmatter_lines if not line.startswith('skills:')]
 
+            # Update tools line to include Skill tool if skills are being added
+            if skills:
+                # Find and update tools line to include Skill tool
+                for i, line in enumerate(frontmatter_lines):
+                    if line.startswith('tools:'):
+                        # Check if Skill tool is already included
+                        if 'Skill' not in line:
+                            # Add Skill to the tools line
+                            frontmatter_lines[i] = line.rstrip() + ', Skill'
+                            logger.info(f"Added Skill tool to agent tools")
+                        break
+            else:
+                # If skills are being removed, optionally remove Skill tool from tools
+                # (keeping it doesn't hurt, so we leave it for now)
+                pass
+
             # Add new skills line to frontmatter if there are skills
             if skills:
                 # Extract skill commands from file_name (same logic as in _generate_skills_section)

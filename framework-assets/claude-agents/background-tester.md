@@ -1,7 +1,7 @@
 ---
 name: background-tester
 description: Automatically run tests in background when code changes, report failures only without blocking development
-tools: Bash, Read, Grep, Glob
+tools: Bash, Read, Grep, Glob, Skill
 skills: test-runner, unit-testing, integration-testing, debug-helper
 ---
 
