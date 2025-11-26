@@ -7,15 +7,31 @@
 #
 # Input (via stdin): JSON with Stop event data including transcript
 
-PROJECT_ROOT="$(pwd)"
+# Read input from stdin first
+INPUT=$(cat)
+
+# Get project root from input JSON cwd field, or fall back to pwd
+PROJECT_ROOT=$(echo "$INPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('cwd', ''))" 2>/dev/null)
+if [ -z "$PROJECT_ROOT" ]; then
+    PROJECT_ROOT="$(pwd)"
+fi
+
+# Walk up to find .mcp.json (project root)
+ORIGINAL_ROOT="$PROJECT_ROOT"
+while [ ! -f "$PROJECT_ROOT/.mcp.json" ] && [ "$PROJECT_ROOT" != "/" ]; do
+    PROJECT_ROOT="$(dirname "$PROJECT_ROOT")"
+done
+
+# If no .mcp.json found, use original
+if [ ! -f "$PROJECT_ROOT/.mcp.json" ]; then
+    PROJECT_ROOT="$ORIGINAL_ROOT"
+fi
+
 LOGDIR="$PROJECT_ROOT/.claude/logs/hooks"
 LOGFILE="$LOGDIR/memory-summarize-$(date +%Y%m%d).log"
 
 # Create log directory
 mkdir -p "$LOGDIR" 2>/dev/null
-
-# Read input from stdin
-INPUT=$(cat)
 
 # Get backend URL (default to localhost)
 BACKEND_URL="${CLAUDETASK_BACKEND_URL:-http://localhost:3333}"
@@ -60,64 +76,103 @@ fi
 
 log_message "Starting summarization - $MESSAGES_SINCE messages since last summary"
 
-# Extract summary from transcript
-# Look for: files modified, commands run, tasks completed, key decisions
-SUMMARY=$(echo "$INPUT" | python3 -c "
+# Get transcript_path from input JSON
+TRANSCRIPT_PATH=$(echo "$INPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('transcript_path', ''))" 2>/dev/null)
+
+log_message "Transcript path: $TRANSCRIPT_PATH"
+
+# Extract summary from transcript file (JSONL format - one JSON per line)
+SUMMARY=$(python3 -c "
 import json
 import sys
-import re
+
+transcript_path = '$TRANSCRIPT_PATH'
+
+if not transcript_path:
+    print('Session work completed')
+    sys.exit(0)
 
 try:
-    data = json.load(sys.stdin)
-    transcript = data.get('transcript', [])
-
     files_modified = set()
-    commands_run = []
     key_activities = []
+    user_requests = []
 
-    for msg in transcript:
-        content = msg.get('content', '')
-        if isinstance(content, list):
-            for block in content:
-                if isinstance(block, dict):
-                    if block.get('type') == 'tool_use':
-                        tool = block.get('name', '')
-                        tool_input = block.get('input', {})
+    # Parse JSONL file (one JSON object per line)
+    with open(transcript_path, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except:
+                continue
 
-                        if tool in ['Edit', 'Write', 'MultiEdit']:
-                            file_path = tool_input.get('file_path', '')
-                            if file_path:
-                                files_modified.add(file_path.split('/')[-1])
-                        elif tool == 'Bash':
-                            cmd = tool_input.get('command', '')[:50]
-                            if 'git commit' in cmd or 'git push' in cmd:
-                                key_activities.append('Git commit/push')
-                        elif tool == 'Task':
-                            desc = tool_input.get('description', '')
-                            if desc:
-                                key_activities.append(f'Delegated: {desc[:30]}')
-                    elif block.get('type') == 'text':
-                        text = block.get('text', '')
-                        if 'completed' in text.lower() and len(text) < 200:
-                            key_activities.append('Task completed')
+            msg_type = entry.get('type', '')
 
-    # Build summary
+            # Get user requests for context
+            if msg_type == 'user':
+                content = entry.get('message', {}).get('content', '')
+                if isinstance(content, str) and len(content) > 10 and len(content) < 200:
+                    text = content.strip()
+                    # Skip system messages and hooks
+                    if not text.startswith('[') and not text.startswith('<') and not text.startswith('/'):
+                        user_requests.append(text[:80])
+
+            # Get assistant tool uses
+            elif msg_type == 'assistant':
+                content = entry.get('message', {}).get('content', [])
+                if isinstance(content, list):
+                    for block in content:
+                        if isinstance(block, dict) and block.get('type') == 'tool_use':
+                            tool = block.get('name', '')
+                            tool_input = block.get('input', {})
+
+                            if tool in ['Edit', 'Write', 'MultiEdit']:
+                                file_path = tool_input.get('file_path', '')
+                                if file_path:
+                                    fname = file_path.split('/')[-1]
+                                    files_modified.add(fname)
+                            elif tool == 'Bash':
+                                cmd = tool_input.get('command', '')
+                                if 'git commit' in cmd:
+                                    key_activities.append('Git commit')
+                                elif 'git push' in cmd:
+                                    key_activities.append('Git push')
+                                elif 'npm' in cmd or 'pip' in cmd:
+                                    key_activities.append('Pkg install')
+                                elif 'pytest' in cmd or 'npm test' in cmd:
+                                    key_activities.append('Tests')
+                            elif tool == 'Task':
+                                desc = tool_input.get('description', '')
+                                if desc:
+                                    key_activities.append(f'Agent:{desc[:20]}')
+
+    # Build meaningful summary
     summary_parts = []
 
-    if files_modified:
-        summary_parts.append(f\"Files: {', '.join(list(files_modified)[:8])}\")
+    # Add last user request
+    if user_requests:
+        last_req = user_requests[-1]
+        summary_parts.append(f'Task: {last_req}')
 
+    # Add modified files count
+    if files_modified:
+        flist = list(files_modified)[:5]
+        summary_parts.append(f'Files({len(files_modified)}): {chr(44).join(flist)}')
+
+    # Add key activities
     if key_activities:
-        unique_activities = list(dict.fromkeys(key_activities))[:4]
-        summary_parts.append(f\"Activities: {'; '.join(unique_activities)}\")
+        unique = list(dict.fromkeys(key_activities))[:3]
+        summary_parts.append(f'Actions: {chr(44).join(unique)}')
 
     if summary_parts:
         print(' | '.join(summary_parts))
     else:
-        print('Session work completed')
+        print('Session interaction')
 
 except Exception as e:
-    print(f'Session summary')
+    print(f'Error: {str(e)[:40]}')
 " 2>/dev/null)
 
 if [ -z "$SUMMARY" ]; then
