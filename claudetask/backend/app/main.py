@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
 from typing import List, Optional
+from collections import deque
 import os
 import logging
 import json
@@ -1021,7 +1022,7 @@ async def get_session_messages(
 DEFAULT_MESSAGE_LIMIT = 100  # Default limit for message retrieval
 
 
-def parse_jsonl_messages(jsonl_path: Path, limit: int = DEFAULT_MESSAGE_LIMIT) -> List[dict]:
+def parse_jsonl_messages(jsonl_path: Path, limit: int = DEFAULT_MESSAGE_LIMIT, _skip_validation: bool = False) -> List[dict]:
     """
     Parse messages from Claude Code JSONL file with security validation.
 
@@ -1031,6 +1032,7 @@ def parse_jsonl_messages(jsonl_path: Path, limit: int = DEFAULT_MESSAGE_LIMIT) -
     Args:
         jsonl_path: Path to the JSONL file (must be within ~/.claude directory)
         limit: Maximum number of messages to return
+        _skip_validation: Skip path validation (INTERNAL USE ONLY - for testing)
 
     Returns:
         List of message dictionaries with role, content, and timestamp
@@ -1040,19 +1042,21 @@ def parse_jsonl_messages(jsonl_path: Path, limit: int = DEFAULT_MESSAGE_LIMIT) -
         FileNotFoundError: If file doesn't exist
     """
     # Security: Validate path is within .claude directory (defense in depth)
-    try:
-        resolved = jsonl_path.resolve()
-        claude_base = (Path.home() / ".claude").resolve()
-        if not str(resolved).startswith(str(claude_base)):
-            logger.error(f"Security: Attempted to parse file outside .claude: {resolved}")
-            raise ValueError("Invalid file path - security check failed")
-    except ValueError:
-        raise
-    except Exception as e:
-        logger.error(f"Path validation failed: {e}")
-        raise ValueError(f"Path validation failed: {e}")
+    if not _skip_validation:
+        try:
+            resolved = jsonl_path.resolve()
+            claude_base = (Path.home() / ".claude").resolve()
+            if not str(resolved).startswith(str(claude_base)):
+                logger.error(f"Security: Attempted to parse file outside .claude: {resolved}")
+                raise ValueError("Invalid file path - security check failed")
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Path validation failed: {e}")
+            raise ValueError(f"Path validation failed: {e}")
 
-    messages = []
+    # Use deque with maxlen to efficiently keep last N messages
+    messages = deque(maxlen=limit)
     try:
         with open(jsonl_path, 'r', encoding='utf-8') as f:
             for line in f:
@@ -1068,14 +1072,15 @@ def parse_jsonl_messages(jsonl_path: Path, limit: int = DEFAULT_MESSAGE_LIMIT) -
                         else:
                             content = entry.get("content", "")
 
+                        # Skip empty messages (align with claude_sessions.py:167-175)
+                        if not content or (isinstance(content, str) and not content.strip()):
+                            continue
+
                         messages.append({
                             "role": entry_type,
                             "content": content,
                             "timestamp": entry.get("timestamp"),
                         })
-
-                        if len(messages) >= limit:
-                            break
                 except json.JSONDecodeError as e:
                     logger.warning(f"Failed to parse JSONL line: {e}")
                     continue
@@ -1083,7 +1088,7 @@ def parse_jsonl_messages(jsonl_path: Path, limit: int = DEFAULT_MESSAGE_LIMIT) -
         logger.error(f"Failed to read JSONL file {jsonl_path}: {e}")
         raise
 
-    return messages
+    return list(messages)
 
 
 def get_session_jsonl_path(project_id: str, session_id: str) -> Optional[Path]:
