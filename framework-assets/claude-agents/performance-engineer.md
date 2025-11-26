@@ -49,6 +49,20 @@ Systematic debugging assistance with root cause analysis, diagnostic strategies,
 
 Comprehensive guidance on software architecture patterns, design principles, SOLID, DDD, and microservices
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- refactoring: [YES/NO]
+- debug-helper: [YES/NO]
+- architecture-patterns: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 

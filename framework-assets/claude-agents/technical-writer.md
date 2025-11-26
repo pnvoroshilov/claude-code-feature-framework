@@ -49,6 +49,20 @@ Comprehensive document formats and templates for technical architecture design a
 
 Expert in creating comprehensive UseCases from requirements following UML and industry best practices
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- documentation-writer: [YES/NO]
+- technical-design: [YES/NO]
+- usecase-writer: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 

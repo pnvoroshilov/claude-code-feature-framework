@@ -61,6 +61,22 @@ Comprehensive E2E and UI testing with Playwright, Cypress, visual regression, an
 
 Systematic debugging assistance with root cause analysis, diagnostic strategies, and comprehensive fix implementations
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- ui-component: [YES/NO]
+- api-integration: [YES/NO]
+- react-refactor: [YES/NO]
+- ui-testing: [YES/NO]
+- debug-helper: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 

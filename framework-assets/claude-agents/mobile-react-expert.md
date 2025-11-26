@@ -61,6 +61,22 @@ Expert skill for seamless integration between React frontend and Python FastAPI 
 
 Systematic debugging assistance with root cause analysis, diagnostic strategies, and comprehensive fix implementations
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- ui-component: [YES/NO]
+- react-refactor: [YES/NO]
+- ui-testing: [YES/NO]
+- api-integration: [YES/NO]
+- debug-helper: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 

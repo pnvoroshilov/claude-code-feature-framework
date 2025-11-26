@@ -35,6 +35,19 @@ Expert in TOON (Token-Oriented Object Notation) compact data format for LLM appl
 
 Comprehensive skill for creating professional, clear, and maintainable technical documentation
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- toon-format: [YES/NO]
+- documentation-writer: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 # Skills Creator Agent

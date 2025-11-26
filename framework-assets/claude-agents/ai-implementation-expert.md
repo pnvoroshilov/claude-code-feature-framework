@@ -55,6 +55,21 @@ Comprehensive skill for creating professional, clear, and maintainable technical
 
 Expert Python code refactoring using Clean Architecture, DDD, and SOLID principles
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- architecture-patterns: [YES/NO]
+- debug-helper: [YES/NO]
+- documentation-writer: [YES/NO]
+- python-refactor: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 

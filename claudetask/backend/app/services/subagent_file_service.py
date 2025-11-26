@@ -831,20 +831,9 @@ A task is successfully completed when:
         for skill_cmd in skill_commands:
             section += f'Skill: "{skill_cmd}"\n'
         section += "```\n\n"
-        
-        # Add verification output requirement inline
-        section += "### 🔴 Skills Verification (MANDATORY)\n\n"
-        section += "At the END of your response, you **MUST** include:\n\n"
-        section += "```\n"
-        section += "═══════════════════════════════════════\n"
-        section += "[SKILLS LOADED]\n"
-        for skill_cmd in skill_commands:
-            section += f"- {skill_cmd}: [YES/NO]\n"
-        section += "═══════════════════════════════════════\n"
-        section += "```\n\n"
 
+        # Add Assigned Skills Details section
         section += "### Assigned Skills Details\n\n"
-
         for skill, skill_cmd in zip(skills, skill_commands):
             name = skill.get('name', 'Unknown')
             description = skill.get('description', '')
@@ -855,6 +844,17 @@ A task is successfully completed when:
                 section += f"**Category**: {category}\n\n"
             if description:
                 section += f"{description}\n\n"
+
+        # Add verification block AFTER Assigned Skills Details
+        section += "### 🔴 Skills Verification (MANDATORY)\n\n"
+        section += "At the END of your response, you **MUST** include:\n\n"
+        section += "```\n"
+        section += "═══════════════════════════════════════\n"
+        section += "[SKILLS LOADED]\n"
+        for skill_cmd in skill_commands:
+            section += f"- {skill_cmd}: [YES/NO]\n"
+        section += "═══════════════════════════════════════\n"
+        section += "```\n\n"
 
         section += "---\n\n"
         return section

@@ -55,6 +55,21 @@ Comprehensive skill for creating professional, clear, and maintainable technical
 
 Systematic debugging assistance with root cause analysis, diagnostic strategies, and comprehensive fix implementations
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- api-development: [YES/NO]
+- architecture-patterns: [YES/NO]
+- documentation-writer: [YES/NO]
+- debug-helper: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 

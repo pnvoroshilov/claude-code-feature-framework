@@ -61,6 +61,22 @@ Comprehensive guidance on software architecture patterns, design principles, SOL
 
 Comprehensive code review with quality checks, best practices, and actionable feedback
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- refactoring: [YES/NO]
+- python-refactor: [YES/NO]
+- react-refactor: [YES/NO]
+- architecture-patterns: [YES/NO]
+- code-review: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 

@@ -33,6 +33,19 @@ Comprehensive skill for creating professional, clear, and maintainable technical
 
 Expert in TOON (Token-Oriented Object Notation) compact data format for LLM applications
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- documentation-writer: [YES/NO]
+- toon-format: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 # Agent Creator - Claude Code Agent Generator with Skill Integration

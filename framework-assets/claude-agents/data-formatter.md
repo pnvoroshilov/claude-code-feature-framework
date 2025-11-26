@@ -37,6 +37,18 @@ Skill: "toon-format"
 
 Expert in TOON (Token-Oriented Object Notation) compact data format for LLM applications
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- toon-format: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 

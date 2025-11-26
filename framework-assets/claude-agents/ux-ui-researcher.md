@@ -49,6 +49,20 @@ Comprehensive skill for creating professional, clear, and maintainable technical
 
 Comprehensive E2E and UI testing with Playwright, Cypress, visual regression, and accessibility testing
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- ui-component: [YES/NO]
+- documentation-writer: [YES/NO]
+- ui-testing: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 

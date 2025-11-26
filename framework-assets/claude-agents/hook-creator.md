@@ -33,6 +33,19 @@ Comprehensive skill for creating professional, clear, and maintainable technical
 
 Systematic debugging assistance with root cause analysis, diagnostic strategies, and comprehensive fix implementations
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- documentation-writer: [YES/NO]
+- debug-helper: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 # Hook Creator - Claude Code Hooks Specialist

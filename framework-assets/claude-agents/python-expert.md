@@ -61,6 +61,22 @@ Comprehensive unit testing best practices with pytest, jest, TDD, and coverage i
 
 Comprehensive guidance on software architecture patterns, design principles, SOLID, DDD, and microservices
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- python-refactor: [YES/NO]
+- refactoring: [YES/NO]
+- debug-helper: [YES/NO]
+- unit-testing: [YES/NO]
+- architecture-patterns: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 

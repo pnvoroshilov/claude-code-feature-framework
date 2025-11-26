@@ -39,6 +39,20 @@ Comprehensive document formats and templates for technical architecture design a
 
 Comprehensive guidance for advanced Git workflow management with branching strategies and collaboration patterns
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- documentation-writer: [YES/NO]
+- technical-design: [YES/NO]
+- git-workflow: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 # Documentation Updater Agent

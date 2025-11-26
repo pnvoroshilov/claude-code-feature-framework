@@ -61,6 +61,22 @@ Comprehensive security best practices covering OWASP Top 10, secure coding, auth
 
 Comprehensive unit testing best practices with pytest, jest, TDD, and coverage improvements
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- api-development: [YES/NO]
+- database-migration: [YES/NO]
+- python-refactor: [YES/NO]
+- security-best-practices: [YES/NO]
+- unit-testing: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 

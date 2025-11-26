@@ -55,6 +55,21 @@ Comprehensive security best practices covering OWASP Top 10, secure coding, auth
 
 Comprehensive skill for creating professional, clear, and maintainable technical documentation
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- deployment-helper: [YES/NO]
+- architecture-patterns: [YES/NO]
+- security-best-practices: [YES/NO]
+- documentation-writer: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 

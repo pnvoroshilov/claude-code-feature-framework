@@ -43,6 +43,19 @@ Comprehensive skill for creating professional, clear, and maintainable technical
 
 Comprehensive document formats and templates for technical architecture design and test cases
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- documentation-writer: [YES/NO]
+- technical-design: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 

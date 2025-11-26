@@ -49,6 +49,20 @@ Comprehensive integration testing best practices for testing component interacti
 
 Systematic debugging assistance with root cause analysis, diagnostic strategies, and comprehensive fix implementations
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- ui-testing: [YES/NO]
+- integration-testing: [YES/NO]
+- debug-helper: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 

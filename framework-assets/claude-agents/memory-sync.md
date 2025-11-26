@@ -37,6 +37,18 @@ Skill: "documentation-writer"
 
 Comprehensive skill for creating professional, clear, and maintainable technical documentation
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- documentation-writer: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 

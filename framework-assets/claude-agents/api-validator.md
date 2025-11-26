@@ -49,6 +49,20 @@ Comprehensive skill for creating professional, clear, and maintainable technical
 
 Comprehensive integration testing best practices for testing component interactions, APIs, and databases
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- api-development: [YES/NO]
+- documentation-writer: [YES/NO]
+- integration-testing: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 

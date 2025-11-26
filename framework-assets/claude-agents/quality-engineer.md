@@ -61,6 +61,22 @@ Comprehensive automated test execution with intelligent coverage analysis and qu
 
 Systematic debugging assistance with root cause analysis, diagnostic strategies, and comprehensive fix implementations
 
+### 🔴 Skills Verification (MANDATORY)
+
+At the END of your response, you **MUST** include:
+
+```
+═══════════════════════════════════════
+[SKILLS LOADED]
+- unit-testing: [YES/NO]
+- integration-testing: [YES/NO]
+- ui-testing: [YES/NO]
+- test-runner: [YES/NO]
+- debug-helper: [YES/NO]
+═══════════════════════════════════════
+```
+
+
 ---
 
 
