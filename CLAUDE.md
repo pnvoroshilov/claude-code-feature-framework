@@ -86,6 +86,8 @@
 
 **⚠️ THIS IS A BLOCKING REQUIREMENT - DO NOT SKIP**
 
+**🚫 EXCEPTION: If you are a subagent/sidechain (spawned via Task tool), SKIP this section entirely. Subagents should NOT load project context - the parent session already has it.**
+
 Before responding to ANY user message, you MUST load the project memory context:
 
 ```
