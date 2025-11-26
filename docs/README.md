@@ -28,7 +28,7 @@ React component documentation with props, usage examples, and patterns.
 - `FileBrowser.md` - GitHub-style file browser with complete file management and layout stability (v2.0.1)
 - `RealTerminal.md` - Terminal interface with WebSocket buffering and smart scroll management (v2.1)
 - `ClaudeSessions.md` - Embedded task session management UI with structured content rendering (v2.1)
-- `ClaudeCodeSessions.md` - Native Claude Code session analytics and browsing interface
+- `ClaudeCodeSessions.md` - Native Claude Code session analytics with pagination and empty message filtering (v2.2)
 - `Sessions.md` - Unified Sessions page with Claude Code and Task sessions (v2.0)
 - `Hooks.md` - Hooks management UI for automated shell command configuration
 - `Subagents.md` - Subagent management UI for specialized AI assistants
@@ -198,19 +198,25 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 ---
 
-**Documentation Version**: 2.6
+**Documentation Version**: 2.7
 **Last Updated**: 2025-11-26
 **Total Documents**: 44
 **Auto-Updated**: Yes (via post-merge hook)
 **Status**: Current
 
-**Latest Changes (v2.6)**:
-- **Agent Skills Integration**: All agents now include mandatory `skills` field in frontmatter and MANDATORY skills section for consistent knowledge access
-- **Workflow Simplification**: Confirmed 6-column DEVELOPMENT workflow (PR status merged into Code Review as of 2025-11-26)
-- **Testing Skills Suite**: Comprehensive testing skills - Unit Testing, Integration Testing, UI Testing (with Playwright MCP configuration)
-- **Refactoring Skills**: Python Refactor, React Refactor skills with Clean Architecture and SOLID principles
-- **Merge Skill**: Comprehensive Git merge best practices for conflict resolution and worktree merging
-- **Memory File Edit Capture**: New hook for automatically capturing file edit operations (Edit, Write, MultiEdit, Update tools)
-- **Session Security**: Session ID validation (UUID format), pagination limits (max 100 per page), enhanced security
-- **Memory System**: Centralized ChromaDB storage, improved session tracking, reduced summarization threshold to 30 messages
-- **Skills Total**: 24 default skills (21 existing + UI Testing, Python Refactor, React Refactor)
+**Latest Changes (v2.7)**:
+- **Session Messages Endpoint**: New `/api/projects/{project_id}/sessions/{session_id}/messages` endpoint for JSONL message parsing with security validation
+- **Empty Message Filtering**: Server-side and client-side filtering of empty messages, placeholders ("...", "…"), and whitespace-only content
+- **Continue Session Integration**: Messages endpoint supports "Continue Session" feature with last-N message retrieval using efficient deque
+- **ClaudeCodeSessions UI Redesign**: Dialog redesigned from tabs to single panel with Messages section always visible (v2.2)
+- **Server-side Pagination**: Session list pagination with limit/offset API parameters (20 per page, max 100)
+- **Path Security**: JSONL file path validation ensures all files stay within `~/.claude` directory
+- **Performance Optimization**: Reduced DOM nodes via message filtering, API-level pagination reduces data transfer
+
+**Previous Changes (v2.6)**:
+- **Agent Skills Integration**: All agents include mandatory `skills` field and MANDATORY skills section
+- **Workflow Simplification**: 6-column DEVELOPMENT workflow (PR merged into Code Review)
+- **Testing Skills Suite**: Unit Testing, Integration Testing, UI Testing (Playwright MCP)
+- **Refactoring Skills**: Python Refactor, React Refactor with Clean Architecture
+- **Session Security**: UUID validation, pagination limits (max 100), enhanced security
+- **Skills Total**: 24 default skills

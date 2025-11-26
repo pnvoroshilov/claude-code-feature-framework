@@ -376,6 +376,71 @@ These endpoints integrate with the ClaudeTask database to:
 - Store session status and working directory
 - Maintain session history for analytics
 
+### 9. Get Session Messages (JSONL Parsing)
+
+**GET** `/api/projects/{project_id}/sessions/{session_id}/messages`
+
+Retrieve messages from a session's JSONL file with security validation and empty message filtering.
+
+**Path Parameters:**
+- `project_id`: Project identifier (may be a file path, will be encoded)
+- `session_id`: Session identifier
+
+**Query Parameters:**
+- `limit` (optional, default: 100): Maximum number of messages to return
+
+**Response:**
+```json
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Message content here",
+      "timestamp": "2025-11-26T10:30:00Z"
+    },
+    {
+      "role": "assistant",
+      "content": "Response content here",
+      "timestamp": "2025-11-26T10:31:00Z"
+    }
+  ]
+}
+```
+
+**Security Features (2025-11-26)**:
+- **Path Validation**: All JSONL file paths validated to be within `~/.claude` directory
+- **Path Traversal Prevention**: Rejects attempts to access files outside `.claude` base
+- **Project Path Encoding**: Slashes in project paths replaced with dashes for safe filesystem operations
+- **Empty Message Filtering**: Automatically skips empty messages, "...", and "…" placeholders
+
+**Message Filtering Logic**:
+```python
+# Filters applied during parsing:
+1. Skip messages with empty content
+2. Skip messages with only whitespace
+3. Skip placeholder messages ("..." or "…")
+4. For array content, verify at least one text block has content
+```
+
+**Use Cases**:
+- Fetch conversation history for session continuation
+- Load message context for Claude Code "Continue Session" feature
+- Display session messages in UI without empty placeholders
+- Maintain clean message history for analysis
+
+**Example Request**:
+```bash
+# Get last 50 messages from session
+curl "http://localhost:3333/api/projects/my-project/sessions/abc-123-def/messages?limit=50"
+```
+
+**Implementation Details**:
+- Uses `collections.deque` with `maxlen` for efficient last-N message retrieval
+- JSONL file parsed line-by-line to handle large files efficiently
+- Handles both string content and Claude API structured content
+- Aligns with `claude_sessions.py` empty message filtering (lines 167-175)
+- Database fallback if JSONL file not found
+
 ## Error Handling
 
 All endpoints follow consistent error response format:
@@ -391,6 +456,7 @@ HTTP status codes:
 - `400`: Bad request (invalid parameters)
 - `403`: Permission denied
 - `404`: Resource not found
+- `422`: Validation error (invalid query parameters)
 - `500`: Internal server error
 
 ## Logging
@@ -400,6 +466,8 @@ All API operations are logged with structured logging:
 ```python
 logger.info(f"Executing Claude command: {command} in {project_dir}")
 logger.error(f"Failed to parse session {session_file.name}: {e}")
+logger.info(f"Loaded {len(messages)} messages from JSONL for session {session_id}")
+logger.warning(f"Security: JSONL path {resolved} is outside .claude directory")
 ```
 
 Log files can be found in `.claude/logs/` directory.
