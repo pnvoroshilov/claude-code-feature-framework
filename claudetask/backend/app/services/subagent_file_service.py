@@ -802,7 +802,7 @@ A task is successfully completed when:
             return False
 
     def _generate_skills_section(self, skills: List[Dict]) -> str:
-        """Generate markdown section for assigned skills with usage instructions"""
+        """Generate markdown section for assigned skills with usage instructions and verification block"""
         skill_names = [s.get('name', 'Unknown') for s in skills]
 
         # Extract skill commands from file_name (e.g., "api-development/skill.md" -> "api-development")
@@ -830,6 +830,17 @@ A task is successfully completed when:
         section += "```\n"
         for skill_cmd in skill_commands:
             section += f'Skill: "{skill_cmd}"\n'
+        section += "```\n\n"
+        
+        # Add verification output requirement inline
+        section += "### 🔴 Skills Verification (MANDATORY)\n\n"
+        section += "At the END of your response, you **MUST** include:\n\n"
+        section += "```\n"
+        section += "═══════════════════════════════════════\n"
+        section += "[SKILLS LOADED]\n"
+        for skill_cmd in skill_commands:
+            section += f"- {skill_cmd}: [YES/NO]\n"
+        section += "═══════════════════════════════════════\n"
         section += "```\n\n"
 
         section += "### Assigned Skills Details\n\n"
