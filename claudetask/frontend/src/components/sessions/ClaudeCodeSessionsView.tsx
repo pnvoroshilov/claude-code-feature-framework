@@ -122,7 +122,8 @@ const ClaudeCodeSessionsView: React.FC = () => {
     try {
       const response = await axios.get(`${API_BASE}/active-sessions`);
       const activeIds = new Set<string>();
-      response.data.sessions?.forEach((s: ActiveSession) => {
+      // API returns active_sessions, not sessions
+      response.data.active_sessions?.forEach((s: ActiveSession) => {
         if (s.session_id) {
           activeIds.add(s.session_id);
         }
