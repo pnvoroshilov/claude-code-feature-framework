@@ -162,6 +162,12 @@ const Sessions: React.FC = () => {
       return;
     }
 
+    // Embedded sessions (hook-*) don't have session files - show info from active session
+    if (session.is_embedded || session.session_id.startsWith('hook-')) {
+      alert(`Embedded Session (${session.session_id})\n\nPID: ${session.pid}\nProject: ${session.project_name || 'Unknown'}\nWorking Directory: ${session.working_dir || 'Unknown'}\n\nEmbedded sessions run within hooks and don't have persistent session files.`);
+      return;
+    }
+
     setLoadingDetails(true);
     setDetailsOpen(true);
 
