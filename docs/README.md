@@ -76,6 +76,7 @@ Core framework features and capabilities.
 **Features:**
 - `memory-system.md` - Project memory and conversation persistence with ChromaDB
 - `auto-mode.md` - Autonomous task execution workflow (AUTO mode)
+- `session-continuation.md` - Session continuation with full conversation context (NEW v2.1)
 
 ### `/guides/`
 Step-by-step guides for specific tasks.
@@ -177,6 +178,7 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 ### Core Features
 - [Memory System](./features/memory-system.md) - Persistent project memory with RAG
 - [AUTO Mode](./features/auto-mode.md) - Autonomous task execution
+- [Session Continuation](./features/session-continuation.md) - Resume sessions with full context
 - [Hooks System](./architecture/hooks-system.md) - Automated shell command hooks
 - [Skills System](./skills/skills-system.md) - Modular knowledge modules
 

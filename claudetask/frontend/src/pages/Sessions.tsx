@@ -57,6 +57,9 @@ interface ActiveSession {
   project_name?: string;
   session_id?: string;
   project_dir?: string;
+  started?: string;
+  task_id?: number;
+  is_embedded?: boolean;
 }
 
 interface SessionDetails {
@@ -296,11 +299,7 @@ const Sessions: React.FC = () => {
           </Stack>
         </AccordionSummary>
         <AccordionDetails id="process-monitor-content" sx={{ p: 2 }}>
-          {activeSessions.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 2 }}>
-              No active Claude Code processes running
-            </Typography>
-          ) : (
+          {activeSessions.length > 0 ? (
             <Grid container spacing={2}>
               {activeSessions.map((session) => (
                 <Grid item xs={12} md={6} lg={4} key={session.pid}>
@@ -338,37 +337,56 @@ const Sessions: React.FC = () => {
                           </Box>
                           <Box>
                             <Typography variant="body2" fontWeight={600}>
-                              PID: {session.pid}
+                              {session.is_embedded ? (
+                                <>Embedded Session {session.task_id ? `(Task #${session.task_id})` : ''}</>
+                              ) : (
+                                <>PID: {session.pid}</>
+                              )}
                             </Typography>
                             <Stack direction="row" spacing={1} mt={0.5}>
-                              <Chip
-                                label={`CPU: ${session.cpu}%`}
-                                size="small"
-                                icon={<SpeedIcon sx={{ fontSize: 12 }} />}
-                                sx={{
-                                  height: 20,
-                                  fontSize: '0.65rem',
-                                  bgcolor: alpha(theme.palette.success.main, 0.1),
-                                  color: theme.palette.success.main,
-                                  '& .MuiChip-icon': {
-                                    color: theme.palette.success.main,
-                                  },
-                                }}
-                              />
-                              <Chip
-                                label={`Mem: ${session.mem}%`}
-                                size="small"
-                                icon={<MemoryIcon sx={{ fontSize: 12 }} />}
-                                sx={{
-                                  height: 20,
-                                  fontSize: '0.65rem',
-                                  bgcolor: alpha(theme.palette.success.main, 0.1),
-                                  color: theme.palette.success.main,
-                                  '& .MuiChip-icon': {
-                                    color: theme.palette.success.main,
-                                  },
-                                }}
-                              />
+                              {session.is_embedded ? (
+                                <Chip
+                                  label="Embedded"
+                                  size="small"
+                                  sx={{
+                                    height: 20,
+                                    fontSize: '0.65rem',
+                                    bgcolor: alpha(theme.palette.info.main, 0.1),
+                                    color: theme.palette.info.main,
+                                  }}
+                                />
+                              ) : (
+                                <>
+                                  <Chip
+                                    label={`CPU: ${session.cpu}%`}
+                                    size="small"
+                                    icon={<SpeedIcon sx={{ fontSize: 12 }} />}
+                                    sx={{
+                                      height: 20,
+                                      fontSize: '0.65rem',
+                                      bgcolor: alpha(theme.palette.success.main, 0.1),
+                                      color: theme.palette.success.main,
+                                      '& .MuiChip-icon': {
+                                        color: theme.palette.success.main,
+                                      },
+                                    }}
+                                  />
+                                  <Chip
+                                    label={`Mem: ${session.mem}%`}
+                                    size="small"
+                                    icon={<MemoryIcon sx={{ fontSize: 12 }} />}
+                                    sx={{
+                                      height: 20,
+                                      fontSize: '0.65rem',
+                                      bgcolor: alpha(theme.palette.success.main, 0.1),
+                                      color: theme.palette.success.main,
+                                      '& .MuiChip-icon': {
+                                        color: theme.palette.success.main,
+                                      },
+                                    }}
+                                  />
+                                </>
+                              )}
                             </Stack>
                           </Box>
                         </Box>
@@ -415,19 +433,16 @@ const Sessions: React.FC = () => {
                           </Typography>
                         </Paper>
                       )}
-
-                      {/* View Details Button */}
-                      {session.session_id && (
+                      {/* View Details button */}
+                      {session.session_id && session.project_dir && (
                         <Button
-                          fullWidth
                           size="small"
                           variant="outlined"
                           startIcon={<InfoIcon />}
                           onClick={() => openSessionDetails(session)}
                           sx={{
-                            borderRadius: 1.5,
+                            fontSize: '0.7rem',
                             textTransform: 'none',
-                            fontWeight: 500,
                             borderColor: alpha(theme.palette.success.main, 0.3),
                             color: theme.palette.success.main,
                             '&:hover': {
@@ -444,9 +459,57 @@ const Sessions: React.FC = () => {
                 </Grid>
               ))}
             </Grid>
+          ) : (
+            <Paper
+              sx={{
+                p: 3,
+                textAlign: 'center',
+                bgcolor: theme.palette.mode === 'dark' ? '#1e293b' : alpha(theme.palette.background.paper, 0.7),
+                border: '1px solid',
+                borderColor: theme.palette.divider,
+                borderRadius: 2,
+              }}
+            >
+              <ComputerIcon sx={{ fontSize: 48, color: theme.palette.text.disabled, mb: 1 }} />
+              <Typography color="text.secondary">No active Claude Code processes running</Typography>
+            </Paper>
           )}
         </AccordionDetails>
       </Accordion>
+
+      {/* Main content */}
+      <Tabs
+        value={currentTab}
+        onChange={handleTabChange}
+        aria-label="session tabs"
+        sx={{
+          mb: 3,
+          '& .MuiTab-root': {
+            textTransform: 'none',
+            fontWeight: 500,
+            minHeight: 44,
+            px: 3,
+          },
+          '& .MuiTabs-indicator': {
+            bgcolor: '#6366f1',
+            height: 3,
+            borderRadius: '3px 3px 0 0',
+          },
+        }}
+      >
+        <Tab
+          label="Claude Code Sessions"
+          value="claude-code"
+          id="tab-claude-code"
+          aria-controls="tabpanel-claude-code"
+        />
+        <Tab
+          label="Task Sessions"
+          value="tasks"
+          id="tab-tasks"
+          aria-controls="tabpanel-tasks"
+        />
+      </Tabs>
 
       {/* Tab Panels */}
       <Box

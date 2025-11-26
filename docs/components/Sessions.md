@@ -4,8 +4,8 @@
 
 The Sessions page provides a unified interface for monitoring and managing both Claude Code sessions and task-based development sessions. This consolidated view allows developers to track all AI-assisted work from a single location.
 
-**Version**: 2.0
-**Last Updated**: 2025-11-25
+**Version**: 2.1
+**Last Updated**: 2025-11-26
 
 ## Location
 
@@ -33,9 +33,9 @@ The page uses a tab-based interface to separate two types of sessions:
 - Session context and outcomes
 - Integration with task lifecycle
 
-### 2. System Process Monitor
+### 2. System Process Monitor with Session Details
 
-A collapsible accordion panel that displays active Claude Code processes in real-time:
+A collapsible accordion panel that displays active Claude Code processes in real-time with enhanced session detection:
 
 **Features**:
 - Live process list with PID, CPU, and memory usage
@@ -43,13 +43,17 @@ A collapsible accordion panel that displays active Claude Code processes in real
 - Process termination controls
 - Visual indicators for resource consumption
 - Responsive grid layout (1-3 columns based on screen size)
+- **NEW (v2.1)**: Project name and directory detection for each active session
+- **NEW (v2.1)**: Session ID extraction from running processes
+- **NEW (v2.1)**: "View Details" button to inspect active session details
+- **NEW (v2.1)**: Full message history access for running sessions
 
 **API Endpoint**:
 ```http
 GET /api/claude-sessions/active-sessions
 ```
 
-**Response Format**:
+**Response Format (Enhanced v2.1)**:
 ```json
 {
   "active_sessions": [
@@ -57,13 +61,59 @@ GET /api/claude-sessions/active-sessions
       "pid": "12345",
       "cpu": "2.5",
       "mem": "1.8",
-      "command": "claude -p /path/to/project"
+      "command": "claude -p /path/to/project",
+      "working_dir": "/Users/username/Projects/MyProject",
+      "project_name": "MyProject",
+      "session_id": "abc-123-def-456",
+      "project_dir": "/Users/username/.claude/projects/MyProject"
     }
   ]
 }
 ```
 
-### 3. URL-Based State Management
+**New Fields (v2.1)**:
+- `working_dir`: Current working directory of the Claude process (extracted via `lsof`)
+- `project_name`: Extracted project name from working directory path
+- `session_id`: Active session identifier (if available)
+- `project_dir`: Path to session storage directory for the project
+
+### 3. Session Details Dialog (NEW in v2.1)
+
+When viewing active sessions, users can click "View Details" to see comprehensive session information:
+
+**Features**:
+- Session metadata (ID, file path, timestamps)
+- Git branch and working directory
+- Claude version information
+- Message count breakdown (user vs assistant)
+- Complete message history with timestamps
+- Tool usage statistics
+- Commands executed during session
+- Files modified in session
+- Error log (if any)
+
+**Message Display**:
+- Full conversation history in chronological order
+- User messages (👤) and Assistant messages (🤖)
+- Formatted timestamps (date-fns)
+- Smart content parsing (handles Claude API structured content)
+- Empty message filtering (skips "...", "…", and whitespace-only)
+- Scrollable message list (max height: 600px)
+
+**Implementation**:
+```typescript
+const openSessionDetails = async (session: ActiveSession) => {
+  const response = await axios.get(
+    `${API_BASE}/sessions/${session.session_id}?` +
+    `project_dir=${encodeURIComponent(session.project_dir)}&` +
+    `include_messages=true`
+  );
+  setSelectedSession(response.data.session);
+  setDetailsOpen(true);
+};
+```
+
+### 4. URL-Based State Management
 
 The page uses URL routing for persistent tab state:
 
@@ -85,13 +135,56 @@ The page uses URL routing for persistent tab state:
 - Tab navigation and state management
 - URL routing synchronization
 - Process monitor UI and data fetching
+- Session details dialog management (v2.1)
 - Child component rendering
 
-**Key State**:
+**Key State (v2.1)**:
 ```typescript
 const [currentTab, setCurrentTab] = useState<TabValue>('claude-code');
 const [processMonitorExpanded, setProcessMonitorExpanded] = useState(false);
 const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
+const [detailsOpen, setDetailsOpen] = useState(false); // NEW
+const [selectedSession, setSelectedSession] = useState<SessionDetails | null>(null); // NEW
+const [loadingDetails, setLoadingDetails] = useState(false); // NEW
+```
+
+**New Interfaces (v2.1)**:
+```typescript
+interface ActiveSession {
+  pid: string;
+  cpu: string;
+  mem: string;
+  command: string;
+  working_dir?: string;
+  project_name?: string;
+  session_id?: string;
+  project_dir?: string;
+}
+
+interface SessionDetails {
+  session_id: string;
+  file_path: string;
+  file_size: number;
+  created_at: string | null;
+  last_timestamp: string | null;
+  cwd: string | null;
+  git_branch: string | null;
+  claude_version: string | null;
+  message_count: number;
+  user_messages: number;
+  assistant_messages: number;
+  tool_calls: Record<string, number>;
+  commands_used: string[];
+  files_modified: string[];
+  errors: Array<{ timestamp: string; content: string }>;
+  messages?: Array<{
+    type: string;
+    timestamp: string;
+    content: string;
+    uuid: string;
+    parent_uuid: string | null;
+  }>;
+}
 ```
 
 **Tab Change Handler**:

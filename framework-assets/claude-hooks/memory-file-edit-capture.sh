@@ -10,9 +10,8 @@
 # - tool_input: input parameters to the tool
 # - tool_result: result from the tool
 
-FRAMEWORK_ROOT="{{FRAMEWORK_ROOT}}"
 PROJECT_ROOT="$(pwd)"
-LOGDIR="$FRAMEWORK_ROOT/.claudetask/logs/hooks"
+LOGDIR="$PROJECT_ROOT/.claudetask/logs/hooks"
 LOGFILE="$LOGDIR/hooks.log"
 
 # Create log directory
@@ -29,9 +28,7 @@ BACKEND_URL="${CLAUDETASK_BACKEND_URL:-http://localhost:3333}"
 
 # Get project ID from .mcp.json (check both framework root and current project)
 MCP_JSON=""
-if [ -f "$FRAMEWORK_ROOT/.mcp.json" ]; then
-    MCP_JSON="$FRAMEWORK_ROOT/.mcp.json"
-elif [ -f "$PROJECT_ROOT/.mcp.json" ]; then
+if [ -f "$PROJECT_ROOT/.mcp.json" ]; then
     MCP_JSON="$PROJECT_ROOT/.mcp.json"
 fi
 

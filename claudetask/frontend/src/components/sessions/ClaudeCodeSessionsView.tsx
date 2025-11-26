@@ -97,6 +97,11 @@ interface SessionStatistics {
 
 type FilterType = 'all' | 'recent' | 'large' | 'errors' | 'tool-heavy';
 
+interface ActiveSession {
+  pid: string;
+  session_id?: string;
+}
+
 const ClaudeCodeSessionsView: React.FC = () => {
   const theme = useTheme();
   const [projects, setProjects] = useState<ClaudeCodeProject[]>([]);
@@ -111,6 +116,22 @@ const ClaudeCodeSessionsView: React.FC = () => {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
   const [totalSessions, setTotalSessions] = useState(0);
+  const [activeSessionIds, setActiveSessionIds] = useState<Set<string>>(new Set());
+
+  const fetchActiveSessions = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/active-sessions`);
+      const activeIds = new Set<string>();
+      response.data.sessions?.forEach((s: ActiveSession) => {
+        if (s.session_id) {
+          activeIds.add(s.session_id);
+        }
+      });
+      setActiveSessionIds(activeIds);
+    } catch (error) {
+      console.error('Error fetching active sessions:', error);
+    }
+  };
 
   const fetchProjects = async () => {
     try {
@@ -173,6 +194,11 @@ const ClaudeCodeSessionsView: React.FC = () => {
 
   useEffect(() => {
     fetchProjects();
+    fetchActiveSessions();
+
+    // Poll for active sessions every 5 seconds
+    const interval = setInterval(fetchActiveSessions, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -195,12 +221,8 @@ const ClaudeCodeSessionsView: React.FC = () => {
 
     switch (activeFilter) {
       case 'recent':
-        filtered = sessions.filter(s => {
-          if (!s.last_timestamp) return false;
-          const lastActivity = new Date(s.last_timestamp);
-          const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
-          return lastActivity > hourAgo;
-        });
+        // Filter to only sessions with active Claude processes
+        filtered = sessions.filter(s => activeSessionIds.has(s.session_id));
         break;
       case 'large':
         filtered = sessions.filter(s => s.message_count > 100);
@@ -233,21 +255,16 @@ const ClaudeCodeSessionsView: React.FC = () => {
 
   // Statistics
   const stats = {
-    recent: sessions.filter(s => {
-      if (!s.last_timestamp) return false;
-      const lastActivity = new Date(s.last_timestamp);
-      const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
-      return lastActivity > hourAgo;
-    }).length,
+    // Count sessions with active Claude processes
+    recent: sessions.filter(s => activeSessionIds.has(s.session_id)).length,
     large: sessions.filter(s => s.message_count > 100).length,
     total: statistics?.total_sessions || 0,
     errors: statistics?.total_errors || 0,
   };
 
   const SessionCard: React.FC<{ session: ClaudeCodeSession }> = ({ session }) => {
-    const isActive = session.last_timestamp
-      ? new Date(session.last_timestamp) > new Date(Date.now() - 60 * 60 * 1000)
-      : false;
+    // Check if session has an active Claude process running
+    const isActive = activeSessionIds.has(session.session_id);
     const hasErrors = session.errors.length > 0;
 
     return (
@@ -593,7 +610,7 @@ const ClaudeCodeSessionsView: React.FC = () => {
               All <Badge badgeContent={sessions.length} sx={{ ml: 1 }} />
             </ToggleButton>
             <ToggleButton value="recent">
-              Recent <Badge badgeContent={stats.recent} sx={{ ml: 1 }} />
+              Active <Badge badgeContent={stats.recent} sx={{ ml: 1 }} />
             </ToggleButton>
             <ToggleButton value="large">
               Large <Badge badgeContent={stats.large} sx={{ ml: 1 }} />

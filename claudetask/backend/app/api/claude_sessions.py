@@ -290,6 +290,8 @@ async def get_active_sessions():
         import subprocess
         import re
         from pathlib import Path
+        from datetime import datetime
+        import json as json_module
 
         def get_process_cwd(pid: str) -> str:
             """Get the current working directory of a process using lsof"""
@@ -311,15 +313,59 @@ async def get_active_sessions():
             except Exception:
                 return None
 
+        def get_process_start_time(pid: str) -> datetime:
+            """Get the start time of a process"""
+            try:
+                ps_result = subprocess.run(
+                    ["ps", "-p", pid, "-o", "lstart="],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if ps_result.returncode == 0:
+                    start_str = ps_result.stdout.strip()
+                    return datetime.strptime(start_str, "%a %b %d %H:%M:%S %Y")
+            except Exception:
+                pass
+            return None
+
+        def get_session_timestamps(jsonl_file: Path) -> tuple:
+            """Get first and last timestamps from a JSONL file"""
+            first_ts = None
+            last_ts = None
+            try:
+                with open(jsonl_file, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+
+                    for line in lines:
+                        try:
+                            entry = json_module.loads(line.strip())
+                            ts = entry.get('timestamp')
+                            if ts:
+                                first_ts = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+                                break
+                        except:
+                            continue
+
+                    for line in reversed(lines):
+                        try:
+                            entry = json_module.loads(line.strip())
+                            ts = entry.get('timestamp')
+                            if ts:
+                                last_ts = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+                                break
+                        except:
+                            continue
+            except Exception:
+                pass
+            return first_ts, last_ts
+
         # Get list of running processes
         result = subprocess.run(
             ["ps", "aux"],
             capture_output=True,
             text=True
         )
-
-        active = []
-        seen_pids = set()
 
         # System paths to exclude
         system_path_patterns = [
@@ -349,44 +395,36 @@ async def get_active_sessions():
             'spawn_main',        # Python multiprocessing
         ]
 
-        for line in result.stdout.split('\n'):
-            # Look for claude CLI processes (not Claude.app desktop app)
-            # The CLI shows as "claude" or "node ...claude..." but NOT as Claude.app paths
+        # First pass: collect all Claude processes
+        processes = []
+        seen_pids = set()
 
+        for line in result.stdout.split('\n'):
             parts = line.split()
             if len(parts) < 11:
                 continue
 
             pid = parts[1]
             command = ' '.join(parts[10:])
-            command_lower = command.lower()
 
-            # Skip if already processed
             if pid in seen_pids:
                 continue
 
             # Check if this is a Claude CLI process
             is_claude_cli = False
-
-            # Method 1: Command is exactly "claude" (the CLI binary)
             if command.strip() == 'claude' or command.startswith('claude '):
                 is_claude_cli = True
-
-            # Method 2: Has --cwd or --working-dir flag (older CLI versions)
             if '--cwd' in command or '--working-dir' in command:
                 is_claude_cli = True
 
             if not is_claude_cli:
                 continue
 
-            # Exclude helper/subprocess patterns
             if any(pat in command for pat in exclude_patterns):
                 continue
 
             # Get working directory
             working_dir = None
-
-            # Try to extract from command line flags first
             if '--cwd' in command:
                 match = re.search(r'--cwd[=\s]+([^\s]+)', command)
                 if match:
@@ -396,11 +434,9 @@ async def get_active_sessions():
                 if match:
                     working_dir = match.group(1)
 
-            # If no flag, use lsof to get cwd
             if not working_dir:
                 working_dir = get_process_cwd(pid)
 
-            # Skip if no working directory found or it's a system path
             if not working_dir:
                 continue
 
@@ -409,51 +445,194 @@ async def get_active_sessions():
 
             seen_pids.add(pid)
 
-            cpu = parts[2]
-            mem = parts[3]
-            started = parts[8]
+            # Get process start time
+            process_start = get_process_start_time(pid)
 
-            # Extract project name from working directory
-            project_name = None
-            try:
-                project_name = Path(working_dir).name
-            except:
-                pass
-
-            # Find the corresponding session file (most recent JSONL in project dir)
-            session_id = None
-            project_dir = None
-            try:
-                # Convert working directory to Claude projects path
-                # Claude Code encodes paths by replacing / and spaces with -
-                encoded_path = working_dir.replace('/', '-').replace(' ', '-')
-                # Directory name starts with dash (e.g., -Users-...)
-                if not encoded_path.startswith('-'):
-                    encoded_path = '-' + encoded_path
-
-                claude_projects_dir = Path.home() / '.claude' / 'projects' / encoded_path
-
-                if claude_projects_dir.exists():
-                    project_dir = str(claude_projects_dir)
-                    # Find most recently modified JSONL file
-                    jsonl_files = list(claude_projects_dir.glob('*.jsonl'))
-                    if jsonl_files:
-                        most_recent = max(jsonl_files, key=lambda f: f.stat().st_mtime)
-                        session_id = most_recent.stem  # filename without extension
-            except Exception as e:
-                logger.debug(f"Could not find session file: {e}")
-
-            active.append({
+            processes.append({
                 "pid": pid,
-                "cpu": cpu,
-                "mem": mem,
-                "started": started,
+                "cpu": parts[2],
+                "mem": parts[3],
+                "started": parts[8],
                 "working_dir": working_dir,
-                "project_name": project_name,
-                "session_id": session_id,
-                "project_dir": project_dir,
-                "command": command[:200]  # Limit length
+                "project_name": Path(working_dir).name if working_dir else None,
+                "command": command[:200],
+                "process_start": process_start
             })
+
+        # Second pass: for each unique project directory, match sessions to processes
+        # Group processes by working directory
+        from collections import defaultdict
+        processes_by_dir = defaultdict(list)
+        for proc in processes:
+            processes_by_dir[proc['working_dir']].append(proc)
+
+        # For each directory, get available sessions and match them to processes
+        active = []
+        for working_dir, dir_processes in processes_by_dir.items():
+            # Convert working directory to Claude projects path
+            encoded_path = working_dir.replace('/', '-').replace(' ', '-')
+            if not encoded_path.startswith('-'):
+                encoded_path = '-' + encoded_path
+
+            claude_projects_dir = Path.home() / '.claude' / 'projects' / encoded_path
+            project_dir = str(claude_projects_dir) if claude_projects_dir.exists() else None
+
+            if not claude_projects_dir.exists():
+                # No session files, add processes without session info
+                for proc in dir_processes:
+                    active.append({
+                        "pid": proc["pid"],
+                        "cpu": proc["cpu"],
+                        "mem": proc["mem"],
+                        "started": proc["started"],
+                        "working_dir": working_dir,
+                        "project_name": proc["project_name"],
+                        "session_id": None,
+                        "project_dir": None,
+                        "command": proc["command"]
+                    })
+                continue
+
+            # Get all session files (excluding agent files)
+            jsonl_files = list(claude_projects_dir.glob('*.jsonl'))
+            main_sessions = [f for f in jsonl_files if not f.stem.startswith('agent-')]
+
+            # Collect session info
+            session_info = []
+            for jsonl_file in main_sessions:
+                first_ts, last_ts = get_session_timestamps(jsonl_file)
+                session_info.append({
+                    'file': jsonl_file,
+                    'session_id': jsonl_file.stem,
+                    'first_ts': first_ts,
+                    'last_ts': last_ts,
+                    'assigned': False
+                })
+
+            # Sort sessions by last timestamp (most recent first)
+            session_info.sort(
+                key=lambda x: x['last_ts'].timestamp() if x['last_ts'] else 0,
+                reverse=True
+            )
+
+            # Sort processes by start time (most recent first)
+            dir_processes.sort(
+                key=lambda x: x['process_start'].timestamp() if x['process_start'] else 0,
+                reverse=True
+            )
+
+            local_tz = datetime.now().astimezone().tzinfo
+
+            # Match processes to sessions
+            for proc in dir_processes:
+                session_id = None
+                process_start = proc.get('process_start')
+
+                if process_start:
+                    process_start_aware = process_start.replace(tzinfo=local_tz)
+
+                    # Try to find the best matching session for this process
+                    best_match = None
+                    best_score = float('inf')
+
+                    for info in session_info:
+                        if info['assigned']:
+                            continue
+
+                        if info['first_ts']:
+                            # Score based on how close the session start is to process start
+                            time_diff = (info['first_ts'] - process_start_aware).total_seconds()
+
+                            # Prefer sessions that started AFTER the process (positive diff)
+                            # but within reasonable time (< 30 minutes)
+                            if 0 <= time_diff < 1800:  # Session started 0-30 min after process
+                                score = time_diff
+                            elif -300 <= time_diff < 0:  # Session started up to 5 min before process
+                                score = abs(time_diff) + 100  # Penalize slightly
+                            else:
+                                score = abs(time_diff) + 10000  # Large penalty for far matches
+
+                            if score < best_score:
+                                best_score = score
+                                best_match = info
+
+                    if best_match and best_score < 5000:  # Only accept if reasonably close
+                        session_id = best_match['session_id']
+                        best_match['assigned'] = True
+
+                # Fallback: assign most recent unassigned session
+                if not session_id:
+                    for info in session_info:
+                        if not info['assigned']:
+                            session_id = info['session_id']
+                            info['assigned'] = True
+                            break
+
+                active.append({
+                    "pid": proc["pid"],
+                    "cpu": proc["cpu"],
+                    "mem": proc["mem"],
+                    "started": proc["started"],
+                    "working_dir": working_dir,
+                    "project_name": proc["project_name"],
+                    "session_id": session_id,
+                    "project_dir": project_dir,
+                    "command": proc["command"]
+                })
+
+        # Also include embedded Claude sessions from real_claude_service
+        try:
+            from app.services.real_claude_service import real_claude_service
+
+            embedded_sessions = real_claude_service.get_active_sessions()
+            seen_session_ids = {s.get("session_id") for s in active if s.get("session_id")}
+
+            for embedded in embedded_sessions:
+                if not embedded.get("is_running"):
+                    continue
+
+                session_id = embedded.get("session_id")
+                # Skip if this session is already included (matched to a CLI process)
+                if session_id in seen_session_ids:
+                    continue
+
+                working_dir = embedded.get("working_dir", "")
+                project_name = Path(working_dir).name if working_dir else "Unknown"
+
+                # Get PID from the pexpect child process if available
+                pid = None
+                try:
+                    session_obj = real_claude_service.get_session(session_id)
+                    if session_obj and session_obj.child:
+                        pid = str(session_obj.child.pid)
+                except:
+                    pass
+
+                # Find project_dir for this session
+                project_dir = None
+                if working_dir:
+                    encoded_path = working_dir.replace('/', '-').replace(' ', '-')
+                    if not encoded_path.startswith('-'):
+                        encoded_path = '-' + encoded_path
+                    claude_projects_dir = Path.home() / '.claude' / 'projects' / encoded_path
+                    if claude_projects_dir.exists():
+                        project_dir = str(claude_projects_dir)
+
+                active.append({
+                    "pid": pid,
+                    "cpu": "N/A",
+                    "mem": "N/A",
+                    "started": "embedded",
+                    "working_dir": working_dir,
+                    "project_name": project_name,
+                    "session_id": session_id,
+                    "project_dir": project_dir,
+                    "command": "embedded claude session",
+                    "task_id": embedded.get("task_id"),
+                    "is_embedded": True
+                })
+        except Exception as e:
+            logger.debug(f"Could not get embedded sessions: {e}")
 
         return {
             "success": True,

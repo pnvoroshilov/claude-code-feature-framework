@@ -207,8 +207,47 @@ Get currently running Claude Code sessions - **only project-related processes**.
 ```
 
 **New Fields (2025-11-26)**:
+- `working_dir`: Current working directory of the Claude process (via `lsof`)
 - `project_name`: Extracted from working directory path (e.g., "project" from "/path/to/project")
+- `session_id`: Active session identifier (if available)
+- `project_dir`: Path to session storage directory for the project
 - Enhanced filtering ensures only meaningful project sessions are shown
+
+**Active Session Detection (v2.1)**:
+
+The endpoint now uses `lsof` to detect the current working directory of each Claude process:
+
+```python
+def get_process_cwd(pid: str) -> str:
+    """Get the current working directory of a process using lsof"""
+    result = subprocess.run(["lsof", "-p", pid], capture_output=True, text=True)
+    for line in result.stdout.split('\n'):
+        if '\tcwd\t' in line or ' cwd ' in line:
+            # Parse lsof output: NAME is the last column
+            parts = line.split()
+            if len(parts) >= 9:
+                return ' '.join(parts[8:])
+    return None
+```
+
+**System Path Filtering**:
+
+The endpoint excludes processes running in system directories:
+- `/var/folders/` - Temporary system files
+- `/Applications/` - Application bundles
+- `/System/` - macOS system files
+- `/Library/` - System libraries
+- `/tmp/`, `/private/` - Temporary directories
+- `/usr/`, `/opt/` - Unix system directories
+
+**Subprocess Exclusion**:
+
+Filters out Electron/Chrome helper processes:
+- `--type=` flags (renderer, gpu-process, utility)
+- `Helper` processes
+- `crashpad` crash reporter
+- `mcp-server` processes
+- Python multiprocessing helpers
 
 ### 7. Kill Session
 
@@ -427,6 +466,22 @@ Retrieve messages from a session's JSONL file with security validation and empty
 - Load message context for Claude Code "Continue Session" feature
 - Display session messages in UI without empty placeholders
 - Maintain clean message history for analysis
+- Power "View Details" dialog in Sessions page for active sessions
+
+**Continue Session Integration**:
+
+This endpoint enables the "Continue Session" feature, allowing users to resume Claude Code sessions with full context:
+
+```typescript
+// Frontend: Fetch messages when continuing a session
+const response = await axios.get(
+  `/api/projects/${projectId}/sessions/${sessionId}/messages?limit=100`
+);
+
+// Claude loads the last 100 messages as context
+// User can continue exactly where they left off
+// No context loss between sessions
+```
 
 **Example Request**:
 ```bash
