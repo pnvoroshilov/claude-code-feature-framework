@@ -19,7 +19,6 @@ import {
 import {
   Dashboard as DashboardIcon,
   Assignment as TaskIcon,
-  Settings as SettingsIcon,
   Folder as ProjectIcon,
   Terminal as TerminalIcon,
   Extension as SkillsIcon,
@@ -49,7 +48,6 @@ const menuItems = [
   { text: 'MCP Configs', icon: <MCPIcon />, path: '/mcp-configs' },
   { text: 'Logs', icon: <LogsIcon />, path: '/mcp-logs' },
   { text: 'Subagents', icon: <SubagentIcon />, path: '/subagents' },
-  { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ open, collapsed, onClose }) => {

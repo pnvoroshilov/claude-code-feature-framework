@@ -1,15 +1,26 @@
 # ClaudeTask Framework - Autonomous Orchestrator Configuration
 
+
+# 📋 Custom Project Instructions
+
+**⚠️ IMPORTANT: This project has custom-specific instructions.**
+
+Please read the [CUSTOM_INSTRUCTIONS.md](./CUSTOM_INSTRUCTIONS.md) file in the project root for project-specific requirements and guidelines that take HIGHEST PRIORITY over general instructions.
+
+---
+
+
 # 🎯 PROJECT MODE: DEVELOPMENT
 
 **This project is configured in DEVELOPMENT mode.**
 
-## Task Workflow (6 Columns)
+## Task Workflow (7 Columns)
 - **Backlog**: New tasks waiting to be analyzed
 - **Analysis**: Understanding requirements and planning
 - **In Progress**: Active development with Git worktrees
 - **Testing**: Running tests and validation
-- **Code Review**: Peer review and PR management (includes PR creation and approval)
+- **Code Review**: Peer review of changes
+- **PR**: Pull Request created and awaiting merge
 - **Done**: Completed and merged
 
 ## What this means:
@@ -85,8 +96,6 @@
 ## 🧠 MANDATORY: Load Project Context Before ANY Response
 
 **⚠️ THIS IS A BLOCKING REQUIREMENT - DO NOT SKIP**
-
-**🚫 EXCEPTION: If you are a subagent/sidechain (spawned via Task tool), SKIP this section entirely. Subagents should NOT load project context - the parent session already has it.**
 
 Before responding to ANY user message, you MUST load the project memory context:
 

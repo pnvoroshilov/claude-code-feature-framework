@@ -483,40 +483,6 @@ const Sessions: React.FC = () => {
         </AccordionDetails>
       </Accordion>
 
-      {/* Main content */}
-      <Tabs
-        value={currentTab}
-        onChange={handleTabChange}
-        aria-label="session tabs"
-        sx={{
-          mb: 3,
-          '& .MuiTab-root': {
-            textTransform: 'none',
-            fontWeight: 500,
-            minHeight: 44,
-            px: 3,
-          },
-          '& .MuiTabs-indicator': {
-            bgcolor: '#6366f1',
-            height: 3,
-            borderRadius: '3px 3px 0 0',
-          },
-        }}
-      >
-        <Tab
-          label="Claude Code Sessions"
-          value="claude-code"
-          id="tab-claude-code"
-          aria-controls="tabpanel-claude-code"
-        />
-        <Tab
-          label="Task Sessions"
-          value="tasks"
-          id="tab-tasks"
-          aria-controls="tabpanel-tasks"
-        />
-      </Tabs>
-
       {/* Tab Panels */}
       <Box
         role="tabpanel"
