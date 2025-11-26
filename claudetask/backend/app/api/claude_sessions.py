@@ -8,9 +8,9 @@ import logging
 import re
 from app.services.claude_sessions_reader import ClaudeSessionsReader
 
-# Session ID validation pattern (UUID format or agent format)
-# Supports: UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx) or agent IDs (agent-xxxxxxxx)
-SESSION_ID_PATTERN = re.compile(r'^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|agent-[a-f0-9]{8})$')
+# Session ID validation pattern (UUID format, agent format, or hook format)
+# Supports: UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx), agent IDs (agent-xxxxxxxx), hook IDs (hook-xxxxxxxx)
+SESSION_ID_PATTERN = re.compile(r'^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|agent-[a-f0-9]{8}|hook-[a-f0-9]{8})$')
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
