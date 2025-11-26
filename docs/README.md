@@ -28,8 +28,8 @@ React component documentation with props, usage examples, and patterns.
 - `FileBrowser.md` - GitHub-style file browser with complete file management and layout stability (v2.0.1)
 - `RealTerminal.md` - Terminal interface with WebSocket buffering and smart scroll management (v2.1)
 - `ClaudeSessions.md` - Embedded task session management UI with structured content rendering (v2.1)
-- `ClaudeCodeSessions.md` - Native Claude Code session analytics with pagination and empty message filtering (v2.2)
-- `Sessions.md` - Unified Sessions page with Claude Code and Task sessions (v2.0)
+- `ClaudeCodeSessions.md` - Native Claude Code session analytics with active session indicators and pagination (v2.3)
+- `Sessions.md` - Unified Sessions page with embedded session support and visual indicators (v2.2)
 - `Hooks.md` - Hooks management UI for automated shell command configuration
 - `Subagents.md` - Subagent management UI for specialized AI assistants
 - `Skills.md` - Skills management interface for extended capabilities
@@ -201,27 +201,36 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 ---
 
-**Documentation Version**: 2.8
+**Documentation Version**: 2.9
 **Last Updated**: 2025-11-26
 **Total Documents**: 45
 **Auto-Updated**: Yes (via post-merge hook)
 **Status**: Current
 
-**Latest Changes (v2.8)**:
-- **Agent Skills System Documentation**: New comprehensive guide to agent skills integration system
-  - All 34 framework agents now have mandatory skills field in YAML frontmatter
-  - Skills assignment strategy by agent category (Development, Analysis, Architecture, Testing, etc.)
-  - Skills enforcement through mandatory invocation instructions
-  - API integration for skill assignment and synchronization
-  - Skills matrix showing skill assignments per agent type
-  - Documentation location: `docs/architecture/agent-skills-system.md`
-- **Session Messages Endpoint**: New `/api/projects/{project_id}/sessions/{session_id}/messages` endpoint for JSONL message parsing with security validation
-- **Empty Message Filtering**: Server-side and client-side filtering of empty messages, placeholders ("...", "…"), and whitespace-only content
-- **Continue Session Integration**: Messages endpoint supports "Continue Session" feature with last-N message retrieval using efficient deque
-- **ClaudeCodeSessions UI Redesign**: Dialog redesigned from tabs to single panel with Messages section always visible (v2.2)
-- **Server-side Pagination**: Session list pagination with limit/offset API parameters (20 per page, max 100)
-- **Path Security**: JSONL file path validation ensures all files stay within `~/.claude` directory
-- **Performance Optimization**: Reduced DOM nodes via message filtering, API-level pagination reduces data transfer
+**Latest Changes (v2.9)**:
+- **Active Session Visual Indicators**: Prominent pulsing badge animations for active sessions in ClaudeCodeSessionsView (v2.3)
+  - Real-time active session detection (5-second polling)
+  - Pulsing green "Active" badge on running session cards
+  - Session ID tracking with Set-based state management
+  - Clear visual distinction between active and historical sessions
+- **Embedded Session Support**: Enhanced Sessions page with embedded session detection (v2.2)
+  - "Embedded" chip for task-based Claude sessions
+  - Task ID association display
+  - Visual differentiation from standalone sessions
+  - Support for agent-ID session format (`agent-xxxxxxxx`)
+- **Session ID Validation Enhancement**: Dual format support (UUID + agent-ID)
+  - UUID format: `a1b2c3d4-1234-5678-90ab-cdef12345678`
+  - Agent ID format: `agent-abc12345`
+  - Prevents path traversal attacks with strict pattern matching
+- **Documentation Updates**: All session-related documentation updated to v2.2-2.3
+
+**Previous Changes (v2.8)**:
+- Agent Skills System Documentation (34 agents with mandatory skills)
+- Session Messages Endpoint with JSONL parsing
+- Empty Message Filtering (server-side and client-side)
+- ClaudeCodeSessions UI Redesign (tabs → single panel)
+- Server-side Pagination (20 per page, max 100)
+- Path Security and Performance Optimization
 
 **Previous Changes (v2.7)**:
 - **Session Messages and Continue Session**: JSONL parsing with security validation

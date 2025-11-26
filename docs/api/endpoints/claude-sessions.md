@@ -111,11 +111,21 @@ Get detailed information about a specific session.
 }
 ```
 
-**Session ID Validation (2025-11-26)**:
-- `session_id` must be valid UUID format: `^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`
-- Invalid format returns 400 Bad Request: "Invalid session_id format"
-- Example valid: `a1b2c3d4-1234-5678-90ab-cdef12345678`
+**Session ID Validation (Enhanced 2025-11-26)**:
+- Supports **two formats**:
+  1. **UUID format**: `^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`
+  2. **Agent ID format**: `^agent-[a-f0-9]{8}$`
+- Invalid format returns 400 Bad Request: "Invalid session ID format. Must be a valid UUID or agent ID (agent-xxxxxxxx)."
+- Example valid UUID: `a1b2c3d4-1234-5678-90ab-cdef12345678`
+- Example valid agent ID: `agent-abc12345`
 - Example invalid: `invalid-id`, `abc123`
+
+**Validation Pattern**:
+```python
+SESSION_ID_PATTERN = re.compile(
+    r'^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|agent-[a-f0-9]{8})$'
+)
+```
 
 **Security Benefits**:
 - Prevents path traversal attacks via crafted session IDs
@@ -209,9 +219,44 @@ Get currently running Claude Code sessions - **only project-related processes**.
 **New Fields (2025-11-26)**:
 - `working_dir`: Current working directory of the Claude process (via `lsof`)
 - `project_name`: Extracted from working directory path (e.g., "project" from "/path/to/project")
-- `session_id`: Active session identifier (if available)
+- `session_id`: Active session identifier (if available, supports UUID or agent-ID format)
 - `project_dir`: Path to session storage directory for the project
+- `started`: Process start time in HH:MM:SS format
+- `task_id`: Associated task ID (if session is task-related)
+- `is_embedded`: Boolean indicating if session is embedded (task-based) vs standalone
 - Enhanced filtering ensures only meaningful project sessions are shown
+
+**Embedded Session Detection (v2.2 - 2025-11-26)**:
+
+The endpoint now detects and flags embedded Claude sessions that are running as part of task workflows:
+
+- **Embedded sessions** are launched programmatically via the `/execute-command` endpoint or task management system
+- **Detection**: Sessions with `task_id` set or running in specific contexts are marked as embedded
+- **Visual Distinction**: UI displays "Embedded" badge instead of CPU/Memory metrics
+- **Task Association**: Shows associated task ID for task-based sessions
+
+**Example Response with Embedded Session**:
+```json
+{
+  "success": true,
+  "active_sessions": [
+    {
+      "pid": "12345",
+      "cpu": "0.0",
+      "mem": "0.0",
+      "command": "claude code --cwd /path/to/project",
+      "working_dir": "/path/to/project",
+      "project_name": "MyProject",
+      "session_id": "agent-abc12345",
+      "project_dir": "/Users/username/.claude/projects/MyProject",
+      "started": "10:30:15",
+      "task_id": 15,
+      "is_embedded": true
+    }
+  ],
+  "count": 1
+}
+```
 
 **Active Session Detection (v2.1)**:
 
