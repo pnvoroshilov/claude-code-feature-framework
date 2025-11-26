@@ -134,6 +134,12 @@ class TaskInDB(TaskBase):
         from_attributes = True
 
 
+class StorageMode(str, Enum):
+    """Storage backend mode for project data"""
+    LOCAL = "local"      # SQLite + ChromaDB (default)
+    MONGODB = "mongodb"  # MongoDB Atlas + Vector Search
+
+
 # Project Settings Schemas
 class ProjectSettingsBase(BaseModel):
     auto_mode: bool = False
@@ -151,6 +157,9 @@ class ProjectSettingsBase(BaseModel):
     auto_merge_tests: bool = True  # Auto-merge new tests after PR approval
     test_staging_dir: Optional[str] = "tests/staging"  # Staging directory for new task tests
 
+    # Storage configuration
+    storage_mode: StorageMode = StorageMode.LOCAL  # Where to store project data
+
 
 class ProjectSettingsCreate(ProjectSettingsBase):
     project_id: str
@@ -163,6 +172,7 @@ class ProjectSettingsUpdate(ProjectSettingsBase):
 class ProjectSettingsInDB(ProjectSettingsBase):
     id: int
     project_id: str
+    storage_mode: StorageMode = StorageMode.LOCAL
 
     class Config:
         from_attributes = True

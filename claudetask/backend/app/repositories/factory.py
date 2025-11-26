@@ -8,6 +8,7 @@ from .base import BaseRepository
 from .project_repository import SQLiteProjectRepository, MongoDBProjectRepository
 from .task_repository import SQLiteTaskRepository, MongoDBTaskRepository
 from .memory_repository import SQLiteMemoryRepository, MongoDBMemoryRepository
+from .codebase_repository import MongoDBCodebaseRepository
 from ..models import ProjectSettings
 
 
@@ -194,3 +195,38 @@ class RepositoryFactory:
             Storage mode: "local" or "mongodb"
         """
         return await RepositoryFactory._get_storage_mode(project_id, db)
+
+    @staticmethod
+    async def get_codebase_repository(
+        project_id: str,
+        db: Optional[AsyncSession] = None
+    ) -> Optional[MongoDBCodebaseRepository]:
+        """
+        Get codebase repository for MongoDB storage mode.
+
+        Note: Codebase repository only available for MongoDB mode.
+        For local mode, use the existing ChromaDB-based RAG service.
+
+        Args:
+            project_id: Project ID to determine storage mode
+            db: SQLAlchemy async session
+
+        Returns:
+            MongoDBCodebaseRepository if MongoDB mode, None for local mode
+
+        Raises:
+            ValueError: If MongoDB not connected
+        """
+        storage_mode = await RepositoryFactory._get_storage_mode(project_id, db)
+
+        if storage_mode == "mongodb":
+            from ..database_mongodb import mongodb_manager
+
+            if not mongodb_manager.client:
+                raise ValueError("MongoDB not connected. Configure MongoDB Atlas first.")
+
+            mongodb = mongodb_manager.get_database()
+            return MongoDBCodebaseRepository(mongodb)
+
+        # Return None for local mode - caller should use ChromaDB RAG
+        return None

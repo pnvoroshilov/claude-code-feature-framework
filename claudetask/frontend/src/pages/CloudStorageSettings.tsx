@@ -52,6 +52,7 @@ const CloudStorageSettings: React.FC = () => {
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [isConfigured, setIsConfigured] = useState(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
     message: '',
@@ -64,9 +65,13 @@ const CloudStorageSettings: React.FC = () => {
       .get(`${API_BASE_URL}/settings/cloud-storage/config`)
       .then((response) => {
         if (response.data.configured) {
+          setIsConfigured(true);
           setConnectionString(response.data.connection_string || '');
           setDatabaseName(response.data.database_name || 'claudetask');
-          // API key is masked, don't populate
+          // API key is masked, show placeholder
+          if (response.data.voyage_api_key_set) {
+            setVoyageApiKey(''); // Keep empty, user will re-enter if needed
+          }
         }
       })
       .catch(() => {
@@ -219,6 +224,27 @@ const CloudStorageSettings: React.FC = () => {
           </ListItem>
         </List>
       </Paper>
+
+      {/* Already Configured Alert */}
+      {isConfigured && (
+        <Alert
+          severity="success"
+          sx={{
+            mb: 3,
+            backgroundColor: alpha(theme.palette.success.main, 0.1),
+            border: `1px solid ${alpha(theme.palette.success.main, 0.3)}`,
+            borderRadius: 2,
+            '& .MuiAlert-icon': { color: theme.palette.success.main },
+          }}
+        >
+          <AlertTitle>Cloud Storage Configured</AlertTitle>
+          <Typography variant="body2">
+            MongoDB Atlas and Voyage AI are already configured. To update, enter new values below and test the connection.
+            <br />
+            <strong>Note:</strong> For security, you need to re-enter the Voyage AI API key to make changes.
+          </Typography>
+        </Alert>
+      )}
 
       {/* Configuration Form */}
       <Paper

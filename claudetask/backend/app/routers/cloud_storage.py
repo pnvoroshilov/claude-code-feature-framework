@@ -75,6 +75,51 @@ async def get_cloud_storage_status():
     )
 
 
+@router.get("/config")
+async def get_cloud_storage_config():
+    """
+    Get current cloud storage configuration (with masked secrets).
+
+    Returns saved configuration from environment variables.
+    API keys and passwords are masked for security.
+
+    Returns:
+        Configuration with masked sensitive values
+
+    Example:
+        GET /api/settings/cloud-storage/config
+
+        Response:
+        {
+          "configured": true,
+          "connection_string": "mongodb+srv://user:***@cluster.mongodb.net/",
+          "database_name": "claudetask",
+          "voyage_api_key_set": true
+        }
+    """
+    connection_string = os.getenv("MONGODB_CONNECTION_STRING", "")
+    database_name = os.getenv("MONGODB_DATABASE_NAME", "claudetask")
+    voyage_api_key = os.getenv("VOYAGE_AI_API_KEY", "")
+
+    # Mask connection string password for display
+    masked_connection_string = ""
+    if connection_string:
+        # mongodb+srv://user:password@cluster... -> mongodb+srv://user:***@cluster...
+        import re
+        masked_connection_string = re.sub(
+            r'(mongodb\+srv://[^:]+:)[^@]+(@)',
+            r'\1***\2',
+            connection_string
+        )
+
+    return {
+        "configured": bool(connection_string and voyage_api_key),
+        "connection_string": masked_connection_string,
+        "database_name": database_name,
+        "voyage_api_key_set": bool(voyage_api_key)
+    }
+
+
 @router.post("/test", response_model=ConnectionTestResult)
 async def test_cloud_storage_connection(config: CloudStorageConfig):
     """

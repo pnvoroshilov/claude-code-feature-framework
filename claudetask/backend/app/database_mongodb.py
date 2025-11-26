@@ -162,12 +162,7 @@ class MongoDBManager:
         - conversation_memory: project_id, session_id, task_id, timestamp
         - tasks: project_id, status, created_at
         - projects: path (unique), is_active
-
-        Note: Vector Search index must be created via MongoDB Atlas UI:
-        - Collection: conversation_memory
-        - Field: embedding
-        - Dimensions: 1024
-        - Similarity: cosine
+        - Vector Search index for RAG (created automatically)
         """
         if not self.client:
             raise RuntimeError("MongoDB not connected")
@@ -190,6 +185,99 @@ class MongoDBManager:
         await db.projects.create_index("is_active")
 
         logger.info("MongoDB indexes created successfully")
+
+        # Create Vector Search index for RAG
+        await self.create_vector_search_index()
+
+    async def create_vector_search_indexes(self):
+        """
+        Create all MongoDB Atlas Vector Search indexes for RAG.
+
+        Creates indexes for:
+        1. conversation_memory - Chat history and project memory
+        2. code_chunks - Codebase semantic search
+        3. task_history - Similar task lookup
+        """
+        if not self.client:
+            raise RuntimeError("MongoDB not connected")
+
+        try:
+            from pymongo import MongoClient
+            from pymongo.operations import SearchIndexModel
+
+            connection_string = os.getenv("MONGODB_CONNECTION_STRING")
+            sync_client = MongoClient(connection_string)
+            sync_db = sync_client[self.db_name]
+
+            # Define all vector search indexes
+            indexes_config = [
+                {
+                    "collection": "conversation_memory",
+                    "index_name": "vector_search_idx",
+                    "fields": [
+                        {"type": "vector", "path": "embedding", "numDimensions": 1024, "similarity": "cosine"},
+                        {"type": "filter", "path": "project_id"}
+                    ]
+                },
+                {
+                    "collection": "codebase_chunks",
+                    "index_name": "codebase_vector_idx",
+                    "fields": [
+                        {"type": "vector", "path": "embedding", "numDimensions": 1024, "similarity": "cosine"},
+                        {"type": "filter", "path": "project_id"},
+                        {"type": "filter", "path": "language"},
+                        {"type": "filter", "path": "chunk_type"}
+                    ]
+                },
+                {
+                    "collection": "task_history",
+                    "index_name": "task_vector_search_idx",
+                    "fields": [
+                        {"type": "vector", "path": "embedding", "numDimensions": 1024, "similarity": "cosine"},
+                        {"type": "filter", "path": "project_id"},
+                        {"type": "filter", "path": "status"}
+                    ]
+                }
+            ]
+
+            for config in indexes_config:
+                collection = sync_db[config["collection"]]
+
+                # Check if index already exists
+                try:
+                    existing_indexes = list(collection.list_search_indexes())
+                    index_names = [idx.get("name") for idx in existing_indexes]
+
+                    if config["index_name"] in index_names:
+                        logger.info(f"Vector Search index '{config['index_name']}' already exists on {config['collection']}")
+                        continue
+                except Exception:
+                    # Collection might not exist yet - that's fine
+                    pass
+
+                # Create Vector Search index
+                search_index_model = SearchIndexModel(
+                    definition={"fields": config["fields"]},
+                    name=config["index_name"],
+                    type="vectorSearch"
+                )
+
+                try:
+                    result = collection.create_search_index(model=search_index_model)
+                    logger.info(f"Vector Search index '{config['index_name']}' created on {config['collection']}: {result}")
+                except Exception as e:
+                    logger.warning(f"Could not create index '{config['index_name']}' on {config['collection']}: {e}")
+
+            sync_client.close()
+            logger.info("All Vector Search indexes initialized")
+
+        except Exception as e:
+            logger.warning(f"Could not create Vector Search indexes: {e}")
+
+    # Backward compatibility alias
+    async def create_vector_search_index(self):
+        """Backward compatibility - calls create_vector_search_indexes"""
+        await self.create_vector_search_indexes()
 
 
 # Global MongoDB manager instance
