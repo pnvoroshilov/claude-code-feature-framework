@@ -237,6 +237,46 @@ async def seed_default_skills():
                 category="Security",
                 file_name="security-best-practices/SKILL.md",
                 is_favorite=False
+            ),
+            # Architecture Mindset - Grand Architect's Codex
+            DefaultSkill(
+                name="Architecture Mindset",
+                description="The Grand Architect's Codex - a rigorous, trade-off-focused mindset for architectural decisions. Forces abandonment of generic advice in favor of CTO/Principal Architect-level thinking with failure mode analysis, interrogation framework, and systematic trade-off evaluation.",
+                category="Architecture",
+                file_name="architecture-mindset/SKILL.md",
+                is_favorite=True
+            ),
+            # Merge Skill - Git conflict resolution
+            DefaultSkill(
+                name="Merge Skill",
+                description="Comprehensive Git branch merging strategies, conflict resolution techniques, and best practices for handling complex merge scenarios including renamed files, binary conflicts, and large-scale refactoring.",
+                category="Development",
+                file_name="merge-skill/SKILL.md",
+                is_favorite=False
+            ),
+            # React Refactor
+            DefaultSkill(
+                name="React Refactor",
+                description="Expert React code refactoring using Clean Architecture, component patterns, and modern hooks for transforming legacy class components and prop-drilling into maintainable composable designs with proper state management, TypeScript, and testing.",
+                category="Quality",
+                file_name="react-refactor/SKILL.md",
+                is_favorite=True
+            ),
+            # Requirements Analysis
+            DefaultSkill(
+                name="Requirements Analysis",
+                description="Comprehensive requirements discovery and analysis framework for transforming user requests into detailed actionable specifications with user stories, acceptance criteria, and stakeholder elicitation.",
+                category="Analysis",
+                file_name="requirements-analysis/skill.md",
+                is_favorite=False
+            ),
+            # Technical Design
+            DefaultSkill(
+                name="Technical Design",
+                description="Comprehensive document formats and templates for technical architecture design, test cases, ADRs (Architecture Decision Records), and conflict analysis.",
+                category="Documentation",
+                file_name="technical-design/skill.md",
+                is_favorite=False
             )
         ]
 
