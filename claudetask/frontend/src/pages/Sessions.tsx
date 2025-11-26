@@ -18,6 +18,16 @@ import {
   Tooltip,
   Stack,
   Paper,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Divider,
+  List,
+  ListItem,
+  ListItemText,
+  CircularProgress,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -25,9 +35,14 @@ import {
   Stop as StopIcon,
   Speed as SpeedIcon,
   Memory as MemoryIcon,
+  Info as InfoIcon,
+  Chat as ChatIcon,
+  Code as CodeIcon,
+  Folder as FolderIcon,
 } from '@mui/icons-material';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { format } from 'date-fns';
 import ClaudeCodeSessionsView from '../components/sessions/ClaudeCodeSessionsView';
 import TaskSessionsView from '../components/sessions/TaskSessionsView';
 
@@ -38,6 +53,35 @@ interface ActiveSession {
   cpu: string;
   mem: string;
   command: string;
+  working_dir?: string;
+  project_name?: string;
+  session_id?: string;
+  project_dir?: string;
+}
+
+interface SessionDetails {
+  session_id: string;
+  file_path: string;
+  file_size: number;
+  created_at: string | null;
+  last_timestamp: string | null;
+  cwd: string | null;
+  git_branch: string | null;
+  claude_version: string | null;
+  message_count: number;
+  user_messages: number;
+  assistant_messages: number;
+  tool_calls: Record<string, number>;
+  commands_used: string[];
+  files_modified: string[];
+  errors: Array<{ timestamp: string; content: string }>;
+  messages?: Array<{
+    type: string;
+    timestamp: string;
+    content: string;
+    uuid: string;
+    parent_uuid: string | null;
+  }>;
 }
 
 type TabValue = 'claude-code' | 'tasks';
@@ -50,6 +94,9 @@ const Sessions: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<TabValue>('claude-code');
   const [processMonitorExpanded, setProcessMonitorExpanded] = useState(false);
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<SessionDetails | null>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
   // URL-based tab state management
   useEffect(() => {
@@ -102,6 +149,30 @@ const Sessions: React.FC = () => {
     } catch (error: any) {
       console.error('Error killing session:', error);
       alert(`Failed to kill session: ${error.response?.data?.detail || error.message}`);
+    }
+  };
+
+  // Open session details handler
+  const openSessionDetails = async (session: ActiveSession) => {
+    if (!session.session_id || !session.project_dir) {
+      alert('Session details not available');
+      return;
+    }
+
+    setLoadingDetails(true);
+    setDetailsOpen(true);
+
+    try {
+      const response = await axios.get(
+        `${API_BASE}/sessions/${session.session_id}?project_dir=${encodeURIComponent(session.project_dir)}&include_messages=true`
+      );
+      setSelectedSession(response.data.session);
+    } catch (error: any) {
+      console.error('Error fetching session details:', error);
+      alert(`Failed to load session details: ${error.response?.data?.detail || error.message}`);
+      setDetailsOpen(false);
+    } finally {
+      setLoadingDetails(false);
     }
   };
 
@@ -316,30 +387,58 @@ const Sessions: React.FC = () => {
                           </IconButton>
                         </Tooltip>
                       </Box>
-                      <Paper
-                        sx={{
-                          p: 1,
-                          bgcolor: theme.palette.mode === 'dark' ? '#0f172a' : alpha(theme.palette.background.default, 0.5),
-                          border: '1px solid',
-                          borderColor: alpha(theme.palette.success.main, 0.2),
-                          borderRadius: 1,
-                        }}
-                      >
-                        <Typography
-                          variant="caption"
+                      {/* Project info */}
+                      {session.project_name && (
+                        <Paper
                           sx={{
-                            fontFamily: 'monospace',
-                            fontSize: '0.65rem',
-                            color: theme.palette.success.main,
-                            display: 'block',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
+                            p: 1,
+                            mb: 1.5,
+                            bgcolor: theme.palette.mode === 'dark' ? '#0f172a' : alpha(theme.palette.background.default, 0.5),
+                            border: '1px solid',
+                            borderColor: alpha(theme.palette.success.main, 0.2),
+                            borderRadius: 1,
                           }}
                         >
-                          {session.command}
-                        </Typography>
-                      </Paper>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontFamily: 'monospace',
+                              fontSize: '0.7rem',
+                              color: theme.palette.success.main,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.5,
+                            }}
+                          >
+                            <FolderIcon sx={{ fontSize: 14 }} />
+                            {session.project_name}
+                          </Typography>
+                        </Paper>
+                      )}
+
+                      {/* View Details Button */}
+                      {session.session_id && (
+                        <Button
+                          fullWidth
+                          size="small"
+                          variant="outlined"
+                          startIcon={<InfoIcon />}
+                          onClick={() => openSessionDetails(session)}
+                          sx={{
+                            borderRadius: 1.5,
+                            textTransform: 'none',
+                            fontWeight: 500,
+                            borderColor: alpha(theme.palette.success.main, 0.3),
+                            color: theme.palette.success.main,
+                            '&:hover': {
+                              borderColor: theme.palette.success.main,
+                              bgcolor: alpha(theme.palette.success.main, 0.1),
+                            },
+                          }}
+                        >
+                          View Details
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
                 </Grid>
@@ -367,6 +466,200 @@ const Sessions: React.FC = () => {
       >
         {currentTab === 'tasks' && <TaskSessionsView />}
       </Box>
+
+      {/* Session Details Dialog */}
+      <Dialog
+        open={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: theme.palette.mode === 'dark' ? '#1e293b' : 'background.paper',
+            border: '1px solid',
+            borderColor: theme.palette.mode === 'dark' ? '#334155' : alpha(theme.palette.divider, 0.1),
+            borderRadius: 2,
+          },
+        }}
+      >
+        {loadingDetails ? (
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="300px">
+            <CircularProgress sx={{ color: '#6366f1' }} />
+          </Box>
+        ) : selectedSession && (
+          <>
+            <DialogTitle sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <FolderIcon sx={{ color: theme.palette.success.main }} />
+                <Typography variant="h6">
+                  Active Session: {selectedSession.session_id.substring(0, 12)}...
+                </Typography>
+                <Chip
+                  label="LIVE"
+                  size="small"
+                  sx={{
+                    bgcolor: alpha(theme.palette.success.main, 0.1),
+                    color: theme.palette.success.main,
+                    fontWeight: 600,
+                    animation: 'pulse 2s infinite',
+                    '@keyframes pulse': {
+                      '0%, 100%': { opacity: 1 },
+                      '50%': { opacity: 0.6 },
+                    },
+                  }}
+                />
+              </Box>
+            </DialogTitle>
+            <DialogContent sx={{ pt: 3 }}>
+              {/* Session Info */}
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={6} md={3}>
+                  <Typography variant="caption" color="text.secondary">Working Directory</Typography>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                    {selectedSession.cwd || 'N/A'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={6} md={3}>
+                  <Typography variant="caption" color="text.secondary">Git Branch</Typography>
+                  <Typography variant="body2">{selectedSession.git_branch || 'N/A'}</Typography>
+                </Grid>
+                <Grid item xs={6} md={3}>
+                  <Typography variant="caption" color="text.secondary">Messages</Typography>
+                  <Typography variant="body2">
+                    {selectedSession.message_count} ({selectedSession.user_messages} user / {selectedSession.assistant_messages} assistant)
+                  </Typography>
+                </Grid>
+                <Grid item xs={6} md={3}>
+                  <Typography variant="caption" color="text.secondary">Claude Version</Typography>
+                  <Typography variant="body2">{selectedSession.claude_version || 'N/A'}</Typography>
+                </Grid>
+              </Grid>
+
+              <Divider sx={{ my: 2 }} />
+
+              {/* Messages Section */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ChatIcon sx={{ color: '#6366f1' }} />
+                  Messages ({selectedSession.messages?.length || 0})
+                </Typography>
+                {selectedSession.messages && selectedSession.messages.length > 0 ? (
+                  <List sx={{ maxHeight: 400, overflow: 'auto' }}>
+                    {selectedSession.messages
+                      .filter(msg => {
+                        const content: any = msg.content;
+                        if (typeof content === 'string') {
+                          const trimmed = content.trim();
+                          return trimmed && trimmed !== '...' && trimmed !== '…';
+                        }
+                        if (Array.isArray(content)) {
+                          return (content as any[]).some((b: any) => b.type === 'text' && b.text?.trim());
+                        }
+                        return !!content;
+                      })
+                      .map((msg, idx) => (
+                        <React.Fragment key={msg.uuid || idx}>
+                          <ListItem
+                            alignItems="flex-start"
+                            sx={{
+                              bgcolor: alpha(theme.palette.background.default, 0.3),
+                              mb: 1,
+                              borderRadius: 1,
+                              borderLeft: `3px solid ${msg.type === 'user' ? theme.palette.primary.main : theme.palette.success.main}`,
+                            }}
+                          >
+                            <ListItemText
+                              primary={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Typography variant="subtitle2">
+                                    {msg.type === 'user' ? '👤 User' : '🤖 Assistant'}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {msg.timestamp ? format(new Date(msg.timestamp), 'HH:mm:ss') : ''}
+                                  </Typography>
+                                </Box>
+                              }
+                              secondary={
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    whiteSpace: 'pre-wrap',
+                                    mt: 1,
+                                    maxHeight: 200,
+                                    overflow: 'auto',
+                                    color: 'text.secondary',
+                                  }}
+                                >
+                                  {(() => {
+                                    const content: any = msg.content;
+                                    if (typeof content === 'string') return content.trim();
+                                    if (Array.isArray(content)) {
+                                      return (content as any[])
+                                        .filter((block: any) => block.type === 'text')
+                                        .map((block: any) => block.text?.trim())
+                                        .filter(Boolean)
+                                        .join('\n');
+                                    }
+                                    return JSON.stringify(content, null, 2);
+                                  })()}
+                                </Typography>
+                              }
+                            />
+                          </ListItem>
+                        </React.Fragment>
+                      ))}
+                  </List>
+                ) : (
+                  <Typography color="text.secondary" align="center">
+                    No messages available
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Tools Used */}
+              {Object.keys(selectedSession.tool_calls).length > 0 && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CodeIcon sx={{ color: '#6366f1' }} />
+                    Tools Used ({Object.keys(selectedSession.tool_calls).length})
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    {Object.entries(selectedSession.tool_calls)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([tool, count]) => (
+                        <Chip
+                          key={tool}
+                          label={`${tool}: ${count}`}
+                          size="small"
+                          sx={{
+                            bgcolor: alpha('#6366f1', 0.1),
+                            color: '#6366f1',
+                          }}
+                        />
+                      ))}
+                  </Box>
+                </Box>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ borderTop: '1px solid', borderColor: 'divider', p: 2 }}>
+              <Button
+                onClick={() => setDetailsOpen(false)}
+                variant="contained"
+                sx={{
+                  bgcolor: '#6366f1',
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  '&:hover': {
+                    bgcolor: '#4f46e5',
+                  },
+                }}
+              >
+                Close
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
     </Container>
   );
 };

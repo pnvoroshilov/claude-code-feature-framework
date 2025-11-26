@@ -8,8 +8,9 @@ import logging
 import re
 from app.services.claude_sessions_reader import ClaudeSessionsReader
 
-# Session ID validation pattern (UUID format)
-SESSION_ID_PATTERN = re.compile(r'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$')
+# Session ID validation pattern (UUID format or agent format)
+# Supports: UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx) or agent IDs (agent-xxxxxxxx)
+SESSION_ID_PATTERN = re.compile(r'^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|agent-[a-f0-9]{8})$')
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -133,7 +134,7 @@ async def get_session_details(
 
         # Validate session_id format to prevent path traversal attacks
         if not SESSION_ID_PATTERN.match(session_id):
-            raise HTTPException(status_code=400, detail="Invalid session ID format. Must be a valid UUID.")
+            raise HTTPException(status_code=400, detail="Invalid session ID format. Must be a valid UUID or agent ID (agent-xxxxxxxx).")
 
         # Get session file directly from directory
         session_file = Path(project_dir) / f"{session_id}.jsonl"
@@ -284,12 +285,33 @@ async def get_current_session_info():
 
 @router.get("/active-sessions")
 async def get_active_sessions():
-    """Get currently active Claude Code sessions - only project-related processes"""
+    """Get currently active Claude Code sessions - detects CLI processes running in project directories"""
     try:
         import subprocess
         import re
+        from pathlib import Path
 
-        # Get list of running claude processes
+        def get_process_cwd(pid: str) -> str:
+            """Get the current working directory of a process using lsof"""
+            try:
+                result = subprocess.run(
+                    ["lsof", "-p", pid],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                for line in result.stdout.split('\n'):
+                    if '\tcwd\t' in line or ' cwd ' in line:
+                        # Parse lsof output: NAME is the last column
+                        parts = line.split()
+                        if len(parts) >= 9:
+                            # The path is everything after the 8th column
+                            return ' '.join(parts[8:])
+                return None
+            except Exception:
+                return None
+
+        # Get list of running processes
         result = subprocess.run(
             ["ps", "aux"],
             capture_output=True,
@@ -299,128 +321,139 @@ async def get_active_sessions():
         active = []
         seen_pids = set()
 
+        # System paths to exclude
+        system_path_patterns = [
+            '/var/folders/',
+            '/Applications/',
+            '/System/',
+            '/Library/',
+            '/tmp/',
+            '/private/',
+            '/.Trash/',
+            '/Library/Caches/',
+            '/usr/',
+            '/opt/',
+        ]
+
+        # Patterns that indicate subprocess/helper processes (not main Claude CLI)
+        exclude_patterns = [
+            '--type=',           # Electron/Chrome subprocess flags
+            'Helper',
+            'renderer',
+            'gpu-process',
+            'utility',
+            'crashpad',
+            '/Contents/Frameworks/',
+            'mcp-server',        # MCP server processes
+            'resource_tracker',  # Python multiprocessing
+            'spawn_main',        # Python multiprocessing
+        ]
+
         for line in result.stdout.split('\n'):
-            line_lower = line.lower()
+            # Look for claude CLI processes (not Claude.app desktop app)
+            # The CLI shows as "claude" or "node ...claude..." but NOT as Claude.app paths
 
-            # Skip if no claude reference
-            if 'claude' not in line_lower:
-                continue
-
-            # Filter for actual Claude Code project processes
-            # Include: ONLY claude processes with --cwd/--working-dir pointing to user project directories
-            # Exclude: ALL system subprocesses, node internals, helper processes
-
-            is_project_session = False
-
-            # STRICT RULE: Must have --cwd or --working-dir flag
-            # This ensures we only show project-launched Claude sessions
-            if '--cwd' in line or '--working-dir' in line:
-                # Extract working directory
-                working_dir = None
-                try:
-                    if '--cwd' in line:
-                        match = re.search(r'--cwd[=\s]+([^\s]+)', line)
-                        if match:
-                            working_dir = match.group(1)
-                    elif '--working-dir' in line:
-                        match = re.search(r'--working-dir[=\s]+([^\s]+)', line)
-                        if match:
-                            working_dir = match.group(1)
-                except:
-                    pass
-
-                # Verify it's a valid user project directory (not system paths)
-                if working_dir:
-                    # Exclude system and temporary paths
-                    system_path_patterns = [
-                        '/var/folders/',
-                        '/Applications/',
-                        '/System/',
-                        '/Library/',
-                        '/tmp/',
-                        '/private/',
-                        '/.Trash/',
-                        '/Library/Caches/',
-                    ]
-                    is_system_path = any(pat in working_dir for pat in system_path_patterns)
-
-                    if not is_system_path:
-                        is_project_session = True
-
-            # Additional exclusions for node/electron subprocesses
-            exclude_patterns = [
-                '--type=',           # Electron/Chrome subprocess flags
-                'helper',
-                'renderer',
-                'gpu-process',
-                'utility',
-                'crashpad',
-                '/node_modules/',
-                'node ',
-                '/Contents/Frameworks/',
-                'mcp-server',        # MCP server processes
-            ]
-            is_excluded = any(pat in line for pat in exclude_patterns)
-
-            if is_excluded:
-                is_project_session = False
-
-            if not is_project_session:
-                continue
-
-            # Parse process info
             parts = line.split()
-            if len(parts) > 10:
-                pid = parts[1]
+            if len(parts) < 11:
+                continue
 
-                # Skip duplicates
-                if pid in seen_pids:
-                    continue
-                seen_pids.add(pid)
+            pid = parts[1]
+            command = ' '.join(parts[10:])
+            command_lower = command.lower()
 
-                cpu = parts[2]
-                mem = parts[3]
-                started = parts[8]
-                command = ' '.join(parts[10:])
+            # Skip if already processed
+            if pid in seen_pids:
+                continue
 
-                # Extract working directory
-                working_dir = "Unknown"
+            # Check if this is a Claude CLI process
+            is_claude_cli = False
 
-                # Try --cwd first (newer format)
-                if '--cwd' in command:
-                    try:
-                        match = re.search(r'--cwd[=\s]+([^\s]+)', command)
-                        if match:
-                            working_dir = match.group(1)
-                    except:
-                        pass
-                # Try --working-dir (older format)
-                elif '--working-dir' in command:
-                    try:
-                        match = re.search(r'--working-dir[=\s]+([^\s]+)', command)
-                        if match:
-                            working_dir = match.group(1)
-                    except:
-                        pass
+            # Method 1: Command is exactly "claude" (the CLI binary)
+            if command.strip() == 'claude' or command.startswith('claude '):
+                is_claude_cli = True
 
-                # Extract project name from working directory
-                project_name = None
-                if working_dir != "Unknown":
-                    try:
-                        from pathlib import Path
-                        project_name = Path(working_dir).name
-                    except:
-                        pass
+            # Method 2: Has --cwd or --working-dir flag (older CLI versions)
+            if '--cwd' in command or '--working-dir' in command:
+                is_claude_cli = True
 
-                active.append({
-                    "pid": pid,
-                    "cpu": cpu,
-                    "mem": mem,
-                    "started": started,
-                    "working_dir": working_dir,
-                    "project_name": project_name,
-                    "command": command[:200]  # Limit length
-                })
+            if not is_claude_cli:
+                continue
+
+            # Exclude helper/subprocess patterns
+            if any(pat in command for pat in exclude_patterns):
+                continue
+
+            # Get working directory
+            working_dir = None
+
+            # Try to extract from command line flags first
+            if '--cwd' in command:
+                match = re.search(r'--cwd[=\s]+([^\s]+)', command)
+                if match:
+                    working_dir = match.group(1)
+            elif '--working-dir' in command:
+                match = re.search(r'--working-dir[=\s]+([^\s]+)', command)
+                if match:
+                    working_dir = match.group(1)
+
+            # If no flag, use lsof to get cwd
+            if not working_dir:
+                working_dir = get_process_cwd(pid)
+
+            # Skip if no working directory found or it's a system path
+            if not working_dir:
+                continue
+
+            if any(pat in working_dir for pat in system_path_patterns):
+                continue
+
+            seen_pids.add(pid)
+
+            cpu = parts[2]
+            mem = parts[3]
+            started = parts[8]
+
+            # Extract project name from working directory
+            project_name = None
+            try:
+                project_name = Path(working_dir).name
+            except:
+                pass
+
+            # Find the corresponding session file (most recent JSONL in project dir)
+            session_id = None
+            project_dir = None
+            try:
+                # Convert working directory to Claude projects path
+                # Claude Code encodes paths by replacing / and spaces with -
+                encoded_path = working_dir.replace('/', '-').replace(' ', '-')
+                # Directory name starts with dash (e.g., -Users-...)
+                if not encoded_path.startswith('-'):
+                    encoded_path = '-' + encoded_path
+
+                claude_projects_dir = Path.home() / '.claude' / 'projects' / encoded_path
+
+                if claude_projects_dir.exists():
+                    project_dir = str(claude_projects_dir)
+                    # Find most recently modified JSONL file
+                    jsonl_files = list(claude_projects_dir.glob('*.jsonl'))
+                    if jsonl_files:
+                        most_recent = max(jsonl_files, key=lambda f: f.stat().st_mtime)
+                        session_id = most_recent.stem  # filename without extension
+            except Exception as e:
+                logger.debug(f"Could not find session file: {e}")
+
+            active.append({
+                "pid": pid,
+                "cpu": cpu,
+                "mem": mem,
+                "started": started,
+                "working_dir": working_dir,
+                "project_name": project_name,
+                "session_id": session_id,
+                "project_dir": project_dir,
+                "command": command[:200]  # Limit length
+            })
 
         return {
             "success": True,
