@@ -228,37 +228,29 @@ Get currently running Claude Code sessions - **only project-related processes**.
 - `is_embedded`: Boolean indicating if session is embedded (task-based) vs standalone
 - Enhanced filtering ensures only meaningful project sessions are shown
 
-**Embedded Session Detection (v2.2 - 2025-11-26)**:
+**Embedded Session Handling (v2.2.1 - 2025-11-26)**:
 
-The endpoint now detects and flags embedded Claude sessions that are running as part of task workflows:
+**IMPORTANT**: Embedded sessions from `real_claude_service` are **intentionally excluded** from the active sessions list:
 
-- **Embedded sessions** are launched programmatically via the `/execute-command` endpoint or task management system
-- **Detection**: Sessions with `task_id` set or running in specific contexts are marked as embedded
-- **Visual Distinction**: UI displays "Embedded" badge instead of CPU/Memory metrics
-- **Task Association**: Shows associated task ID for task-based sessions
+- **Reason**: They are internal implementation details without persistent session files
+- **Alternative**: Use `/api/sessions/embedded/active` endpoint to monitor them separately
+- **Active Sessions**: Only shows project-related Claude processes launched from CLI or UI
 
-**Example Response with Embedded Session**:
-```json
-{
-  "success": true,
-  "active_sessions": [
-    {
-      "pid": "12345",
-      "cpu": "0.0",
-      "mem": "0.0",
-      "command": "claude code --cwd /path/to/project",
-      "working_dir": "/path/to/project",
-      "project_name": "MyProject",
-      "session_id": "agent-abc12345",
-      "project_dir": "/Users/username/.claude/projects/MyProject",
-      "started": "10:30:15",
-      "task_id": 15,
-      "is_embedded": true
-    }
-  ],
-  "count": 1
-}
+This change prevents issues with:
+- Session details failing to load (no JSONL file exists)
+- Duplicate session entries in the UI
+- Confusion between CLI sessions and embedded hook/task sessions
+
+**Implementation** (commit eee34daec):
+```python
+# NOTE: Embedded sessions (from real_claude_service) are intentionally excluded
+# from the active sessions list. They are internal implementation details
+# and don't have persistent session files. Use /api/sessions/embedded/active
+# endpoint if you need to monitor them separately.
 ```
+
+**Previous Behavior (v2.2)**: Embedded sessions were included with `is_embedded: true` flag
+**Current Behavior (v2.2.1)**: Embedded sessions are filtered out completely
 
 **Active Session Detection (v2.1)**:
 

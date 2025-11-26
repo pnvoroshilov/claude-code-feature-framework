@@ -594,9 +594,17 @@ This consolidated approach simplifies session management and provides developers
 
 **Version History**:
 - **v2.2.1** (2025-11-26):
-  - **BUG FIX**: Handle embedded sessions without persistent session files
-  - **BUG FIX**: Add `hook-xxxxxxxx` to valid session ID patterns
-  - **BUG FIX**: Fix TypeScript null check for `selectedProject`
+  - **BUG FIX**: Remove embedded sessions from System Processes list (commit eee34daec)
+    - Embedded sessions (from `real_claude_service`) no longer appear in active sessions
+    - They are internal implementation details without persistent session files
+    - Use `/api/sessions/embedded/active` endpoint to monitor them separately
+  - **BUG FIX**: Handle hook sessions without persistent session files (commit 8c8753d58)
+    - Frontend shows informative alert for `hook-*` sessions instead of failing
+    - Displays session metadata (PID, project, working directory) from active session data
+  - **BUG FIX**: Add `hook-xxxxxxxx` to valid session ID patterns (commits 28cfaac60, 2eb9d5d82)
+    - Backend now accepts hook-triggered session IDs
+    - Validation pattern: `/^(UUID|agent-[a-f0-9]{8}|hook-[a-f0-9]{8})$/`
+  - **BUG FIX**: Fix TypeScript null check for `selectedProject` (commit d99ddc3d2)
   - Enhanced error messages for failed session loads
   - Show detailed context in error alerts (session ID, project path)
   - Gracefully skip "View Details" for hook sessions without files
