@@ -4,7 +4,7 @@
 
 The Sessions page provides a unified interface for monitoring and managing both Claude Code sessions and task-based development sessions. This consolidated view allows developers to track all AI-assisted work from a single location.
 
-**Version**: 2.1
+**Version**: 2.2
 **Last Updated**: 2025-11-26
 
 ## Location
@@ -47,13 +47,15 @@ A collapsible accordion panel that displays active Claude Code processes in real
 - **NEW (v2.1)**: Session ID extraction from running processes
 - **NEW (v2.1)**: "View Details" button to inspect active session details
 - **NEW (v2.1)**: Full message history access for running sessions
+- **NEW (v2.2)**: Embedded session detection (task-based Claude sessions)
+- **NEW (v2.2)**: Prominent visual indicators for active sessions with pulsing animations
 
 **API Endpoint**:
 ```http
 GET /api/claude-sessions/active-sessions
 ```
 
-**Response Format (Enhanced v2.1)**:
+**Response Format (Enhanced v2.2)**:
 ```json
 {
   "active_sessions": [
@@ -65,7 +67,10 @@ GET /api/claude-sessions/active-sessions
       "working_dir": "/Users/username/Projects/MyProject",
       "project_name": "MyProject",
       "session_id": "abc-123-def-456",
-      "project_dir": "/Users/username/.claude/projects/MyProject"
+      "project_dir": "/Users/username/.claude/projects/MyProject",
+      "started": "10:30:15",
+      "task_id": 15,
+      "is_embedded": false
     }
   ]
 }
@@ -76,6 +81,11 @@ GET /api/claude-sessions/active-sessions
 - `project_name`: Extracted project name from working directory path
 - `session_id`: Active session identifier (if available)
 - `project_dir`: Path to session storage directory for the project
+
+**New Fields (v2.2)**:
+- `started`: Session start time in HH:MM:SS format
+- `task_id`: Associated task ID (if session is task-related)
+- `is_embedded`: Boolean indicating if session is embedded (task-based) vs standalone
 
 ### 3. Session Details Dialog (NEW in v2.1)
 
@@ -240,9 +250,38 @@ Each active session is displayed in a card with:
 **Visual Elements**:
 - Green-themed color scheme
 - Computer icon badge
-- CPU and memory chips
+- CPU and memory chips (regular sessions) or "Embedded" badge (task sessions)
 - Monospace command display
 - Terminate button (red)
+- **View Details** button (info icon)
+- Session ID and project information
+- Working directory display
+
+**Visual Indicators (v2.2)**:
+- **Embedded Sessions**: Blue "Embedded" chip instead of CPU/Memory metrics
+- **Task Association**: "Task #X" label for task-related sessions
+- **Session State**: Pulsing animations and colored badges for active state
+
+**Card Display Logic**:
+```typescript
+{session.is_embedded ? (
+  <Chip
+    label="Embedded"
+    size="small"
+    sx={{
+      height: 20,
+      fontSize: '0.65rem',
+      bgcolor: alpha(theme.palette.info.main, 0.1),
+      color: theme.palette.info.main,
+    }}
+  />
+) : (
+  <>
+    <Chip label={`CPU: ${session.cpu}%`} size="small" icon={<SpeedIcon />} />
+    <Chip label={`Mem: ${session.mem}%`} size="small" icon={<MemoryIcon />} />
+  </>
+)}
+```
 
 **Styling**:
 ```typescript
@@ -510,3 +549,22 @@ The Sessions page provides comprehensive monitoring and management of all AI-ass
 - **Accessible**: Full keyboard and screen reader support
 
 This consolidated approach simplifies session management and provides developers with complete visibility into their AI-assisted workflows.
+
+---
+
+**Version History**:
+- **v2.2** (2025-11-26):
+  - Added embedded session detection and display
+  - Enhanced visual indicators for task-based sessions
+  - Added "Embedded" chip for task sessions
+  - Added task ID association display
+  - Improved card styling differentiation
+  - Support for agent-ID session format validation
+- **v2.1** (2025-11-26):
+  - Added session details dialog with full message history
+  - Enhanced active session detection with `lsof`
+  - Project name and directory extraction
+  - Session ID detection from running processes
+  - "View Details" button for active sessions
+  - Full conversation history access
+- **v2.0**: Initial release with unified tab navigation and process monitoring

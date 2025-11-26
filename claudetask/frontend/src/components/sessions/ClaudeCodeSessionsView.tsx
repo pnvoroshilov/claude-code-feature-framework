@@ -187,8 +187,10 @@ const ClaudeCodeSessionsView: React.FC = () => {
       );
       setSelectedSession(response.data.session);
       setDetailsOpen(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching session details:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Unknown error';
+      alert(`Failed to load session details: ${errorMessage}\n\nSession ID: ${session.session_id}\nProject: ${selectedProject.directory}`);
     }
   };
 

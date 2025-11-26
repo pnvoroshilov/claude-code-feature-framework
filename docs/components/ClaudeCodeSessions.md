@@ -36,7 +36,7 @@ interface ClaudeCodeProject {
 }
 ```
 
-### 2. Session List View with Pagination
+### 2. Session List View with Pagination and Active Indicators
 
 **Session Card Display:**
 - Session ID and file information
@@ -47,6 +47,62 @@ interface ClaudeCodeProject {
 - Tool usage statistics
 - Files modified count
 - Error count indicator
+- **NEW (v2.3)**: Prominent visual indicator for active sessions
+
+**Active Session Visual Indicators (v2.3 - Added 2025-11-26)**:
+When a session is currently running (detected in active processes), the session card displays:
+
+- **Pulsing Green Badge**: Animated badge with "Active" label
+- **Color Scheme**: Green-themed card border and accents
+- **Real-time Detection**: Polls active sessions every 5 seconds
+- **Visual Distinction**: Active sessions stand out from historical sessions
+
+**Active Session Badge Styling**:
+```tsx
+{activeSessionIds.has(session.session_id) && (
+  <Badge
+    badgeContent="Active"
+    sx={{
+      '& .MuiBadge-badge': {
+        bgcolor: theme.palette.success.main,
+        color: 'white',
+        animation: 'pulse 2s infinite',
+        '@keyframes pulse': {
+          '0%, 100%': { opacity: 1 },
+          '50%': { opacity: 0.6 }
+        }
+      }
+    }}
+  />
+)}
+```
+
+**Active Session Detection**:
+```tsx
+const fetchActiveSessions = async () => {
+  const response = await axios.get(`${API_BASE}/active-sessions`);
+  const activeIds = new Set<string>();
+  response.data.sessions?.forEach((s: ActiveSession) => {
+    if (s.session_id) {
+      activeIds.add(s.session_id);
+    }
+  });
+  setActiveSessionIds(activeIds);
+};
+
+// Poll every 5 seconds when component mounted
+useEffect(() => {
+  fetchActiveSessions();
+  const interval = setInterval(fetchActiveSessions, 5000);
+  return () => clearInterval(interval);
+}, []);
+```
+
+**Benefits**:
+- **Immediate Visibility**: Instantly see which sessions are currently running
+- **Prevent Conflicts**: Avoid modifying sessions that are in use
+- **Context Awareness**: Know which sessions are actively processing work
+- **Visual Feedback**: Animated badge draws attention to active sessions
 
 **Pagination Support (v2.1 - Added 2025-11-26)**:
 - **Page Size**: 20 sessions per page (configurable)
@@ -290,6 +346,8 @@ const [detailsOpen, setDetailsOpen] = useState(false);
 const [page, setPage] = useState(1);
 const [pageSize] = useState(20); // Fixed page size
 const [totalSessions, setTotalSessions] = useState(0);
+// Active sessions tracking (v2.3)
+const [activeSessionIds, setActiveSessionIds] = useState<Set<string>>(new Set());
 ```
 
 ## API Integration
@@ -553,9 +611,15 @@ Claude Code stores sessions in JSONL (JSON Lines) format:
 ---
 
 **Last Updated**: 2025-11-26
-**Version**: 2.2.0
+**Version**: 2.3.0
 
 **Version History**:
+- **v2.3.0** (2025-11-26):
+  - Added prominent visual indicators for active sessions
+  - Pulsing green badge animation for running sessions
+  - Real-time active session detection (5-second polling)
+  - Session card styling differentiation for active sessions
+  - Active session ID tracking with Set-based state management
 - **v2.2.0** (2025-11-26):
   - Redesigned session details dialog (tabs → single panel with accordions)
   - Messages section always visible, top priority
