@@ -47,6 +47,7 @@ System architecture, design decisions, and database schema.
 - `hooks-system.md` - Hooks system architecture and script file workflow
 - `framework-updates.md` - Framework update system and file synchronization
 - `project-modes.md` - SIMPLE vs DEVELOPMENT mode workflows
+- `agent-skills-system.md` - Agent skills integration with mandatory skill invocation (34 agents updated)
 
 ### `/deployment/`
 Setup and deployment guides for local development and production.
@@ -198,13 +199,20 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 ---
 
-**Documentation Version**: 2.7
+**Documentation Version**: 2.8
 **Last Updated**: 2025-11-26
-**Total Documents**: 44
+**Total Documents**: 45
 **Auto-Updated**: Yes (via post-merge hook)
 **Status**: Current
 
-**Latest Changes (v2.7)**:
+**Latest Changes (v2.8)**:
+- **Agent Skills System Documentation**: New comprehensive guide to agent skills integration system
+  - All 34 framework agents now have mandatory skills field in YAML frontmatter
+  - Skills assignment strategy by agent category (Development, Analysis, Architecture, Testing, etc.)
+  - Skills enforcement through mandatory invocation instructions
+  - API integration for skill assignment and synchronization
+  - Skills matrix showing skill assignments per agent type
+  - Documentation location: `docs/architecture/agent-skills-system.md`
 - **Session Messages Endpoint**: New `/api/projects/{project_id}/sessions/{session_id}/messages` endpoint for JSONL message parsing with security validation
 - **Empty Message Filtering**: Server-side and client-side filtering of empty messages, placeholders ("...", "…"), and whitespace-only content
 - **Continue Session Integration**: Messages endpoint supports "Continue Session" feature with last-N message retrieval using efficient deque
@@ -212,6 +220,10 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 - **Server-side Pagination**: Session list pagination with limit/offset API parameters (20 per page, max 100)
 - **Path Security**: JSONL file path validation ensures all files stay within `~/.claude` directory
 - **Performance Optimization**: Reduced DOM nodes via message filtering, API-level pagination reduces data transfer
+
+**Previous Changes (v2.7)**:
+- **Session Messages and Continue Session**: JSONL parsing with security validation
+- **ClaudeCodeSessions Pagination**: 20 items per page with server-side limit/offset
 
 **Previous Changes (v2.6)**:
 - **Agent Skills Integration**: All agents include mandatory `skills` field and MANDATORY skills section
