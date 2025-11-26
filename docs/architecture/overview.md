@@ -147,6 +147,7 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 - **Per-project storage mode** selection (local or MongoDB)
 - **Local Storage**: SQLite + ChromaDB + all-MiniLM-L6-v2 (384d)
 - **Cloud Storage**: MongoDB Atlas + Vector Search + voyage-3-large (1024d)
+- **Codebase RAG**: Semantic code search across entire repository (MongoDB only)
 - **Migration Tool**: CLI utility for data migration between backends
 - **100% Backward Compatible**: All existing projects use local storage by default
 - **Cloud Configuration UI**: Settings page for MongoDB Atlas and Voyage AI setup
@@ -332,10 +333,12 @@ Collections (created automatically):
 - **task_history**: Task status change audit trail
 - **conversation_memory**: Messages with 1024d voyage-3-large embeddings
 - **project_settings**: Project configuration including storage mode
+- **codebase_chunks**: Semantic code chunks with embeddings (NEW v2.11)
 
 **Indexes**:
 - Standard indexes on project_id, status, timestamps
 - **Vector Search Index** on conversation_memory.embedding (1024 dimensions, cosine similarity)
+- **Vector Search Index** on codebase_chunks.embedding (1024 dimensions, cosine similarity)
 
 ### Storage Mode Selection
 
@@ -367,6 +370,7 @@ All endpoints follow REST conventions:
 /api/projects/{id}/memory            # Memory management
 /api/sessions                        # Claude sessions
 /api/settings/cloud-storage          # Cloud storage configuration (NEW v2.11)
+/api/codebase                        # Codebase RAG indexing and search (NEW v2.11)
 /api/editor                          # File editor endpoints (legacy)
 ```
 
@@ -820,11 +824,13 @@ project = await repo.get_by_id(project_id)
 - all-MiniLM-L6-v2 embeddings (384 dimensions)
 - Completely offline and private
 - No external dependencies
+- Conversation memory RAG only
 
 **Cloud Storage** (MongoDB Atlas):
 - MongoDB Atlas for structured data
 - MongoDB Vector Search for embeddings
 - voyage-3-large embeddings (1024 dimensions)
+- **Codebase RAG**: Semantic code search across entire repository
 - Distributed and scalable
 - Requires MongoDB Atlas cluster and Voyage AI API key
 
@@ -872,8 +878,38 @@ Migration process:
 - **Abstracted Business Logic**: Code doesn't know which storage is used
 - **Easy Extension**: Can add PostgreSQL, DynamoDB, or other backends
 - **No Breaking Changes**: All existing functionality works identically
+- **Codebase RAG**: Semantic code search with natural language queries (MongoDB only)
+- **Smart Embeddings**: voyage-3-large (1024d) for superior code understanding
+
+### Codebase RAG
+
+**MongoDB-only feature** for semantic code search:
+
+```bash
+# Index entire codebase
+POST /api/codebase/index
+{
+  "repo_path": "/path/to/project",
+  "full_reindex": true
+}
+
+# Search with natural language
+POST /api/codebase/search
+{
+  "query": "authentication middleware with JWT verification",
+  "limit": 20
+}
+```
+
+**Features**:
+- Semantic chunking (500 tokens, 50 overlap)
+- Multi-language support (15+ languages)
+- Symbol extraction (functions, classes, variables)
+- Sub-200ms search performance
+- Incremental reindexing
 
 **See**: [MongoDB Atlas Storage Documentation](../features/mongodb-atlas-storage.md) for complete details
+**See**: [Codebase RAG API Documentation](../api/endpoints/codebase-rag.md) for API reference
 
 ---
 

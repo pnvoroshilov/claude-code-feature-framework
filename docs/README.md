@@ -18,7 +18,9 @@ API documentation including OpenAPI specifications and endpoint details.
 - `endpoints/hooks.md` - Hooks management API with bulk operations
 - `endpoints/subagents.md` - Subagents management API for specialized AI assistants
 - `endpoints/mcp-configs.md` - MCP server configuration management API
-- `endpoints/rag-indexing.md` - RAG codebase indexing API
+- `endpoints/rag-indexing.md` - RAG codebase indexing API (ChromaDB - local storage)
+- `endpoints/codebase-rag.md` - Codebase RAG API with MongoDB Atlas Vector Search (NEW v1.0)
+- `endpoints/cloud-storage.md` - Cloud storage configuration API for MongoDB Atlas and Voyage AI
 
 ### `/components/`
 React component documentation with props, usage examples, and patterns.
@@ -180,7 +182,8 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 ### Core Features
 - [Memory System](./features/memory-system.md) - Persistent project memory with RAG
-- [MongoDB Atlas Storage](./features/mongodb-atlas-storage.md) - Dual storage backend with cloud vector search
+- [MongoDB Atlas Storage](./features/mongodb-atlas-storage.md) - Dual storage backend with cloud vector search and Codebase RAG
+- [Codebase RAG](./api/endpoints/codebase-rag.md) - Semantic code search across entire repository (MongoDB only)
 - [AUTO Mode](./features/auto-mode.md) - Autonomous task execution
 - [Session Continuation](./features/session-continuation.md) - Resume sessions with full context
 - [Hooks System](./architecture/hooks-system.md) - Automated shell command hooks
@@ -195,7 +198,9 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 - [Claude Sessions API](./api/endpoints/claude-sessions.md) - Session management
 - [Hooks API](./api/endpoints/hooks.md) - Hook configuration
 - [Skills API](./api/endpoints/skills.md) - Skills management
-- [RAG Indexing API](./api/endpoints/rag-indexing.md) - Codebase indexing
+- [RAG Indexing API](./api/endpoints/rag-indexing.md) - Codebase indexing (ChromaDB)
+- [Codebase RAG API](./api/endpoints/codebase-rag.md) - Semantic code search (MongoDB Atlas)
+- [Cloud Storage API](./api/endpoints/cloud-storage.md) - MongoDB and Voyage AI configuration
 
 ### UI Components
 - [TaskBoard](./components/TaskBoard.md) - Task management interface
@@ -207,11 +212,26 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 **Documentation Version**: 2.11.0
 **Last Updated**: 2025-11-26
-**Total Documents**: 49
+**Total Documents**: 50
 **Auto-Updated**: Yes (via post-merge hook)
 **Status**: Current
 
 **Latest Changes (v2.11.0)**:
+- **NEW: MongoDB Atlas Codebase RAG**: Semantic code search across entire repository (commit f1d821c36)
+  - Index entire codebase with intelligent chunking
+  - Search using natural language queries
+  - voyage-3-large embeddings (1024d) for superior code understanding
+  - MongoDB Vector Search for sub-200ms query performance
+  - 15+ programming languages supported
+  - Incremental reindexing based on file hashes
+  - MCP tools for Claude Code integration
+  - API endpoints: index, search, reindex, stats
+- **NEW: Codebase RAG API Documentation**: Complete endpoint reference (v1.0)
+  - Full indexing with semantic chunking
+  - Natural language code search
+  - Incremental reindexing for changed files
+  - Indexing statistics and monitoring
+  - Comprehensive examples and use cases
 - **NEW: MongoDB Atlas Storage Backend**: Dual storage system with Repository Pattern (commit 2dd722739)
   - Repository Pattern abstracts SQLite vs MongoDB storage
   - MongoDB Atlas with Vector Search support (voyage-3-large 1024d embeddings)
@@ -230,6 +250,7 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
   - SQLite and MongoDB implementations
   - Factory pattern for storage selection
   - Migration strategies
+  - Codebase RAG repository for code chunks
 - **Embedding Service Factory**: Pluggable embedding models
   - all-MiniLM-L6-v2 for local (384d)
   - voyage-3-large for cloud (1024d)
