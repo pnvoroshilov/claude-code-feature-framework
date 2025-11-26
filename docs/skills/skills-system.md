@@ -86,7 +86,66 @@ CREATE TABLE project_skills (
 
 ## Available Default Skills
 
-### 1. Unit Testing (NEW - 2025-11-25)
+### 1. Architecture Mindset (NEW - 2025-11-26)
+
+**Purpose**: The Grand Architect's Codex - CTO/Principal Architect-level thinking for architectural decisions
+
+**Location**: `framework-assets/claude-skills/architecture-mindset/`
+
+**Category**: `architecture`
+
+**Content**:
+- Five Pillars of Architectural Truth:
+  1. The Law of Trade-offs (no "best practices", only "best for context")
+  2. Pessimism by Default (Murphy's Law - design for failure)
+  3. Data Gravity (data model determines architecture)
+  4. Simplicity is a Feature (complexity is technical debt)
+  5. Conway's Law Compliance (architecture matches team structure)
+- Interrogation Engine for requirements discovery
+- Trade-off analysis framework with comparison matrices
+- Failure mode design patterns and mitigations
+- Valid patterns arsenal (Strangler Fig, Circuit Breaker, CQRS, etc.)
+- Anti-patterns danger zone (Distributed Monolith, Resume-Driven Development)
+- Structured output templates (Executive Summary, Trade-off Matrix, ADR format)
+
+**Documentation Structure**:
+- `SKILL.md` - Main architecture mindset guide with complete framework
+- `reference/interrogation-engine.md` - Business, Technical, and Failure Simulation questions
+- `reference/trade-off-analysis.md` - Trade-off matrices and comparison templates
+- `reference/failure-mode-design.md` - Failure patterns, mitigations, and resilience design
+
+**Key Features**:
+- Rigorous, trade-off-focused thinking
+- Skeptical approach to "best practices" and hype
+- Context-driven decision making
+- Comprehensive failure mode analysis
+- Team-size-appropriate architecture recommendations
+- Practical decision trees and matrices
+
+**Example Scenarios**:
+- Challenging over-engineering (microservices for simple apps)
+- Designing for extreme scale (ticket reservation system)
+- Technology selection based on team capacity
+- Database choice driven by access patterns
+- Infrastructure decisions aligned with budget
+
+**When to use**:
+- Architecture reviews and system design
+- Technology selection decisions
+- Scale planning and capacity estimation
+- Trade-off analysis between options
+- Distributed systems design
+- Legacy migration strategies
+- Technical leadership and mentoring
+
+**Integration with other skills**:
+- `architecture-patterns`: Detailed implementation patterns
+- `code-review`: Apply mindset during code reviews
+- `requirements-analysis`: Align interrogation questions
+- `technical-design`: Document decisions with ADRs
+- `debug-helper`: Failure mode thinking helps root cause analysis
+
+### 2. Unit Testing (2025-11-25)
 
 **Purpose**: Comprehensive unit testing best practices across multiple languages and frameworks
 
@@ -132,7 +191,7 @@ CREATE TABLE project_skills (
 - Setting up testing frameworks
 - Debugging test failures
 
-### 2. Integration Testing (NEW - 2025-11-25)
+### 3. Integration Testing (2025-11-25)
 
 **Purpose**: End-to-end API and integration testing strategies
 
@@ -181,7 +240,7 @@ CREATE TABLE project_skills (
 - CI/CD test pipeline setup
 - Database migration testing
 
-### 3. UI Testing (NEW - 2025-11-25)
+### 4. UI Testing (2025-11-25)
 
 **Purpose**: Automated UI and browser testing with modern frameworks
 
@@ -245,7 +304,7 @@ CREATE TABLE project_skills (
 - Smoke testing after deployment
 - Critical user flow validation
 
-### 4. Security Best Practices (NEW - 2025-11-25)
+### 5. Security Best Practices (2025-11-25)
 
 **Purpose**: Application security testing and secure coding practices
 
@@ -295,11 +354,11 @@ CREATE TABLE project_skills (
 - Auditing existing code for security issues
 - Penetration testing preparation
 
-### 5. Python Refactor (NEW - 2025-11-25)
+### 6. Python Refactor (2025-11-25)
 
 **Purpose**: Expert Python refactoring using Clean Architecture, DDD, and SOLID principles
 
-**Location**: `framework-assets/claude-skills/refactoring/`
+**Location**: `framework-assets/claude-skills/python-refactor/`
 
 **Category**: `refactoring`
 
@@ -314,7 +373,7 @@ CREATE TABLE project_skills (
 - Testing strategy (unit, integration, E2E)
 - FastAPI integration with clean architecture
 - SQLAlchemy isolation in Infrastructure layer
-- **NEW**: Scalability patterns for growing applications
+- Scalability patterns for growing applications
 
 **Documentation Structure**:
 - `SKILL.md` - Main refactoring guide
@@ -323,14 +382,14 @@ CREATE TABLE project_skills (
 - `reference/repository-pattern.md` - Data access abstraction
 - `reference/dependency-injection.md` - DI patterns in Python
 - `reference/strangler-fig.md` - Incremental refactoring strategy
-- `docs/scalability-patterns.md` - **NEW**: Performance and scaling strategies
+- `docs/scalability-patterns.md` - Performance and scaling strategies
 - `examples/fastapi-clean-arch.md` - FastAPI clean architecture example
 - `examples/legacy-refactoring.md` - Step-by-step legacy code refactoring
 - `templates/entity-template.py` - Domain entity template
 - `templates/repository-template.py` - Repository implementation template
 - `templates/use-case-template.py` - Use case/service layer template
 
-**Scalability Patterns (NEW)**:
+**Scalability Patterns**:
 - Database optimization (indexing, query optimization, connection pooling)
 - Caching strategies (Redis, in-memory caching)
 - Async processing with Celery
@@ -348,7 +407,7 @@ CREATE TABLE project_skills (
 - Structuring FastAPI applications
 - Planning scalability improvements
 
-### 6. React Refactor (NEW - 2025-11-25)
+### 7. React Refactor (2025-11-25)
 
 **Purpose**: Expert React refactoring using Clean Architecture and modern hooks
 
@@ -391,7 +450,7 @@ CREATE TABLE project_skills (
 - Structuring Next.js applications
 - Creating design systems
 
-### 7. Merge Skill
+### 8. Merge Skill
 
 **Purpose**: Comprehensive Git branch merging strategies and conflict resolution
 
@@ -428,7 +487,7 @@ CREATE TABLE project_skills (
 - Teaching Git merge best practices
 - Reviewing merge strategies
 
-### 8. Architecture Patterns (ENHANCED - 2025-11-25)
+### 9. Architecture Patterns (ENHANCED - 2025-11-25)
 
 **Purpose**: Comprehensive software architecture guidance with infrastructure and scalability patterns
 
@@ -445,23 +504,23 @@ CREATE TABLE project_skills (
 - Anti-patterns to avoid
 - Backend Python examples
 - Frontend React examples
-- **NEW**: Decision frameworks - Practical decision trees for architecture choices
-- **NEW**: Infrastructure patterns - Microservices, Docker, Kubernetes, high availability
-- **NEW**: Scalability patterns - Load balancing, caching strategies, database optimization
+- Decision frameworks - Practical decision trees for architecture choices
+- Infrastructure patterns - Microservices, Docker, Kubernetes, high availability
+- Scalability patterns - Load balancing, caching strategies, database optimization
 
 **Documentation Structure**:
 - `SKILL.md` - Core architecture patterns guide
-- `reference/decision-frameworks.md` - **NEW**: Decision trees for optimization, caching, scaling
-- `reference/infrastructure-patterns.md` - **NEW**: Microservices, containerization, orchestration
+- `reference/decision-frameworks.md` - Decision trees for optimization, caching, scaling
+- `reference/infrastructure-patterns.md` - Microservices, containerization, orchestration
 
-**Decision Frameworks (NEW)**:
+**Decision Frameworks**:
 - When to optimize (traffic thresholds, response time targets)
 - Caching strategy selection (Redis, CDN, application-level)
 - Database scaling decisions (vertical vs horizontal, sharding)
 - Microservices vs monolith decision tree
 - Event-driven architecture patterns
 
-**Infrastructure Patterns (NEW)**:
+**Infrastructure Patterns**:
 - Microservices architecture (API Gateway, Service Mesh)
 - Containerization with Docker
 - Orchestration with Kubernetes
@@ -479,7 +538,7 @@ CREATE TABLE project_skills (
 - Migrating to microservices
 - Implementing event-driven systems
 
-### 9. Requirements Analysis
+### 10. Requirements Analysis
 
 **Purpose**: Business requirements gathering and documentation
 
@@ -502,7 +561,7 @@ CREATE TABLE project_skills (
 - Defining acceptance criteria
 - Planning sprint work
 
-### 10. Technical Design
+### 11. Technical Design
 
 **Purpose**: Technical specification and system design
 
@@ -569,10 +628,10 @@ worktrees/{task_id}/.claude/skills/
 
 | Category | Purpose | Example Skills |
 |----------|---------|----------------|
+| `architecture` | System design and architectural thinking | Architecture Mindset, Architecture Patterns |
 | `testing` | Testing methodologies and tools | Unit Testing, Integration Testing, UI Testing |
 | `security` | Security practices and vulnerabilities | Security Best Practices, OWASP Top 10 |
 | `refactoring` | Code improvement and architecture | Python Refactor, React Refactor |
-| `architecture` | System design and patterns | Architecture Patterns, Design Patterns |
 | `git` | Version control workflows | Merge Skill, Git Best Practices |
 | `analysis` | Requirements and planning | Requirements Analysis, User Stories |
 | `design` | Technical specifications | Technical Design, API Design |
@@ -582,10 +641,14 @@ worktrees/{task_id}/.claude/skills/
 Skills use TOON (Table-Oriented Object Notation) for structured knowledge representation:
 
 ```
-skill_categories[3]{category,purpose,example_skills}:
+skill_categories[7]{category,purpose,example_skills}:
+architecture,System design and architectural thinking,Architecture Mindset Architecture Patterns
 testing,Testing methodologies and tools,Unit Testing Integration Testing UI Testing
 security,Security practices and vulnerabilities,Security Best Practices OWASP Top 10
 refactoring,Code improvement and architecture,Python Refactor React Refactor
+git,Version control workflows,Merge Skill Git Best Practices
+analysis,Requirements and planning,Requirements Analysis User Stories
+design,Technical specifications,Technical Design API Design
 ```
 
 **Benefits**:
@@ -601,14 +664,23 @@ Each skill's main file includes YAML frontmatter:
 
 ```yaml
 ---
-name: unit-testing
-description: Comprehensive unit testing best practices
+name: architecture-mindset
+description: The Grand Architect's Codex - rigorous trade-off-focused mindset
 version: 1.0.0
-tags: [testing, unit-tests, tdd, quality, pytest, jest]
+tags: [architecture, design, trade-offs, cto, principal-architect]
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Grep
+  - Glob
+  - Bash
 ---
 ```
 
-## Migration: Add Testing Skills
+## Migrations
+
+### Add Testing Skills (2025-11-25)
 
 **Migration**: `claudetask/backend/migrations/add_testing_skills.py`
 
@@ -621,6 +693,28 @@ tags: [testing, unit-tests, tdd, quality, pytest, jest]
 **Updates**:
 1. Architecture Patterns skill (adds decision frameworks and infrastructure patterns)
 2. Python Refactor skill (adds scalability patterns)
+
+### Add Architecture Mindset Skill (2025-11-26)
+
+**Migration**: `claudetask/backend/migrations/add_architecture_mindset_skill.py`
+
+**Adds**:
+1. Architecture Mindset skill - The Grand Architect's Codex
+   - Five Pillars of Architectural Truth
+   - Interrogation Engine framework
+   - Trade-off analysis templates
+   - Failure mode design patterns
+   - Reference documentation files
+
+**File Structure**:
+```
+framework-assets/claude-skills/architecture-mindset/
+├── SKILL.md                                    # Main skill guide
+├── reference/
+│   ├── interrogation-engine.md                # Requirements discovery
+│   ├── trade-off-analysis.md                  # Comparison templates
+│   └── failure-mode-design.md                 # Resilience patterns
+```
 
 ## Testing Configuration Fields
 
@@ -640,7 +734,21 @@ PUT /api/projects/{project_id}/settings
 
 ## Skill Usage Patterns
 
-### 1. Testing Workflow with Skills
+### 1. Architecture Review with Architecture Mindset
+
+```
+1. Enable "Architecture Mindset" skill for project
+2. Assign skill to System Architect subagent
+3. Create task: "Review microservices architecture for user service"
+4. Agent applies Five Pillars framework:
+   - Trade-off analysis between monolith and microservices
+   - Team size evaluation (Conway's Law)
+   - Failure mode analysis for distributed system
+5. Outputs trade-off matrix and ADR
+6. Recommends modular monolith for 3-person team
+```
+
+### 2. Testing Workflow with Skills
 
 ```
 1. Enable "Unit Testing" skill for project
@@ -651,7 +759,7 @@ PUT /api/projects/{project_id}/settings
 6. Uses pytest patterns from skill examples
 ```
 
-### 2. Security Review with Skills
+### 3. Security Review with Skills
 
 ```
 1. Enable "Security Best Practices" skill
@@ -661,7 +769,7 @@ PUT /api/projects/{project_id}/settings
 5. Generates security review checklist
 ```
 
-### 3. Refactoring with Skills
+### 4. Refactoring with Skills
 
 ```
 1. Enable "Python Refactor" skill
@@ -696,6 +804,21 @@ PUT /api/projects/{project_id}/settings
 3. **Migration Paths**: Provide upgrade guides for major changes
 4. **Testing**: Validate examples in CI/CD
 
+## Total Skills Count
+
+**Default Skills**: 11 (as of 2025-11-26)
+- Architecture Mindset (NEW)
+- Architecture Patterns
+- Unit Testing
+- Integration Testing
+- UI Testing
+- Security Best Practices
+- Python Refactor
+- React Refactor
+- Merge Skill
+- Requirements Analysis
+- Technical Design
+
 ## Future Enhancements
 
 1. **Skill Dependencies**: Skills can require other skills
@@ -704,3 +827,9 @@ PUT /api/projects/{project_id}/settings
 4. **Skill Marketplace**: Community-contributed skills
 5. **Skill Composition**: Combine multiple skills into workflows
 6. **AI-Generated Skills**: Generate skills from codebases
+
+---
+
+**Last Updated**: 2025-11-26
+**Version**: 3.0 (Added Architecture Mindset skill)
+**Total Skills**: 11 default skills

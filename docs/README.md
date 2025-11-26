@@ -201,13 +201,36 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 ---
 
-**Documentation Version**: 2.9.2
+**Documentation Version**: 2.10.0
 **Last Updated**: 2025-11-26
-**Total Documents**: 45
+**Total Documents**: 47
 **Auto-Updated**: Yes (via post-merge hook)
 **Status**: Current
 
-**Latest Changes (v2.9.2)**:
+**Latest Changes (v2.10.0)**:
+- **NEW: Architecture Mindset Skill**: Principal Architect/CTO-level thinking framework (commit 00c6e0b57)
+  - Five Pillars of Architectural Truth (trade-offs, pessimism, data gravity, simplicity, Conway's Law)
+  - Interrogation Engine for requirements discovery
+  - Trade-off analysis framework with comparison matrices
+  - Failure mode design patterns and mitigations
+  - Reference documentation files for deep dives
+  - Integration with other skills (architecture-patterns, code-review, requirements-analysis)
+- **NEW: Unified Projects Page**: Tabbed interface for project management (commit a3a75b909)
+  - Three tabs: Projects (list), Instructions (CLAUDE.md editor), Setup (new project wizard)
+  - URL-based tab navigation with clean routing
+  - ProjectListView with context menu actions
+  - Framework update functionality per project
+  - Project editing and deletion capabilities
+- **Skills System Update**: Total of 11 default skills (up from 10)
+  - Architecture Mindset (NEW)
+  - Architecture Patterns (enhanced)
+  - Unit Testing, Integration Testing, UI Testing
+  - Security Best Practices, Python Refactor, React Refactor
+  - Merge Skill, Requirements Analysis, Technical Design
+- **Component Documentation**: New Projects component documented (v1.0)
+- **Agent Updates**: All 34 agents include Skill tool for proper skill loading (commit 2806059f9)
+
+**Previous Changes (v2.9.2)**:
 - **Embedded Sessions Cleanup**: Removed embedded sessions from System Processes list (commit eee34daec)
   - Embedded sessions (from `real_claude_service`) no longer appear in active sessions API
   - They are internal implementation details without persistent session files

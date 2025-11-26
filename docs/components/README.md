@@ -242,11 +242,11 @@ Components for managing framework features:
 - **Skills** - Extended capability creation and management
 - **MCPConfigs** - Model Context Protocol server configuration management
 
-### 4. Task Management
+### 4. Task & Project Management
 Components for task and project management:
+- **Projects** - Unified tabbed interface for project management (list, instructions, setup)
 - **TaskBoard** - Kanban-style task board with automatic Claude command dispatch and File Browser integration
 - **Tasks** - Task cards and details (to be documented)
-- **Projects** - Project configuration (to be documented)
 
 ### 5. Shared Components
 Reusable components used across the application:
@@ -409,14 +409,15 @@ When adding or updating components:
 
 ---
 
-**Last Updated**: 2025-11-25
-**Total Components Documented**: 9
+**Last Updated**: 2025-11-26
+**Total Components Documented**: 10
 **Documentation Status**: Active maintenance
 
 ## Component Documentation Index
 
 | Component | Category | Status | Version | Documentation |
 |-----------|----------|--------|---------|---------------|
+| Projects | Task & Project Management | Production Ready | v1.0 | [View](./Projects.md) |
 | Sessions | Session Management | Production Ready | v1.0 | [View](./Sessions.md) |
 | ClaudeSessions | Session Management | Active | v2.1 | [View](./ClaudeSessions.md) |
 | RealTerminal | Session Management | Active | v2.1 | [View](./RealTerminal.md) |
@@ -426,6 +427,5 @@ When adding or updating components:
 | Subagents | Framework Management | Active | v1.0 | [View](./Subagents.md) |
 | Skills | Framework Management | Active | v1.0 | [View](./Skills.md) |
 | MCPConfigs | Framework Management | Active | v2.0 | [View](./MCPConfigs.md) |
-| TaskBoard | Task Management | Active | v2.1 | [View](./TaskBoard.md) |
-| Tasks | Task Management | Pending | - | To be documented |
-| Projects | Task Management | Pending | - | To be documented |
+| TaskBoard | Task & Project Management | Active | v2.1 | [View](./TaskBoard.md) |
+| Tasks | Task & Project Management | Pending | - | To be documented |
