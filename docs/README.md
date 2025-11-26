@@ -201,13 +201,32 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 ---
 
-**Documentation Version**: 2.9.1
+**Documentation Version**: 2.9.2
 **Last Updated**: 2025-11-26
 **Total Documents**: 45
 **Auto-Updated**: Yes (via post-merge hook)
 **Status**: Current
 
-**Latest Changes (v2.9.1)**:
+**Latest Changes (v2.9.2)**:
+- **Embedded Sessions Cleanup**: Removed embedded sessions from System Processes list (commit eee34daec)
+  - Embedded sessions (from `real_claude_service`) no longer appear in active sessions API
+  - They are internal implementation details without persistent session files
+  - Use `/api/sessions/embedded/active` endpoint to monitor them separately
+  - Prevents session details loading failures and duplicate entries
+- **Hook Session Handling**: Enhanced UI for hook-triggered sessions (commit 8c8753d58)
+  - Frontend gracefully handles `hook-*` sessions without persistent files
+  - Shows informative alert with session metadata (PID, project, working directory)
+  - Prevents "View Details" errors for embedded hook sessions
+- **Session ID Validation**: Enhanced validation to support hook IDs (commits 28cfaac60, 2eb9d5d82)
+  - Added `hook-xxxxxxxx` format to valid session ID patterns
+  - Validation pattern: `/^(UUID|agent-[a-f0-9]{8}|hook-[a-f0-9]{8})$/`
+  - Supports three formats: UUID, agent-ID, and hook-ID
+- **Subagent Context Optimization**: CLAUDE.md updated for subagent efficiency (commit 7974d1ebc)
+  - Subagents spawned via Task tool skip project context loading
+  - Reduces redundant MCP calls when parent session already has context
+  - Improves subagent initialization performance
+
+**Previous Changes (v2.9.1)**:
 - **Active Sessions Bug Fix**: Fixed API field name in ClaudeCodeSessionsView (v2.3.1)
   - Corrected API response field from `sessions` to `active_sessions`
   - Enhanced error messages with detailed session ID and project information
