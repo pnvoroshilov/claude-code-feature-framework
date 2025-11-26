@@ -112,18 +112,20 @@ Get detailed information about a specific session.
 ```
 
 **Session ID Validation (Enhanced 2025-11-26)**:
-- Supports **two formats**:
+- Supports **three formats**:
   1. **UUID format**: `^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`
   2. **Agent ID format**: `^agent-[a-f0-9]{8}$`
+  3. **Hook ID format**: `^hook-[a-f0-9]{8}$`
 - Invalid format returns 400 Bad Request: "Invalid session ID format. Must be a valid UUID or agent ID (agent-xxxxxxxx)."
 - Example valid UUID: `a1b2c3d4-1234-5678-90ab-cdef12345678`
 - Example valid agent ID: `agent-abc12345`
+- Example valid hook ID: `hook-abc12345`
 - Example invalid: `invalid-id`, `abc123`
 
 **Validation Pattern**:
 ```python
 SESSION_ID_PATTERN = re.compile(
-    r'^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|agent-[a-f0-9]{8})$'
+    r'^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|agent-[a-f0-9]{8}|hook-[a-f0-9]{8})$'
 )
 ```
 
