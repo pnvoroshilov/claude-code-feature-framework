@@ -198,19 +198,19 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 ---
 
-**Documentation Version**: 2.5
+**Documentation Version**: 2.6
 **Last Updated**: 2025-11-26
 **Total Documents**: 44
 **Auto-Updated**: Yes (via post-merge hook)
 **Status**: Current
 
-**Latest Changes (v2.5)**:
+**Latest Changes (v2.6)**:
+- **Agent Skills Integration**: All agents now include mandatory `skills` field in frontmatter and MANDATORY skills section for consistent knowledge access
 - **Workflow Simplification**: Confirmed 6-column DEVELOPMENT workflow (PR status merged into Code Review as of 2025-11-26)
-- **Testing Skills**: Comprehensive testing suite with Unit, Integration, and UI Testing skills including Playwright MCP configuration
+- **Testing Skills Suite**: Comprehensive testing skills - Unit Testing, Integration Testing, UI Testing (with Playwright MCP configuration)
+- **Refactoring Skills**: Python Refactor, React Refactor skills with Clean Architecture and SOLID principles
+- **Merge Skill**: Comprehensive Git merge best practices for conflict resolution and worktree merging
 - **Memory File Edit Capture**: New hook for automatically capturing file edit operations (Edit, Write, MultiEdit, Update tools)
+- **Session Security**: Session ID validation (UUID format), pagination limits (max 100 per page), enhanced security
 - **Memory System**: Centralized ChromaDB storage, improved session tracking, reduced summarization threshold to 30 messages
-- **Active Sessions Filtering**: Enhanced filtering logic to show only project-related Claude Code sessions (excludes system subprocesses)
-- **Sessions UI**: Unified Claude Code and Task sessions with consolidated tab interface
-- **Architecture & Refactoring Skills**: Enhanced with infrastructure patterns, scalability patterns, and decision frameworks
-- **Security Best Practices**: New comprehensive security skill covering OWASP Top 10, authentication, and secure coding
-- **Skills Total**: 21 default skills with enhanced testing and architecture guidance
+- **Skills Total**: 24 default skills (21 existing + UI Testing, Python Refactor, React Refactor)

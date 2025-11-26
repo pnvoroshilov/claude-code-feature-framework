@@ -4,13 +4,12 @@
 
 **This project is configured in DEVELOPMENT mode.**
 
-## Task Workflow (7 Columns)
+## Task Workflow (6 Columns)
 - **Backlog**: New tasks waiting to be analyzed
 - **Analysis**: Understanding requirements and planning
 - **In Progress**: Active development with Git worktrees
 - **Testing**: Running tests and validation
-- **Code Review**: Peer review of changes
-- **PR**: Pull Request created and awaiting merge
+- **Code Review**: Peer review and PR management (includes PR creation and approval)
 - **Done**: Completed and merged
 
 ## What this means:

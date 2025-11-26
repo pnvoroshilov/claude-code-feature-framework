@@ -9,8 +9,47 @@ The framework implements an intelligent, agent-driven development workflow that 
 - **Automated Analysis**: Business and systems analysts create requirements and architecture documentation
 - **Structured Development**: Clear phases with analysis, implementation, testing, and review
 - **Slash Commands**: Quick commands to trigger workflow phases
-- **Specialized Agents**: Expert agents for each phase of development
+- **Specialized Agents**: Expert agents for each phase of development (with mandatory skills integration)
+- **Skills System**: Agents use reusable knowledge modules for consistent expertise
 - **Git Worktrees**: Isolated development environments per task
+
+## Agent Skills Integration (NEW - 2025-11-26)
+
+All framework agents now include a mandatory `skills` field in their YAML frontmatter and a MANDATORY skills section in their documentation. This ensures:
+
+- **Consistent Knowledge**: Agents use standardized skills instead of reimplementing common patterns
+- **Reusable Expertise**: Skills are shared across multiple agents (e.g., `documentation-writer`, `debug-helper`)
+- **Structured Learning**: Each agent declares which skills it must use before starting work
+- **Quality Assurance**: Skills provide battle-tested patterns and best practices
+
+**Agent Structure Example**:
+```markdown
+---
+name: backend-architect
+description: Design and implement scalable backend systems
+tools: Read, Write, Edit, MultiEdit, Bash, Grep
+skills: api-development, database-migration, architecture-patterns, security-best-practices
+---
+
+## 🎯 MANDATORY: Use Assigned Skills
+
+**IMPORTANT**: You MUST use the following skills during your work:
+
+**Skills to invoke**: `api-development, database-migration, architecture-patterns, security-best-practices`
+
+### How to Use Skills
+
+Before starting your task, invoke each assigned skill using the Skill tool:
+
+```
+Skill: "api-development"
+Skill: "database-migration"
+Skill: "architecture-patterns"
+Skill: "security-best-practices"
+```
+```
+
+**Available Skills**: See [Skills System Documentation](../skills/skills-system.md) for complete list of 24 default skills.
 
 ## Workflow Phases
 

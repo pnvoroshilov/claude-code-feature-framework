@@ -29,14 +29,16 @@ Returns all Claude Code projects discovered in the system.
 }
 ```
 
-### 2. Get Project Sessions
+### 2. Get Project Sessions (with Pagination)
 
 **GET** `/api/claude-sessions/projects/{project_name}/sessions`
 
-Get all Claude Code sessions for a specific project.
+Get all Claude Code sessions for a specific project with pagination support.
 
 **Query Parameters:**
 - `project_dir` (optional, recommended): Project directory path
+- `limit` (optional, default: 50, max: 100): Number of sessions per page
+- `offset` (optional, default: 0): Number of sessions to skip
 
 **Response:**
 ```json
@@ -52,15 +54,36 @@ Get all Claude Code sessions for a specific project.
       "tool_uses": ["Read", "Write", "Bash"]
     }
   ],
-  "total": 1
+  "total": 150,
+  "limit": 50,
+  "offset": 0,
+  "has_more": true
 }
 ```
 
-### 3. Get Session Details
+**Pagination Example:**
+```bash
+# Get first 50 sessions
+curl "http://localhost:3333/api/claude-sessions/projects/MyProject/sessions?limit=50&offset=0"
+
+# Get next 50 sessions
+curl "http://localhost:3333/api/claude-sessions/projects/MyProject/sessions?limit=50&offset=50"
+```
+
+**Security Improvements (2025-11-26)**:
+- `limit` parameter capped at 100 to prevent excessive data transfer
+- `offset` must be non-negative (≥ 0)
+- Sessions sorted by `last_timestamp` DESC before pagination
+- Invalid parameters return 422 validation error
+
+### 3. Get Session Details (with Validation)
 
 **GET** `/api/claude-sessions/sessions/{session_id}`
 
 Get detailed information about a specific session.
+
+**Path Parameters:**
+- `session_id`: UUID format session identifier (validated)
 
 **Query Parameters:**
 - `project_dir` (required): Project directory path
@@ -87,6 +110,17 @@ Get detailed information about a specific session.
   }
 }
 ```
+
+**Session ID Validation (2025-11-26)**:
+- `session_id` must be valid UUID format: `^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`
+- Invalid format returns 400 Bad Request: "Invalid session_id format"
+- Example valid: `a1b2c3d4-1234-5678-90ab-cdef12345678`
+- Example invalid: `invalid-id`, `abc123`
+
+**Security Benefits**:
+- Prevents path traversal attacks via crafted session IDs
+- Ensures session files follow expected naming convention
+- Validates input before filesystem operations
 
 ### 4. Search Sessions
 
