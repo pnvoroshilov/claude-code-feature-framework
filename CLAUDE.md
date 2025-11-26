@@ -1,15 +1,5 @@
 # ClaudeTask Framework - Autonomous Orchestrator Configuration
 
-
-# 📋 Custom Project Instructions
-
-**⚠️ IMPORTANT: This project has custom-specific instructions.**
-
-Please read the [CUSTOM_INSTRUCTIONS.md](./CUSTOM_INSTRUCTIONS.md) file in the project root for project-specific requirements and guidelines that take HIGHEST PRIORITY over general instructions.
-
----
-
-
 # 🎯 PROJECT MODE: DEVELOPMENT
 
 **This project is configured in DEVELOPMENT mode.**
