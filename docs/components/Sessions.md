@@ -4,7 +4,7 @@
 
 The Sessions page provides a unified interface for monitoring and managing both Claude Code sessions and task-based development sessions. This consolidated view allows developers to track all AI-assisted work from a single location.
 
-**Version**: 2.2
+**Version**: 2.2.1
 **Last Updated**: 2025-11-26
 
 ## Location
@@ -87,7 +87,7 @@ GET /api/claude-sessions/active-sessions
 - `task_id`: Associated task ID (if session is task-related)
 - `is_embedded`: Boolean indicating if session is embedded (task-based) vs standalone
 
-### 3. Session Details Dialog (NEW in v2.1)
+### 3. Session Details Dialog (NEW in v2.1, Enhanced v2.2.1)
 
 When viewing active sessions, users can click "View Details" to see comprehensive session information:
 
@@ -110,9 +110,18 @@ When viewing active sessions, users can click "View Details" to see comprehensiv
 - Empty message filtering (skips "...", "…", and whitespace-only)
 - Scrollable message list (max height: 600px)
 
-**Implementation**:
+**Embedded Session Handling (v2.2.1)**:
+
+Hook-triggered sessions (format: `hook-xxxxxxxx`) don't persist session files to disk. The UI gracefully handles these:
+
 ```typescript
 const openSessionDetails = async (session: ActiveSession) => {
+  // Skip session details for embedded hook sessions without files
+  if (session.session_id?.startsWith('hook-') && !session.project_dir) {
+    alert('This is an embedded hook session without a persistent session file.');
+    return;
+  }
+
   const response = await axios.get(
     `${API_BASE}/sessions/${session.session_id}?` +
     `project_dir=${encodeURIComponent(session.project_dir)}&` +
@@ -121,6 +130,37 @@ const openSessionDetails = async (session: ActiveSession) => {
   setSelectedSession(response.data.session);
   setDetailsOpen(true);
 };
+```
+
+**Error Handling (v2.2.1)**:
+
+Enhanced error messages for session loading failures:
+
+```typescript
+try {
+  const response = await axios.get(/* ... */);
+  setSelectedSession(response.data.session);
+  setDetailsOpen(true);
+} catch (error: any) {
+  const errorMessage = error.response?.data?.detail || error.message || 'Unknown error';
+  alert(`Failed to load session details: ${errorMessage}\n\n` +
+        `Session ID: ${session.session_id}\n` +
+        `Project: ${session.project_dir || 'unknown'}`);
+}
+```
+
+**Session ID Format Support (v2.2.1)**:
+
+The dialog now supports three session ID formats:
+1. **UUID format**: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` (standard sessions)
+2. **Agent ID format**: `agent-xxxxxxxx` (agent-launched sessions)
+3. **Hook ID format**: `hook-xxxxxxxx` (hook-triggered sessions)
+
+All formats are validated server-side via regex pattern:
+```python
+SESSION_ID_PATTERN = re.compile(
+  r'^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|agent-[a-f0-9]{8}|hook-[a-f0-9]{8})$'
+)
 ```
 
 ### 4. URL-Based State Management
@@ -553,6 +593,13 @@ This consolidated approach simplifies session management and provides developers
 ---
 
 **Version History**:
+- **v2.2.1** (2025-11-26):
+  - **BUG FIX**: Handle embedded sessions without persistent session files
+  - **BUG FIX**: Add `hook-xxxxxxxx` to valid session ID patterns
+  - **BUG FIX**: Fix TypeScript null check for `selectedProject`
+  - Enhanced error messages for failed session loads
+  - Show detailed context in error alerts (session ID, project path)
+  - Gracefully skip "View Details" for hook sessions without files
 - **v2.2** (2025-11-26):
   - Added embedded session detection and display
   - Enhanced visual indicators for task-based sessions

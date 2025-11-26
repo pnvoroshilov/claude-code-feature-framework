@@ -29,7 +29,7 @@ React component documentation with props, usage examples, and patterns.
 - `RealTerminal.md` - Terminal interface with WebSocket buffering and smart scroll management (v2.1)
 - `ClaudeSessions.md` - Embedded task session management UI with structured content rendering (v2.1)
 - `ClaudeCodeSessions.md` - Native Claude Code session analytics with LIVE badge indicators and pagination (v2.3.1)
-- `Sessions.md` - Unified Sessions page with embedded session support and visual indicators (v2.2)
+- `Sessions.md` - Unified Sessions page with embedded session support and enhanced error handling (v2.2.1)
 - `Hooks.md` - Hooks management UI for automated shell command configuration
 - `Subagents.md` - Subagent management UI for specialized AI assistants
 - `Skills.md` - Skills management interface for extended capabilities
