@@ -28,7 +28,7 @@ React component documentation with props, usage examples, and patterns.
 - `FileBrowser.md` - GitHub-style file browser with complete file management and layout stability (v2.0.1)
 - `RealTerminal.md` - Terminal interface with WebSocket buffering and smart scroll management (v2.1)
 - `ClaudeSessions.md` - Embedded task session management UI with structured content rendering (v2.1)
-- `ClaudeCodeSessions.md` - Native Claude Code session analytics with active session indicators and pagination (v2.3)
+- `ClaudeCodeSessions.md` - Native Claude Code session analytics with LIVE badge indicators and pagination (v2.3.1)
 - `Sessions.md` - Unified Sessions page with embedded session support and visual indicators (v2.2)
 - `Hooks.md` - Hooks management UI for automated shell command configuration
 - `Subagents.md` - Subagent management UI for specialized AI assistants
@@ -201,16 +201,21 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 ---
 
-**Documentation Version**: 2.9
+**Documentation Version**: 2.9.1
 **Last Updated**: 2025-11-26
 **Total Documents**: 45
 **Auto-Updated**: Yes (via post-merge hook)
 **Status**: Current
 
-**Latest Changes (v2.9)**:
-- **Active Session Visual Indicators**: Prominent pulsing badge animations for active sessions in ClaudeCodeSessionsView (v2.3)
-  - Real-time active session detection (5-second polling)
-  - Pulsing green "Active" badge on running session cards
+**Latest Changes (v2.9.1)**:
+- **Active Sessions Bug Fix**: Fixed API field name in ClaudeCodeSessionsView (v2.3.1)
+  - Corrected API response field from `sessions` to `active_sessions`
+  - Enhanced error messages with detailed session ID and project information
+  - Improved user feedback for failed session detail loads
+- **Active Session Visual Indicators**: Prominent "LIVE" badge with pulsing animations (v2.3)
+  - Real-time active session detection (5-second polling via `/active-sessions`)
+  - Green "LIVE" badge with pulsing white dot on running session cards
+  - Green-themed card backgrounds and glowing shadow effects
   - Session ID tracking with Set-based state management
   - Clear visual distinction between active and historical sessions
 - **Embedded Session Support**: Enhanced Sessions page with embedded session detection (v2.2)

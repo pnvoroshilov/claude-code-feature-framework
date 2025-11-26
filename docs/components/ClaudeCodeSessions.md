@@ -52,28 +52,55 @@ interface ClaudeCodeProject {
 **Active Session Visual Indicators (v2.3 - Added 2025-11-26)**:
 When a session is currently running (detected in active processes), the session card displays:
 
-- **Pulsing Green Badge**: Animated badge with "Active" label
-- **Color Scheme**: Green-themed card border and accents
-- **Real-time Detection**: Polls active sessions every 5 seconds
-- **Visual Distinction**: Active sessions stand out from historical sessions
+- **"LIVE" Badge**: Prominent green badge with pulsing white dot and "LIVE" text
+- **Enhanced Card Styling**: Green-themed background, border, and glowing shadow
+- **Real-time Detection**: Polls active sessions every 5 seconds via `/active-sessions` API
+- **Visual Distinction**: Active sessions stand out dramatically from historical sessions
+- **Animated Effects**: Pulsing dot animation and hover effects
 
 **Active Session Badge Styling**:
 ```tsx
-{activeSessionIds.has(session.session_id) && (
-  <Badge
-    badgeContent="Active"
+{isActive && (
+  <Box
     sx={{
-      '& .MuiBadge-badge': {
-        bgcolor: theme.palette.success.main,
-        color: 'white',
-        animation: 'pulse 2s infinite',
-        '@keyframes pulse': {
-          '0%, 100%': { opacity: 1 },
-          '50%': { opacity: 0.6 }
-        }
-      }
+      position: 'absolute',
+      top: -10,
+      right: 12,
+      px: 1.5,
+      py: 0.5,
+      bgcolor: '#22c55e',
+      borderRadius: 1,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 0.5,
+      boxShadow: `0 2px 8px ${alpha('#22c55e', 0.5)}`,
+      zIndex: 1,
     }}
-  />
+  >
+    <Box
+      sx={{
+        width: 8,
+        height: 8,
+        borderRadius: '50%',
+        bgcolor: '#fff',
+        animation: 'pulse 1.5s ease-in-out infinite',
+        '@keyframes pulse': {
+          '0%, 100%': { opacity: 1, transform: 'scale(1)' },
+          '50%': { opacity: 0.5, transform: 'scale(0.8)' },
+        },
+      }}
+    />
+    <Typography
+      sx={{
+        fontSize: '0.65rem',
+        fontWeight: 700,
+        color: '#fff',
+        letterSpacing: '0.05em',
+      }}
+    >
+      LIVE
+    </Typography>
+  </Box>
 )}
 ```
 
@@ -82,7 +109,8 @@ When a session is currently running (detected in active processes), the session 
 const fetchActiveSessions = async () => {
   const response = await axios.get(`${API_BASE}/active-sessions`);
   const activeIds = new Set<string>();
-  response.data.sessions?.forEach((s: ActiveSession) => {
+  // API returns active_sessions field (not sessions)
+  response.data.active_sessions?.forEach((s: ActiveSession) => {
     if (s.session_id) {
       activeIds.add(s.session_id);
     }
@@ -611,14 +639,18 @@ Claude Code stores sessions in JSONL (JSON Lines) format:
 ---
 
 **Last Updated**: 2025-11-26
-**Version**: 2.3.0
+**Version**: 2.3.1
 
 **Version History**:
+- **v2.3.1** (2025-11-26):
+  - Fixed active sessions API field name (now correctly uses `active_sessions`)
+  - Enhanced error messages for failed session details loads
+  - Improved user feedback with detailed error alerts
 - **v2.3.0** (2025-11-26):
-  - Added prominent visual indicators for active sessions
-  - Pulsing green badge animation for running sessions
-  - Real-time active session detection (5-second polling)
-  - Session card styling differentiation for active sessions
+  - Added prominent "LIVE" badge with pulsing dot animation for active sessions
+  - Green-themed card styling with glowing shadow effects for running sessions
+  - Real-time active session detection (5-second polling via `/active-sessions`)
+  - Session card background color differentiation for active sessions
   - Active session ID tracking with Set-based state management
 - **v2.2.0** (2025-11-26):
   - Redesigned session details dialog (tabs → single panel with accordions)
