@@ -1018,17 +1018,40 @@ async def get_session_messages(
 
 
 # Helper functions for session message retrieval
-def parse_jsonl_messages(jsonl_path: Path, limit: int = 100) -> List[dict]:
+DEFAULT_MESSAGE_LIMIT = 100  # Default limit for message retrieval
+
+
+def parse_jsonl_messages(jsonl_path: Path, limit: int = DEFAULT_MESSAGE_LIMIT) -> List[dict]:
     """
-    Parse messages from Claude Code JSONL file
+    Parse messages from Claude Code JSONL file with security validation.
+
+    Security: All paths are validated to ensure they stay within ~/.claude directory.
+    Path traversal attempts are logged and rejected.
 
     Args:
-        jsonl_path: Path to the JSONL file
+        jsonl_path: Path to the JSONL file (must be within ~/.claude directory)
         limit: Maximum number of messages to return
 
     Returns:
         List of message dictionaries with role, content, and timestamp
+
+    Raises:
+        ValueError: If path is outside ~/.claude directory (security check)
+        FileNotFoundError: If file doesn't exist
     """
+    # Security: Validate path is within .claude directory (defense in depth)
+    try:
+        resolved = jsonl_path.resolve()
+        claude_base = (Path.home() / ".claude").resolve()
+        if not str(resolved).startswith(str(claude_base)):
+            logger.error(f"Security: Attempted to parse file outside .claude: {resolved}")
+            raise ValueError("Invalid file path - security check failed")
+    except ValueError:
+        raise
+    except Exception as e:
+        logger.error(f"Path validation failed: {e}")
+        raise ValueError(f"Path validation failed: {e}")
+
     messages = []
     try:
         with open(jsonl_path, 'r', encoding='utf-8') as f:
