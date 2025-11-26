@@ -17,7 +17,7 @@ sys.path.insert(0, str(backend_dir))
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import select, update
+from sqlalchemy import select
 from app.models import Project, ProjectSettings
 from app.services.claude_config_generator import generate_claude_md
 
@@ -86,17 +86,8 @@ async def regenerate_claude_md(project_id: str):
 
         print(f"✓ Successfully regenerated {claude_md_path}")
 
-        # Update claude_config in database
-        if settings:
-            await db.execute(
-                update(ProjectSettings)
-                .where(ProjectSettings.project_id == project_id)
-                .values(claude_config=claude_md_content)
-            )
-            await db.commit()
-            print(f"✓ Updated claude_config in database")
-        else:
-            print(f"⚠ Warning: ProjectSettings not found, database not updated")
+        # Note: claude_config column no longer exists in ProjectSettings
+        # CLAUDE.md content is stored only in the file system, not in the database
 
         return True
 
