@@ -11,6 +11,7 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 │  - Project Configuration                                    │
 │  - Hooks & Skills Management                                │
 │  - Claude Sessions Monitoring                               │
+│  - Cloud Storage Settings                                   │
 └──────────────────┬──────────────────────────────────────────┘
                    │ HTTP/REST API
                    │ WebSocket (Real-time updates)
@@ -18,17 +19,28 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 │                   Backend (FastAPI)                         │
 │  - RESTful API Endpoints                                    │
 │  - Business Logic Services                                  │
+│  - Repository Pattern (Storage Abstraction)                 │
 │  - Database ORM (SQLAlchemy)                                │
 │  - Claude Code CLI Integration                              │
 └──────────────────┬──────────────────────────────────────────┘
                    │
-     ┌─────────────┼─────────────┐
-     │             │             │
-┌────▼────┐  ┌────▼────┐  ┌─────▼─────┐
-│ SQLite  │  │ Claude  │  │   File    │
-│Database │  │  Code   │  │  System   │
-│         │  │   CLI   │  │ (.claude/)│
-└─────────┘  └─────────┘  └───────────┘
+     ┌─────────────┴─────────────┐
+     │                           │
+┌────▼────────┐         ┌────────▼──────┐
+│ Local       │   OR    │ Cloud         │
+│ Storage     │         │ Storage       │
+├─────────────┤         ├───────────────┤
+│ SQLite      │         │ MongoDB Atlas │
+│ ChromaDB    │         │ Vector Search │
+│ 384d        │         │ 1024d         │
+└─────────────┘         └───────────────┘
+        │                       │
+        └───────────┬───────────┘
+                    │
+        ┌───────────▼───────────┐
+        │ Claude Code CLI       │
+        │ File System (.claude/)│
+        └───────────────────────┘
 ```
 
 ## Technology Stack
@@ -46,7 +58,13 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 ### Backend
 - **Framework**: FastAPI (Python 3.9+)
 - **ORM**: SQLAlchemy 2.0 with async support
-- **Database**: SQLite (with async SQLite driver)
+- **Database**:
+  - **Local**: SQLite (with async SQLite driver)
+  - **Cloud**: MongoDB Atlas (Motor async driver)
+- **Vector Search**:
+  - **Local**: ChromaDB with all-MiniLM-L6-v2 (384d)
+  - **Cloud**: MongoDB Vector Search with voyage-3-large (1024d)
+- **Storage Pattern**: Repository Pattern for storage abstraction
 - **Validation**: Pydantic v2
 - **CORS**: FastAPI CORS middleware
 - **Background Tasks**: FastAPI BackgroundTasks
@@ -124,18 +142,28 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 - Complete agent refresh to remove deprecated configurations
 - See [Framework Updates Documentation](./framework-updates.md)
 
-### 8. Project Memory System
+### 8. Dual Storage System (NEW)
+- **Repository Pattern** for storage abstraction
+- **Per-project storage mode** selection (local or MongoDB)
+- **Local Storage**: SQLite + ChromaDB + all-MiniLM-L6-v2 (384d)
+- **Cloud Storage**: MongoDB Atlas + Vector Search + voyage-3-large (1024d)
+- **Migration Tool**: CLI utility for data migration between backends
+- **100% Backward Compatible**: All existing projects use local storage by default
+- **Cloud Configuration UI**: Settings page for MongoDB Atlas and Voyage AI setup
+- See [MongoDB Atlas Storage Documentation](../features/mongodb-atlas-storage.md)
+
+### 9. Project Memory System
 - Automatic conversation persistence across sessions
 - Project summary generation and maintenance (3-5 pages)
-- RAG-based semantic search using ChromaDB
+- RAG-based semantic search (ChromaDB for local, Vector Search for cloud)
 - Session context loading at startup
-- Message indexing with embeddings (all-MiniLM-L6-v2)
+- Message indexing with embeddings (model depends on storage mode)
 - Historical knowledge retrieval
 - Cross-session context preservation
 - Automatic memory hooks (enabled by default)
 - See [Memory System Documentation](../features/memory-system.md)
 
-### 9. File Browser System
+### 10. File Browser System
 - GitHub-style file browsing interface
 - Monaco Editor integration for code editing
 - Project-scoped file access
@@ -269,8 +297,11 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 
 ## Database Schema
 
-The system uses SQLite with the following main tables:
+The system supports dual storage backends with consistent schema across both:
 
+### Local Storage (SQLite)
+
+Main tables:
 - **projects**: Project configurations and metadata with CASCADE DELETE constraints
 - **tasks**: Task tracking with status, worktree info, stage results, testing URLs
 - **task_history**: Audit trail of task status changes
@@ -285,13 +316,34 @@ The system uses SQLite with the following main tables:
 - **custom_mcp_configs**: User-created MCP configurations
 - **project_mcp_configs**: Junction table for project-MCP enablement
 - **agents**: Subagent configurations
-- **project_settings**: Per-project settings including worktree_enabled field
+- **project_settings**: Per-project settings including worktree_enabled and **storage_mode** fields
 - **conversation_memory**: All conversation messages with metadata
 - **project_summaries**: Condensed project knowledge (3-5 pages)
 - **memory_rag_status**: RAG indexing tracking
 - **memory_sessions**: Session context loading tracking
 
-See [Database Migrations Documentation](../deployment/database-migrations.md) for complete migration history and [database-design.md](./database-design.md) for detailed schema documentation.
+**New in v2.11**: `project_settings.storage_mode` field determines which storage backend to use.
+
+### Cloud Storage (MongoDB Atlas)
+
+Collections (created automatically):
+- **projects**: Same schema as SQLite, using ObjectId
+- **tasks**: Same schema as SQLite, with manual cascade delete
+- **task_history**: Task status change audit trail
+- **conversation_memory**: Messages with 1024d voyage-3-large embeddings
+- **project_settings**: Project configuration including storage mode
+
+**Indexes**:
+- Standard indexes on project_id, status, timestamps
+- **Vector Search Index** on conversation_memory.embedding (1024 dimensions, cosine similarity)
+
+### Storage Mode Selection
+
+Projects can independently choose storage backend via `project_settings.storage_mode`:
+- `"local"` (default): SQLite + ChromaDB
+- `"mongodb"`: MongoDB Atlas + Vector Search
+
+See [Database Migrations Documentation](../deployment/database-migrations.md) for complete migration history and [MongoDB Atlas Storage Documentation](../features/mongodb-atlas-storage.md) for cloud storage details.
 
 ## API Architecture
 
@@ -314,6 +366,7 @@ All endpoints follow REST conventions:
 /api/projects/{id}/files             # File browser and editor
 /api/projects/{id}/memory            # Memory management
 /api/sessions                        # Claude sessions
+/api/settings/cloud-storage          # Cloud storage configuration (NEW v2.11)
 /api/editor                          # File editor endpoints (legacy)
 ```
 
@@ -743,4 +796,85 @@ git worktree prune
 
 ---
 
-Last updated: 2025-11-24
+---
+
+## MongoDB Atlas Storage Integration (2025-11-26)
+
+The framework now supports dual storage backends, allowing projects to choose between local SQLite or cloud MongoDB Atlas storage.
+
+### Repository Pattern
+
+All data access goes through the Repository Pattern, which abstracts storage implementation:
+
+```python
+# Business logic doesn't know which storage is used
+repo = await RepositoryFactory.get_project_repository(project_id, db)
+project = await repo.get_by_id(project_id)
+```
+
+### Storage Backends
+
+**Local Storage** (Default):
+- SQLite for structured data
+- ChromaDB for vector embeddings
+- all-MiniLM-L6-v2 embeddings (384 dimensions)
+- Completely offline and private
+- No external dependencies
+
+**Cloud Storage** (MongoDB Atlas):
+- MongoDB Atlas for structured data
+- MongoDB Vector Search for embeddings
+- voyage-3-large embeddings (1024 dimensions)
+- Distributed and scalable
+- Requires MongoDB Atlas cluster and Voyage AI API key
+
+### Per-Project Selection
+
+Each project can independently choose its storage backend via `project_settings.storage_mode`:
+- New projects default to `"local"`
+- Can be changed to `"mongodb"` after configuring credentials
+- Migration tool available for moving data between backends
+
+### Configuration
+
+Cloud storage requires environment variables:
+```bash
+MONGODB_CONNECTION_STRING=mongodb+srv://user:pass@cluster.mongodb.net/
+MONGODB_DATABASE_NAME=claudetask
+VOYAGE_AI_API_KEY=vo-your-api-key-here
+```
+
+Configuration managed via Cloud Storage Settings UI (`/settings/cloud-storage`):
+- Test connections before saving
+- Save credentials to `.env` file
+- Health monitoring
+- Remove configuration
+
+### Migration
+
+CLI tool for migrating project data from SQLite to MongoDB:
+```bash
+python -m claudetask.migrations.migrate_to_mongodb \
+  --project-id=<id> \
+  --dry-run  # Preview before executing
+```
+
+Migration process:
+1. Validates MongoDB and Voyage AI connectivity
+2. Copies all project data to MongoDB
+3. Re-embeds conversation messages with voyage-3-large (1024d)
+4. Updates `storage_mode` from "local" to "mongodb"
+5. Preserves original SQLite data (no deletion)
+
+### Key Features
+
+- **100% Backward Compatible**: All existing projects continue using local storage
+- **Abstracted Business Logic**: Code doesn't know which storage is used
+- **Easy Extension**: Can add PostgreSQL, DynamoDB, or other backends
+- **No Breaking Changes**: All existing functionality works identically
+
+**See**: [MongoDB Atlas Storage Documentation](../features/mongodb-atlas-storage.md) for complete details
+
+---
+
+Last updated: 2025-11-26

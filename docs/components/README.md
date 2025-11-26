@@ -245,6 +245,7 @@ Components for managing framework features:
 ### 4. Task & Project Management
 Components for task and project management:
 - **Projects** - Unified tabbed interface for project management (list, instructions, setup)
+- **CloudStorageSettings** - Cloud storage configuration for MongoDB Atlas and Voyage AI (NEW)
 - **TaskBoard** - Kanban-style task board with automatic Claude command dispatch and File Browser integration
 - **Tasks** - Task cards and details (to be documented)
 
@@ -410,7 +411,7 @@ When adding or updating components:
 ---
 
 **Last Updated**: 2025-11-26
-**Total Components Documented**: 10
+**Total Components Documented**: 12
 **Documentation Status**: Active maintenance
 
 ## Component Documentation Index
@@ -418,6 +419,7 @@ When adding or updating components:
 | Component | Category | Status | Version | Documentation |
 |-----------|----------|--------|---------|---------------|
 | Projects | Task & Project Management | Production Ready | v1.0 | [View](./Projects.md) |
+| CloudStorageSettings | Configuration | Production Ready | v1.0 | [View](./CloudStorageSettings.md) |
 | Sessions | Session Management | Production Ready | v1.0 | [View](./Sessions.md) |
 | ClaudeSessions | Session Management | Active | v2.1 | [View](./ClaudeSessions.md) |
 | RealTerminal | Session Management | Active | v2.1 | [View](./RealTerminal.md) |

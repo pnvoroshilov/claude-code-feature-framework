@@ -36,6 +36,8 @@ React component documentation with props, usage examples, and patterns.
 - `MCPConfigs.md` - MCP server configuration management interface
 - `TaskBoard.md` - Task board with manual/AUTO mode toggle
 - `ProjectModeToggle.md` - Project mode switching between SIMPLE and DEVELOPMENT workflows
+- `Projects.md` - Unified Projects page with tabbed interface (Projects, Instructions, Setup) (NEW v1.0)
+- `CloudStorageSettings.md` - Cloud storage configuration for MongoDB Atlas and Voyage AI (NEW v1.0)
 
 ### `/architecture/`
 System architecture, design decisions, and database schema.
@@ -77,6 +79,7 @@ Core framework features and capabilities.
 - `memory-system.md` - Project memory and conversation persistence with ChromaDB
 - `auto-mode.md` - Autonomous task execution workflow (AUTO mode)
 - `session-continuation.md` - Session continuation with full conversation context (NEW v2.1)
+- `mongodb-atlas-storage.md` - Dual storage backend with MongoDB Atlas and Vector Search (NEW v2.11)
 
 ### `/guides/`
 Step-by-step guides for specific tasks.
@@ -177,6 +180,7 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 ### Core Features
 - [Memory System](./features/memory-system.md) - Persistent project memory with RAG
+- [MongoDB Atlas Storage](./features/mongodb-atlas-storage.md) - Dual storage backend with cloud vector search
 - [AUTO Mode](./features/auto-mode.md) - Autonomous task execution
 - [Session Continuation](./features/session-continuation.md) - Resume sessions with full context
 - [Hooks System](./architecture/hooks-system.md) - Automated shell command hooks
@@ -201,13 +205,37 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 ---
 
-**Documentation Version**: 2.10.0
+**Documentation Version**: 2.11.0
 **Last Updated**: 2025-11-26
-**Total Documents**: 47
+**Total Documents**: 49
 **Auto-Updated**: Yes (via post-merge hook)
 **Status**: Current
 
-**Latest Changes (v2.10.0)**:
+**Latest Changes (v2.11.0)**:
+- **NEW: MongoDB Atlas Storage Backend**: Dual storage system with Repository Pattern (commit 2dd722739)
+  - Repository Pattern abstracts SQLite vs MongoDB storage
+  - MongoDB Atlas with Vector Search support (voyage-3-large 1024d embeddings)
+  - Local storage (SQLite + ChromaDB) remains default
+  - Per-project storage mode selection
+  - CLI migration tool for data migration
+  - Cloud Storage Settings component for configuration
+  - 100% backward compatible implementation
+- **NEW: CloudStorageSettings Component**: UI for MongoDB Atlas configuration (v1.0)
+  - Test connections before saving
+  - Save credentials to .env file
+  - Health monitoring and diagnostics
+  - Secure password field handling
+- **Repository Pattern Documentation**: Complete guide to storage abstraction
+  - Base repository interfaces
+  - SQLite and MongoDB implementations
+  - Factory pattern for storage selection
+  - Migration strategies
+- **Embedding Service Factory**: Pluggable embedding models
+  - all-MiniLM-L6-v2 for local (384d)
+  - voyage-3-large for cloud (1024d)
+  - Abstracted embedding service interface
+
+**Previous Changes (v2.10.0)**:
 - **NEW: Architecture Mindset Skill**: Principal Architect/CTO-level thinking framework (commit 00c6e0b57)
   - Five Pillars of Architectural Truth (trade-offs, pessimism, data gravity, simplicity, Conway's Law)
   - Interrogation Engine for requirements discovery
