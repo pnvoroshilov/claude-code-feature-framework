@@ -24,11 +24,13 @@ import {
   InputAdornment,
   Paper,
   TextField,
-  Tabs,
-  Tab,
   List,
   ListItem,
   ListItemText,
+  Pagination,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
@@ -43,6 +45,8 @@ import {
   CheckCircle as CheckCircleIcon,
   AccessTime as AccessTimeIcon,
   Storage as StorageIcon,
+  ExpandMore as ExpandMoreIcon,
+  Chat as ChatIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 import { format } from 'date-fns';
@@ -91,21 +95,6 @@ interface SessionStatistics {
   recent_sessions: ClaudeCodeSession[];
 }
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-  return (
-    <div role="tabpanel" hidden={value !== index} {...other}>
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
-}
-
 type FilterType = 'all' | 'recent' | 'large' | 'errors' | 'tool-heavy';
 
 const ClaudeCodeSessionsView: React.FC = () => {
@@ -117,9 +106,11 @@ const ClaudeCodeSessionsView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState<ClaudeCodeSession | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [tabValue, setTabValue] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(20);
+  const [totalSessions, setTotalSessions] = useState(0);
 
   const fetchProjects = async () => {
     try {
@@ -139,10 +130,14 @@ const ClaudeCodeSessionsView: React.FC = () => {
   const fetchSessions = async (projectName: string, projectDir: string) => {
     try {
       setLoading(true);
+      const offset = (page - 1) * pageSize;
       const response = await axios.get(
-        `${API_BASE}/projects/${encodeURIComponent(projectName)}/sessions?project_dir=${encodeURIComponent(projectDir)}`
+        `${API_BASE}/projects/${encodeURIComponent(projectName)}/sessions?` +
+        `project_dir=${encodeURIComponent(projectDir)}&` +
+        `limit=${pageSize}&offset=${offset}`
       );
       setSessions(response.data.sessions);
+      setTotalSessions(response.data.total || response.data.sessions?.length || 0);
     } catch (error) {
       console.error('Error fetching sessions:', error);
     } finally {
@@ -171,7 +166,6 @@ const ClaudeCodeSessionsView: React.FC = () => {
       );
       setSelectedSession(response.data.session);
       setDetailsOpen(true);
-      setTabValue(0);
     } catch (error) {
       console.error('Error fetching session details:', error);
     }
@@ -183,10 +177,17 @@ const ClaudeCodeSessionsView: React.FC = () => {
 
   useEffect(() => {
     if (selectedProject) {
+      setPage(1);
       fetchSessions(selectedProject.name, selectedProject.directory);
       fetchStatistics(selectedProject.name);
     }
-  }, [selectedProject]);
+  }, [selectedProject, activeFilter, searchQuery]);
+
+  useEffect(() => {
+    if (selectedProject) {
+      fetchSessions(selectedProject.name, selectedProject.directory);
+    }
+  }, [page]);
 
   // Filter sessions
   const getFilteredSessions = (): ClaudeCodeSession[] => {
@@ -670,6 +671,34 @@ const ClaudeCodeSessionsView: React.FC = () => {
         </Grid>
       )}
 
+      {/* Pagination */}
+      {totalSessions > pageSize && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <Pagination
+            count={Math.ceil(totalSessions / pageSize)}
+            page={page}
+            onChange={(_, newPage) => {
+              setPage(newPage);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            color="primary"
+            size="large"
+            showFirstButton
+            showLastButton
+            sx={{
+              '& .MuiPaginationItem-root': {
+                '&.Mui-selected': {
+                  bgcolor: '#6366f1',
+                  '&:hover': {
+                    bgcolor: '#4f46e5',
+                  },
+                },
+              },
+            }}
+          />
+        </Box>
+      )}
+
       {/* Session Details Dialog */}
       <Dialog
         open={detailsOpen}
@@ -695,32 +724,125 @@ const ClaudeCodeSessionsView: React.FC = () => {
                 </Typography>
               </Box>
             </DialogTitle>
-            <DialogContent>
-              <Tabs
-                value={tabValue}
-                onChange={(_, v) => setTabValue(v)}
-                sx={{
-                  borderBottom: '1px solid',
-                  borderColor: 'divider',
-                  '& .MuiTab-root': {
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    '&.Mui-selected': {
-                      color: '#6366f1',
-                    },
-                  },
-                  '& .MuiTabs-indicator': {
-                    bgcolor: '#6366f1',
-                  },
-                }}
-              >
-                <Tab label="Overview" icon={<InfoIcon />} iconPosition="start" />
-                <Tab label="Messages" icon={<MessageIcon />} iconPosition="start" />
-                <Tab label="Tools" icon={<CodeIcon />} iconPosition="start" />
-                <Tab label="Timeline" icon={<TimelineIcon />} iconPosition="start" />
-              </Tabs>
+            <DialogContent sx={{ pt: 3 }}>
+              {/* Messages Section - Always Visible, First */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ChatIcon sx={{ color: '#6366f1' }} />
+                  Messages ({selectedSession.messages?.length || 0})
+                </Typography>
+                {selectedSession.messages && selectedSession.messages.length > 0 ? (
+                  <List sx={{ maxHeight: 500, overflow: 'auto' }}>
+                    {selectedSession.messages
+                      .filter(msg => {
+                        // Filter out empty messages before rendering
+                        const content: any = msg.content;
+                        if (typeof content === 'string') {
+                          const trimmed = content.trim();
+                          return trimmed && trimmed !== '...' && trimmed !== '…';
+                        }
+                        if (Array.isArray(content)) {
+                          return (content as any[]).some((b: any) => b.type === 'text' && b.text?.trim());
+                        }
+                        return !!content;
+                      })
+                      .map((msg, idx) => (
+                        <React.Fragment key={msg.uuid}>
+                          <ListItem alignItems="flex-start" sx={{ bgcolor: alpha(theme.palette.background.default, 0.3), mb: 1, borderRadius: 1 }}>
+                            <ListItemText
+                              primary={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Typography variant="subtitle2">
+                                    {msg.type === 'user' ? '👤 User' : '🤖 Assistant'}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {format(new Date(msg.timestamp), 'HH:mm:ss')}
+                                  </Typography>
+                                </Box>
+                              }
+                              secondary={
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    whiteSpace: 'pre-wrap',
+                                    mt: 1,
+                                    maxHeight: 200,
+                                    overflow: 'auto',
+                                    color: 'text.secondary',
+                                  }}
+                                >
+                                  {(() => {
+                                    const content: any = msg.content;
 
-              <TabPanel value={tabValue} index={0}>
+                                    // Handle string content
+                                    if (typeof content === 'string') {
+                                      const trimmed = content.trim();
+                                      // Skip empty or whitespace-only
+                                      if (!trimmed || trimmed === '...' || trimmed === '…') {
+                                        return null;
+                                      }
+                                      return trimmed;
+                                    }
+
+                                    // Handle array content
+                                    if (Array.isArray(content)) {
+                                      const textContent = (content as any[])
+                                        .filter((block: any) => block.type === 'text')
+                                        .map((block: any) => block.text?.trim())
+                                        .filter(text => text && text !== '...' && text !== '…')
+                                        .join('\n');
+
+                                      if (!textContent) {
+                                        return null;
+                                      }
+                                      return textContent;
+                                    }
+
+                                    // Handle object with text property
+                                    if (content && typeof content === 'object' && 'text' in content) {
+                                      const text = (content as any).text?.trim();
+                                      if (!text) {
+                                        return null;
+                                      }
+                                      return text;
+                                    }
+
+                                    return JSON.stringify(content, null, 2);
+                                  })()}
+                                </Typography>
+                              }
+                            />
+                          </ListItem>
+                          {idx < selectedSession.messages!.filter(msg => {
+                            const content: any = msg.content;
+                            if (typeof content === 'string') {
+                              const trimmed = content.trim();
+                              return trimmed && trimmed !== '...' && trimmed !== '…';
+                            }
+                            if (Array.isArray(content)) {
+                              return (content as any[]).some((b: any) => b.type === 'text' && b.text?.trim());
+                            }
+                            return !!content;
+                          }).length - 1 && <Divider />}
+                        </React.Fragment>
+                      ))}
+                  </List>
+                ) : (
+                  <Typography color="text.secondary" align="center">
+                    No messages available
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Collapsible Metadata Sections */}
+              <Accordion sx={{ mb: 2 }}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <InfoIcon sx={{ color: '#6366f1' }} />
+                    Session Overview
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails>
                 <Grid container spacing={2}>
                   <Grid item xs={6}>
                     <Typography variant="subtitle2" color="text.secondary">
@@ -812,73 +934,17 @@ const ClaudeCodeSessionsView: React.FC = () => {
                     )}
                   </Grid>
                 </Grid>
-              </TabPanel>
+                </AccordionDetails>
+              </Accordion>
 
-              <TabPanel value={tabValue} index={1}>
-                {selectedSession.messages && selectedSession.messages.length > 0 ? (
-                  <List sx={{ maxHeight: 500, overflow: 'auto' }}>
-                    {selectedSession.messages.map((msg, idx) => (
-                      <React.Fragment key={msg.uuid}>
-                        <ListItem alignItems="flex-start" sx={{ bgcolor: alpha(theme.palette.background.default, 0.3), mb: 1, borderRadius: 1 }}>
-                          <ListItemText
-                            primary={
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Typography variant="subtitle2">
-                                  {msg.type === 'user' ? '👤 User' : '🤖 Assistant'}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {format(new Date(msg.timestamp), 'HH:mm:ss')}
-                                </Typography>
-                              </Box>
-                            }
-                            secondary={
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  whiteSpace: 'pre-wrap',
-                                  mt: 1,
-                                  maxHeight: 200,
-                                  overflow: 'auto',
-                                  color: 'text.secondary',
-                                }}
-                              >
-                                {(() => {
-                                  const content: any = msg.content;
-
-                                  if (typeof content === 'string') {
-                                    return content;
-                                  }
-
-                                  if (Array.isArray(content)) {
-                                    const textContent = (content as any[])
-                                      .filter((block: any) => block.type === 'text')
-                                      .map((block: any) => block.text)
-                                      .join('\n');
-                                    return textContent;
-                                  }
-
-                                  if (content && typeof content === 'object' && 'text' in content) {
-                                    return (content as any).text;
-                                  }
-
-                                  return JSON.stringify(content, null, 2);
-                                })()}
-                              </Typography>
-                            }
-                          />
-                        </ListItem>
-                        {idx < selectedSession.messages!.length - 1 && <Divider />}
-                      </React.Fragment>
-                    ))}
-                  </List>
-                ) : (
-                  <Typography color="text.secondary" align="center">
-                    No messages available
+              <Accordion sx={{ mb: 2 }}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CodeIcon sx={{ color: '#6366f1' }} />
+                    Tools Used ({Object.keys(selectedSession.tool_calls || {}).length})
                   </Typography>
-                )}
-              </TabPanel>
-
-              <TabPanel value={tabValue} index={2}>
+                </AccordionSummary>
+                <AccordionDetails>
                 {Object.keys(selectedSession.tool_calls).length > 0 ? (
                   <Grid container spacing={2}>
                     {Object.entries(selectedSession.tool_calls)
@@ -913,43 +979,52 @@ const ClaudeCodeSessionsView: React.FC = () => {
                     No tools used
                   </Typography>
                 )}
-              </TabPanel>
+                </AccordionDetails>
+              </Accordion>
 
-              <TabPanel value={tabValue} index={3}>
-                {selectedSession.errors.length > 0 ? (
-                  <List>
-                    {selectedSession.errors.map((error, idx) => (
-                      <ListItem
-                        key={idx}
-                        sx={{
-                          bgcolor: alpha(theme.palette.error.main, 0.1),
-                          border: '1px solid',
-                          borderColor: alpha(theme.palette.error.main, 0.3),
-                          mb: 1,
-                          borderRadius: 1,
-                        }}
-                      >
-                        <ListItemText
-                          primary={
-                            <Typography variant="caption" color="error.main">
-                              {format(new Date(error.timestamp), 'MMM dd HH:mm:ss')}
-                            </Typography>
-                          }
-                          secondary={
-                            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                              {error.content}
-                            </Typography>
-                          }
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                ) : (
-                  <Typography color="text.secondary" align="center">
-                    No errors recorded
+              <Accordion>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Typography sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <ErrorIcon sx={{ color: '#6366f1' }} />
+                    Errors ({selectedSession.errors?.length || 0})
                   </Typography>
-                )}
-              </TabPanel>
+                </AccordionSummary>
+                <AccordionDetails>
+                  {selectedSession.errors.length > 0 ? (
+                    <List>
+                      {selectedSession.errors.map((error, idx) => (
+                        <ListItem
+                          key={idx}
+                          sx={{
+                            bgcolor: alpha(theme.palette.error.main, 0.1),
+                            border: '1px solid',
+                            borderColor: alpha(theme.palette.error.main, 0.3),
+                            mb: 1,
+                            borderRadius: 1,
+                          }}
+                        >
+                          <ListItemText
+                            primary={
+                              <Typography variant="caption" color="error.main">
+                                {format(new Date(error.timestamp), 'MMM dd HH:mm:ss')}
+                              </Typography>
+                            }
+                            secondary={
+                              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                                {error.content}
+                              </Typography>
+                            }
+                          />
+                        </ListItem>
+                      ))}
+                    </List>
+                  ) : (
+                    <Typography color="text.secondary" align="center">
+                      No errors recorded
+                    </Typography>
+                  )}
+                </AccordionDetails>
+              </Accordion>
             </DialogContent>
             <DialogActions sx={{ borderTop: '1px solid', borderColor: 'divider', p: 2 }}>
               <Button
