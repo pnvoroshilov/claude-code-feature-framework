@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
 from typing import List, Optional
+from collections import deque
 import os
 import logging
 import json
@@ -1017,21 +1018,147 @@ async def get_session_messages(
     return {"messages": messages}
 
 
+# Helper functions for session message retrieval
+DEFAULT_MESSAGE_LIMIT = 100  # Default limit for message retrieval
+
+
+def parse_jsonl_messages(jsonl_path: Path, limit: int = DEFAULT_MESSAGE_LIMIT, _skip_validation: bool = False) -> List[dict]:
+    """
+    Parse messages from Claude Code JSONL file with security validation.
+
+    Security: All paths are validated to ensure they stay within ~/.claude directory.
+    Path traversal attempts are logged and rejected.
+
+    Args:
+        jsonl_path: Path to the JSONL file (must be within ~/.claude directory)
+        limit: Maximum number of messages to return
+        _skip_validation: Skip path validation (INTERNAL USE ONLY - for testing)
+
+    Returns:
+        List of message dictionaries with role, content, and timestamp
+
+    Raises:
+        ValueError: If path is outside ~/.claude directory (security check)
+        FileNotFoundError: If file doesn't exist
+    """
+    # Security: Validate path is within .claude directory (defense in depth)
+    if not _skip_validation:
+        try:
+            resolved = jsonl_path.resolve()
+            claude_base = (Path.home() / ".claude").resolve()
+            if not str(resolved).startswith(str(claude_base)):
+                logger.error(f"Security: Attempted to parse file outside .claude: {resolved}")
+                raise ValueError("Invalid file path - security check failed")
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Path validation failed: {e}")
+            raise ValueError(f"Path validation failed: {e}")
+
+    # Use deque with maxlen to efficiently keep last N messages
+    messages = deque(maxlen=limit)
+    try:
+        with open(jsonl_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                try:
+                    entry = json.loads(line.strip())
+                    entry_type = entry.get("type")
+
+                    if entry_type in ["user", "assistant"]:
+                        # Extract content properly
+                        content = ""
+                        if "message" in entry and isinstance(entry["message"], dict):
+                            content = entry["message"].get("content", "")
+                        else:
+                            content = entry.get("content", "")
+
+                        # Skip empty messages (align with claude_sessions.py:167-175)
+                        if not content or (isinstance(content, str) and not content.strip()):
+                            continue
+
+                        messages.append({
+                            "role": entry_type,
+                            "content": content,
+                            "timestamp": entry.get("timestamp"),
+                        })
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Failed to parse JSONL line: {e}")
+                    continue
+    except Exception as e:
+        logger.error(f"Failed to read JSONL file {jsonl_path}: {e}")
+        raise
+
+    return list(messages)
+
+
+def get_session_jsonl_path(project_id: str, session_id: str) -> Optional[Path]:
+    """
+    Construct path to session JSONL file with security validation
+
+    Args:
+        project_id: Project identifier (may be a file path)
+        session_id: Session identifier
+
+    Returns:
+        Path to JSONL file if it exists and is valid, None otherwise
+    """
+    # Try different path constructions based on project_id format
+    claude_projects_dir = Path.home() / ".claude" / "projects"
+
+    # Try with encoded project path (slashes replaced with dashes)
+    project_encoded = project_id.replace('/', '-').replace(os.sep, '-')
+    jsonl_path = claude_projects_dir / project_encoded / f"{session_id}.jsonl"
+
+    if jsonl_path.exists():
+        # Security: Validate path stays within .claude directory
+        try:
+            resolved = jsonl_path.resolve()
+            claude_base = (Path.home() / ".claude").resolve()
+            if str(resolved).startswith(str(claude_base)):
+                return jsonl_path
+            else:
+                logger.warning(f"Security: JSONL path {resolved} is outside .claude directory")
+        except Exception as e:
+            logger.error(f"Failed to resolve JSONL path: {e}")
+
+    return None
+
+
 # Claude Session endpoints
 @app.get("/api/projects/{project_id}/sessions")
 async def get_project_sessions(project_id: str, db: AsyncSession = Depends(get_db)):
     """Get all Claude sessions for a project"""
     from .models import ClaudeSession, Task
-    
+
     result = await db.execute(
         select(ClaudeSession, Task)
         .join(Task, ClaudeSession.task_id == Task.id)
         .where(ClaudeSession.project_id == project_id)
         .order_by(ClaudeSession.created_at.desc())
     )
-    
+
     sessions = []
     for session, task in result:
+        # Try to get messages from JSONL file
+        messages = []
+
+        # Try session.id first, then session.session_id
+        for sid in [session.id, session.session_id]:
+            if sid:
+                jsonl_path = get_session_jsonl_path(project_id, sid)
+                if jsonl_path:
+                    try:
+                        messages = parse_jsonl_messages(jsonl_path)
+                        logger.info(f"Loaded {len(messages)} messages from JSONL for session {sid}")
+                        break  # Found messages, stop searching
+                    except Exception as e:
+                        logger.warning(f"Failed to parse JSONL for session {sid}: {e}")
+
+        # Fallback to database messages if JSONL not found
+        if not messages and session.messages:
+            messages = session.messages
+            logger.info(f"Using database messages for session {session.id}")
+
         session_dict = {
             "id": session.id,
             "task_id": session.task_id,
@@ -1040,7 +1167,7 @@ async def get_project_sessions(project_id: str, db: AsyncSession = Depends(get_d
             "status": session.status,
             "working_dir": session.working_dir,
             "context": session.context,
-            "messages": session.messages,
+            "messages": messages,  # Now populated from JSONL!
             "session_metadata": session.session_metadata,
             "summary": session.summary,
             "statistics": session.statistics,
@@ -1049,7 +1176,7 @@ async def get_project_sessions(project_id: str, db: AsyncSession = Depends(get_d
             "completed_at": session.completed_at.isoformat() if session.completed_at else None
         }
         sessions.append(session_dict)
-    
+
     return sessions
 
 
