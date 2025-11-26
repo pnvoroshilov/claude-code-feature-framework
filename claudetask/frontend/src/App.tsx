@@ -17,6 +17,7 @@ import MCPLogs from './pages/MCPLogs';
 import Subagents from './pages/Subagents';
 import Settings from './pages/Settings';
 import FileBrowser from './pages/FileBrowser';
+import CloudStorageSettings from './pages/CloudStorageSettings';
 import { ProjectProvider } from './context/ProjectContext';
 import { ThemeProvider } from './context/ThemeContext';
 
@@ -86,6 +87,7 @@ function App() {
                     <Route path="/mcp-logs" element={<MCPLogs />} />
                     <Route path="/subagents" element={<Subagents />} />
                     <Route path="/settings" element={<Settings />} />
+                    <Route path="/settings/cloud-storage" element={<CloudStorageSettings />} />
                   </Routes>
                 </Box>
               </Box>

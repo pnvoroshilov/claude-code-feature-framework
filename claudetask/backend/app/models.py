@@ -170,6 +170,9 @@ class ProjectSettings(Base):
     auto_merge_tests = Column(Boolean, default=True, nullable=False)  # Auto-merge new tests after PR approval
     test_staging_dir = Column(String, nullable=True, default="tests/staging")  # Staging directory for new task tests
 
+    # Storage mode configuration (local vs cloud)
+    storage_mode = Column(String, nullable=False, default="local")  # "local" (SQLite + ChromaDB) or "mongodb" (MongoDB Atlas + Vector Search)
+
     # Relationships
     project = relationship("Project", back_populates="settings")
 
