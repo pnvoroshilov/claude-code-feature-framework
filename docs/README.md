@@ -19,8 +19,9 @@ API documentation including OpenAPI specifications and endpoint details.
 - `endpoints/subagents.md` - Subagents management API for specialized AI assistants
 - `endpoints/mcp-configs.md` - MCP server configuration management API
 - `endpoints/rag-indexing.md` - RAG codebase indexing API (ChromaDB - local storage)
-- `endpoints/codebase-rag.md` - Codebase RAG API with MongoDB Atlas Vector Search (NEW v1.0)
+- `endpoints/codebase-rag.md` - Codebase RAG API with MongoDB Atlas Vector Search (v1.0)
 - `endpoints/cloud-storage.md` - Cloud storage configuration API for MongoDB Atlas and Voyage AI
+- `endpoints/memory.md` - Memory API with automatic storage backend selection (SQLite/MongoDB) (NEW v1.0)
 
 ### `/components/`
 React component documentation with props, usage examples, and patterns.
@@ -198,6 +199,7 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 - [Claude Sessions API](./api/endpoints/claude-sessions.md) - Session management
 - [Hooks API](./api/endpoints/hooks.md) - Hook configuration
 - [Skills API](./api/endpoints/skills.md) - Skills management
+- [Memory API](./api/endpoints/memory.md) - Conversation memory with dual storage (SQLite/MongoDB)
 - [RAG Indexing API](./api/endpoints/rag-indexing.md) - Codebase indexing (ChromaDB)
 - [Codebase RAG API](./api/endpoints/codebase-rag.md) - Semantic code search (MongoDB Atlas)
 - [Cloud Storage API](./api/endpoints/cloud-storage.md) - MongoDB and Voyage AI configuration
@@ -210,13 +212,30 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 ---
 
-**Documentation Version**: 2.11.0
-**Last Updated**: 2025-11-26
-**Total Documents**: 50
+**Documentation Version**: 2.12.0
+**Last Updated**: 2025-11-27
+**Total Documents**: 51
 **Auto-Updated**: Yes (via post-merge hook)
 **Status**: Current
 
-**Latest Changes (v2.11.0)**:
+**Latest Changes (v2.12.0)**:
+- **NEW: Memory API Documentation**: Complete endpoint reference for conversation memory (v1.0)
+  - Dual storage backend support (SQLite + ChromaDB or MongoDB + Vector Search)
+  - Automatic backend selection based on project settings
+  - Save, retrieve, and search conversation messages
+  - Update and retrieve project summaries
+  - Memory statistics and reindexing
+  - Storage backend comparison table
+  - 8 API endpoints with examples
+- **UPDATED: Memory System Documentation**: Enhanced with repository pattern details
+  - Dual storage architecture explained
+  - MongoDB schema and indexes documented
+  - Vector Search configuration details
+  - Storage backend comparison matrix
+  - When to use local vs cloud storage
+  - Link to new Memory API documentation
+
+**Previous Changes (v2.11.0)**:
 - **NEW: MongoDB Atlas Codebase RAG**: Semantic code search across entire repository (commit f1d821c36)
   - Index entire codebase with intelligent chunking
   - Search using natural language queries

@@ -155,6 +155,10 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 
 ### 9. Project Memory System
 - Automatic conversation persistence across sessions
+- **Repository Pattern Integration** (as of 2025-11-27):
+  - Memory endpoints refactored to use MemoryRepository
+  - Automatic backend selection (SQLite or MongoDB)
+  - Unified API regardless of storage backend
 - Project summary generation and maintenance (3-5 pages)
 - RAG-based semantic search (ChromaDB for local, Vector Search for cloud)
 - Session context loading at startup
@@ -163,6 +167,7 @@ ClaudeTask Framework is a full-stack task management system designed to streamli
 - Cross-session context preservation
 - Automatic memory hooks (enabled by default)
 - See [Memory System Documentation](../features/memory-system.md)
+- See [Memory API Documentation](../api/endpoints/memory.md)
 
 ### 10. File Browser System
 - GitHub-style file browsing interface

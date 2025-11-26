@@ -6,6 +6,12 @@ The ClaudeTask Framework includes an intelligent memory system that preserves co
 
 The memory system automatically captures conversations, decisions, and context from every session, making it available in future sessions. This eliminates the need to re-explain project architecture, past decisions, or implementation patterns.
 
+**Dual Storage Backend** (as of 2025-11-27):
+- **Local Storage**: SQLite + ChromaDB with all-MiniLM-L6-v2 (384d embeddings)
+- **Cloud Storage**: MongoDB Atlas + Vector Search with voyage-3-large (1024d embeddings)
+
+The system automatically selects the appropriate backend based on the project's `storage_mode` setting. All memory features work identically regardless of storage backend.
+
 ## Key Features
 
 ### 1. Automatic Context Loading
@@ -39,18 +45,39 @@ The summary is automatically updated after each session, growing smarter over ti
 
 ### 4. Semantic Search
 
-All historical conversations are indexed using embeddings:
-- Vector database (ChromaDB) for fast similarity search
-- Hybrid search combining embeddings and metadata
-- Context-aware retrieval based on current task
-- Separate collections per project
+All historical conversations are indexed using embeddings with automatic backend selection:
+
+**Local Storage (Default)**:
+- ChromaDB with all-MiniLM-L6-v2 (384d embeddings)
+- Centralized database at `.claude/data/chromadb`
+- Collection per project: `memory_{project_id}`
+- Query speed: ~50-100ms
+
+**Cloud Storage**:
+- MongoDB Atlas Vector Search with voyage-3-large (1024d embeddings)
+- Cloud-hosted, accessible from any machine
+- Superior code understanding
+- Query speed: ~20-50ms (sub-200ms guaranteed)
 
 ## Memory Components
 
-### Database Tables
+### Storage Architecture (Repository Pattern)
 
-#### `conversation_memory`
-Stores all conversation messages with full context:
+The memory system uses the Repository Pattern to abstract storage implementation:
+
+```
+Memory API → RepositoryFactory → Storage Backend
+                                 ├─ SQLiteMemoryRepository (Local)
+                                 └─ MongoDBMemoryRepository (Cloud)
+```
+
+The factory automatically selects the appropriate repository based on `project_settings.storage_mode`.
+
+### Database Schema
+
+#### Local Storage (SQLite)
+
+**`conversation_memory` table**:
 ```sql
 CREATE TABLE conversation_memory (
     id INTEGER PRIMARY KEY,
@@ -92,17 +119,64 @@ CREATE TABLE memory_rag_status (
 );
 ```
 
-### RAG Collections
+#### Cloud Storage (MongoDB)
 
-**Centralized ChromaDB Storage** (as of 2025-11-25):
+**`conversation_memory` collection**:
+```javascript
+{
+  _id: ObjectId,
+  project_id: String,
+  session_id: String,
+  task_id: Number,
+  message_type: String,         // 'user', 'assistant', 'system'
+  content: String,
+  embedding: [Float] (1024d),   // voyage-3-large embeddings
+  timestamp: ISODate,
+  metadata: Object
+}
+```
+
+**MongoDB Indexes**:
+```javascript
+db.conversation_memory.createIndex({ "project_id": 1 })
+db.conversation_memory.createIndex({ "session_id": 1 })
+db.conversation_memory.createIndex({ "task_id": 1 })
+db.conversation_memory.createIndex({ "timestamp": -1 })
+```
+
+**Vector Search Index** (created in Atlas UI):
+```json
+{
+  "name": "memory_vector_idx",
+  "type": "vectorSearch",
+  "definition": {
+    "fields": [{
+      "type": "vector",
+      "path": "embedding",
+      "numDimensions": 1024,
+      "similarity": "cosine"
+    }]
+  }
+}
+```
+
+### Vector Search
+
+**Local Storage (ChromaDB)**:
 - **Location**: Framework root `.claude/data/chromadb` (shared across all projects)
 - **Benefit**: Single vector database instance reduces memory overhead
-- **Collection per project**: Each project has its own collection `memory_{project_id}`
-- **Embedding model**: `all-MiniLM-L6-v2`
+- **Collection per project**: `memory_{project_id}`
+- **Embedding model**: all-MiniLM-L6-v2 (384d)
 - **Metadata filtering**: By date, task, message type
 - **Automatic reindexing**: On updates
 
-Previously, each project had its own ChromaDB directory. Now all projects share a centralized ChromaDB instance for better resource management.
+**Cloud Storage (MongoDB Atlas)**:
+- **Location**: MongoDB Atlas cloud cluster
+- **Benefit**: Multi-device access, automatic backups, superior search quality
+- **Collection**: `conversation_memory` with embedded vectors
+- **Embedding model**: voyage-3-large (1024d)
+- **Vector index**: Native MongoDB Vector Search
+- **Query performance**: Sub-200ms guaranteed
 
 ## Automatic Workflow
 
@@ -333,61 +407,69 @@ Returns:
 - Index size
 - Last update timestamp
 
+## Storage Backend Comparison
+
+| Feature | Local Storage | Cloud Storage |
+|---------|--------------|---------------|
+| **Database** | SQLite | MongoDB Atlas |
+| **Vector Search** | ChromaDB | MongoDB Vector Search |
+| **Embedding Model** | all-MiniLM-L6-v2 (384d) | voyage-3-large (1024d) |
+| **Search Quality** | Good for general text | Superior for code/technical |
+| **Query Speed** | ~50-100ms | ~20-50ms |
+| **Setup** | Zero config | Requires MongoDB + Voyage AI |
+| **Cost** | Free | MongoDB (free tier) + Voyage AI |
+| **Multi-device** | Single machine | Any machine |
+| **Backup** | Manual | Automatic |
+| **Scalability** | Local disk limit | Highly scalable |
+
+### When to Use Each Backend
+
+**Choose Local Storage if**:
+- Small project (< 1000 messages)
+- Single developer
+- Cost-sensitive
+- No multi-device needs
+- Quick setup required
+
+**Choose Cloud Storage if**:
+- Large project (1000+ messages)
+- Team collaboration
+- Need superior code search
+- Multi-device access required
+- Professional deployment
+
 ## API Endpoints
 
-### Save Message
-```http
+Complete API documentation: [Memory API Endpoints](../api/endpoints/memory.md)
+
+### Key Endpoints
+
+**Save Message**:
+```bash
 POST /api/projects/{project_id}/memory/messages
-Content-Type: application/json
-
-{
-  "session_id": "session-uuid",
-  "task_id": 42,
-  "message_type": "assistant",
-  "content": "Full message content",
-  "metadata": {}
-}
 ```
 
-### Get Context
-```http
-GET /api/projects/{project_id}/memory/context?session_id=session-uuid
-```
-
-Returns:
-```json
-{
-  "summary": "Project summary...",
-  "recent_messages": [...],
-  "rag_results": [...],
-  "version": 5
-}
-```
-
-### Update Summary
-```http
-PUT /api/projects/{project_id}/memory/summary
-Content-Type: application/json
-
-{
-  "trigger": "session_end",
-  "new_insights": "Key findings from this session..."
-}
-```
-
-### Search Memories
-```http
+**Search Memories**:
+```bash
 POST /api/projects/{project_id}/memory/search
-Content-Type: application/json
-
-{
-  "query": "search text",
-  "max_results": 20,
-  "filter_metadata": {
-    "task_id": 42
-  }
-}
 ```
+
+**Get Recent Messages**:
+```bash
+GET /api/projects/{project_id}/memory/messages/recent?limit=50
+```
+
+**Update Summary**:
+```bash
+POST /api/projects/{project_id}/memory/summary
+```
+
+**Get Statistics**:
+```bash
+GET /api/projects/{project_id}/memory/stats
+```
+
+All endpoints automatically use the correct storage backend based on project settings.
 
 ## Database Schema
 
