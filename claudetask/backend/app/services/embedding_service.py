@@ -3,7 +3,13 @@
 import asyncio
 import logging
 from typing import List, Optional
-import voyageai
+
+try:
+    import voyageai
+    VOYAGEAI_AVAILABLE = True
+except ImportError:
+    voyageai = None
+    VOYAGEAI_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +43,13 @@ class VoyageEmbeddingService:
 
         Raises:
             ValueError: If API key is invalid or missing
+            RuntimeError: If voyageai module is not installed
         """
+        if not VOYAGEAI_AVAILABLE:
+            raise RuntimeError(
+                "voyageai module not installed. Install with: pip install voyageai"
+            )
+
         if not api_key:
             raise ValueError("Voyage AI API key required for voyage-3-large embeddings")
 

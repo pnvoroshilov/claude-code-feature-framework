@@ -19,6 +19,14 @@ import {
   ListItemText,
   Chip,
   Snackbar,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  LinearProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Cloud as CloudIcon,
@@ -27,8 +35,11 @@ import {
   Storage as StorageIcon,
   Security as SecurityIcon,
   Speed as SpeedIcon,
+  SwapHoriz as SwapHorizIcon,
+  Folder as FolderIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
+import { useProject } from '../context/ProjectContext';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3333/api';
 
@@ -42,8 +53,38 @@ interface TestResult {
   error?: string;
 }
 
+interface MigrationProgress {
+  status: string;
+  current_step: string;
+  steps_completed: number;
+  total_steps: number;
+  projects_migrated: number;
+  tasks_migrated: number;
+  sessions_migrated: number;
+  history_migrated: number;
+  error?: string;
+}
+
+interface MigrationPreview {
+  project_id: string;
+  current_mode: string;
+  target_mode: string;
+  sqlite_data: {
+    tasks: number;
+    sessions: number;
+    has_settings: boolean;
+  };
+  mongodb_data: {
+    exists: boolean;
+    tasks: number;
+  };
+  migration_needed: boolean;
+  warning?: string;
+}
+
 const CloudStorageSettings: React.FC = () => {
   const theme = useTheme();
+  const { selectedProject } = useProject();
 
   const [connectionString, setConnectionString] = useState('');
   const [databaseName, setDatabaseName] = useState('claudetask');
@@ -58,6 +99,15 @@ const CloudStorageSettings: React.FC = () => {
     message: '',
     severity: 'success',
   });
+
+  // Project storage mode state
+  const [currentStorageMode, setCurrentStorageMode] = useState<'local' | 'mongodb'>('local');
+  const [targetStorageMode, setTargetStorageMode] = useState<'local' | 'mongodb'>('local');
+  const [mongodbConnected, setMongodbConnected] = useState(false);
+  const [migrating, setMigrating] = useState(false);
+  const [migrationProgress, setMigrationProgress] = useState<MigrationProgress | null>(null);
+  const [migrationPreview, setMigrationPreview] = useState<MigrationPreview | null>(null);
+  const [showMigrationDialog, setShowMigrationDialog] = useState(false);
 
   // Load existing config on mount
   useEffect(() => {
@@ -78,6 +128,99 @@ const CloudStorageSettings: React.FC = () => {
         // Not configured yet, use defaults
       });
   }, []);
+
+  // Load project storage mode when project changes
+  useEffect(() => {
+    if (!selectedProject) return;
+
+    axios
+      .get(`${API_BASE_URL}/settings/cloud-storage/project/${selectedProject.id}/storage-mode`)
+      .then((response) => {
+        setCurrentStorageMode(response.data.storage_mode || 'local');
+        setTargetStorageMode(response.data.storage_mode || 'local');
+        setMongodbConnected(response.data.mongodb_connected || false);
+      })
+      .catch(() => {
+        setCurrentStorageMode('local');
+        setTargetStorageMode('local');
+      });
+  }, [selectedProject]);
+
+  const handleStorageModeChange = async (newMode: 'local' | 'mongodb') => {
+    if (!selectedProject) return;
+
+    setTargetStorageMode(newMode);
+
+    if (newMode !== currentStorageMode) {
+      // Load migration preview
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/settings/cloud-storage/migration/preview/${selectedProject.id}?target_mode=${newMode}`
+        );
+        setMigrationPreview(response.data);
+        setShowMigrationDialog(true);
+      } catch (error) {
+        setSnackbar({
+          open: true,
+          message: 'Failed to preview migration',
+          severity: 'error',
+        });
+      }
+    }
+  };
+
+  const handleStartMigration = async () => {
+    if (!selectedProject) return;
+
+    setMigrating(true);
+    setMigrationProgress({
+      status: 'in_progress',
+      current_step: 'Starting migration...',
+      steps_completed: 0,
+      total_steps: 6,
+      projects_migrated: 0,
+      tasks_migrated: 0,
+      sessions_migrated: 0,
+      history_migrated: 0,
+    });
+
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/settings/cloud-storage/project/${selectedProject.id}/migrate`,
+        {
+          project_id: selectedProject.id,
+          target_mode: targetStorageMode,
+        }
+      );
+
+      if (response.data.progress) {
+        setMigrationProgress(response.data.progress);
+      }
+
+      setCurrentStorageMode(targetStorageMode);
+      setSnackbar({
+        open: true,
+        message: `Successfully migrated to ${targetStorageMode === 'mongodb' ? 'MongoDB Atlas' : 'Local SQLite'}`,
+        severity: 'success',
+      });
+      setShowMigrationDialog(false);
+    } catch (error: any) {
+      setSnackbar({
+        open: true,
+        message: 'Migration failed: ' + (error.response?.data?.detail || error.message),
+        severity: 'error',
+      });
+      setTargetStorageMode(currentStorageMode);
+    } finally {
+      setMigrating(false);
+    }
+  };
+
+  const handleCancelMigration = () => {
+    setShowMigrationDialog(false);
+    setTargetStorageMode(currentStorageMode);
+    setMigrationPreview(null);
+  };
 
   const handleTestConnection = async () => {
     setTesting(true);
@@ -224,6 +367,142 @@ const CloudStorageSettings: React.FC = () => {
           </ListItem>
         </List>
       </Paper>
+
+      {/* Project Storage Mode Switcher */}
+      {selectedProject && isConfigured && (
+        <Paper
+          sx={{
+            p: 3,
+            mb: 3,
+            borderRadius: 2,
+            background: `linear-gradient(145deg, ${alpha(theme.palette.primary.main, 0.05)}, ${alpha(
+              theme.palette.primary.main,
+              0.02
+            )})`,
+            border: `1px solid ${alpha(theme.palette.primary.main, 0.15)}`,
+          }}
+        >
+          <Box display="flex" alignItems="center" gap={2} mb={2}>
+            <SwapHorizIcon sx={{ color: theme.palette.primary.main, fontSize: 28 }} />
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 600, color: theme.palette.text.primary }}>
+                Project Storage Mode
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Choose where to store data for: <strong>{selectedProject.name}</strong>
+              </Typography>
+            </Box>
+          </Box>
+
+          <Divider sx={{ my: 2 }} />
+
+          <RadioGroup
+            value={currentStorageMode}
+            onChange={(e) => handleStorageModeChange(e.target.value as 'local' | 'mongodb')}
+          >
+            <FormControlLabel
+              value="local"
+              control={<Radio />}
+              label={
+                <Box>
+                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                    Local Storage (SQLite + ChromaDB)
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Data stored locally on this machine. 384-dimensional embeddings.
+                  </Typography>
+                </Box>
+              }
+            />
+            <FormControlLabel
+              value="mongodb"
+              control={<Radio />}
+              disabled={!isConfigured || !mongodbConnected}
+              label={
+                <Box>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                      MongoDB Atlas (Cloud)
+                    </Typography>
+                    {mongodbConnected ? (
+                      <Chip
+                        label="Connected"
+                        size="small"
+                        icon={<CheckCircleIcon />}
+                        sx={{
+                          backgroundColor: alpha(theme.palette.success.main, 0.15),
+                          color: theme.palette.success.main,
+                          fontWeight: 600,
+                          fontSize: '0.7rem',
+                        }}
+                      />
+                    ) : (
+                      <Chip
+                        label="Not Connected"
+                        size="small"
+                        icon={<CancelIcon />}
+                        sx={{
+                          backgroundColor: alpha(theme.palette.error.main, 0.15),
+                          color: theme.palette.error.main,
+                          fontWeight: 600,
+                          fontSize: '0.7rem',
+                        }}
+                      />
+                    )}
+                  </Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Cloud storage with 1024-dimensional Voyage AI embeddings. Better semantic search.
+                  </Typography>
+                </Box>
+              }
+            />
+          </RadioGroup>
+
+          {currentStorageMode === 'mongodb' && (
+            <Alert
+              severity="success"
+              sx={{
+                mt: 2,
+                backgroundColor: alpha(theme.palette.success.main, 0.1),
+                border: `1px solid ${alpha(theme.palette.success.main, 0.3)}`,
+              }}
+            >
+              This project is using MongoDB Atlas for enhanced cloud storage and vector search.
+            </Alert>
+          )}
+
+          {!isConfigured && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              Configure MongoDB Atlas credentials below to enable cloud storage.
+            </Alert>
+          )}
+        </Paper>
+      )}
+
+      {/* No Project Selected */}
+      {!selectedProject && (
+        <Paper
+          sx={{
+            p: 3,
+            mb: 3,
+            borderRadius: 2,
+            background: alpha(theme.palette.warning.main, 0.05),
+            border: `1px solid ${alpha(theme.palette.warning.main, 0.2)}`,
+          }}
+        >
+          <Box display="flex" alignItems="center" gap={2}>
+            <FolderIcon sx={{ color: theme.palette.warning.main, fontSize: 28 }} />
+            <Box>
+              <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                No Project Selected
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Select a project to configure its storage mode. Global MongoDB configuration is available below.
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+      )}
 
       {/* Already Configured Alert */}
       {isConfigured && (
@@ -570,6 +849,146 @@ const CloudStorageSettings: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Migration Confirmation Dialog */}
+      <Dialog
+        open={showMigrationDialog}
+        onClose={handleCancelMigration}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            background: theme.palette.background.paper,
+          },
+        }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box display="flex" alignItems="center" gap={1.5}>
+            <SwapHorizIcon sx={{ color: theme.palette.primary.main }} />
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Migrate Storage
+            </Typography>
+          </Box>
+        </DialogTitle>
+
+        <DialogContent>
+          {migrationPreview && (
+            <Stack spacing={2}>
+              <Alert severity="info" sx={{ borderRadius: 1.5 }}>
+                <AlertTitle>Migration Preview</AlertTitle>
+                <Typography variant="body2">
+                  Migrate from <strong>{migrationPreview.current_mode}</strong> to{' '}
+                  <strong>{migrationPreview.target_mode}</strong>
+                </Typography>
+              </Alert>
+
+              <Paper
+                sx={{
+                  p: 2,
+                  borderRadius: 1.5,
+                  background: alpha(theme.palette.background.default, 0.5),
+                }}
+              >
+                <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
+                  Data to Migrate:
+                </Typography>
+                <Stack spacing={1}>
+                  <Box display="flex" justifyContent="space-between">
+                    <Typography variant="body2" color="text.secondary">
+                      Tasks
+                    </Typography>
+                    <Chip
+                      label={migrationPreview.sqlite_data.tasks}
+                      size="small"
+                      sx={{ minWidth: 40 }}
+                    />
+                  </Box>
+                  <Box display="flex" justifyContent="space-between">
+                    <Typography variant="body2" color="text.secondary">
+                      Sessions
+                    </Typography>
+                    <Chip
+                      label={migrationPreview.sqlite_data.sessions}
+                      size="small"
+                      sx={{ minWidth: 40 }}
+                    />
+                  </Box>
+                  <Box display="flex" justifyContent="space-between">
+                    <Typography variant="body2" color="text.secondary">
+                      Settings
+                    </Typography>
+                    <Chip
+                      label={migrationPreview.sqlite_data.has_settings ? 'Yes' : 'No'}
+                      size="small"
+                      color={migrationPreview.sqlite_data.has_settings ? 'success' : 'default'}
+                      sx={{ minWidth: 40 }}
+                    />
+                  </Box>
+                </Stack>
+              </Paper>
+
+              {migrationPreview.warning && (
+                <Alert severity="warning" sx={{ borderRadius: 1.5 }}>
+                  {migrationPreview.warning}
+                </Alert>
+              )}
+
+              {/* Migration Progress */}
+              {migrating && migrationProgress && (
+                <Paper
+                  sx={{
+                    p: 2,
+                    borderRadius: 1.5,
+                    background: alpha(theme.palette.info.main, 0.05),
+                    border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
+                  }}
+                >
+                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
+                    Migration Progress
+                  </Typography>
+                  <LinearProgress
+                    variant="determinate"
+                    value={(migrationProgress.steps_completed / migrationProgress.total_steps) * 100}
+                    sx={{ mb: 1, borderRadius: 1 }}
+                  />
+                  <Typography variant="body2" color="text.secondary">
+                    {migrationProgress.current_step}
+                  </Typography>
+                  <Stack direction="row" spacing={2} mt={1}>
+                    <Typography variant="caption" color="text.secondary">
+                      Tasks: {migrationProgress.tasks_migrated}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Sessions: {migrationProgress.sessions_migrated}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      History: {migrationProgress.history_migrated}
+                    </Typography>
+                  </Stack>
+                </Paper>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={handleCancelMigration} disabled={migrating}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleStartMigration}
+            disabled={migrating}
+            startIcon={migrating ? <CircularProgress size={16} /> : <SwapHorizIcon />}
+            sx={{
+              background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+            }}
+          >
+            {migrating ? 'Migrating...' : 'Start Migration'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

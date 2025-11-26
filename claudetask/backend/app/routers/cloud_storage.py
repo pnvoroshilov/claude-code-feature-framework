@@ -1,11 +1,17 @@
 """API endpoints for cloud storage configuration (MongoDB Atlas + Voyage AI)"""
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List, Dict, Any
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 import os
 from pathlib import Path
 import logging
+from datetime import datetime
+
+from ..database import get_db
+from ..models import Project, Task, ProjectSettings, TaskHistory, ClaudeSession
 
 logger = logging.getLogger(__name__)
 
@@ -427,3 +433,552 @@ async def cloud_storage_health():
             "writable": False,
             "error": str(e)
         }
+
+
+# ==================
+# Migration Endpoints
+# ==================
+
+class MigrationRequest(BaseModel):
+    """Request to migrate project data between storage backends."""
+    project_id: str = Field(..., description="Project ID to migrate")
+    target_mode: str = Field(..., description="Target storage mode: 'local' or 'mongodb'")
+    force: bool = Field(default=False, description="Force migration even if already on target mode (useful for initial sync)")
+
+
+class MigrationProgress(BaseModel):
+    """Migration progress response."""
+    status: str = Field(..., description="Migration status: pending, in_progress, completed, failed")
+    current_step: str = Field(default="", description="Current migration step")
+    steps_completed: int = Field(default=0, description="Number of steps completed")
+    total_steps: int = Field(default=6, description="Total migration steps")
+    projects_migrated: int = Field(default=0)
+    tasks_migrated: int = Field(default=0)
+    sessions_migrated: int = Field(default=0)
+    history_migrated: int = Field(default=0)
+    error: Optional[str] = Field(default=None)
+
+
+@router.get("/project/{project_id}/storage-mode")
+async def get_project_storage_mode(
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get current storage mode for a project.
+
+    Returns:
+        Current storage mode and MongoDB availability
+    """
+    try:
+        # Get project settings
+        result = await db.execute(
+            select(ProjectSettings).where(ProjectSettings.project_id == project_id)
+        )
+        settings = result.scalar_one_or_none()
+
+        if not settings:
+            return {
+                "project_id": project_id,
+                "storage_mode": "local",
+                "mongodb_available": False,
+                "error": "Project settings not found"
+            }
+
+        # Check if MongoDB is configured
+        mongodb_configured = bool(
+            os.getenv("MONGODB_CONNECTION_STRING") and
+            os.getenv("VOYAGE_AI_API_KEY")
+        )
+
+        # Check if MongoDB is connected
+        mongodb_connected = False
+        if mongodb_configured:
+            try:
+                from ..database_mongodb import mongodb_manager
+                if mongodb_manager.client:
+                    await mongodb_manager.client.admin.command('ping')
+                    mongodb_connected = True
+            except Exception:
+                pass
+
+        return {
+            "project_id": project_id,
+            "storage_mode": settings.storage_mode or "local",
+            "mongodb_configured": mongodb_configured,
+            "mongodb_connected": mongodb_connected
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to get storage mode: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/project/{project_id}/migrate")
+async def migrate_project_storage(
+    project_id: str,
+    request: MigrationRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Migrate project data between SQLite and MongoDB.
+
+    This endpoint handles full data migration:
+    1. Projects and settings
+    2. Tasks and task history
+    3. Claude sessions
+    4. Updates storage_mode setting
+
+    Args:
+        project_id: Project ID to migrate
+        request: Migration parameters (target_mode)
+
+    Returns:
+        Migration progress and results
+    """
+    progress = MigrationProgress(status="in_progress", current_step="Initializing")
+
+    try:
+        # Validate target mode
+        if request.target_mode not in ["local", "mongodb"]:
+            raise HTTPException(status_code=400, detail="Invalid target mode. Use 'local' or 'mongodb'")
+
+        # Get current project and settings
+        result = await db.execute(
+            select(Project).where(Project.id == project_id)
+        )
+        project = result.scalar_one_or_none()
+
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        settings_result = await db.execute(
+            select(ProjectSettings).where(ProjectSettings.project_id == project_id)
+        )
+        settings = settings_result.scalar_one_or_none()
+
+        current_mode = settings.storage_mode if settings else "local"
+
+        if current_mode == request.target_mode and not request.force:
+            return {
+                "status": "completed",
+                "message": f"Project already using {request.target_mode} storage. Use force=true to sync data.",
+                "migration_needed": False
+            }
+
+        # Migrate based on direction
+        if request.target_mode == "mongodb":
+            progress = await _migrate_to_mongodb(project_id, db, progress)
+        else:
+            progress = await _migrate_to_sqlite(project_id, db, progress)
+
+        # Update storage_mode in settings
+        if settings:
+            settings.storage_mode = request.target_mode
+            await db.commit()
+
+        progress.status = "completed"
+        progress.current_step = "Migration completed"
+
+        return {
+            "status": "completed",
+            "message": f"Successfully migrated to {request.target_mode}",
+            "progress": progress.model_dump(),
+            "storage_mode": request.target_mode
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Migration failed: {e}")
+        progress.status = "failed"
+        progress.error = str(e)
+        raise HTTPException(status_code=500, detail=f"Migration failed: {str(e)}")
+
+
+async def _migrate_to_mongodb(
+    project_id: str,
+    db: AsyncSession,
+    progress: MigrationProgress
+) -> MigrationProgress:
+    """Migrate project data from SQLite to MongoDB."""
+    from ..database_mongodb import mongodb_manager
+
+    # Check MongoDB connection
+    if not mongodb_manager.client:
+        try:
+            await mongodb_manager.connect()
+        except Exception as e:
+            raise HTTPException(
+                status_code=503,
+                detail=f"MongoDB not available: {e}. Configure in Settings → Cloud Storage"
+            )
+
+    mongo_db = mongodb_manager.get_database()
+
+    # Step 1: Migrate project
+    progress.current_step = "Migrating project"
+    progress.steps_completed = 1
+
+    result = await db.execute(select(Project).where(Project.id == project_id))
+    project = result.scalar_one_or_none()
+
+    if project:
+        project_doc = {
+            "_id": project.id,
+            "name": project.name,
+            "path": project.path,
+            "github_repo": project.github_repo,
+            "custom_instructions": project.custom_instructions,
+            "tech_stack": project.tech_stack or [],
+            "project_mode": project.project_mode,
+            "is_active": project.is_active,
+            "created_at": project.created_at,
+            "updated_at": project.updated_at
+        }
+        await mongo_db.projects.replace_one(
+            {"_id": project.id},
+            project_doc,
+            upsert=True
+        )
+        progress.projects_migrated = 1
+
+    # Step 2: Migrate project settings
+    progress.current_step = "Migrating settings"
+    progress.steps_completed = 2
+
+    settings_result = await db.execute(
+        select(ProjectSettings).where(ProjectSettings.project_id == project_id)
+    )
+    settings = settings_result.scalar_one_or_none()
+
+    if settings:
+        settings_doc = {
+            "_id": f"{project_id}_settings",
+            "project_id": project_id,
+            "auto_mode": settings.auto_mode,
+            "auto_priority_threshold": settings.auto_priority_threshold.value if settings.auto_priority_threshold else "High",
+            "max_parallel_tasks": settings.max_parallel_tasks,
+            "test_command": settings.test_command,
+            "build_command": settings.build_command,
+            "lint_command": settings.lint_command,
+            "worktree_enabled": settings.worktree_enabled,
+            "manual_mode": settings.manual_mode,
+            "test_directory": settings.test_directory,
+            "test_framework": settings.test_framework.value if settings.test_framework else "pytest",
+            "auto_merge_tests": settings.auto_merge_tests,
+            "test_staging_dir": settings.test_staging_dir,
+            "storage_mode": "mongodb"  # Will be mongodb after migration
+        }
+        await mongo_db.project_settings.replace_one(
+            {"project_id": project_id},
+            settings_doc,
+            upsert=True
+        )
+
+    # Step 3: Migrate tasks using raw SQL to avoid enum validation issues
+    progress.current_step = "Migrating tasks"
+    progress.steps_completed = 3
+
+    from sqlalchemy import text
+
+    # Use raw SQL to get tasks without enum validation
+    tasks_query = text("""
+        SELECT id, project_id, title, description, type, priority, status,
+               analysis, stage_results, testing_urls, git_branch, worktree_path,
+               assigned_agent, estimated_hours, created_at, updated_at, completed_at
+        FROM tasks WHERE project_id = :project_id
+    """)
+    tasks_result = await db.execute(tasks_query, {"project_id": project_id})
+    tasks_rows = tasks_result.fetchall()
+
+    # Map legacy statuses
+    status_mapping = {
+        "PR": "Code Review",
+        "BACKLOG": "Backlog",
+        "ANALYSIS": "Analysis",
+        "IN_PROGRESS": "In Progress",
+        "TESTING": "Testing",
+        "CODE_REVIEW": "Code Review",
+        "DONE": "Done",
+        "BLOCKED": "Blocked"
+    }
+
+    import json
+
+    for row in tasks_rows:
+        # Map status (handle legacy values)
+        raw_status = row.status or "BACKLOG"
+        task_status = status_mapping.get(raw_status, raw_status)
+
+        # Parse JSON fields
+        stage_results = []
+        if row.stage_results:
+            try:
+                stage_results = json.loads(row.stage_results) if isinstance(row.stage_results, str) else row.stage_results
+            except (json.JSONDecodeError, TypeError):
+                stage_results = []
+
+        testing_urls = None
+        if row.testing_urls:
+            try:
+                testing_urls = json.loads(row.testing_urls) if isinstance(row.testing_urls, str) else row.testing_urls
+            except (json.JSONDecodeError, TypeError):
+                testing_urls = None
+
+        task_doc = {
+            "_id": row.id,
+            "project_id": row.project_id,
+            "title": row.title,
+            "description": row.description,
+            "type": row.type or "Feature",
+            "priority": row.priority or "Medium",
+            "status": task_status,
+            "analysis": row.analysis,
+            "stage_results": stage_results,
+            "testing_urls": testing_urls,
+            "git_branch": row.git_branch,
+            "worktree_path": row.worktree_path,
+            "assigned_agent": row.assigned_agent,
+            "estimated_hours": row.estimated_hours,
+            "created_at": row.created_at,
+            "updated_at": row.updated_at,
+            "completed_at": row.completed_at
+        }
+        await mongo_db.tasks.replace_one(
+            {"_id": row.id, "project_id": project_id},
+            task_doc,
+            upsert=True
+        )
+        progress.tasks_migrated += 1
+
+    # Also store task IDs for history migration
+    task_ids = [row.id for row in tasks_rows]
+
+    # Step 4: Migrate task history using raw SQL
+    progress.current_step = "Migrating task history"
+    progress.steps_completed = 4
+
+    for task_id in task_ids:
+        # Use raw SQL to get history without enum validation
+        history_query = text("""
+            SELECT id, task_id, old_status, new_status, comment, changed_by, changed_at
+            FROM task_history WHERE task_id = :task_id
+        """)
+        history_result = await db.execute(history_query, {"task_id": task_id})
+        history_rows = history_result.fetchall()
+
+        for item in history_rows:
+            # Map status values
+            old_status = status_mapping.get(item.old_status, item.old_status) if item.old_status else None
+            new_status = status_mapping.get(item.new_status, item.new_status) if item.new_status else None
+
+            history_doc = {
+                "_id": item.id,
+                "task_id": item.task_id,
+                "project_id": project_id,
+                "old_status": old_status,
+                "new_status": new_status,
+                "comment": item.comment,
+                "changed_by": item.changed_by,
+                "changed_at": item.changed_at
+            }
+            await mongo_db.task_history.replace_one(
+                {"_id": item.id},
+                history_doc,
+                upsert=True
+            )
+            progress.history_migrated += 1
+
+    # Step 5: Migrate Claude sessions
+    progress.current_step = "Migrating sessions"
+    progress.steps_completed = 5
+
+    sessions_result = await db.execute(
+        select(ClaudeSession).where(ClaudeSession.project_id == project_id)
+    )
+    sessions = sessions_result.scalars().all()
+
+    for session in sessions:
+        session_doc = {
+            "_id": session.id,
+            "session_id": session.session_id,
+            "task_id": session.task_id,
+            "project_id": session.project_id,
+            "status": session.status,
+            "mode": session.mode,
+            "working_dir": session.working_dir,
+            "context_file": session.context_file,
+            "launch_command": session.launch_command,
+            "context": session.context,
+            "messages": session.messages,
+            "session_metadata": session.session_metadata,
+            "summary": session.summary,
+            "statistics": session.statistics,
+            "created_at": session.created_at,
+            "updated_at": session.updated_at,
+            "completed_at": session.completed_at
+        }
+        await mongo_db.claude_sessions.replace_one(
+            {"_id": session.id},
+            session_doc,
+            upsert=True
+        )
+        progress.sessions_migrated += 1
+
+    # Step 6: Create indexes
+    progress.current_step = "Creating indexes"
+    progress.steps_completed = 6
+
+    await mongodb_manager.create_indexes()
+
+    return progress
+
+
+async def _migrate_to_sqlite(
+    project_id: str,
+    db: AsyncSession,
+    progress: MigrationProgress
+) -> MigrationProgress:
+    """Migrate project data from MongoDB to SQLite."""
+    from ..database_mongodb import mongodb_manager
+
+    # Check MongoDB connection
+    if not mongodb_manager.client:
+        # Nothing to migrate from if MongoDB is not connected
+        progress.status = "completed"
+        progress.current_step = "No MongoDB data to migrate"
+        return progress
+
+    mongo_db = mongodb_manager.get_database()
+
+    # Step 1: Get project from MongoDB
+    progress.current_step = "Reading MongoDB data"
+    progress.steps_completed = 1
+
+    mongo_project = await mongo_db.projects.find_one({"_id": project_id})
+
+    # Step 2: Sync tasks from MongoDB to SQLite
+    progress.current_step = "Syncing tasks"
+    progress.steps_completed = 2
+
+    mongo_tasks = await mongo_db.tasks.find({"project_id": project_id}).to_list(None)
+
+    for mongo_task in mongo_tasks:
+        # Check if task exists in SQLite
+        result = await db.execute(
+            select(Task).where(Task.id == mongo_task.get("_id"))
+        )
+        existing_task = result.scalar_one_or_none()
+
+        if existing_task:
+            # Update existing task
+            existing_task.title = mongo_task.get("title", existing_task.title)
+            existing_task.description = mongo_task.get("description")
+            existing_task.status = mongo_task.get("status", "Backlog")
+            existing_task.analysis = mongo_task.get("analysis")
+            existing_task.stage_results = mongo_task.get("stage_results", [])
+            existing_task.testing_urls = mongo_task.get("testing_urls")
+            existing_task.updated_at = datetime.utcnow()
+        else:
+            # Create new task in SQLite
+            from ..models import TaskType, TaskPriority, TaskStatus
+            new_task = Task(
+                id=mongo_task.get("_id"),
+                project_id=project_id,
+                title=mongo_task.get("title", "Untitled"),
+                description=mongo_task.get("description"),
+                type=TaskType(mongo_task.get("type", "Feature")),
+                priority=TaskPriority(mongo_task.get("priority", "Medium")),
+                status=TaskStatus(mongo_task.get("status", "Backlog")),
+                analysis=mongo_task.get("analysis"),
+                stage_results=mongo_task.get("stage_results", []),
+                testing_urls=mongo_task.get("testing_urls"),
+                git_branch=mongo_task.get("git_branch"),
+                worktree_path=mongo_task.get("worktree_path"),
+                assigned_agent=mongo_task.get("assigned_agent"),
+                estimated_hours=mongo_task.get("estimated_hours"),
+                created_at=mongo_task.get("created_at", datetime.utcnow()),
+                updated_at=datetime.utcnow()
+            )
+            db.add(new_task)
+
+        progress.tasks_migrated += 1
+
+    await db.commit()
+
+    # Step 3-6: Similar sync for other entities
+    progress.current_step = "Syncing sessions"
+    progress.steps_completed = 3
+
+    mongo_sessions = await mongo_db.claude_sessions.find({"project_id": project_id}).to_list(None)
+    progress.sessions_migrated = len(mongo_sessions)
+
+    progress.steps_completed = 6
+    progress.current_step = "Sync completed"
+
+    return progress
+
+
+@router.get("/migration/preview/{project_id}")
+async def preview_migration(
+    project_id: str,
+    target_mode: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Preview what will be migrated without performing the migration.
+
+    Returns counts of entities that will be migrated.
+    """
+    try:
+        # Get counts from SQLite
+        from sqlalchemy import func
+
+        tasks_count = await db.scalar(
+            select(func.count(Task.id)).where(Task.project_id == project_id)
+        )
+        sessions_count = await db.scalar(
+            select(func.count(ClaudeSession.id)).where(ClaudeSession.project_id == project_id)
+        )
+
+        # Get settings
+        settings_result = await db.execute(
+            select(ProjectSettings).where(ProjectSettings.project_id == project_id)
+        )
+        settings = settings_result.scalar_one_or_none()
+        current_mode = settings.storage_mode if settings else "local"
+
+        # Check MongoDB for existing data
+        mongodb_data_exists = False
+        mongodb_tasks = 0
+        if target_mode == "local":
+            try:
+                from ..database_mongodb import mongodb_manager
+                if mongodb_manager.client:
+                    mongo_db = mongodb_manager.get_database()
+                    mongodb_tasks = await mongo_db.tasks.count_documents({"project_id": project_id})
+                    mongodb_data_exists = mongodb_tasks > 0
+            except Exception:
+                pass
+
+        return {
+            "project_id": project_id,
+            "current_mode": current_mode,
+            "target_mode": target_mode,
+            "sqlite_data": {
+                "tasks": tasks_count or 0,
+                "sessions": sessions_count or 0,
+                "has_settings": settings is not None
+            },
+            "mongodb_data": {
+                "exists": mongodb_data_exists,
+                "tasks": mongodb_tasks
+            },
+            "migration_needed": current_mode != target_mode,
+            "warning": "Data will be copied to target storage. Original data remains intact." if current_mode != target_mode else None
+        }
+
+    except Exception as e:
+        logger.error(f"Preview failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

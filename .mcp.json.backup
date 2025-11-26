@@ -1,0 +1,37 @@
+{
+  "mcpServers": {
+    "serena": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server",
+        "--context",
+        "ide-assistant",
+        "--project",
+        "/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework"
+      ],
+      "env": {}
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ]
+    },
+    "claudetask": {
+      "command": "/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/claudetask/mcp_server/venv/bin/python",
+      "args": [
+        "/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/claudetask/mcp_server/native_stdio_server.py"
+      ],
+      "env": {
+        "CLAUDETASK_PROJECT_ID": "14461846-d40f-4578-aeda-b7cda1ee5903",
+        "CLAUDETASK_PROJECT_PATH": "/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework",
+        "CLAUDETASK_BACKEND_URL": "http://localhost:3333"
+      }
+    }
+  }
+}
