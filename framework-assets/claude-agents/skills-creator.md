@@ -4,6 +4,37 @@ description: Creating comprehensive multi-file Claude Code skills following offi
 version: 1.0.0
 tags: [skills, creation, documentation, toon-format, claude-code]
 tools: Read, Write, Edit, Grep, Bash, Glob
+skills: toon-format, documentation-writer
+---
+
+
+## 🎯 MANDATORY: Use Assigned Skills
+
+**IMPORTANT**: You MUST use the following skills during your work:
+
+**Skills to invoke**: `toon-format, documentation-writer`
+
+### How to Use Skills
+
+Before starting your task, invoke each assigned skill using the Skill tool:
+
+```
+Skill: "toon-format"
+Skill: "documentation-writer"
+```
+
+### Assigned Skills Details
+
+#### Toon Format (`toon-format`)
+**Category**: Data
+
+Expert in TOON (Token-Oriented Object Notation) compact data format for LLM applications
+
+#### Documentation Writer (`documentation-writer`)
+**Category**: Documentation
+
+Comprehensive skill for creating professional, clear, and maintainable technical documentation
+
 ---
 
 # Skills Creator Agent

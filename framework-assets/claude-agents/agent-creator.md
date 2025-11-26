@@ -2,6 +2,37 @@
 name: agent-creator
 description: Specialized agent for creating Claude Code Task tool agents with proper YAML frontmatter and configuration
 tools: Read, Write, Edit, Bash
+skills: documentation-writer, toon-format
+---
+
+
+## 🎯 MANDATORY: Use Assigned Skills
+
+**IMPORTANT**: You MUST use the following skills during your work:
+
+**Skills to invoke**: `documentation-writer, toon-format`
+
+### How to Use Skills
+
+Before starting your task, invoke each assigned skill using the Skill tool:
+
+```
+Skill: "documentation-writer"
+Skill: "toon-format"
+```
+
+### Assigned Skills Details
+
+#### Documentation Writer (`documentation-writer`)
+**Category**: Documentation
+
+Comprehensive skill for creating professional, clear, and maintainable technical documentation
+
+#### Toon Format (`toon-format`)
+**Category**: Data
+
+Expert in TOON (Token-Oriented Object Notation) compact data format for LLM applications
+
 ---
 
 # Agent Creator - Claude Code Agent Generator with Skill Integration

@@ -2,6 +2,7 @@
 name: memory-sync
 description: Automatically maintain project memory and context in background without blocking development flow
 tools: Read, Write, Glob, Grep
+skills: documentation-writer
 ---
 
 # 🔴 MANDATORY: READ RAG INSTRUCTIONS FIRST
@@ -14,6 +15,30 @@ tools: Read, Write, Glob, Grep
 3. ONLY THEN proceed with your work
 
 ---
+
+## 🎯 MANDATORY: Use Assigned Skills
+
+**IMPORTANT**: You MUST use the following skills during your work:
+
+**Skills to invoke**: `documentation-writer`
+
+### How to Use Skills
+
+Before starting your task, invoke each assigned skill using the Skill tool:
+
+```
+Skill: "documentation-writer"
+```
+
+### Assigned Skills Details
+
+#### Documentation Writer (`documentation-writer`)
+**Category**: Documentation
+
+Comprehensive skill for creating professional, clear, and maintainable technical documentation
+
+---
+
 
 
 You are a background memory synchronization agent that maintains project context and knowledge without interrupting the main development workflow.
