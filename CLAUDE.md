@@ -30,51 +30,59 @@
 ---
 
 
+# 📋 Custom Project Instructions
+
+**⚠️ IMPORTANT: This project has custom-specific instructions.**
+
+Please read the [CUSTOM_INSTRUCTIONS.md](./CUSTOM_INSTRUCTIONS.md) file in the project root for project-specific requirements and guidelines that take HIGHEST PRIORITY over general instructions.
+
+---
+
 ## 🔴🔴🔴 CRITICAL: CHECK MODE AND ACT IMMEDIATELY
 
-**⚠️ ПЕРВОЕ ДЕЙСТВИЕ при старте сессии - определить режим работы:**
+**⚠️ FIRST ACTION at session start - determine the operating mode:**
 
 ```
-1. ВЫЗОВИ: mcp__claudetask__get_project_settings
-2. ПРОВЕРЬ значение manual_mode:
-   - Если manual_mode = false → ЧИТАЙ секцию "AUTO MODE" ниже
-   - Если manual_mode = true → Работай в ручном режиме, жди команд
+1. CALL: mcp__claudetask__get_project_settings
+2. CHECK the manual_mode value:
+   - If manual_mode = false → READ the "AUTO MODE" section below
+   - If manual_mode = true → Work in manual mode, wait for commands
 ```
 
 ---
 
-## 🤖 AUTO MODE - НЕМЕДЛЕННЫЕ ДЕЙСТВИЯ (если manual_mode = false)
+## 🤖 AUTO MODE - IMMEDIATE ACTIONS (if manual_mode = false)
 
-**📖 ПРОЧИТАЙ СЕЙЧАС: [AUTO Mode Workflow](./.claudetask/instructions/auto-mode-workflow.md)**
+**📖 READ NOW: [AUTO Mode Workflow](./.claudetask/instructions/auto-mode-workflow.md)**
 
-**В AUTO режиме ты ОБЯЗАН действовать БЕЗ ОЖИДАНИЯ команд пользователя:**
+**In AUTO mode you MUST act WITHOUT WAITING for user commands:**
 
 ```
-СРАЗУ ПОСЛЕ СТАРТА СЕССИИ:
-1. mcp__claudetask__get_project_memory_context  # загрузить контекст
-2. mcp__claudetask__get_task_queue              # получить задачи
-3. ДЛЯ КАЖДОЙ ЗАДАЧИ:
-   - Определить текущий статус
-   - ВЫПОЛНИТЬ соответствующую slash command
-   - ПЕРЕЙТИ к следующему статусу
-   - НЕ ОСТАНАВЛИВАТЬСЯ и НЕ СПРАШИВАТЬ
+IMMEDIATELY AFTER SESSION START:
+1. mcp__claudetask__get_project_memory_context  # load context
+2. mcp__claudetask__get_task_queue              # get tasks
+3. FOR EACH TASK:
+   - Determine current status
+   - EXECUTE the corresponding slash command
+   - TRANSITION to next status
+   - DO NOT STOP and DO NOT ASK
 
-КЛЮЧЕВЫЕ КОМАНДЫ (выполнять автоматически):
-- После Analysis → SlashCommand("/start-develop")
-- После Implementation → SlashCommand("/test {task_id}")
-- После Tests PASS → SlashCommand("/PR {task_id}")
-- После PR Approved → SlashCommand("/merge {task_id}")
+KEY COMMANDS (execute automatically):
+- After Analysis → SlashCommand("/start-develop")
+- After Implementation → SlashCommand("/test {task_id}")
+- After Tests PASS → SlashCommand("/PR {task_id}")
+- After PR Approved → SlashCommand("/merge {task_id}")
 ```
 
-**❌ В AUTO режиме ЗАПРЕЩЕНО:**
-- Писать "Ready for testing, waiting for your command"
-- Спрашивать "Should I proceed to next stage?"
-- Ждать подтверждения между этапами
-- Останавливаться после каждого статуса
+**❌ In AUTO mode it is FORBIDDEN to:**
+- Write "Ready for testing, waiting for your command"
+- Ask "Should I proceed to next stage?"
+- Wait for confirmation between stages
+- Stop after each status
 
 ---
 
-## 🔴 CRITICAL RESTRICTIONS (для ЛЮБОГО режима)
+## 🔴 CRITICAL RESTRICTIONS (for ANY mode)
 
 📖 **[CRITICAL RESTRICTIONS](./.claudetask/instructions/critical-restrictions.md)** - NEVER violate these rules
 - ⛔ NEVER delete worktrees without explicit user request
@@ -124,12 +132,6 @@ This project's mode is indicated in the marker below. **READ THE MODE MARKER** t
 - SIMPLE mode: Simplified 3-column workflow (Backlog → In Progress → Done)
 
 ---
-
-## 📋 Custom Project Instructions
-
-**⚠️ IMPORTANT: This project may have custom-specific instructions.**
-
-If `CUSTOM_INSTRUCTIONS.md` exists in the project root, **READ IT FIRST**. Custom instructions take HIGHEST PRIORITY over framework instructions.
 
 ## 🤖 Your Role: Autonomous Task Coordinator
 
@@ -240,9 +242,9 @@ WHILE TRUE:
 13. **[Memory System](./.claudetask/instructions/memory-system.md)** - 🧠 Automatic context persistence and knowledge management
 
 ### AUTO Mode (CRITICAL - read when manual_mode = false)
-14. **[AUTO Mode Workflow](./.claudetask/instructions/auto-mode-workflow.md)** - 🔴🔴🔴 **ГЛАВНАЯ ИНСТРУКЦИЯ** для автоматического режима
-15. **[AUTO Mode Monitoring](./.claudetask/instructions/auto-mode-monitoring.md)** - Детали мониторинга в AUTO режиме
-16. **[Test Command AUTO Mode](./.claudetask/instructions/test-command-auto-mode.md)** - Обязательное выполнение /PR после тестов
+14. **[AUTO Mode Workflow](./.claudetask/instructions/auto-mode-workflow.md)** - 🔴🔴🔴 **MAIN INSTRUCTION** for automatic mode
+15. **[AUTO Mode Monitoring](./.claudetask/instructions/auto-mode-monitoring.md)** - AUTO mode monitoring details
+16. **[Test Command AUTO Mode](./.claudetask/instructions/test-command-auto-mode.md)** - Mandatory /PR execution after tests
 
 ### Git Workflow
 17. **[Local Worktree Merge](./.claudetask/instructions/local-worktree-merge.md)** - Merging worktrees without remote repository
@@ -302,18 +304,18 @@ See [mcp-commands.md](./.claudetask/instructions/mcp-commands.md) for examples.
 
 **When `manual_mode = false`, these instructions are MANDATORY:**
 
-📖 **[AUTO Mode Workflow](./.claudetask/instructions/auto-mode-workflow.md)** - 🔴🔴🔴 **ГЛАВНАЯ ИНСТРУКЦИЯ для AUTO режима**
+📖 **[AUTO Mode Workflow](./.claudetask/instructions/auto-mode-workflow.md)** - 🔴🔴🔴 **MAIN INSTRUCTION for AUTO mode**
 
-**⚠️ В AUTO режиме вы ОБЯЗАНЫ:**
-1. **СРАЗУ** проверить `mcp__claudetask__get_project_settings` при старте
-2. **СРАЗУ** получить `mcp__claudetask__get_task_queue`
-3. **АВТОМАТИЧЕСКИ** выполнять slash commands без ожидания пользователя
-4. **НЕ ЖДАТЬ** разрешения на переход между статусами
-5. **НЕ СПРАШИВАТЬ** "should I proceed?" — просто делать
+**⚠️ In AUTO mode you MUST:**
+1. **IMMEDIATELY** check `mcp__claudetask__get_project_settings` at startup
+2. **IMMEDIATELY** get `mcp__claudetask__get_task_queue`
+3. **AUTOMATICALLY** execute slash commands without waiting for user
+4. **DO NOT WAIT** for permission to transition between statuses
+5. **DO NOT ASK** "should I proceed?" — just do it
 
-**Дополнительные инструкции AUTO режима:**
-- **[AUTO Mode Monitoring](./.claudetask/instructions/auto-mode-monitoring.md)** - Детали мониторинга
-- **[Test Command AUTO Mode](./.claudetask/instructions/test-command-auto-mode.md)** - Обязательное выполнение /PR после тестов
+**Additional AUTO mode instructions:**
+- **[AUTO Mode Monitoring](./.claudetask/instructions/auto-mode-monitoring.md)** - Monitoring details
+- **[Test Command AUTO Mode](./.claudetask/instructions/test-command-auto-mode.md)** - Mandatory /PR execution after tests
 
 ## 🧠 Project Memory System
 
