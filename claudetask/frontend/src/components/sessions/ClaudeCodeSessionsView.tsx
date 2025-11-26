@@ -275,19 +275,70 @@ const ClaudeCodeSessionsView: React.FC = () => {
           flexDirection: 'column',
           position: 'relative',
           overflow: 'visible',
-          bgcolor: theme.palette.mode === 'dark' ? '#1e293b' : 'background.paper',
-          border: '1px solid',
-          borderColor: theme.palette.mode === 'dark' ? '#334155' : alpha(theme.palette.divider, 0.1),
-          borderLeft: `4px solid #6366f1`,
+          bgcolor: isActive
+            ? (theme.palette.mode === 'dark' ? alpha('#22c55e', 0.08) : alpha('#22c55e', 0.05))
+            : (theme.palette.mode === 'dark' ? '#1e293b' : 'background.paper'),
+          border: isActive ? '2px solid' : '1px solid',
+          borderColor: isActive
+            ? '#22c55e'
+            : (theme.palette.mode === 'dark' ? '#334155' : alpha(theme.palette.divider, 0.1)),
+          borderLeft: isActive ? `4px solid #22c55e` : `4px solid #6366f1`,
           borderRadius: 2,
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          boxShadow: isActive ? `0 0 20px ${alpha('#22c55e', 0.3)}` : 'none',
           '&:hover': {
             transform: 'translateY(-4px)',
-            borderColor: '#6366f1',
-            boxShadow: `0 12px 24px -6px ${alpha('#6366f1', 0.3)}`,
+            borderColor: isActive ? '#22c55e' : '#6366f1',
+            boxShadow: isActive
+              ? `0 12px 24px -6px ${alpha('#22c55e', 0.4)}`
+              : `0 12px 24px -6px ${alpha('#6366f1', 0.3)}`,
           },
         }}
       >
+        {/* Active badge */}
+        {isActive && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -10,
+              right: 12,
+              px: 1.5,
+              py: 0.5,
+              bgcolor: '#22c55e',
+              borderRadius: 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+              boxShadow: `0 2px 8px ${alpha('#22c55e', 0.5)}`,
+              zIndex: 1,
+            }}
+          >
+            <Box
+              sx={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                bgcolor: '#fff',
+                animation: 'pulse 1.5s ease-in-out infinite',
+                '@keyframes pulse': {
+                  '0%, 100%': { opacity: 1, transform: 'scale(1)' },
+                  '50%': { opacity: 0.5, transform: 'scale(0.8)' },
+                },
+              }}
+            />
+            <Typography
+              sx={{
+                fontSize: '0.65rem',
+                fontWeight: 700,
+                color: '#fff',
+                letterSpacing: '0.05em',
+              }}
+            >
+              LIVE
+            </Typography>
+          </Box>
+        )}
+
         {/* Status indicator */}
         <Box
           sx={{
@@ -295,11 +346,11 @@ const ClaudeCodeSessionsView: React.FC = () => {
             top: 0,
             left: 0,
             right: 0,
-            height: 3,
+            height: isActive ? 4 : 3,
             background: hasErrors
               ? theme.palette.error.main
               : isActive
-              ? theme.palette.success.main
+              ? '#22c55e'
               : alpha(theme.palette.text.secondary, 0.3),
             borderTopLeftRadius: 8,
             borderTopRightRadius: 8,
@@ -318,12 +369,12 @@ const ClaudeCodeSessionsView: React.FC = () => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  bgcolor: alpha('#6366f1', 0.1),
+                  bgcolor: isActive ? alpha('#22c55e', 0.15) : alpha('#6366f1', 0.1),
                   border: '1px solid',
-                  borderColor: alpha('#6366f1', 0.2),
+                  borderColor: isActive ? alpha('#22c55e', 0.3) : alpha('#6366f1', 0.2),
                 }}
               >
-                <TerminalIcon sx={{ color: '#6366f1', fontSize: 28 }} />
+                <TerminalIcon sx={{ color: isActive ? '#22c55e' : '#6366f1', fontSize: 28 }} />
               </Box>
               <Box flexGrow={1}>
                 <Typography
@@ -509,15 +560,15 @@ const ClaudeCodeSessionsView: React.FC = () => {
               onClick={() => openDetails(session)}
               sx={{
                 borderRadius: 1.5,
-                bgcolor: '#6366f1',
+                bgcolor: isActive ? '#22c55e' : '#6366f1',
                 textTransform: 'none',
                 fontWeight: 500,
                 '&:hover': {
-                  bgcolor: '#4f46e5',
+                  bgcolor: isActive ? '#16a34a' : '#4f46e5',
                 },
               }}
             >
-              View Details
+              {isActive ? 'View Live Session' : 'View Details'}
             </Button>
           </Stack>
         </CardContent>
