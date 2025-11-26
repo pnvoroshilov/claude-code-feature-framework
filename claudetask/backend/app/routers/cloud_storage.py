@@ -11,7 +11,7 @@ import logging
 from datetime import datetime
 
 from ..database import get_db
-from ..models import Project, Task, ProjectSettings, TaskHistory, ClaudeSession
+from ..models import Project, Task, TaskHistory, ClaudeSession
 
 logger = logging.getLogger(__name__)
 
@@ -471,18 +471,18 @@ async def get_project_storage_mode(
         Current storage mode and MongoDB availability
     """
     try:
-        # Get project settings
+        # Get project (settings merged into Project model)
         result = await db.execute(
-            select(ProjectSettings).where(ProjectSettings.project_id == project_id)
+            select(Project).where(Project.id == project_id)
         )
-        settings = result.scalar_one_or_none()
+        project = result.scalar_one_or_none()
 
-        if not settings:
+        if not project:
             return {
                 "project_id": project_id,
                 "storage_mode": "local",
                 "mongodb_available": False,
-                "error": "Project settings not found"
+                "error": "Project not found"
             }
 
         # Check if MongoDB is configured
@@ -504,7 +504,7 @@ async def get_project_storage_mode(
 
         return {
             "project_id": project_id,
-            "storage_mode": settings.storage_mode or "local",
+            "storage_mode": project.storage_mode or "local",
             "mongodb_configured": mongodb_configured,
             "mongodb_connected": mongodb_connected
         }
@@ -543,7 +543,7 @@ async def migrate_project_storage(
         if request.target_mode not in ["local", "mongodb"]:
             raise HTTPException(status_code=400, detail="Invalid target mode. Use 'local' or 'mongodb'")
 
-        # Get current project and settings
+        # Get current project (settings merged into Project model)
         result = await db.execute(
             select(Project).where(Project.id == project_id)
         )
@@ -552,12 +552,7 @@ async def migrate_project_storage(
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
 
-        settings_result = await db.execute(
-            select(ProjectSettings).where(ProjectSettings.project_id == project_id)
-        )
-        settings = settings_result.scalar_one_or_none()
-
-        current_mode = settings.storage_mode if settings else "local"
+        current_mode = project.storage_mode or "local"
 
         if current_mode == request.target_mode and not request.force:
             return {
@@ -572,10 +567,9 @@ async def migrate_project_storage(
         else:
             progress = await _migrate_to_sqlite(project_id, db, progress)
 
-        # Update storage_mode in settings
-        if settings:
-            settings.storage_mode = request.target_mode
-            await db.commit()
+        # Update storage_mode in project (merged model)
+        project.storage_mode = request.target_mode
+        await db.commit()
 
         progress.status = "completed"
         progress.current_step = "Migration completed"
@@ -616,7 +610,7 @@ async def _migrate_to_mongodb(
 
     mongo_db = mongodb_manager.get_database()
 
-    # Step 1: Migrate project
+    # Step 1: Migrate project (including merged settings)
     progress.current_step = "Migrating project"
     progress.steps_completed = 1
 
@@ -624,6 +618,7 @@ async def _migrate_to_mongodb(
     project = result.scalar_one_or_none()
 
     if project:
+        # Project document now includes all settings fields (merged model)
         project_doc = {
             "_id": project.id,
             "name": project.name,
@@ -634,7 +629,21 @@ async def _migrate_to_mongodb(
             "project_mode": project.project_mode,
             "is_active": project.is_active,
             "created_at": project.created_at,
-            "updated_at": project.updated_at
+            "updated_at": project.updated_at,
+            # Settings fields (merged from ProjectSettings)
+            "auto_mode": project.auto_mode,
+            "auto_priority_threshold": project.auto_priority_threshold.value if project.auto_priority_threshold else "High",
+            "max_parallel_tasks": project.max_parallel_tasks,
+            "test_command": project.test_command,
+            "build_command": project.build_command,
+            "lint_command": project.lint_command,
+            "worktree_enabled": project.worktree_enabled,
+            "manual_mode": project.manual_mode,
+            "test_directory": project.test_directory,
+            "test_framework": project.test_framework.value if project.test_framework else "pytest",
+            "auto_merge_tests": project.auto_merge_tests,
+            "test_staging_dir": project.test_staging_dir,
+            "storage_mode": "mongodb"  # Will be mongodb after migration
         }
         await mongo_db.projects.replace_one(
             {"_id": project.id},
@@ -643,38 +652,9 @@ async def _migrate_to_mongodb(
         )
         progress.projects_migrated = 1
 
-    # Step 2: Migrate project settings
-    progress.current_step = "Migrating settings"
+    # Step 2: Skip separate settings migration (merged into project)
+    progress.current_step = "Settings merged into project"
     progress.steps_completed = 2
-
-    settings_result = await db.execute(
-        select(ProjectSettings).where(ProjectSettings.project_id == project_id)
-    )
-    settings = settings_result.scalar_one_or_none()
-
-    if settings:
-        settings_doc = {
-            "_id": f"{project_id}_settings",
-            "project_id": project_id,
-            "auto_mode": settings.auto_mode,
-            "auto_priority_threshold": settings.auto_priority_threshold.value if settings.auto_priority_threshold else "High",
-            "max_parallel_tasks": settings.max_parallel_tasks,
-            "test_command": settings.test_command,
-            "build_command": settings.build_command,
-            "lint_command": settings.lint_command,
-            "worktree_enabled": settings.worktree_enabled,
-            "manual_mode": settings.manual_mode,
-            "test_directory": settings.test_directory,
-            "test_framework": settings.test_framework.value if settings.test_framework else "pytest",
-            "auto_merge_tests": settings.auto_merge_tests,
-            "test_staging_dir": settings.test_staging_dir,
-            "storage_mode": "mongodb"  # Will be mongodb after migration
-        }
-        await mongo_db.project_settings.replace_one(
-            {"project_id": project_id},
-            settings_doc,
-            upsert=True
-        )
 
     # Step 3: Migrate tasks using raw SQL to avoid enum validation issues
     progress.current_step = "Migrating tasks"
@@ -942,12 +922,12 @@ async def preview_migration(
             select(func.count(ClaudeSession.id)).where(ClaudeSession.project_id == project_id)
         )
 
-        # Get settings
-        settings_result = await db.execute(
-            select(ProjectSettings).where(ProjectSettings.project_id == project_id)
+        # Get project (settings merged into Project model)
+        project_result = await db.execute(
+            select(Project).where(Project.id == project_id)
         )
-        settings = settings_result.scalar_one_or_none()
-        current_mode = settings.storage_mode if settings else "local"
+        project = project_result.scalar_one_or_none()
+        current_mode = project.storage_mode if project else "local"
 
         # Check MongoDB for existing data
         mongodb_data_exists = False
@@ -969,7 +949,7 @@ async def preview_migration(
             "sqlite_data": {
                 "tasks": tasks_count or 0,
                 "sessions": sessions_count or 0,
-                "has_settings": settings is not None
+                "has_settings": project is not None  # Settings merged into project
             },
             "mongodb_data": {
                 "exists": mongodb_data_exists,

@@ -26,7 +26,7 @@ logging.basicConfig(
 )
 
 from .database import get_db, init_db, seed_default_skills, seed_default_hooks, seed_default_mcp_configs, seed_default_subagents
-from .models import Project, Task, TaskHistory, ProjectSettings, Agent, TaskStatus, TaskPriority
+from .models import Project, Task, TaskHistory, Agent, TaskStatus, TaskPriority
 from .schemas import (
     ProjectCreate, ProjectInDB, ProjectUpdate,
     TaskCreate, TaskInDB, TaskUpdate, TaskStatusUpdate, TaskAnalysis,
@@ -44,6 +44,7 @@ from .services.real_claude_service import real_claude_service
 from .services.websocket_manager import task_websocket_manager
 from .routers import skills, mcp_configs, subagents, editor, instructions, hooks, file_browser, mcp_logs, cloud_storage, codebase_rag, memory
 from .api import claude_sessions, rag
+from .repositories.factory import RepositoryFactory
 
 # Import centralized config for paths
 import sys
@@ -307,7 +308,11 @@ async def create_task(
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-    
+
+    # Get storage mode for this project
+    storage_mode = await RepositoryFactory.get_storage_mode_for_project(project_id, db)
+
+    # Always create in SQLite first to get ID (for backward compatibility)
     task = Task(
         project_id=project_id,
         **task_create.dict(exclude={"project_id"})
@@ -315,7 +320,41 @@ async def create_task(
     db.add(task)
     await db.commit()
     await db.refresh(task)
-    
+
+    # If MongoDB mode, also write to MongoDB (dual-write for sync)
+    if storage_mode == "mongodb":
+        try:
+            from .database_mongodb import mongodb_manager
+            if mongodb_manager.client:
+                mongo_db = mongodb_manager.get_database()
+                task_doc = {
+                    "_id": task.id,
+                    "project_id": project_id,
+                    "title": task.title,
+                    "description": task.description,
+                    "type": task.type.value if task.type else "Feature",
+                    "priority": task.priority.value if task.priority else "Medium",
+                    "status": task.status.value if task.status else "Backlog",
+                    "analysis": task.analysis,
+                    "stage_results": task.stage_results or [],
+                    "testing_urls": task.testing_urls,
+                    "git_branch": task.git_branch,
+                    "worktree_path": task.worktree_path,
+                    "assigned_agent": task.assigned_agent,
+                    "estimated_hours": task.estimated_hours,
+                    "created_at": task.created_at,
+                    "updated_at": task.updated_at,
+                    "completed_at": task.completed_at
+                }
+                await mongo_db.tasks.replace_one(
+                    {"_id": task.id},
+                    task_doc,
+                    upsert=True
+                )
+                logger.info(f"Task {task.id} synced to MongoDB")
+        except Exception as e:
+            logger.warning(f"Failed to sync task to MongoDB: {e}")
+
     # Broadcast task creation event
     await task_websocket_manager.broadcast_task_update(
         project_id=project_id,
@@ -330,7 +369,7 @@ async def create_task(
             "created_at": task.created_at.isoformat() if task.created_at else None
         }
     )
-    
+
     return task
 
 
@@ -355,13 +394,13 @@ async def update_task(
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     # Store old status for history
     old_status = task.status
-    
+
     for field, value in task_update.dict(exclude_unset=True).items():
         setattr(task, field, value)
-    
+
     # Add to history if status changed
     if task_update.status and task_update.status != old_status:
         history = TaskHistory(
@@ -371,10 +410,55 @@ async def update_task(
             comment=f"Status changed from {old_status.value} to {task_update.status.value}"
         )
         db.add(history)
-    
+
     await db.commit()
     await db.refresh(task)
-    
+
+    # If MongoDB mode, also update in MongoDB (dual-write for sync)
+    storage_mode = await RepositoryFactory.get_storage_mode_for_project(task.project_id, db)
+    if storage_mode == "mongodb":
+        try:
+            from .database_mongodb import mongodb_manager
+            if mongodb_manager.client:
+                mongo_db = mongodb_manager.get_database()
+                task_doc = {
+                    "_id": task.id,
+                    "project_id": task.project_id,
+                    "title": task.title,
+                    "description": task.description,
+                    "type": task.type.value if task.type else "Feature",
+                    "priority": task.priority.value if task.priority else "Medium",
+                    "status": task.status.value if task.status else "Backlog",
+                    "analysis": task.analysis,
+                    "stage_results": task.stage_results or [],
+                    "testing_urls": task.testing_urls,
+                    "git_branch": task.git_branch,
+                    "worktree_path": task.worktree_path,
+                    "assigned_agent": task.assigned_agent,
+                    "estimated_hours": task.estimated_hours,
+                    "created_at": task.created_at,
+                    "updated_at": task.updated_at,
+                    "completed_at": task.completed_at
+                }
+                await mongo_db.tasks.replace_one(
+                    {"_id": task.id},
+                    task_doc,
+                    upsert=True
+                )
+                # Also sync history if status changed
+                if task_update.status and task_update.status != old_status:
+                    history_doc = {
+                        "task_id": task_id,
+                        "project_id": task.project_id,
+                        "old_status": old_status.value if old_status else None,
+                        "new_status": task_update.status.value,
+                        "comment": f"Status changed from {old_status.value} to {task_update.status.value}",
+                        "changed_at": datetime.utcnow()
+                    }
+                    await mongo_db.task_history.insert_one(history_doc)
+        except Exception as e:
+            logger.warning(f"Failed to sync task update to MongoDB: {e}")
+
     # Broadcast task update event
     await task_websocket_manager.broadcast_task_update(
         project_id=task.project_id,
@@ -390,7 +474,7 @@ async def update_task(
             "updated_at": task.updated_at.isoformat() if task.updated_at else None
         }
     )
-    
+
     return task
 
 
@@ -401,40 +485,55 @@ async def append_stage_result(
     db: AsyncSession = Depends(get_db)
 ):
     """Append a new stage result to task's cumulative results"""
-    from datetime import datetime
-    import json
-    
+
     result = await db.execute(select(Task).where(Task.id == task_id))
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     # Create new stage result entry
     new_stage_result = {
         "timestamp": datetime.utcnow().isoformat(),
         "status": stage_result.status,
         "summary": stage_result.summary
     }
-    
+
     # Add details if provided
     if stage_result.details:
         new_stage_result['details'] = stage_result.details
-    
+
     # Get existing stage results or initialize empty list
     current_stage_results = task.stage_results or []
-    
+
     # Append the new result
     current_stage_results.append(new_stage_result)
-    
+
     # Update the task
     task.stage_results = current_stage_results
     task.updated_at = datetime.utcnow()
-    
+
     await db.commit()
     await db.refresh(task)
-    
+
+    # If MongoDB mode, also update in MongoDB
+    storage_mode = await RepositoryFactory.get_storage_mode_for_project(task.project_id, db)
+    if storage_mode == "mongodb":
+        try:
+            from .database_mongodb import mongodb_manager
+            if mongodb_manager.client:
+                mongo_db = mongodb_manager.get_database()
+                await mongo_db.tasks.update_one(
+                    {"_id": task.id},
+                    {"$set": {
+                        "stage_results": task.stage_results,
+                        "updated_at": task.updated_at
+                    }}
+                )
+        except Exception as e:
+            logger.warning(f"Failed to sync stage result to MongoDB: {e}")
+
     logger.info(f"Appended stage result to task {task_id}: {stage_result.status} - {stage_result.summary}")
-    
+
     return task
 
 
@@ -449,16 +548,33 @@ async def update_testing_urls(
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     # Update the testing URLs
     task.testing_urls = urls_update.testing_urls
     task.updated_at = datetime.utcnow()
-    
+
     await db.commit()
     await db.refresh(task)
-    
+
+    # If MongoDB mode, also update in MongoDB
+    storage_mode = await RepositoryFactory.get_storage_mode_for_project(task.project_id, db)
+    if storage_mode == "mongodb":
+        try:
+            from .database_mongodb import mongodb_manager
+            if mongodb_manager.client:
+                mongo_db = mongodb_manager.get_database()
+                await mongo_db.tasks.update_one(
+                    {"_id": task.id},
+                    {"$set": {
+                        "testing_urls": task.testing_urls,
+                        "updated_at": task.updated_at
+                    }}
+                )
+        except Exception as e:
+            logger.warning(f"Failed to sync testing URLs to MongoDB: {e}")
+
     logger.info(f"Updated testing URLs for task {task_id}: {urls_update.testing_urls}")
-    
+
     return task
 
 
@@ -531,12 +647,8 @@ async def update_task_status(
             )
             project = project_result.scalar_one_or_none()
 
-            # Get project settings to check worktree_enabled
-            settings_result = await db.execute(
-                select(ProjectSettings).where(ProjectSettings.project_id == task.project_id)
-            )
-            settings = settings_result.scalar_one_or_none()
-            worktree_enabled = settings.worktree_enabled if settings else True
+            # worktree_enabled is now part of Project model
+            worktree_enabled = project.worktree_enabled if project else True
 
             # Create worktree in development mode with worktrees enabled
             if project and project.project_mode == 'development' and worktree_enabled:
@@ -655,12 +767,8 @@ async def update_task_status(
                 )
                 project = project_result.scalar_one_or_none()
 
-                # Get project settings to check worktree_enabled
-                settings_result = await db.execute(
-                    select(ProjectSettings).where(ProjectSettings.project_id == task.project_id)
-                )
-                settings = settings_result.scalar_one_or_none()
-                worktree_enabled = settings.worktree_enabled if settings else True
+                # worktree_enabled is now part of Project model
+                worktree_enabled = project.worktree_enabled if project else True
 
                 # Only create worktree in development mode AND if worktree_enabled is True
                 if project and project.project_mode == 'development' and worktree_enabled:
@@ -731,10 +839,54 @@ async def update_task_status(
                         logger.info(f"Task {task_id} successfully merged and cleaned up")
                     else:
                         logger.error(f"Failed to merge task {task_id}: {merge_result.get('errors')}")
-        
+
         await db.commit()
         await db.refresh(task)
-        
+
+        # If MongoDB mode, also update in MongoDB
+        storage_mode = await RepositoryFactory.get_storage_mode_for_project(task.project_id, db)
+        if storage_mode == "mongodb":
+            try:
+                from .database_mongodb import mongodb_manager
+                if mongodb_manager.client:
+                    mongo_db = mongodb_manager.get_database()
+                    task_doc = {
+                        "_id": task.id,
+                        "project_id": task.project_id,
+                        "title": task.title,
+                        "description": task.description,
+                        "type": task.type.value if task.type else "Feature",
+                        "priority": task.priority.value if task.priority else "Medium",
+                        "status": task.status.value if task.status else "Backlog",
+                        "analysis": task.analysis,
+                        "stage_results": task.stage_results or [],
+                        "testing_urls": task.testing_urls,
+                        "git_branch": task.git_branch,
+                        "worktree_path": task.worktree_path,
+                        "assigned_agent": task.assigned_agent,
+                        "estimated_hours": task.estimated_hours,
+                        "created_at": task.created_at,
+                        "updated_at": task.updated_at,
+                        "completed_at": task.completed_at
+                    }
+                    await mongo_db.tasks.replace_one(
+                        {"_id": task.id},
+                        task_doc,
+                        upsert=True
+                    )
+                    # Also sync history
+                    history_doc = {
+                        "task_id": task_id,
+                        "project_id": task.project_id,
+                        "old_status": old_status.value if old_status else None,
+                        "new_status": task.status.value,
+                        "comment": status_update.comment or f"Status changed to {task.status.value}",
+                        "changed_at": datetime.utcnow()
+                    }
+                    await mongo_db.task_history.insert_one(history_doc)
+            except Exception as e:
+                logger.warning(f"Failed to sync task status to MongoDB: {e}")
+
         # Broadcast status change
         await task_websocket_manager.broadcast_task_update(
             project_id=task.project_id,
@@ -769,23 +921,35 @@ async def delete_task(task_id: int, db: AsyncSession = Depends(get_db)):
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    
+
     project_id = task.project_id
     task_data = {
         "id": task.id,
         "title": task.title
     }
-    
+
+    # If MongoDB mode, also delete from MongoDB
+    storage_mode = await RepositoryFactory.get_storage_mode_for_project(project_id, db)
+    if storage_mode == "mongodb":
+        try:
+            from .database_mongodb import mongodb_manager
+            if mongodb_manager.client:
+                mongo_db = mongodb_manager.get_database()
+                await mongo_db.tasks.delete_one({"_id": task_id})
+                await mongo_db.task_history.delete_many({"task_id": task_id})
+        except Exception as e:
+            logger.warning(f"Failed to delete task from MongoDB: {e}")
+
     await db.delete(task)
     await db.commit()
-    
+
     # Broadcast task deletion event
     await task_websocket_manager.broadcast_task_update(
         project_id=project_id,
         event_type="task_deleted",
         task_data=task_data
     )
-    
+
     return {"message": "Task deleted successfully"}
 
 
@@ -1421,14 +1585,15 @@ async def create_agent(
 # Project Settings endpoints
 @app.get("/api/projects/{project_id}/settings", response_model=ProjectSettingsInDB)
 async def get_project_settings(project_id: str, db: AsyncSession = Depends(get_db)):
-    """Get project settings"""
+    """Get project settings (now merged into Project model)"""
+    # Settings are now part of Project model
     result = await db.execute(
-        select(ProjectSettings).where(ProjectSettings.project_id == project_id)
+        select(Project).where(Project.id == project_id)
     )
-    settings = result.scalar_one_or_none()
-    if not settings:
-        raise HTTPException(status_code=404, detail="Project settings not found")
-    return settings
+    project = result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project
 
 
 @app.patch("/api/projects/{project_id}/settings", response_model=ProjectSettingsInDB)
@@ -1437,38 +1602,32 @@ async def update_project_settings(
     settings_update: ProjectSettingsUpdate,
     db: AsyncSession = Depends(get_db)
 ):
-    """Update project settings"""
+    """Update project settings (now merged into Project model)"""
+    # Settings are now part of Project model
     result = await db.execute(
-        select(ProjectSettings).where(ProjectSettings.project_id == project_id)
+        select(Project).where(Project.id == project_id)
     )
-    settings = result.scalar_one_or_none()
-    if not settings:
-        raise HTTPException(status_code=404, detail="Project settings not found")
+    project = result.scalar_one_or_none()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
 
     # Track if worktree_enabled changed
     worktree_changed = False
-    old_worktree_enabled = settings.worktree_enabled
+    old_worktree_enabled = project.worktree_enabled
 
     for field, value in settings_update.dict(exclude_unset=True).items():
         if field == "worktree_enabled" and value != old_worktree_enabled:
             worktree_changed = True
-        setattr(settings, field, value)
+        setattr(project, field, value)
 
     await db.commit()
-    await db.refresh(settings)
+    await db.refresh(project)
 
     # If worktree_enabled changed, regenerate CLAUDE.md
     if worktree_changed:
         try:
-            # Get project to regenerate CLAUDE.md
-            project_result = await db.execute(
-                select(Project).where(Project.id == project_id)
-            )
-            project = project_result.scalar_one_or_none()
-
-            if project:
-                logger.info(f"Regenerating CLAUDE.md for project {project_id} due to worktree_enabled change")
-                await ProjectService.regenerate_claude_md(db, project_id)
+            logger.info(f"Regenerating CLAUDE.md for project {project_id} due to worktree_enabled change")
+            await ProjectService.regenerate_claude_md(db, project_id)
         except Exception as e:
             logger.error(f"Failed to regenerate CLAUDE.md: {e}")
             # Don't fail the request if regeneration fails

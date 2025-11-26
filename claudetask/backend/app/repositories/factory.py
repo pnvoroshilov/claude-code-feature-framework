@@ -9,7 +9,7 @@ from .project_repository import SQLiteProjectRepository, MongoDBProjectRepositor
 from .task_repository import SQLiteTaskRepository, MongoDBTaskRepository
 from .memory_repository import SQLiteMemoryRepository, MongoDBMemoryRepository
 from .codebase_repository import MongoDBCodebaseRepository
-from ..models import ProjectSettings
+from ..models import Project
 
 
 class RepositoryFactory:
@@ -145,32 +145,30 @@ class RepositoryFactory:
 
         Args:
             project_id: Project ID (None for new projects)
-            db: SQLAlchemy async session (to query project settings)
+            db: SQLAlchemy async session (to query project)
 
         Returns:
             Storage mode: "local" or "mongodb"
 
         Notes:
             - Returns "local" for new projects (default)
-            - Returns "local" if project settings not found
-            - Queries project_settings table for existing projects
+            - Returns "local" if project not found
+            - storage_mode is now part of Project model (merged from ProjectSettings)
         """
         # Default to local storage for new projects
         if not project_id:
             return "local"
 
-        # Query project settings to determine storage mode
+        # Query project to determine storage mode
         if db:
             try:
                 result = await db.execute(
-                    select(ProjectSettings).where(
-                        ProjectSettings.project_id == project_id
-                    )
+                    select(Project).where(Project.id == project_id)
                 )
-                settings = result.scalar_one_or_none()
+                project = result.scalar_one_or_none()
 
-                if settings and hasattr(settings, 'storage_mode'):
-                    return settings.storage_mode
+                if project and hasattr(project, 'storage_mode'):
+                    return project.storage_mode or "local"
 
             except Exception:
                 # If query fails, default to local

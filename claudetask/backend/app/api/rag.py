@@ -15,7 +15,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 from ..database import get_db
-from ..models import Project, ProjectSettings
+from ..models import Project
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -28,7 +28,7 @@ async def get_project_storage_mode(project_path: str, db: AsyncSession) -> tuple
     Returns:
         Tuple of (storage_mode, project_id)
     """
-    # Find project by path
+    # Find project by path (settings merged into Project model)
     result = await db.execute(
         select(Project).where(Project.path == project_path)
     )
@@ -37,13 +37,8 @@ async def get_project_storage_mode(project_path: str, db: AsyncSession) -> tuple
     if not project:
         return "local", None
 
-    # Get project settings
-    settings_result = await db.execute(
-        select(ProjectSettings).where(ProjectSettings.project_id == project.id)
-    )
-    settings = settings_result.scalar_one_or_none()
-
-    storage_mode = getattr(settings, 'storage_mode', 'local') if settings else 'local'
+    # storage_mode is now part of Project model
+    storage_mode = getattr(project, 'storage_mode', 'local') or 'local'
     return storage_mode, project.id
 
 

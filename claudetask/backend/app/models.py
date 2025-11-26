@@ -33,10 +33,25 @@ class TaskStatus(str, enum.Enum):
     BLOCKED = "Blocked"
 
 
+class TestFramework(str, enum.Enum):
+    """Test framework enumeration"""
+    PYTEST = "pytest"
+    JEST = "jest"
+    VITEST = "vitest"
+    MOCHA = "mocha"
+    UNITTEST = "unittest"
+    CUSTOM = "custom"
+
+
 class Project(Base):
-    """Project model"""
+    """
+    Project model with integrated settings.
+
+    Contains project metadata and configuration settings.
+    """
     __tablename__ = "projects"
 
+    # === Core project fields ===
     id = Column(String, primary_key=True)
     name = Column(String, nullable=False)
     path = Column(String, nullable=False, unique=True)
@@ -47,11 +62,34 @@ class Project(Base):
     is_active = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationships
+
+    # === Settings fields ===
+    # Automation settings
+    auto_mode = Column(Boolean, default=False)
+    auto_priority_threshold = Column(Enum(TaskPriority), default=TaskPriority.HIGH)
+    max_parallel_tasks = Column(Integer, default=3)
+    manual_mode = Column(Boolean, default=False, nullable=False)  # Manual vs Automated for UC-04/UC-05
+
+    # Build/test commands
+    test_command = Column(String, nullable=True)
+    build_command = Column(String, nullable=True)
+    lint_command = Column(String, nullable=True)
+
+    # Git workflow
+    worktree_enabled = Column(Boolean, default=True, nullable=False)  # Enable/disable git worktrees
+
+    # Testing configuration
+    test_directory = Column(String, nullable=True, default="tests")
+    test_framework = Column(Enum(TestFramework, values_callable=lambda x: [e.value for e in x]), nullable=True, default=TestFramework.PYTEST)
+    auto_merge_tests = Column(Boolean, default=True, nullable=False)
+    test_staging_dir = Column(String, nullable=True, default="tests/staging")
+
+    # Storage mode
+    storage_mode = Column(String, nullable=False, default="local")  # "local" or "mongodb"
+
+    # === Relationships ===
     # passive_deletes=True lets database handle CASCADE DELETE
     tasks = relationship("Task", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
-    settings = relationship("ProjectSettings", back_populates="project", uselist=False, cascade="all, delete-orphan", passive_deletes=True)
     agents = relationship("Agent", cascade="all, delete-orphan", passive_deletes=True)
     claude_sessions = relationship("ClaudeSession", back_populates="project", cascade="all, delete-orphan", passive_deletes=True)
 
@@ -137,44 +175,6 @@ class ClaudeSession(Base):
     # Relationships
     task = relationship("Task", back_populates="claude_sessions")
     project = relationship("Project", back_populates="claude_sessions")
-
-
-class TestFramework(str, enum.Enum):
-    """Test framework enumeration"""
-    PYTEST = "pytest"
-    JEST = "jest"
-    VITEST = "vitest"
-    MOCHA = "mocha"
-    UNITTEST = "unittest"
-    CUSTOM = "custom"
-
-
-class ProjectSettings(Base):
-    """Project settings model"""
-    __tablename__ = "project_settings"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    project_id = Column(String, ForeignKey("projects.id", ondelete="CASCADE"), unique=True, nullable=False)
-    auto_mode = Column(Boolean, default=False)
-    auto_priority_threshold = Column(Enum(TaskPriority), default=TaskPriority.HIGH)
-    max_parallel_tasks = Column(Integer, default=3)
-    test_command = Column(String, nullable=True)
-    build_command = Column(String, nullable=True)
-    lint_command = Column(String, nullable=True)
-    worktree_enabled = Column(Boolean, default=True, nullable=False)  # Enable/disable git worktrees
-    manual_mode = Column(Boolean, default=False, nullable=False)  # Manual (True) vs Automated (False) for UC-04 Testing & UC-05 Code Review
-
-    # New testing configuration fields
-    test_directory = Column(String, nullable=True, default="tests")  # Main test directory (e.g., "tests", "src/__tests__")
-    test_framework = Column(Enum(TestFramework, values_callable=lambda x: [e.value for e in x]), nullable=True, default=TestFramework.PYTEST)  # Test framework
-    auto_merge_tests = Column(Boolean, default=True, nullable=False)  # Auto-merge new tests after PR approval
-    test_staging_dir = Column(String, nullable=True, default="tests/staging")  # Staging directory for new task tests
-
-    # Storage mode configuration (local vs cloud)
-    storage_mode = Column(String, nullable=False, default="local")  # "local" (SQLite + ChromaDB) or "mongodb" (MongoDB Atlas + Vector Search)
-
-    # Relationships
-    project = relationship("Project", back_populates="settings")
 
 
 class Agent(Base):

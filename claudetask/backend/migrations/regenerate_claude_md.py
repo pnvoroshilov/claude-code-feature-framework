@@ -18,7 +18,7 @@ sys.path.insert(0, str(backend_dir))
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select
-from app.models import Project, ProjectSettings
+from app.models import Project
 from app.services.claude_config_generator import generate_claude_md
 
 async def regenerate_claude_md(project_id: str):
@@ -37,7 +37,7 @@ async def regenerate_claude_md(project_id: str):
     )
 
     async with async_session_maker() as db:
-        # Get project
+        # Get project (settings merged into Project model)
         result = await db.execute(select(Project).where(Project.id == project_id))
         project = result.scalar_one_or_none()
 
@@ -49,12 +49,8 @@ async def regenerate_claude_md(project_id: str):
         print(f"Path: {project.path}")
         print(f"Mode: {project.project_mode}")
 
-        # Get project settings
-        settings_result = await db.execute(
-            select(ProjectSettings).where(ProjectSettings.project_id == project_id)
-        )
-        settings = settings_result.scalar_one_or_none()
-        worktree_enabled = settings.worktree_enabled if settings else True
+        # worktree_enabled is now part of Project model
+        worktree_enabled = project.worktree_enabled if hasattr(project, 'worktree_enabled') else True
 
         print(f"Worktree enabled: {worktree_enabled}")
 
