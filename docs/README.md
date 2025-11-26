@@ -212,13 +212,23 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 ---
 
-**Documentation Version**: 2.12.0
+**Documentation Version**: 2.13.0
 **Last Updated**: 2025-11-27
 **Total Documents**: 51
 **Auto-Updated**: Yes (via post-merge hook)
 **Status**: Current
 
-**Latest Changes (v2.12.0)**:
+**Latest Changes (v2.13.0)**:
+- **UPDATED: CloudStorageSettings Component Documentation**: Enhanced with storage mode migration (v2.0)
+  - Complete storage mode switcher documentation
+  - Migration preview and execution workflows
+  - Real-time progress tracking
+  - Safety features and conflict detection
+  - 4 new API endpoints for migration
+  - Migration-specific troubleshooting guide
+  - Comprehensive testing checklist
+
+**Previous Changes (v2.12.0)**:
 - **NEW: Memory API Documentation**: Complete endpoint reference for conversation memory (v1.0)
   - Dual storage backend support (SQLite + ChromaDB or MongoDB + Vector Search)
   - Automatic backend selection based on project settings

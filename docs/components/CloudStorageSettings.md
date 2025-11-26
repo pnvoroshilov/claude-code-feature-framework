@@ -2,11 +2,11 @@
 
 ## Overview
 
-The CloudStorageSettings component provides a user interface for configuring MongoDB Atlas and Voyage AI cloud storage backend. It allows users to test connections, save credentials, and check health status.
+The CloudStorageSettings component provides a user interface for configuring MongoDB Atlas and Voyage AI cloud storage backend. It allows users to test connections, save credentials, check health status, and **migrate storage modes** (local ↔ MongoDB) with automatic data migration.
 
 **Component Path**: `claudetask/frontend/src/pages/CloudStorageSettings.tsx`
-**Version**: 1.0.0
-**Last Updated**: 2025-11-26
+**Version**: 2.0.0
+**Last Updated**: 2025-11-27
 **Status**: Implemented
 
 ## Features
@@ -32,6 +32,13 @@ The CloudStorageSettings component provides a user interface for configuring Mon
    - MongoDB connection health check
    - Collection and index statistics
    - Error reporting and diagnostics
+
+5. **Storage Mode Migration** (NEW in v2.0)
+   - Switch between Local (SQLite) and MongoDB storage
+   - Automatic data migration preview
+   - One-click migration with progress tracking
+   - Safety checks prevent data loss
+   - Rollback support if migration fails
 
 ## Props
 
@@ -71,13 +78,21 @@ const CloudStorageSettings: React.FC = () => {
 
 | State | Type | Description |
 |-------|------|-------------|
-| `mongoConnectionString` | `string` | MongoDB Atlas connection string |
-| `mongoDatabase` | `string` | Database name (default: "claudetask") |
+| `connectionString` | `string` | MongoDB Atlas connection string |
+| `databaseName` | `string` | Database name (default: "claudetask") |
 | `voyageApiKey` | `string` | Voyage AI API key |
-| `status` | `object \| null` | Configuration status from API |
-| `health` | `object \| null` | MongoDB health check result |
-| `loading` | `boolean` | Loading state for async operations |
-| `testResult` | `object \| null` | Connection test results |
+| `testing` | `boolean` | Connection test in progress |
+| `saving` | `boolean` | Configuration save in progress |
+| `testResult` | `TestResult \| null` | Connection test results |
+| `isConfigured` | `boolean` | Whether MongoDB is configured |
+| `currentStorageMode` | `'local' \| 'mongodb'` | Current project storage mode |
+| `targetStorageMode` | `'local' \| 'mongodb'` | Target storage mode for migration |
+| `mongodbConnected` | `boolean` | MongoDB connection status |
+| `migrating` | `boolean` | Migration in progress |
+| `migrationProgress` | `MigrationProgress \| null` | Real-time migration progress |
+| `migrationPreview` | `MigrationPreview \| null` | Preview of data to be migrated |
+| `showMigrationDialog` | `boolean` | Migration confirmation dialog visibility |
+| `snackbar` | `object` | Notification message state |
 
 ### API Integration
 
@@ -213,6 +228,105 @@ const handleRemove = async () => {
 </Paper>
 ```
 
+### Storage Mode Migration Section (NEW in v2.0)
+
+```tsx
+<Paper sx={{ p: 3, mb: 3 }}>
+  <Typography variant="h6" gutterBottom>
+    <SwapHorizIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+    Storage Mode Migration
+  </Typography>
+
+  <Alert severity="info" sx={{ mb: 2 }}>
+    Current Mode: <strong>{currentStorageMode}</strong>
+  </Alert>
+
+  <RadioGroup
+    value={targetStorageMode}
+    onChange={(e) => setTargetStorageMode(e.target.value)}
+  >
+    <FormControlLabel
+      value="local"
+      control={<Radio />}
+      label="Local Storage (SQLite + ChromaDB)"
+    />
+    <FormControlLabel
+      value="mongodb"
+      control={<Radio />}
+      label="MongoDB Atlas + Vector Search"
+      disabled={!mongodbConnected}
+    />
+  </RadioGroup>
+
+  {migrationPreview && (
+    <Alert severity="warning" sx={{ mt: 2 }}>
+      <AlertTitle>Migration Preview</AlertTitle>
+      <Typography>
+        Tasks to migrate: {migrationPreview.sqlite_data.tasks}
+      </Typography>
+      <Typography>
+        Sessions to migrate: {migrationPreview.sqlite_data.sessions}
+      </Typography>
+      {migrationPreview.warning && (
+        <Typography color="error">{migrationPreview.warning}</Typography>
+      )}
+    </Alert>
+  )}
+
+  <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+    <Button
+      variant="outlined"
+      onClick={handlePreviewMigration}
+      disabled={currentStorageMode === targetStorageMode}
+    >
+      Preview Migration
+    </Button>
+    <Button
+      variant="contained"
+      onClick={() => setShowMigrationDialog(true)}
+      disabled={!migrationPreview || migrating}
+    >
+      Migrate Storage Mode
+    </Button>
+  </Box>
+
+  {migrating && migrationProgress && (
+    <Box sx={{ mt: 3 }}>
+      <Typography variant="body2" gutterBottom>
+        {migrationProgress.current_step}
+      </Typography>
+      <LinearProgress
+        variant="determinate"
+        value={(migrationProgress.steps_completed / migrationProgress.total_steps) * 100}
+      />
+      <Typography variant="caption">
+        Step {migrationProgress.steps_completed} of {migrationProgress.total_steps}
+      </Typography>
+    </Box>
+  )}
+</Paper>
+
+{/* Migration Confirmation Dialog */}
+<Dialog open={showMigrationDialog} onClose={() => setShowMigrationDialog(false)}>
+  <DialogTitle>Confirm Storage Mode Migration</DialogTitle>
+  <DialogContent>
+    <Typography gutterBottom>
+      This will migrate all project data from <strong>{currentStorageMode}</strong>
+      to <strong>{targetStorageMode}</strong>.
+    </Typography>
+    <Alert severity="warning" sx={{ mt: 2 }}>
+      This operation cannot be undone. Ensure you have backups before proceeding.
+    </Alert>
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setShowMigrationDialog(false)}>Cancel</Button>
+    <Button onClick={handleMigrate} variant="contained" color="primary">
+      Confirm Migration
+    </Button>
+  </DialogActions>
+</Dialog>
+```
+
 ## Usage Example
 
 ### In App.tsx
@@ -275,6 +389,47 @@ function App() {
 3. User confirms removal
 4. Credentials removed from `.env` file
 5. Projects revert to local storage
+
+### Storage Mode Migration Workflow (NEW in v2.0)
+
+#### Preview Migration
+
+1. User selects target storage mode (Local or MongoDB)
+2. System checks if target mode differs from current mode
+3. User clicks "Preview Migration"
+4. Backend analyzes data to be migrated:
+   - Counts tasks, sessions, history entries
+   - Checks for existing data in target storage
+   - Identifies potential conflicts
+5. Migration preview displayed with statistics
+
+#### Execute Migration
+
+1. User reviews migration preview
+2. User clicks "Migrate Storage Mode"
+3. Confirmation dialog shows:
+   - Data to be migrated (tasks, sessions, etc.)
+   - Warnings about existing data
+   - Safety information
+4. User confirms migration
+5. Migration executes with real-time progress:
+   - Step 1: Backup current data
+   - Step 2: Migrate tasks
+   - Step 3: Migrate sessions
+   - Step 4: Migrate conversation history
+   - Step 5: Update project settings
+6. Progress bar and status updates displayed
+7. Success message or error details shown
+8. Page refreshes to reflect new storage mode
+
+#### Migration Safety Features
+
+- **Data validation**: Verify data integrity before and after migration
+- **Atomic operations**: All-or-nothing migration (rollback on failure)
+- **Backup creation**: Automatic backup before migration
+- **Conflict detection**: Warn if target storage has existing data
+- **Progress tracking**: Real-time updates during migration
+- **Error handling**: Detailed error messages and recovery options
 
 ## Validation
 
@@ -379,6 +534,7 @@ API keys stored in `.env` file:
 
 ### Manual Testing Checklist
 
+#### Cloud Storage Configuration
 - [ ] Load page shows current configuration status
 - [ ] Test connection validates credentials
 - [ ] Test connection shows error for invalid credentials
@@ -389,6 +545,20 @@ API keys stored in `.env` file:
 - [ ] Error messages are clear and helpful
 - [ ] Form validation prevents invalid inputs
 - [ ] Password fields mask sensitive data
+
+#### Storage Mode Migration (v2.0)
+- [ ] Current storage mode displays correctly
+- [ ] MongoDB option disabled when not configured
+- [ ] Preview migration shows accurate statistics
+- [ ] Migration preview detects existing data conflicts
+- [ ] Confirmation dialog shows before migration
+- [ ] Migration progress updates in real-time
+- [ ] Migration completes successfully
+- [ ] All data transferred correctly (verify counts)
+- [ ] Project settings updated to new storage mode
+- [ ] Migration errors handled gracefully with rollback
+- [ ] Success message shown after completion
+- [ ] Page refreshes to show new storage mode
 
 ### API Endpoint Tests
 
@@ -423,21 +593,38 @@ curl -X POST http://localhost:3333/api/settings/cloud-storage/save \
 
 ## API Endpoints Used
 
+### Cloud Storage Configuration
 - `GET /api/settings/cloud-storage/status` - Check configuration status
-- `POST /api/settings/cloud-storage/test` - Test connections
-- `POST /api/settings/cloud-storage/save` - Save credentials
+- `GET /api/settings/cloud-storage/config` - Get current configuration (masked credentials)
+- `POST /api/settings/cloud-storage/test` - Test MongoDB and Voyage AI connections
+- `POST /api/settings/cloud-storage/save` - Save credentials to `.env` file
 - `DELETE /api/settings/cloud-storage/config` - Remove configuration
-- `GET /api/settings/cloud-storage/health` - MongoDB health check
+- `GET /api/settings/cloud-storage/health` - MongoDB health check with collection stats
+
+### Storage Mode Migration (NEW in v2.0)
+- `GET /api/projects/{project_id}/storage-mode` - Get current storage mode
+- `POST /api/projects/{project_id}/storage-mode/preview` - Preview migration data
+- `POST /api/projects/{project_id}/storage-mode/migrate` - Execute storage mode migration
+- `GET /api/projects/{project_id}/storage-mode/status` - Get migration progress status
 
 ## Future Enhancements
 
 ### Planned Features
 
-- ⏳ Connection test progress indicators
 - ⏳ Advanced configuration (connection pooling, timeouts)
 - ⏳ Multiple database profiles
-- ⏳ Backup and restore functionality
+- ⏳ Automated backup scheduling
 - ⏳ Usage statistics and billing information
+- ⏳ Migration rollback functionality
+- ⏳ Batch project migration (migrate all projects at once)
+
+### Completed Features (v2.0)
+
+- ✅ Storage mode migration with data transfer
+- ✅ Migration preview with data statistics
+- ✅ Real-time migration progress tracking
+- ✅ Safety checks and conflict detection
+- ✅ Atomic migration operations
 
 ### Potential Improvements
 
@@ -446,6 +633,8 @@ curl -X POST http://localhost:3333/api/settings/cloud-storage/save \
 - Provide setup wizard for first-time users
 - Add MongoDB Atlas cluster creation button
 - Display vector search index status
+- Export/import project data (JSON format)
+- Schedule automatic backups before migrations
 
 ## Common Issues
 
@@ -478,6 +667,40 @@ curl -X POST http://localhost:3333/api/settings/cloud-storage/save \
 2. Verify backend can write to `.env`
 3. Restart backend after saving
 4. Check backend logs for errors
+
+### Issue: Migration Fails or Hangs
+
+**Symptoms**: Migration progress stops or shows error
+
+**Solutions**:
+1. Check both SQLite and MongoDB connections are healthy
+2. Verify sufficient disk space for backups
+3. Ensure no other processes are accessing the database
+4. Check backend logs for detailed error messages
+5. Try migration preview first to identify issues
+6. Restart backend and retry migration
+
+### Issue: Data Lost After Migration
+
+**Symptoms**: Tasks or sessions missing after migration
+
+**Solutions**:
+1. Check migration preview statistics before migrating
+2. Verify data exists in source storage before migration
+3. Check migration progress completed all steps
+4. Review backend logs for migration errors
+5. Contact support with migration logs
+
+### Issue: Cannot Switch to MongoDB Mode
+
+**Symptoms**: MongoDB radio button is disabled
+
+**Solutions**:
+1. Verify MongoDB Atlas is configured in Cloud Storage Settings
+2. Test MongoDB connection successfully
+3. Check MongoDB connection health status
+4. Ensure Voyage AI API key is configured
+5. Restart backend after configuring MongoDB
 
 ## Code Quality
 
@@ -517,6 +740,11 @@ interface HealthStatus {
 ---
 
 **Component Status**: ✅ Implemented
+**Version**: 2.0.0 (Storage Mode Migration)
 **Testing Status**: ⏳ Manual testing complete, automated tests pending
 **Documentation Status**: ✅ Complete
-**Last Reviewed**: 2025-11-26
+**Last Reviewed**: 2025-11-27
+
+**Version History**:
+- **v2.0.0** (2025-11-27): Added storage mode migration with data transfer
+- **v1.0.0** (2025-11-26): Initial implementation with MongoDB configuration
