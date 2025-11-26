@@ -20,17 +20,14 @@ import {
   Dashboard as DashboardIcon,
   Assignment as TaskIcon,
   Settings as SettingsIcon,
-  Build as SetupIcon,
   Folder as ProjectIcon,
   Terminal as TerminalIcon,
   Extension as SkillsIcon,
   Webhook as HooksIcon,
   Hub as MCPIcon,
   SmartToy as SubagentIcon,
-  Description as InstructionsIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
-  History as HistoryIcon,
   ViewKanban as LogoIcon,
   Article as LogsIcon,
 } from '@mui/icons-material';
@@ -52,8 +49,6 @@ const menuItems = [
   { text: 'MCP Configs', icon: <MCPIcon />, path: '/mcp-configs' },
   { text: 'Logs', icon: <LogsIcon />, path: '/mcp-logs' },
   { text: 'Subagents', icon: <SubagentIcon />, path: '/subagents' },
-  { text: 'Project Instructions', icon: <InstructionsIcon />, path: '/instructions' },
-  { text: 'Project Setup', icon: <SetupIcon />, path: '/setup' },
   { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
 ];
 
@@ -167,9 +162,11 @@ const Sidebar: React.FC<SidebarProps> = ({ open, collapsed, onClose }) => {
       >
         <List sx={{ p: 0 }}>
           {menuItems.map((item) => {
-            // Check if current path matches, including sub-routes for Sessions
+            // Check if current path matches, including sub-routes for Sessions and Projects
             const isActive = item.path === '/sessions'
               ? location.pathname.startsWith('/sessions')
+              : item.path === '/projects'
+              ? location.pathname.startsWith('/projects') && !location.pathname.includes('/files')
               : location.pathname === item.path;
             return (
               <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>

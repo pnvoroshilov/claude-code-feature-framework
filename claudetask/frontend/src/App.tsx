@@ -7,8 +7,7 @@ import { ReactQueryDevtools } from 'react-query/devtools';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
-import ProjectSetup from './pages/ProjectSetup';
-import ProjectManager from './pages/ProjectManager';
+import Projects from './pages/Projects';
 import TaskBoard from './pages/TaskBoard';
 import Sessions from './pages/Sessions';
 import Skills from './pages/Skills';
@@ -16,7 +15,6 @@ import Hooks from './pages/Hooks';
 import MCPConfigs from './pages/MCPConfigs';
 import MCPLogs from './pages/MCPLogs';
 import Subagents from './pages/Subagents';
-import ProjectInstructions from './pages/ProjectInstructions';
 import Settings from './pages/Settings';
 import FileBrowser from './pages/FileBrowser';
 import { ProjectProvider } from './context/ProjectContext';
@@ -77,8 +75,7 @@ function App() {
                 >
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
-                    <Route path="/setup" element={<ProjectSetup />} />
-                    <Route path="/projects" element={<ProjectManager />} />
+                    <Route path="/projects/*" element={<Projects />} />
                     <Route path="/projects/:projectId/files" element={<FileBrowser />} />
                     <Route path="/tasks" element={<TaskBoard />} />
                     <Route path="/sessions/*" element={<Sessions />} />
@@ -88,7 +85,6 @@ function App() {
                     <Route path="/mcp-configs" element={<MCPConfigs />} />
                     <Route path="/mcp-logs" element={<MCPLogs />} />
                     <Route path="/subagents" element={<Subagents />} />
-                    <Route path="/instructions" element={<ProjectInstructions />} />
                     <Route path="/settings" element={<Settings />} />
                   </Routes>
                 </Box>
