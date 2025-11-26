@@ -308,7 +308,7 @@ The system supports dual storage backends with consistent schema across both:
 ### Local Storage (SQLite)
 
 Main tables:
-- **projects**: Project configurations and metadata with CASCADE DELETE constraints
+- **projects**: Project configurations, metadata, and integrated settings (see schema changes below)
 - **tasks**: Task tracking with status, worktree info, stage results, testing URLs
 - **task_history**: Audit trail of task status changes
 - **claude_sessions**: Claude Code session management
@@ -322,13 +322,15 @@ Main tables:
 - **custom_mcp_configs**: User-created MCP configurations
 - **project_mcp_configs**: Junction table for project-MCP enablement
 - **agents**: Subagent configurations
-- **project_settings**: Per-project settings including worktree_enabled and **storage_mode** fields
 - **conversation_memory**: All conversation messages with metadata
 - **project_summaries**: Condensed project knowledge (3-5 pages)
 - **memory_rag_status**: RAG indexing tracking
 - **memory_sessions**: Session context loading tracking
 
-**New in v2.11**: `project_settings.storage_mode` field determines which storage backend to use.
+**Schema Changes (v2.12 - 2025-11-27)**:
+- **ProjectSettings merged into Project model**: The separate `project_settings` table has been removed. All settings fields (auto_mode, test_command, worktree_enabled, storage_mode, etc.) are now direct columns on the `projects` table.
+- **Benefits**: Simplified data model, single source of truth, reduced JOIN queries, atomic updates
+- **Migration**: Existing projects automatically migrated during database upgrade
 
 ### Cloud Storage (MongoDB Atlas)
 
@@ -364,19 +366,21 @@ All endpoints follow REST conventions:
 
 ### Endpoint Organization
 ```
-/api/projects                        # Project management
-/api/projects/{id}/tasks             # Task management
-/api/projects/{id}/hooks             # Hooks management
-/api/projects/{id}/skills            # Skills management
-/api/projects/{id}/mcp-configs       # MCP configurations
-/api/projects/{id}/subagents         # Subagent management
-/api/projects/{id}/instructions      # Custom instructions
-/api/projects/{id}/files             # File browser and editor
-/api/projects/{id}/memory            # Memory management
-/api/sessions                        # Claude sessions
-/api/settings/cloud-storage          # Cloud storage configuration (NEW v2.11)
-/api/codebase                        # Codebase RAG indexing and search (NEW v2.11)
-/api/editor                          # File editor endpoints (legacy)
+/api/projects                                           # Project management
+/api/projects/{id}/tasks                                # Task management
+/api/projects/{id}/hooks                                # Hooks management
+/api/projects/{id}/skills                               # Skills management
+/api/projects/{id}/mcp-configs                          # MCP configurations
+/api/projects/{id}/subagents                            # Subagent management
+/api/projects/{id}/instructions                         # Custom instructions
+/api/projects/{id}/files                                # File browser and editor
+/api/projects/{id}/memory                               # Memory management
+/api/sessions                                           # Claude sessions
+/api/settings/cloud-storage                             # Cloud storage configuration
+/api/settings/cloud-storage/project/{id}/storage-mode   # Get project storage mode (NEW v2.12)
+/api/settings/cloud-storage/project/{id}/migrate        # Migrate project storage (NEW v2.12)
+/api/codebase                                           # Codebase RAG indexing and search
+/api/editor                                             # File editor endpoints (legacy)
 ```
 
 ## Security Considerations
@@ -918,4 +922,120 @@ POST /api/codebase/search
 
 ---
 
-Last updated: 2025-11-26
+## ProjectSettings Model Merge (2025-11-27)
+
+The `ProjectSettings` table has been refactored and merged directly into the `Project` model for improved data consistency and query performance.
+
+### What Changed
+
+**Before**:
+```python
+# Separate tables with 1:1 relationship
+class Project(Base):
+    id = Column(String, primary_key=True)
+    name = Column(String)
+    # ...
+    settings = relationship("ProjectSettings", uselist=False)
+
+class ProjectSettings(Base):
+    id = Column(Integer, primary_key=True)
+    project_id = Column(String, ForeignKey("projects.id"))
+    auto_mode = Column(Boolean)
+    worktree_enabled = Column(Boolean)
+    storage_mode = Column(String)
+    # ... many more settings
+```
+
+**After**:
+```python
+# Single unified table
+class Project(Base):
+    id = Column(String, primary_key=True)
+    name = Column(String)
+    # Core project fields
+    # === Settings fields (merged) ===
+    auto_mode = Column(Boolean)
+    worktree_enabled = Column(Boolean)
+    storage_mode = Column(String)
+    test_command = Column(String)
+    # ... all settings as direct columns
+```
+
+### Benefits
+
+1. **Simplified Data Model**: No JOIN required to access project settings
+2. **Atomic Updates**: Settings and project data updated in single transaction
+3. **Better Performance**: Reduced query complexity and database round-trips
+4. **Single Source of Truth**: All project information in one place
+5. **Cleaner API**: No separate settings endpoints needed
+
+### Migration Path
+
+The migration is automatic and transparent:
+1. Database migration script copies all settings to `projects` table
+2. Foreign key relationships preserved
+3. `project_settings` table removed after data migration
+4. All existing API endpoints continue to work unchanged
+5. Frontend code requires no changes
+
+### API Impact
+
+**No breaking changes** - all endpoints remain the same:
+- `GET /api/projects/{id}` - Now returns settings inline
+- `PUT /api/projects/{id}` - Updates project and settings atomically
+- `GET /api/projects/{id}/settings` - Still works (reads from Project model)
+
+### Database Migration
+
+Migration handled automatically on backend startup. See [Database Migrations Documentation](../deployment/database-migrations.md) for details.
+
+---
+
+## Storage Migration Endpoints (2025-11-27)
+
+New API endpoints enable seamless data migration between local (SQLite) and cloud (MongoDB) storage backends.
+
+### New Endpoints
+
+**GET `/api/settings/cloud-storage/project/{id}/storage-mode`**
+- Returns current storage mode for project
+- Shows MongoDB configuration and connection status
+- Used by UI to display storage mode selector
+
+**POST `/api/settings/cloud-storage/project/{id}/migrate`**
+- Migrates project data between storage backends
+- Supports both directions: local ↔ mongodb
+- Re-embeds conversation memory with target embedding model
+- Safe and reversible (original data preserved)
+- Force flag for re-sync operations
+
+### Migration Process
+
+**6-Step Migration**:
+1. Validation - Check source and target connectivity
+2. Project Data - Migrate project record and settings
+3. Task Data - Migrate tasks and task history
+4. Session Data - Migrate Claude sessions
+5. Memory Data - Migrate conversations with re-embedding
+6. Finalization - Update `storage_mode` field
+
+**Duration**: 1-5 minutes depending on data volume
+
+**Safety**:
+- Original data never deleted
+- Can migrate multiple times with `force=true`
+- Rollback by migrating back to original backend
+- Progress tracking with step-by-step status
+
+### Use Cases
+
+1. **Cloud Migration**: Move project to MongoDB for Codebase RAG
+2. **Local Rollback**: Return to local storage if cloud unavailable
+3. **Data Sync**: Force re-sync to keep backends in sync
+4. **Testing**: Migrate to test cloud configuration
+
+**See**: [Cloud Storage API Documentation](../api/endpoints/cloud-storage.md) for complete endpoint reference
+
+---
+
+Last updated: 2025-11-27
