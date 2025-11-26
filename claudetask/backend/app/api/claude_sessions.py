@@ -580,59 +580,10 @@ async def get_active_sessions():
                     "command": proc["command"]
                 })
 
-        # Also include embedded Claude sessions from real_claude_service
-        try:
-            from app.services.real_claude_service import real_claude_service
-
-            embedded_sessions = real_claude_service.get_active_sessions()
-            seen_session_ids = {s.get("session_id") for s in active if s.get("session_id")}
-
-            for embedded in embedded_sessions:
-                if not embedded.get("is_running"):
-                    continue
-
-                session_id = embedded.get("session_id")
-                # Skip if this session is already included (matched to a CLI process)
-                if session_id in seen_session_ids:
-                    continue
-
-                working_dir = embedded.get("working_dir", "")
-                project_name = Path(working_dir).name if working_dir else "Unknown"
-
-                # Get PID from the pexpect child process if available
-                pid = None
-                try:
-                    session_obj = real_claude_service.get_session(session_id)
-                    if session_obj and session_obj.child:
-                        pid = str(session_obj.child.pid)
-                except:
-                    pass
-
-                # Find project_dir for this session
-                project_dir = None
-                if working_dir:
-                    encoded_path = working_dir.replace('/', '-').replace(' ', '-')
-                    if not encoded_path.startswith('-'):
-                        encoded_path = '-' + encoded_path
-                    claude_projects_dir = Path.home() / '.claude' / 'projects' / encoded_path
-                    if claude_projects_dir.exists():
-                        project_dir = str(claude_projects_dir)
-
-                active.append({
-                    "pid": pid,
-                    "cpu": "N/A",
-                    "mem": "N/A",
-                    "started": "embedded",
-                    "working_dir": working_dir,
-                    "project_name": project_name,
-                    "session_id": session_id,
-                    "project_dir": project_dir,
-                    "command": "embedded claude session",
-                    "task_id": embedded.get("task_id"),
-                    "is_embedded": True
-                })
-        except Exception as e:
-            logger.debug(f"Could not get embedded sessions: {e}")
+        # NOTE: Embedded sessions (from real_claude_service) are intentionally excluded
+        # from the active sessions list. They are internal implementation details
+        # and don't have persistent session files. Use /api/sessions/embedded/active
+        # endpoint if you need to monitor them separately.
 
         return {
             "success": True,
