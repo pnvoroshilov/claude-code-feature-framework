@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -28,6 +28,8 @@ import {
   RadioGroup,
   FormControl,
   FormLabel,
+  Tooltip,
+  IconButton,
 } from '@mui/material';
 import {
   Folder as FolderIcon,
@@ -35,12 +37,17 @@ import {
   FolderOpen as FolderOpenIcon,
   Settings as SettingsIcon,
   Info as InfoIcon,
+  Cloud as CloudIcon,
+  Storage as StorageIcon,
 } from '@mui/icons-material';
 import { useMutation, useQueryClient } from 'react-query';
 import { initializeProject, InitializeProjectRequest } from '../services/api';
 import DirectoryBrowser from '../components/DirectoryBrowser';
+import axios from 'axios';
 
 const steps = ['Project Configuration', 'Initialize', 'Setup Complete'];
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3333/api';
 
 const ProjectSetup: React.FC = () => {
   const theme = useTheme();
@@ -54,8 +61,21 @@ const ProjectSetup: React.FC = () => {
   });
   const [initResult, setInitResult] = useState<any>(null);
   const [browserOpen, setBrowserOpen] = useState(false);
+  const [storageMode, setStorageMode] = useState<'local' | 'mongodb'>('local');
+  const [mongodbConfigured, setMongodbConfigured] = useState(false);
 
   const queryClient = useQueryClient();
+
+  // Check MongoDB configuration status on mount
+  useEffect(() => {
+    axios.get(`${API_BASE_URL}/settings/cloud-storage/status`)
+      .then(response => {
+        setMongodbConfigured(response.data.configured);
+      })
+      .catch(() => {
+        setMongodbConfigured(false);
+      });
+  }, []);
 
   const handlePathChange = (path: string) => {
     const cleanPath = path.endsWith('/') ? path.slice(0, -1) : path;
@@ -394,6 +414,153 @@ const ProjectSetup: React.FC = () => {
                     }
                   />
                 </RadioGroup>
+              </FormControl>
+
+              {/* Storage Mode Selection */}
+              <FormControl component="fieldset" sx={{ mb: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <FormLabel
+                    component="legend"
+                    sx={{
+                      color: theme.palette.text.primary,
+                      fontWeight: 600,
+                      '&.Mui-focused': { color: theme.palette.primary.main }
+                    }}
+                  >
+                    Storage Mode
+                  </FormLabel>
+                  <Tooltip
+                    title={
+                      <Box sx={{ p: 0.5 }}>
+                        <Typography variant="caption" display="block" sx={{ fontWeight: 600, mb: 0.5 }}>
+                          Cost Comparison:
+                        </Typography>
+                        <Typography variant="caption" display="block">
+                          Local: Free, unlimited storage
+                        </Typography>
+                        <Typography variant="caption" display="block">
+                          Cloud: MongoDB M0 (free, 512MB) or M10+ ($0.08/hr, production)
+                        </Typography>
+                        <Typography variant="caption" display="block">
+                          Voyage AI: Free tier (1M tokens/month), then $0.10 per 1M tokens
+                        </Typography>
+                      </Box>
+                    }
+                    arrow
+                  >
+                    <IconButton size="small" sx={{ color: alpha(theme.palette.text.secondary, 0.6) }}>
+                      <InfoIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+                <RadioGroup
+                  value={storageMode}
+                  onChange={(e) => setStorageMode(e.target.value as 'local' | 'mongodb')}
+                >
+                  <FormControlLabel
+                    value="local"
+                    control={
+                      <Radio
+                        sx={{
+                          color: alpha(theme.palette.text.secondary, 0.7),
+                          '&.Mui-checked': {
+                            color: theme.palette.primary.main,
+                          },
+                        }}
+                      />
+                    }
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <StorageIcon sx={{ color: alpha(theme.palette.text.secondary, 0.7), fontSize: 20 }} />
+                        <Box>
+                          <Typography variant="body1" sx={{ color: theme.palette.text.primary, fontWeight: 500 }}>
+                            Local Storage (SQLite + ChromaDB)
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: alpha(theme.palette.text.secondary, 0.7) }}>
+                            Default. All data stored locally. Works offline. Free. 384d embeddings.
+                          </Typography>
+                        </Box>
+                      </Box>
+                    }
+                  />
+                  <FormControlLabel
+                    value="mongodb"
+                    control={
+                      <Radio
+                        sx={{
+                          color: alpha(theme.palette.text.secondary, 0.7),
+                          '&.Mui-checked': {
+                            color: theme.palette.primary.main,
+                          },
+                        }}
+                        disabled={!mongodbConfigured}
+                      />
+                    }
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CloudIcon sx={{ color: alpha(theme.palette.text.secondary, 0.7), fontSize: 20 }} />
+                        <Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body1" sx={{ color: theme.palette.text.primary, fontWeight: 500 }}>
+                              Cloud Storage (MongoDB Atlas)
+                            </Typography>
+                            {!mongodbConfigured && (
+                              <Chip
+                                label="Requires Setup"
+                                size="small"
+                                sx={{
+                                  backgroundColor: alpha(theme.palette.warning.main, 0.15),
+                                  color: theme.palette.warning.main,
+                                  border: `1px solid ${alpha(theme.palette.warning.main, 0.3)}`,
+                                  fontWeight: 600,
+                                  fontSize: '0.7rem',
+                                }}
+                              />
+                            )}
+                          </Box>
+                          <Typography variant="body2" sx={{ color: alpha(theme.palette.text.secondary, 0.7) }}>
+                            Cloud-based persistence. Requires MongoDB Atlas and Voyage AI. 1024d embeddings.
+                          </Typography>
+                        </Box>
+                      </Box>
+                    }
+                    disabled={!mongodbConfigured}
+                  />
+                </RadioGroup>
+
+                {!mongodbConfigured && storageMode === 'mongodb' && (
+                  <Alert
+                    severity="warning"
+                    sx={{
+                      mt: 2,
+                      backgroundColor: alpha(theme.palette.warning.main, 0.1),
+                      border: `1px solid ${alpha(theme.palette.warning.main, 0.3)}`,
+                      borderRadius: 2,
+                      '& .MuiAlert-icon': { color: theme.palette.warning.main },
+                    }}
+                  >
+                    <Typography variant="body2">
+                      MongoDB Atlas is not configured. Go to <strong>Settings → Cloud Storage</strong> to configure MongoDB Atlas connection and Voyage AI API key.
+                    </Typography>
+                  </Alert>
+                )}
+
+                {mongodbConfigured && storageMode === 'mongodb' && (
+                  <Alert
+                    severity="success"
+                    sx={{
+                      mt: 2,
+                      backgroundColor: alpha(theme.palette.success.main, 0.1),
+                      border: `1px solid ${alpha(theme.palette.success.main, 0.3)}`,
+                      borderRadius: 2,
+                      '& .MuiAlert-icon': { color: theme.palette.success.main },
+                    }}
+                  >
+                    <Typography variant="body2">
+                      MongoDB Atlas is configured and ready to use. All data will be stored in the cloud with automatic backups and better vector search capabilities.
+                    </Typography>
+                  </Alert>
+                )}
               </FormControl>
 
               <FormControlLabel

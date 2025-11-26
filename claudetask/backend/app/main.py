@@ -38,7 +38,7 @@ from .services.git_workflow_service import GitWorkflowService
 from .services.claude_session_service import ClaudeSessionService, SessionStatus
 from .services.real_claude_service import real_claude_service
 from .services.websocket_manager import task_websocket_manager
-from .routers import skills, mcp_configs, subagents, editor, instructions, hooks, file_browser, mcp_logs
+from .routers import skills, mcp_configs, subagents, editor, instructions, hooks, file_browser, mcp_logs, cloud_storage
 from .api import claude_sessions, rag
 
 # Import centralized config for paths
@@ -78,6 +78,7 @@ app.include_router(file_browser.router)
 app.include_router(mcp_logs.router)
 app.include_router(claude_sessions.router, prefix="/api/claude-sessions", tags=["claude-sessions"])
 app.include_router(rag.router, prefix="/api/rag", tags=["rag"])
+app.include_router(cloud_storage.router)
 
 
 @app.on_event("startup")
@@ -88,6 +89,27 @@ async def startup_event():
     await seed_default_hooks()
     await seed_default_mcp_configs()
     await seed_default_subagents()
+
+    # Initialize MongoDB if configured (optional)
+    try:
+        if os.getenv("MONGODB_CONNECTION_STRING"):
+            from .database_mongodb import mongodb_manager
+            await mongodb_manager.connect()
+            await mongodb_manager.create_indexes()
+            logger.info("MongoDB Atlas initialized successfully")
+    except Exception as e:
+        logger.warning(f"MongoDB initialization skipped: {e}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    # Disconnect MongoDB if connected
+    try:
+        from .database_mongodb import mongodb_manager
+        await mongodb_manager.disconnect()
+    except Exception:
+        pass
 
 
 # Health check

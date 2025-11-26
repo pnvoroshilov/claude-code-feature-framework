@@ -35,11 +35,15 @@ import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import AutoModeIcon from '@mui/icons-material/AutoMode';
 import RateReviewIcon from '@mui/icons-material/RateReview';
+import CloudIcon from '@mui/icons-material/Cloud';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useProject } from '../context/ProjectContext';
 import { getProjectSettings, updateProjectSettings, ProjectSettings as ProjectSettingsType } from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
 const Settings: React.FC = () => {
   const theme = useTheme();
+  const navigate = useNavigate();
   const { selectedProject } = useProject();
 
   // Settings state
@@ -386,6 +390,145 @@ const Settings: React.FC = () => {
               }
             />
           </SettingSection>
+
+          {/* Cloud Storage Settings */}
+          <Card
+            sx={{
+              position: 'relative',
+              overflow: 'visible',
+              background: theme.palette.mode === 'dark'
+                ? `linear-gradient(145deg, ${alpha(theme.palette.background.paper, 0.9)}, ${alpha(theme.palette.background.paper, 0.95)})`
+                : theme.palette.background.paper,
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.3)}`,
+                boxShadow: theme.palette.mode === 'dark'
+                  ? `0 8px 16px -4px ${alpha(theme.palette.primary.main, 0.2)}`
+                  : `0 8px 16px -4px ${alpha(theme.palette.primary.main, 0.1)}`,
+              },
+            }}
+          >
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 4,
+                background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.primary.light})`,
+                borderTopLeftRadius: 12,
+                borderTopRightRadius: 12,
+              }}
+            />
+
+            <CardContent sx={{ pt: 3 }}>
+              <Box display="flex" alignItems="start" justifyContent="space-between" mb={3}>
+                <Box display="flex" alignItems="start" gap={2}>
+                  <Box
+                    sx={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.2)}, ${alpha(theme.palette.primary.light, 0.1)})`,
+                      border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                    }}
+                  >
+                    <CloudIcon sx={{ color: theme.palette.primary.main, fontSize: 28 }} />
+                  </Box>
+                  <Box>
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        fontWeight: 600,
+                        mb: 0.5,
+                      }}
+                    >
+                      Cloud Storage
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Configure MongoDB Atlas for cloud-based persistence and enhanced vector search
+                    </Typography>
+                  </Box>
+                </Box>
+                <Button
+                  variant="contained"
+                  endIcon={<ArrowForwardIcon />}
+                  onClick={() => navigate('/settings/cloud-storage')}
+                  sx={{
+                    background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                    color: '#fff',
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    px: 3,
+                    py: 1,
+                    borderRadius: 2,
+                    boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      background: `linear-gradient(135deg, ${theme.palette.primary.dark}, ${theme.palette.primary.main})`,
+                      transform: 'translateY(-2px)',
+                      boxShadow: `0 6px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
+                    },
+                  }}
+                >
+                  Configure
+                </Button>
+              </Box>
+
+              <Divider sx={{ mb: 2 }} />
+
+              <Box sx={{ py: 2 }}>
+                <Typography variant="body2" color="text.secondary" paragraph>
+                  Cloud storage enables:
+                </Typography>
+                <Stack spacing={1.5}>
+                  <Box display="flex" alignItems="center" gap={1.5}>
+                    <Box
+                      sx={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        bgcolor: theme.palette.primary.main,
+                      }}
+                    />
+                    <Typography variant="body2">
+                      Cloud-based persistence with automatic backups
+                    </Typography>
+                  </Box>
+                  <Box display="flex" alignItems="center" gap={1.5}>
+                    <Box
+                      sx={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        bgcolor: theme.palette.primary.main,
+                      }}
+                    />
+                    <Typography variant="body2">
+                      Enhanced vector search with 1024d embeddings (vs 384d local)
+                    </Typography>
+                  </Box>
+                  <Box display="flex" alignItems="center" gap={1.5}>
+                    <Box
+                      sx={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        bgcolor: theme.palette.primary.main,
+                      }}
+                    />
+                    <Typography variant="body2">
+                      Centralized data access across multiple machines
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Box>
+            </CardContent>
+          </Card>
 
           {/* Appearance Settings */}
           <SettingSection
