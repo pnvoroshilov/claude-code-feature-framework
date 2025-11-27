@@ -1638,13 +1638,13 @@ async def update_project_settings(
         "type": "project_settings_updated",
         "project_id": project_id,
         "settings": {
-            "worktree_enabled": settings.worktree_enabled,
-            "auto_mode": settings.auto_mode,
-            "max_parallel_tasks": settings.max_parallel_tasks
+            "worktree_enabled": project.worktree_enabled,
+            "auto_mode": project.auto_mode,
+            "max_parallel_tasks": project.max_parallel_tasks
         }
     })
 
-    return settings
+    return project
 
 
 # Embedded Claude Mode endpoints
