@@ -194,9 +194,9 @@ class MongoDBManager:
         Create all MongoDB Atlas Vector Search indexes for RAG.
 
         Creates indexes for:
-        1. conversation_memory - Chat history and project memory
-        2. codebase_chunks - Codebase semantic search
-        3. project_summaries - Project summary semantic search
+        1. codebase_chunks - Codebase semantic search
+        2. project_summaries - Project summary semantic search
+        3. documentation_chunks - Documentation semantic search
         """
         if not self.client:
             raise RuntimeError("MongoDB not connected")
@@ -211,14 +211,6 @@ class MongoDBManager:
 
             # Define all vector search indexes
             indexes_config = [
-                {
-                    "collection": "conversation_memory",
-                    "index_name": "vector_search_idx",
-                    "fields": [
-                        {"type": "vector", "path": "embedding", "numDimensions": 1024, "similarity": "cosine"},
-                        {"type": "filter", "path": "project_id"}
-                    ]
-                },
                 {
                     "collection": "codebase_chunks",
                     "index_name": "codebase_vector_idx",
