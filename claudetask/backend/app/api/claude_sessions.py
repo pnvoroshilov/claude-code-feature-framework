@@ -687,17 +687,34 @@ async def execute_claude_command(
 
             active_session = real_claude_service.get_session(session_id)
 
+            # Debug: check if session was created
+            logger.info(f"Session created: {active_session is not None}")
+            if active_session:
+                logger.info(f"Session child alive: {active_session.child.isalive() if active_session.child else 'no child'}")
+
             # Wait a moment for Claude to initialize
             import asyncio
             await asyncio.sleep(2)
+
+            # Debug: check again after sleep
+            if active_session and active_session.child:
+                logger.info(f"After sleep - child alive: {active_session.child.isalive()}")
         else:
             session_id = active_session.session_id
 
         # Send the command to the active Claude session
         # This uses pexpect to write to Claude's stdin
+        logger.info(f"Sending input to session {session_id}")
         success = await real_claude_service.send_input(session_id, command)
+        logger.info(f"Send input result: {success}")
 
         if not success:
+            # Debug: get more info about why it failed
+            session = real_claude_service.get_session(session_id)
+            if session:
+                logger.error(f"Session exists but send failed. Child: {session.child}, alive: {session.child.isalive() if session.child else 'N/A'}")
+            else:
+                logger.error(f"Session {session_id} not found in service")
             raise HTTPException(
                 status_code=500,
                 detail="Failed to send command to Claude session"
