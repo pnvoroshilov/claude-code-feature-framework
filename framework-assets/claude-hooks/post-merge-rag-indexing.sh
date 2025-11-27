@@ -45,7 +45,8 @@ if [ -f "$LOCKFILE" ]; then
 fi
 
 # Check if this is a git push/merge/pull command
-if ! echo "$BASH_CMD" | grep -qE '(git merge|gh pr merge|git pull|git push)'; then
+# Use flexible regex to match git commands with flags (e.g., git -C /path push)
+if ! echo "$BASH_CMD" | grep -qE '\bgit\b.*(push|pull|merge)|\bgh\s+pr\s+merge\b'; then
     log_hook_skip "Not a merge/push/pull command"
     exit 0
 fi
