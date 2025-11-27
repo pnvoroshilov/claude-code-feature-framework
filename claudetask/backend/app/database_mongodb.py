@@ -195,8 +195,8 @@ class MongoDBManager:
 
         Creates indexes for:
         1. conversation_memory - Chat history and project memory
-        2. code_chunks - Codebase semantic search
-        3. task_history - Similar task lookup
+        2. codebase_chunks - Codebase semantic search
+        3. project_summaries - Project summary semantic search
         """
         if not self.client:
             raise RuntimeError("MongoDB not connected")
@@ -230,12 +230,11 @@ class MongoDBManager:
                     ]
                 },
                 {
-                    "collection": "task_history",
-                    "index_name": "task_vector_search_idx",
+                    "collection": "project_summaries",
+                    "index_name": "summary_vector_idx",
                     "fields": [
                         {"type": "vector", "path": "embedding", "numDimensions": 1024, "similarity": "cosine"},
-                        {"type": "filter", "path": "project_id"},
-                        {"type": "filter", "path": "status"}
+                        {"type": "filter", "path": "project_id"}
                     ]
                 }
             ]

@@ -428,16 +428,16 @@ class MongoDBMemoryRepository(BaseRepository):
         self,
         project_id: str,
         content: str,
-        embedding: List[float],
+        embedding: Optional[List[float]],
         metadata: Dict[str, Any]
     ) -> str:
         """
-        Save conversation message with voyage-3-large embedding.
+        Save conversation message with optional voyage-3-large embedding.
 
         Args:
             project_id: Project ID
             content: Message content
-            embedding: 1024-dimensional vector (voyage-3-large)
+            embedding: 1024-dimensional vector (voyage-3-large), or None if unavailable
             metadata: Additional metadata (message_type, session_id, task_id, etc.)
 
         Returns:
@@ -446,13 +446,16 @@ class MongoDBMemoryRepository(BaseRepository):
         doc = {
             "project_id": project_id,
             "content": content,
-            "embedding": embedding,  # 1024-dimensional vector
             "message_type": metadata.get("message_type", "assistant"),
             "session_id": metadata.get("session_id"),
             "task_id": metadata.get("task_id"),
             "timestamp": datetime.utcnow(),
             "metadata": metadata
         }
+
+        # Only add embedding if available
+        if embedding:
+            doc["embedding"] = embedding
 
         result = await self._collection.insert_one(doc)
         return str(result.inserted_id)
@@ -646,7 +649,8 @@ class MongoDBMemoryRepository(BaseRepository):
         project_id: str,
         summary: str,
         trigger: Optional[str] = None,
-        last_summarized_message_id: Optional[str] = None
+        last_summarized_message_id: Optional[str] = None,
+        embedding: Optional[List[float]] = None
     ) -> Dict[str, Any]:
         """
         Update or create project summary in MongoDB.
@@ -656,6 +660,7 @@ class MongoDBMemoryRepository(BaseRepository):
             summary: New summary content
             trigger: Trigger type (session_end, important_decision, task_complete)
             last_summarized_message_id: ID of last message included in summary
+            embedding: Optional embedding vector for the summary
 
         Returns:
             Updated summary document
@@ -689,6 +694,9 @@ class MongoDBMemoryRepository(BaseRepository):
             if last_summarized_message_id:
                 update_data["$set"]["last_summarized_message_id"] = last_summarized_message_id
 
+            if embedding:
+                update_data["$set"]["embedding"] = embedding
+
             await summaries.update_one(
                 {"project_id": project_id},
                 update_data
@@ -712,6 +720,9 @@ class MongoDBMemoryRepository(BaseRepository):
                 "version": 1,
                 "last_summarized_message_id": last_summarized_message_id
             }
+            if embedding:
+                doc["embedding"] = embedding
+
             await summaries.insert_one(doc)
             return {
                 "summary": summary,

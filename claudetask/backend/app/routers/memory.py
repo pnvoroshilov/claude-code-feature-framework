@@ -56,7 +56,12 @@ async def get_embedding_service():
     """Get embedding service based on availability"""
     voyage_key = os.getenv("VOYAGE_AI_API_KEY") or os.getenv("VOYAGE_API_KEY")
     if voyage_key:
-        return VoyageEmbeddingService(voyage_key)
+        try:
+            return VoyageEmbeddingService(voyage_key)
+        except RuntimeError as e:
+            # voyageai module not installed
+            logger.warning(f"Embedding service unavailable: {e}")
+            return None
     return None
 
 
@@ -103,15 +108,16 @@ async def save_conversation_message(
                 logger.warning(f"Failed to generate embedding: {e}")
 
         # Save message
-        if hasattr(repo, 'save_message') and embedding:
+        if hasattr(repo, 'save_message'):
+            # MongoDB repository - supports optional embedding
             message_id = await repo.save_message(
                 project_id=project_id,
                 content=request.content,
-                embedding=embedding,
+                embedding=embedding,  # May be None if embedding service unavailable
                 metadata=metadata
             )
         else:
-            # Fallback: create without embedding
+            # SQLite repository - use create method
             message_id = await repo.create({
                 "project_id": project_id,
                 "content": request.content,
@@ -236,17 +242,50 @@ async def update_project_summary(
     Update project summary with new insights.
 
     Appends new insights to existing summary with timestamp.
+    Generates embedding for vector search if MongoDB mode.
     """
     try:
         repo = await RepositoryFactory.get_memory_repository(project_id, db)
         storage_mode = await RepositoryFactory.get_storage_mode_for_project(project_id, db)
 
-        result = await repo.update_summary(
-            project_id=project_id,
-            summary=request.new_insights,
-            trigger=request.trigger,
-            last_summarized_message_id=request.last_summarized_message_id
-        )
+        # Generate embedding for summary if MongoDB mode
+        embedding = None
+        if storage_mode == "mongodb":
+            embedding_service = await get_embedding_service()
+            if embedding_service:
+                try:
+                    embeddings = await embedding_service.generate_embeddings([request.new_insights])
+                    if embeddings:
+                        embedding = embeddings[0]
+                except Exception as e:
+                    logger.warning(f"Failed to generate summary embedding: {e}")
+
+        # Check if repo supports embedding parameter
+        if hasattr(repo, 'update_summary'):
+            import inspect
+            sig = inspect.signature(repo.update_summary)
+            if 'embedding' in sig.parameters:
+                result = await repo.update_summary(
+                    project_id=project_id,
+                    summary=request.new_insights,
+                    trigger=request.trigger,
+                    last_summarized_message_id=request.last_summarized_message_id,
+                    embedding=embedding
+                )
+            else:
+                result = await repo.update_summary(
+                    project_id=project_id,
+                    summary=request.new_insights,
+                    trigger=request.trigger,
+                    last_summarized_message_id=request.last_summarized_message_id
+                )
+        else:
+            result = await repo.update_summary(
+                project_id=project_id,
+                summary=request.new_insights,
+                trigger=request.trigger,
+                last_summarized_message_id=request.last_summarized_message_id
+            )
 
         logger.info(f"Updated project summary for {project_id[:8]}")
 
