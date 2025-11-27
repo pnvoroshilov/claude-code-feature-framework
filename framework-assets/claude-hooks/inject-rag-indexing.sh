@@ -3,20 +3,31 @@
 # UserPromptSubmit hook - Inject RAG indexing instruction
 # Checks for pending RAG indexing marker and triggers re-indexing via API
 
+# Read input from stdin first
+INPUT=$(cat)
+
 PROJECT_ROOT="$(pwd)"
 LOGDIR="$PROJECT_ROOT/.claude/logs/hooks"
 MARKER_FILE="$LOGDIR/.rag-indexing-pending"
-LOGFILE="$LOGDIR/user-prompt-$(date +%Y%m%d).log"
 
-# Create log directory
-mkdir -p "$LOGDIR" 2>/dev/null
+# Source hook logger for proper logging based on storage_mode
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/hook-logger.sh" ]; then
+    source "$SCRIPT_DIR/hook-logger.sh"
+    init_hook_log "inject-rag-indexing"
+else
+    # Fallback if hook-logger not available
+    log_hook() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] inject-rag-indexing | INFO | $1" >&2; }
+    log_hook_success() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] inject-rag-indexing | SUCCESS | $1" >&2; }
+    log_hook_error() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] inject-rag-indexing | ERROR | $1" >&2; }
+    log_hook_skip() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] inject-rag-indexing | SKIPPED | $1" >&2; }
+fi
 
-# Log hook execution
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] UserPromptSubmit hook triggered (RAG indexing)" >> "$LOGFILE"
+log_hook "UserPromptSubmit hook triggered (RAG indexing check)"
 
 # Check if RAG indexing is pending
 if [ -f "$MARKER_FILE" ]; then
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] RAG indexing marker found - retrying API call" >> "$LOGFILE"
+    log_hook "RAG indexing marker found - retrying API call"
 
     # Read file paths from marker file
     FILES_JSON=$(cat "$MARKER_FILE")
@@ -30,8 +41,7 @@ if [ -f "$MARKER_FILE" ]; then
     # URL encode project directory
     PROJECT_DIR_ENCODED=$(printf %s "$PROJECT_ROOT" | jq -sRr @uri)
 
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Retrying API call with project: $PROJECT_ROOT" >> "$LOGFILE"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Files JSON: $FILES_JSON" >> "$LOGFILE"
+    log_hook "Retrying API call with project: $PROJECT_ROOT"
 
     # Make API call
     API_RESPONSE=$(curl -s -X POST "$API_URL?project_dir=${PROJECT_DIR_ENCODED}" \
@@ -42,7 +52,7 @@ if [ -f "$MARKER_FILE" ]; then
     API_STATUS=$?
 
     if [ $API_STATUS -eq 0 ]; then
-        echo "[$(date '+%Y-%m-%d %H:%M:%S')] API call successful: $API_RESPONSE" >> "$LOGFILE"
+        log_hook_success "API call successful: $API_RESPONSE"
 
         # Output notification as additional context
         cat << 'EOF'
@@ -54,7 +64,7 @@ if [ -f "$MARKER_FILE" ]; then
 }
 EOF
     else
-        echo "[$(date '+%Y-%m-%d %H:%M:%S')] API call failed again: $API_RESPONSE" >> "$LOGFILE"
+        log_hook_error "API call failed again: $API_RESPONSE"
 
         # Recreate marker file for next attempt
         echo "$FILES_JSON" > "$MARKER_FILE"
@@ -69,10 +79,8 @@ EOF
 }
 EOF
     fi
-
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] RAG indexing retry completed" >> "$LOGFILE"
 else
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] No RAG indexing pending - proceeding normally" >> "$LOGFILE"
+    log_hook_skip "No RAG indexing pending - proceeding normally"
     # Return empty JSON to approve without modification
     echo '{}'
 fi

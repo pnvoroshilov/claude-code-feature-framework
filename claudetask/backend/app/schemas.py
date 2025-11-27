@@ -52,12 +52,14 @@ class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     github_repo: Optional[str] = None
     is_active: Optional[bool] = None
+    storage_mode: Optional[str] = None  # "local" or "mongodb"
 
 
 class ProjectInDB(ProjectBase):
     id: str
     tech_stack: List[str] = []
     project_mode: str = "simple"  # "simple" or "development"
+    storage_mode: str = "local"  # "local" or "mongodb"
     is_active: bool = False
     created_at: datetime
     updated_at: datetime

@@ -13,6 +13,7 @@ from .skill_repository import MongoDBSkillRepository
 from .hook_repository import MongoDBHookRepository
 from .mcp_config_repository import MongoDBMCPConfigRepository
 from .subagent_repository import MongoDBSubagentRepository
+from .log_repository import MongoDBLogRepository, FileLogRepository
 from ..models import Project
 
 
@@ -328,3 +329,37 @@ class RepositoryFactory:
 
         mongodb = mongodb_manager.get_database()
         return MongoDBSubagentRepository(mongodb)
+
+    @staticmethod
+    async def get_log_repository(
+        project_id: str,
+        project_path: str,
+        db: Optional[AsyncSession] = None
+    ) -> Union[MongoDBLogRepository, FileLogRepository]:
+        """
+        Get log repository based on project's storage mode.
+
+        Args:
+            project_id: Project ID to determine storage mode
+            project_path: Path to the project directory (for file-based logs)
+            db: SQLAlchemy async session
+
+        Returns:
+            MongoDBLogRepository for MongoDB mode, FileLogRepository for local mode
+
+        Raises:
+            ValueError: If MongoDB mode but not connected
+        """
+        storage_mode = await RepositoryFactory._get_storage_mode(project_id, db)
+
+        if storage_mode == "mongodb":
+            from ..database_mongodb import mongodb_manager
+
+            if not mongodb_manager.client:
+                raise ValueError("MongoDB not connected. Configure MongoDB Atlas first.")
+
+            mongodb = mongodb_manager.get_database()
+            return MongoDBLogRepository(mongodb)
+
+        # Default to file-based logs for local storage
+        return FileLogRepository(project_path)

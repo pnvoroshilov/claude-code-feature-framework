@@ -24,7 +24,11 @@ logger = logging.getLogger(__name__)
 
 
 def setup_file_logging(project_path: str):
-    """Setup file logging to project's .claudetask folder"""
+    """Setup file logging to project's .claudetask folder.
+
+    Only used when storage_mode is 'local'. For 'mongodb' mode,
+    logs are sent directly to MongoDB via API.
+    """
     log_dir = Path(project_path) / ".claudetask" / "logs" / "mcp"
     log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -39,6 +43,23 @@ def setup_file_logging(project_path: str):
     logging.getLogger().addHandler(file_handler)
 
     logger.info(f"MCP call logging enabled to: {log_file}")
+
+
+async def get_project_storage_mode(project_path: str, backend_url: str) -> str:
+    """Get storage_mode for project from backend API.
+
+    Returns:
+        'mongodb' or 'local'
+    """
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(f"{backend_url}/api/projects/active")
+            if response.status_code == 200:
+                project = response.json()
+                return project.get("storage_mode", "local")
+    except Exception as e:
+        logger.debug(f"Could not get storage_mode: {e}")
+    return "local"
 
 async def get_project_id_by_path(project_path: str, backend_url: str) -> str | None:
     """
@@ -97,8 +118,14 @@ async def main():
         else:
             logger.warning(f"Could not auto-detect project ID, using configured value: {args.project_id}")
 
-    # Setup file logging to project's .claudetask folder
-    setup_file_logging(args.project_path)
+    # Check storage mode and setup appropriate logging
+    storage_mode = await get_project_storage_mode(args.project_path, args.server)
+    logger.info(f"Project storage mode: {storage_mode}")
+
+    if storage_mode == "local":
+        # Only setup file logging for local mode
+        # For mongodb mode, logs are sent via API in claudetask_mcp_bridge.py
+        setup_file_logging(args.project_path)
 
     logger.info(f"Starting ClaudeTask MCP STDIO server for project {final_project_id}")
 

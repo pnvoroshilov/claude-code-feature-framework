@@ -356,6 +356,36 @@ class MongoDBManager:
 
         logger.info("Subagent indexes created successfully")
 
+        # Create log indexes
+        await self.create_log_indexes()
+
+    async def create_log_indexes(self):
+        """
+        Create MongoDB indexes for logs collections.
+
+        Collections:
+        - mcp_logs: MCP call logs per project
+        - hook_logs: Hook execution logs per project
+        """
+        if not self.client:
+            raise RuntimeError("MongoDB not connected")
+
+        db = self.get_database()
+
+        # MCP logs indexes
+        await db.mcp_logs.create_index("project_id")
+        await db.mcp_logs.create_index([("project_id", 1), ("timestamp", -1)])
+        await db.mcp_logs.create_index("tool_name")
+        await db.mcp_logs.create_index("status")
+
+        # Hook logs indexes
+        await db.hook_logs.create_index("project_id")
+        await db.hook_logs.create_index([("project_id", 1), ("timestamp", -1)])
+        await db.hook_logs.create_index("hook_name")
+        await db.hook_logs.create_index("status")
+
+        logger.info("Log indexes created successfully")
+
     async def create_vector_search_indexes(self):
         """
         Create all MongoDB Atlas Vector Search indexes for RAG.

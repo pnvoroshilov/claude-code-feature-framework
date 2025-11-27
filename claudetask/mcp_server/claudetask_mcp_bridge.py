@@ -201,6 +201,9 @@ class ClaudeTaskMCPServer:
         ))
         self.rag_initialized = False  # Will be set to True after async init
 
+        # MongoDB logging state (will be set after checking project settings)
+        self._mongodb_logging_enabled = None  # None = not checked yet
+
         # Setup tool handlers
         self._setup_tools()
 
@@ -231,6 +234,71 @@ class ClaudeTaskMCPServer:
         except Exception as e:
             self.logger.warning(f"Error fetching active project: {e}, using fallback: {self.project_id}")
             return self.project_id
+
+    async def _check_mongodb_logging(self) -> bool:
+        """Check if MongoDB logging is enabled for the active project.
+
+        Returns:
+            True if storage_mode is 'mongodb', False otherwise
+        """
+        if self._mongodb_logging_enabled is not None:
+            return self._mongodb_logging_enabled
+
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(f"{self.server_url}/api/projects/active")
+                if response.status_code == 200:
+                    project = response.json()
+                    storage_mode = project.get("storage_mode", "local")
+                    self._mongodb_logging_enabled = (storage_mode == "mongodb")
+                    self.logger.info(f"MongoDB logging: {'enabled' if self._mongodb_logging_enabled else 'disabled'} (storage_mode={storage_mode})")
+                    return self._mongodb_logging_enabled
+        except Exception as e:
+            self.logger.debug(f"Could not check storage_mode: {e}")
+
+        self._mongodb_logging_enabled = False
+        return False
+
+    async def _log_to_mongodb(
+        self,
+        tool_name: str,
+        status: str,
+        arguments: dict = None,
+        result: str = None,
+        error: str = None
+    ):
+        """Send MCP log entry to MongoDB via backend API.
+
+        Args:
+            tool_name: Name of the MCP tool
+            status: Call status (success/error/pending)
+            arguments: Tool arguments (optional)
+            result: Result preview (optional)
+            error: Error message if failed (optional)
+        """
+        if not await self._check_mongodb_logging():
+            return
+
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                params = {
+                    "tool_name": tool_name,
+                    "status": status
+                }
+                if arguments:
+                    params["arguments"] = json.dumps(arguments, ensure_ascii=False)[:2000]
+                if result:
+                    params["result"] = result[:2000]
+                if error:
+                    params["error"] = error[:1000]
+
+                await client.post(
+                    f"{self.server_url}/api/mcp-logs/ingest/mcp",
+                    params=params
+                )
+        except Exception as e:
+            # Don't fail MCP calls if logging fails
+            self.logger.debug(f"Failed to log to MongoDB: {e}")
 
     def _setup_tools(self):
         """Setup MCP tools"""
@@ -836,11 +904,13 @@ class ClaudeTaskMCPServer:
         @self.server.call_tool()
         async def handle_call_tool(name: str, arguments: dict) -> list[types.TextContent]:
             """Handle tool calls with comprehensive logging"""
-            # Log incoming MCP call
-            self.logger.info(f"{'='*60}")
-            self.logger.info(f"🔵 MCP CALL RECEIVED: {name}")
-            self.logger.info(f"📥 Arguments: {json.dumps(arguments, indent=2, ensure_ascii=False)}")
-            self.logger.info(f"{'='*60}")
+            # Log incoming MCP call (only for file-based logging, i.e. local mode)
+            # For mongodb mode, file handler is not attached so these go to stderr only
+            if not await self._check_mongodb_logging():
+                self.logger.info(f"{'='*60}")
+                self.logger.info(f"🔵 MCP CALL RECEIVED: {name}")
+                self.logger.info(f"📥 Arguments: {json.dumps(arguments, indent=2, ensure_ascii=False)}")
+                self.logger.info(f"{'='*60}")
 
             result = None
             try:
@@ -994,28 +1064,54 @@ class ClaudeTaskMCPServer:
                     raise ValueError(f"Unknown tool: {name}")
 
                 # Log successful result
+                result_text = ""
                 if result:
                     # Convert result for logging (truncate if too long)
-                    result_text = ""
                     if isinstance(result, list) and result:
                         if hasattr(result[0], 'text'):
                             result_text = result[0].text[:500]  # First 500 chars
                             if len(result[0].text) > 500:
                                 result_text += "...[truncated]"
 
-                    self.logger.info(f"{'='*60}")
-                    self.logger.info(f"✅ MCP CALL SUCCESS: {name}")
-                    self.logger.info(f"📤 Result preview: {result_text}")
-                    self.logger.info(f"{'='*60}")
+                # Check storage mode for logging destination
+                use_mongodb = await self._check_mongodb_logging()
+
+                if use_mongodb:
+                    # Log to MongoDB only
+                    await self._log_to_mongodb(
+                        tool_name=name,
+                        status="success",
+                        arguments=arguments,
+                        result=result_text
+                    )
+                else:
+                    # Log to file (local mode)
+                    if result_text:
+                        self.logger.info(f"{'='*60}")
+                        self.logger.info(f"✅ MCP CALL SUCCESS: {name}")
+                        self.logger.info(f"📤 Result preview: {result_text}")
+                        self.logger.info(f"{'='*60}")
 
                 return result
 
             except Exception as e:
-                # Log error
-                self.logger.error(f"{'='*60}")
-                self.logger.error(f"❌ MCP CALL ERROR: {name}")
-                self.logger.error(f"🔴 Error: {str(e)}")
-                self.logger.error(f"{'='*60}")
+                # Check storage mode for logging destination
+                use_mongodb = await self._check_mongodb_logging()
+
+                if use_mongodb:
+                    # Log error to MongoDB only
+                    await self._log_to_mongodb(
+                        tool_name=name,
+                        status="error",
+                        arguments=arguments,
+                        error=str(e)
+                    )
+                else:
+                    # Log error to file (local mode)
+                    self.logger.error(f"{'='*60}")
+                    self.logger.error(f"❌ MCP CALL ERROR: {name}")
+                    self.logger.error(f"🔴 Error: {str(e)}")
+                    self.logger.error(f"{'='*60}")
 
                 return [types.TextContent(
                     type="text",

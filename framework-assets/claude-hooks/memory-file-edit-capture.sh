@@ -10,31 +10,50 @@
 # - tool_input: input parameters to the tool
 # - tool_result: result from the tool
 
-PROJECT_ROOT="$(pwd)"
-LOGDIR="$PROJECT_ROOT/.claudetask/logs/hooks"
-LOGFILE="$LOGDIR/hooks.log"
-
-# Create log directory
-mkdir -p "$LOGDIR" 2>/dev/null
-
-# Read input from stdin
+# Read input from stdin first (before sourcing logger)
 INPUT=$(cat)
 
-# Debug: log raw input
-echo "$(date '+%Y-%m-%d %H:%M:%S') | memory-file-edit | DEBUG | Raw input: ${INPUT:0:500}" >> "$LOGFILE"
+PROJECT_ROOT="$(pwd)"
+
+# Source hook logger for proper logging based on storage_mode
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/hook-logger.sh" ]; then
+    source "$SCRIPT_DIR/hook-logger.sh"
+    init_hook_log "memory-file-edit"
+else
+    # Fallback if hook-logger not available
+    log_hook() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] memory-file-edit | INFO | $1" >&2; }
+    log_hook_success() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] memory-file-edit | SUCCESS | $1" >&2; }
+    log_hook_error() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] memory-file-edit | ERROR | $1" >&2; }
+    log_hook_skip() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] memory-file-edit | SKIPPED | $1" >&2; }
+fi
+
+# Debug: log raw input (truncated)
+log_hook "Raw input: ${INPUT:0:300}"
 
 # Get backend URL (default to localhost)
 BACKEND_URL="${CLAUDETASK_BACKEND_URL:-http://localhost:3333}"
 
-# Get project ID from .mcp.json (check both framework root and current project)
-MCP_JSON=""
-if [ -f "$PROJECT_ROOT/.mcp.json" ]; then
-    MCP_JSON="$PROJECT_ROOT/.mcp.json"
-fi
+# Get project ID from .mcp.json
+get_project_id() {
+    local mcp_json=""
+    local current_dir="$PROJECT_ROOT"
 
-if [ -n "$MCP_JSON" ]; then
-    PROJECT_ID=$(python3 -c "import json; data=json.load(open('$MCP_JSON')); print(data.get('mcpServers', {}).get('claudetask', {}).get('env', {}).get('CLAUDETASK_PROJECT_ID', ''))" 2>/dev/null)
-fi
+    # Walk up to find .mcp.json
+    while [ "$current_dir" != "/" ]; do
+        if [ -f "$current_dir/.mcp.json" ]; then
+            mcp_json="$current_dir/.mcp.json"
+            break
+        fi
+        current_dir="$(dirname "$current_dir")"
+    done
+
+    if [ -n "$mcp_json" ]; then
+        python3 -c "import json; data=json.load(open('$mcp_json')); print(data.get('mcpServers', {}).get('claudetask', {}).get('env', {}).get('CLAUDETASK_PROJECT_ID', ''))" 2>/dev/null
+    fi
+}
+
+PROJECT_ID=$(get_project_id)
 
 # Fallback: try to get from environment
 if [ -z "$PROJECT_ID" ]; then
@@ -43,16 +62,10 @@ fi
 
 # If no project ID, skip with logging
 if [ -z "$PROJECT_ID" ]; then
-    echo "$(date '+%Y-%m-%d %H:%M:%S') | memory-file-edit | SKIPPED | No project ID found, skipping memory capture" >> "$LOGFILE"
+    log_hook_skip "No project ID found, skipping memory capture"
     echo '{}'
     exit 0
 fi
-
-log_message() {
-    local status="$1"
-    local message="$2"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') | memory-file-edit | $status | $message" >> "$LOGFILE"
-}
 
 # Extract tool info and create memory entry
 MEMORY_CONTENT=$(echo "$INPUT" | python3 -c "
@@ -107,7 +120,7 @@ except Exception as e:
 
 # If no content extracted, skip
 if [ -z "$MEMORY_CONTENT" ] || [ "$MEMORY_CONTENT" = "" ]; then
-    log_message "SKIPPED" "Not a file edit tool or failed to extract info"
+    log_hook_skip "Not a file edit tool or failed to extract info"
     echo '{}'
     exit 0
 fi
@@ -119,7 +132,7 @@ TOOL_NAME=$(echo "$MEMORY_CONTENT" | python3 -c "import json,sys; d=json.load(sy
 SESSION_ID=$(echo "$MEMORY_CONTENT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('session_id', ''))" 2>/dev/null)
 
 if [ -z "$CONTENT" ]; then
-    log_message "SKIPPED" "Empty content extracted"
+    log_hook_skip "Empty content extracted"
     echo '{}'
     exit 0
 fi
@@ -135,7 +148,7 @@ fi
 PAYLOAD="$PAYLOAD}"
 
 # Send to backend API
-log_message "START" "Saving file edit to memory: $TOOL_NAME on $FILE_PATH"
+log_hook "Saving file edit to memory: $TOOL_NAME on $FILE_PATH"
 
 response=$(curl -s -X POST "$BACKEND_URL/api/projects/$PROJECT_ID/memory/messages" \
     -H "Content-Type: application/json" \
@@ -145,9 +158,9 @@ response=$(curl -s -X POST "$BACKEND_URL/api/projects/$PROJECT_ID/memory/message
     2>/dev/null)
 
 if [ $? -eq 0 ]; then
-    log_message "SUCCESS" "Saved file edit to memory: $TOOL_NAME on $FILE_PATH"
+    log_hook_success "Saved file edit to memory: $TOOL_NAME on $FILE_PATH"
 else
-    log_message "ERROR" "Failed to save file edit: $response"
+    log_hook_error "Failed to save file edit: $response"
 fi
 
 # Return empty JSON to approve without modification

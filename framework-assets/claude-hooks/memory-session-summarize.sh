@@ -7,7 +7,7 @@
 #
 # Input (via stdin): JSON with Stop event data including transcript
 
-# Read input from stdin first
+# Read input from stdin first (before sourcing logger which might read stdin)
 INPUT=$(cat)
 
 # Get project root from input JSON cwd field, or fall back to pwd
@@ -27,11 +27,18 @@ if [ ! -f "$PROJECT_ROOT/.mcp.json" ]; then
     PROJECT_ROOT="$ORIGINAL_ROOT"
 fi
 
-LOGDIR="$PROJECT_ROOT/.claude/logs/hooks"
-LOGFILE="$LOGDIR/memory-summarize-$(date +%Y%m%d).log"
-
-# Create log directory
-mkdir -p "$LOGDIR" 2>/dev/null
+# Source hook logger for proper logging based on storage_mode
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/hook-logger.sh" ]; then
+    source "$SCRIPT_DIR/hook-logger.sh"
+    init_hook_log "memory-summarize"
+else
+    # Fallback if hook-logger not available
+    log_hook() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] memory-summarize | INFO | $1" >&2; }
+    log_hook_success() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] memory-summarize | SUCCESS | $1" >&2; }
+    log_hook_error() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] memory-summarize | ERROR | $1" >&2; }
+    log_hook_skip() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] memory-summarize | SKIPPED | $1" >&2; }
+fi
 
 # Get backend URL (default to localhost)
 BACKEND_URL="${CLAUDETASK_BACKEND_URL:-http://localhost:3333}"
@@ -48,19 +55,16 @@ fi
 
 # If no project ID, skip silently
 if [ -z "$PROJECT_ID" ]; then
+    log_hook_skip "No project ID found"
     echo '{}'
     exit 0
 fi
-
-log_message() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOGFILE"
-}
 
 # Check if summarization is needed (threshold = 30 messages)
 SHOULD_SUMMARIZE=$(curl -s "$BACKEND_URL/api/projects/$PROJECT_ID/memory/should-summarize?threshold=30" 2>/dev/null)
 
 if [ -z "$SHOULD_SUMMARIZE" ]; then
-    log_message "Failed to check summarization status - backend not available"
+    log_hook_error "Failed to check summarization status - backend not available"
     echo '{}'
     exit 0
 fi
@@ -69,17 +73,17 @@ NEED_SUMMARY=$(echo "$SHOULD_SUMMARIZE" | python3 -c "import json,sys; d=json.lo
 MESSAGES_SINCE=$(echo "$SHOULD_SUMMARIZE" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('messages_since_last_summary', 0))" 2>/dev/null)
 
 if [ "$NEED_SUMMARY" != "true" ]; then
-    log_message "Skipping summarization - only $MESSAGES_SINCE messages since last summary (threshold: 30)"
+    log_hook_skip "Only $MESSAGES_SINCE messages since last summary (threshold: 30)"
     echo '{}'
     exit 0
 fi
 
-log_message "Starting summarization - $MESSAGES_SINCE messages since last summary"
+log_hook "Starting summarization - $MESSAGES_SINCE messages since last summary"
 
 # Get transcript_path from input JSON
 TRANSCRIPT_PATH=$(echo "$INPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('transcript_path', ''))" 2>/dev/null)
 
-log_message "Transcript path: $TRANSCRIPT_PATH"
+log_hook "Transcript path: $TRANSCRIPT_PATH"
 
 # Extract summary from transcript file (JSONL format - one JSON per line)
 SUMMARY=$(python3 -c "
@@ -201,9 +205,9 @@ RESPONSE=$(curl -s -X POST "$BACKEND_URL/api/projects/$PROJECT_ID/memory/summary
     2>/dev/null)
 
 if [ $? -eq 0 ]; then
-    log_message "Summary updated successfully ($MESSAGES_SINCE messages): $SUMMARY"
+    log_hook_success "Summary updated ($MESSAGES_SINCE messages): $SUMMARY"
 else
-    log_message "Failed to update summary: $RESPONSE"
+    log_hook_error "Failed to update summary: $RESPONSE"
 fi
 
 # Return empty JSON to approve without modification
