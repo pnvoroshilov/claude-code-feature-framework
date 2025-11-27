@@ -111,22 +111,20 @@ class DocumentationIndexer:
             # Get relative path from repo root
             rel_root = os.path.relpath(root, repo_path)
 
-            # Check if we're in a documentation directory
-            is_doc_dir = any(
-                d in rel_root.split(os.sep) for d in self.DOC_DIRS
-            ) or rel_root == '.'
+            # Check if we're in a TOP-LEVEL documentation directory (ONLY docs/, doc/, documentation/, wiki/)
+            # Must START with the doc directory, not just contain it anywhere in path
+            path_parts = rel_root.split(os.sep)
+            is_doc_dir = len(path_parts) > 0 and path_parts[0] in self.DOC_DIRS
 
             for file in files:
                 ext = os.path.splitext(file)[1].lower()
 
-                # Include if:
-                # 1. In a docs directory with supported extension
-                # 2. README/CONTRIBUTING/etc in any directory
-                # 3. Root level markdown files
-                is_important_file = file.upper().startswith(('README', 'CONTRIBUTING', 'CHANGELOG', 'LICENSE'))
+                # Include ONLY if in a docs directory with supported extension
+                # Root README files are also included
+                is_root_readme = rel_root == '.' and file.upper().startswith('README')
 
                 if ext in self.SUPPORTED_EXTENSIONS:
-                    if is_doc_dir or is_important_file or rel_root == '.':
+                    if is_doc_dir or is_root_readme:
                         file_path = os.path.join(root, file)
                         relative_path = os.path.relpath(file_path, repo_path)
                         files_to_index.append((file_path, relative_path))
@@ -267,16 +265,18 @@ class DocumentationIndexer:
         for root, dirs, files in os.walk(repo_path):
             dirs[:] = [d for d in dirs if d not in self.SKIP_DIRS]
             rel_root = os.path.relpath(root, repo_path)
-            is_doc_dir = any(d in rel_root.split(os.sep) for d in self.DOC_DIRS) or rel_root == '.'
+            # ONLY TOP-LEVEL docs/, doc/, documentation/, wiki/ directories
+            path_parts = rel_root.split(os.sep)
+            is_doc_dir = len(path_parts) > 0 and path_parts[0] in self.DOC_DIRS
 
             for file in files:
                 ext = os.path.splitext(file)[1].lower()
-                is_important_file = file.upper().startswith(('README', 'CONTRIBUTING', 'CHANGELOG', 'LICENSE'))
+                is_root_readme = rel_root == '.' and file.upper().startswith('README')
 
                 if ext not in self.SUPPORTED_EXTENSIONS:
                     continue
 
-                if not (is_doc_dir or is_important_file or rel_root == '.'):
+                if not (is_doc_dir or is_root_readme):
                     continue
 
                 file_path = os.path.join(root, file)
