@@ -104,6 +104,11 @@ class MongoDBDocumentationRepository(BaseRepository):
         cursor = self._collection.find(query).skip(skip).limit(limit)
         return [self._doc_to_chunk(doc) async for doc in cursor]
 
+    async def count(self, filters: Optional[Dict[str, Any]] = None) -> int:
+        """Count documentation chunks in MongoDB."""
+        query = filters or {}
+        return await self._collection.count_documents(query)
+
     # Documentation-specific methods
 
     async def save_chunk(
