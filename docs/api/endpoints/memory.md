@@ -3,7 +3,7 @@
 Complete API reference for project memory management with automatic storage backend selection (SQLite/ChromaDB or MongoDB/Vector Search).
 
 **Last Updated**: 2025-11-27
-**Version**: 1.0
+**Version**: 1.1
 
 ## Overview
 
@@ -373,7 +373,92 @@ curl -X POST "http://localhost:3333/api/projects/proj_123/memory/reindex?force=t
 
 ---
 
-### 8. Delete Messages
+### 8. Intelligent Summary Update
+
+Update project summary with structured insights including key decisions, tech stack, patterns, and gotchas.
+
+**Endpoint**: `POST /api/projects/{project_id}/memory/summary/intelligent-update`
+
+**Request Body**:
+```json
+{
+  "summary": "ClaudeTask Framework is an autonomous task orchestration system built with Python FastAPI backend and React frontend. Recent work focused on migrating memory storage to MongoDB Atlas with Voyage AI embeddings for semantic search.",
+  "key_decisions": [
+    "Migrated to MongoDB Atlas for better scalability",
+    "Adopted hook-based logging system with storage_mode support",
+    "Using Voyage AI for embeddings instead of OpenAI"
+  ],
+  "tech_stack": [
+    "Python",
+    "FastAPI",
+    "MongoDB",
+    "React",
+    "TypeScript",
+    "Voyage AI"
+  ],
+  "patterns": [
+    "Repository pattern for data access",
+    "Hook-logger centralization",
+    "MCP-based tool integration"
+  ],
+  "gotchas": [
+    "Always source hook-logger.sh in hooks",
+    "Use [skip-hook] tag to prevent infinite loops",
+    "Check storage_mode before logging"
+  ]
+}
+```
+
+**Parameters**:
+- `summary` (string, required): Comprehensive project narrative (2-5 paragraphs)
+- `key_decisions` (array, optional): List of architectural/implementation decisions
+- `tech_stack` (array, optional): List of technologies used
+- `patterns` (array, optional): List of coding/architectural patterns
+- `gotchas` (array, optional): List of warnings and pitfalls
+
+**Response** (200 OK):
+```json
+{
+  "success": true,
+  "summary": "ClaudeTask Framework is...",
+  "key_decisions": [...],
+  "tech_stack": [...],
+  "patterns": [...],
+  "gotchas": [...],
+  "last_updated": "2025-11-27T14:30:00Z",
+  "version": 16,
+  "storage_mode": "mongodb"
+}
+```
+
+**Features**:
+- Completely replaces existing summary (no merge)
+- Generates embedding for semantic search (MongoDB only)
+- Increments version number
+- Structures project knowledge for easy retrieval
+
+**Use Cases**:
+- Automatic summarization via `/summarize-project` command
+- Claude's intelligent analysis of conversation history
+- Post-session knowledge consolidation
+- Structured project documentation
+
+**Example**:
+```bash
+curl -X POST "http://localhost:3333/api/projects/proj_123/memory/summary/intelligent-update" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "summary": "Project overview...",
+    "key_decisions": ["Decision 1: Reason"],
+    "tech_stack": ["Python", "FastAPI"],
+    "patterns": ["Repository Pattern"],
+    "gotchas": ["Always check storage_mode"]
+  }'
+```
+
+---
+
+### 9. Delete Messages
 
 Delete specific messages or all messages in a session/task.
 
@@ -442,6 +527,9 @@ Saves messages automatically during sessions via `Memory Conversation Capture` h
 ### `update_project_summary`
 Updates project summary at session end via `Memory Session Summarizer` hook.
 
+### `intelligent_update_project_summary`
+Performs structured analysis and updates summary with key decisions, tech stack, patterns, and gotchas. Used by the `/summarize-project` slash command for intelligent project knowledge consolidation.
+
 ### `search_project_memories`
 Allows Claude to search historical conversations for relevant context.
 
@@ -500,6 +588,31 @@ response = requests.post(
         "new_insights": "Decided to use Redis for caching due to TTL support and pub/sub capabilities."
     }
 )
+```
+
+### Pattern 5: Intelligent Structured Summarization
+
+```python
+# Automatic intelligent summary with structured data (via /summarize-project command)
+response = requests.post(
+    "http://localhost:3333/api/projects/proj_123/memory/summary/intelligent-update",
+    json={
+        "summary": "ClaudeTask Framework is an autonomous task orchestration system...",
+        "key_decisions": [
+            "Migrated to MongoDB Atlas for scalability",
+            "Adopted Repository Pattern for storage abstraction"
+        ],
+        "tech_stack": ["Python", "FastAPI", "MongoDB", "React", "Voyage AI"],
+        "patterns": ["Repository Pattern", "Hook-based logging", "MCP tools"],
+        "gotchas": [
+            "Use [skip-hook] tag to prevent recursion",
+            "Always check storage_mode before logging"
+        ]
+    }
+)
+
+# This endpoint completely replaces the summary with structured data
+# Ideal for periodic knowledge consolidation after major work sessions
 ```
 
 ## Error Handling
@@ -568,7 +681,8 @@ See: [MongoDB Atlas Storage Documentation](../../features/mongodb-atlas-storage.
 
 ---
 
-**API Version**: 1.0
+**API Version**: 1.1
 **Storage Backends**: SQLite + ChromaDB (local) / MongoDB + Vector Search (cloud)
 **Embedding Models**: all-MiniLM-L6-v2 (384d) / voyage-3-large (1024d)
 **Default Backend**: Local (SQLite + ChromaDB)
+**Endpoints**: 9 (added intelligent summary update in v1.1)

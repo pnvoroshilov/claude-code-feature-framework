@@ -12,11 +12,11 @@ Slash commands provide quick access to workflow automation features. They trigge
 - **Analysis Commands**: Generate requirements and architecture documentation
 - **Testing Commands**: Setup and manage test environments
 - **Review Commands**: Create PRs and manage code reviews
-- **Git Commands**: Version control and commit/push operations (NEW)
+- **Git Commands**: Version control and commit/push operations
 - **Documentation Commands**: Automated documentation updates
 - **Skill Commands**: Manage Claude Code skills
 - **Hook Commands**: Configure automated workflow hooks
-- **Utility Commands**: General utilities and helpers
+- **Memory & Knowledge Commands**: Project knowledge consolidation and intelligent summarization (NEW)
 
 ---
 
@@ -567,6 +567,96 @@ Configure hook event and filters in Hooks UI.
 ```
 /edit-hook pre-commit-validation
 ```
+
+---
+
+## Memory & Knowledge Commands
+
+### `/summarize-project`
+
+**Purpose**: Intelligent project knowledge consolidation with structured insights
+**Mode**: All modes
+
+**What it does**:
+1. Loads current project summary and recent conversation messages
+2. Analyzes conversation history using Claude's intelligence
+3. Extracts structured insights:
+   - **Summary**: Comprehensive project narrative (2-5 paragraphs)
+   - **Key Decisions**: Architectural and implementation decisions made
+   - **Tech Stack**: Technologies and frameworks used
+   - **Patterns**: Coding and architectural patterns applied
+   - **Gotchas**: Important warnings, pitfalls, and workarounds
+4. Updates project summary via intelligent update API
+5. Generates embedding for semantic search (MongoDB only)
+
+**Prerequisites**:
+- None (can be run anytime)
+
+**Example Usage**:
+```
+/summarize-project
+```
+
+**Expected Output**:
+```
+🧠 Analyzing Project Knowledge...
+
+Current Summary: ClaudeTask Framework v2.14.0...
+Recent Messages: 30 messages analyzed
+Time Period: Last 7 days
+
+✅ Intelligent Summary Generated
+
+📋 Summary: ClaudeTask Framework is an autonomous task orchestration
+system built with Python FastAPI backend and React frontend. Recent
+work focused on migrating memory storage to MongoDB Atlas with Voyage
+AI embeddings for semantic search...
+
+🎯 Key Decisions (3):
+- Migrated to MongoDB Atlas for better scalability
+- Adopted hook-based logging system with storage_mode support
+- Using Voyage AI for embeddings instead of OpenAI
+
+🛠️ Tech Stack (6):
+Python, FastAPI, MongoDB, React, TypeScript, Voyage AI
+
+📐 Patterns (3):
+- Repository pattern for data access
+- Hook-logger centralization
+- MCP-based tool integration
+
+⚠️ Gotchas (2):
+- Always source hook-logger.sh in hooks
+- Use [skip-hook] tag to prevent infinite loops
+
+Summary Updated: Version 16 (2025-11-27 14:30:00)
+Storage Mode: mongodb
+```
+
+**When to Use**:
+- After major development sessions
+- When completing significant features
+- After architectural decisions
+- At the end of milestones
+- To consolidate scattered knowledge
+
+**Benefits**:
+- **Structured Knowledge**: Organizes insights into searchable categories
+- **Context Preservation**: Critical information never lost
+- **Onboarding**: New team members get instant project understanding
+- **Decision History**: Why decisions were made is documented
+- **Searchable**: Embedded summaries enable semantic search (MongoDB)
+
+**Automatic Trigger**:
+This command is automatically triggered by the `memory-session-summarize` hook when:
+- Claude session ends (Stop event)
+- 30+ messages accumulated since last summary
+- Important decisions detected in conversation
+
+**Related Documentation**:
+- [Memory System](../features/memory-system.md)
+- [Memory API](../api/endpoints/memory.md#8-intelligent-summary-update)
+- [Intelligent Summarization Command](../../framework-assets/claude-commands/summarize-project.md)
 
 ---
 
