@@ -148,12 +148,12 @@ const MCPConfigs: React.FC = () => {
     }
   };
 
-  const handleDisableConfig = async (configId: number) => {
+  const handleDisableConfig = async (configId: number, configType: 'default' | 'custom') => {
     if (!selectedProject?.id) return;
 
     try {
       await axios.post(
-        `${API_BASE_URL}/api/projects/${selectedProject.id}/mcp-configs/disable/${configId}`
+        `${API_BASE_URL}/api/projects/${selectedProject.id}/mcp-configs/disable/${configId}?mcp_config_type=${configType}`
       );
       await fetchMCPConfigs(); // Refresh configs list
     } catch (err: any) {
@@ -626,7 +626,7 @@ const MCPConfigs: React.FC = () => {
                   if (e.target.checked) {
                     handleEnableConfig(config.id, config.mcp_config_type);
                   } else {
-                    handleDisableConfig(config.id);
+                    handleDisableConfig(config.id, config.mcp_config_type);
                   }
                 }}
                 disabled={config.status === 'creating'}
