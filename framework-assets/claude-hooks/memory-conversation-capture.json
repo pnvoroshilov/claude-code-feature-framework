@@ -1,6 +1,6 @@
 {
   "name": "Memory Conversation Capture",
-  "description": "Automatically captures user and assistant messages to project memory via bash hook",
+  "description": "Automatically captures user/assistant messages and triggers intelligent summarization when 30+ messages accumulate",
   "category": "memory",
   "hook_config": {
     "UserPromptSubmit": [
@@ -33,6 +33,6 @@
       "executable": true
     }
   ],
-  "setup_instructions": "This hook captures conversation messages via bash script that calls the backend API. Requires ClaudeTask backend running and project_id configured in .mcp.json.",
+  "setup_instructions": "This hook captures conversation messages and triggers intelligent summarization (via /summarize-project) when 30+ messages accumulate. Counter is reset BEFORE summarization to prevent recursion. Requires ClaudeTask backend running and project_id in .mcp.json.",
   "dependencies": ["claudetask-backend"]
 }

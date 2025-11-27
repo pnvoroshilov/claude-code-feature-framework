@@ -1,13 +1,34 @@
 #!/bin/bash
 
-# Memory Conversation Capture Hook
+# Memory Conversation Capture Hook (with Summarization)
 # Saves user messages and assistant responses to project memory via backend API
+# Also triggers intelligent summarization when 30+ messages accumulated
 #
 # Hook events: UserPromptSubmit, Stop
 #
 # Input (via stdin): JSON with hook-specific data
 # - UserPromptSubmit: { "userPrompt": "...", "sessionId": "..." }
 # - Stop: { "transcript": [...], "sessionId": "..." }
+
+# Read input from stdin FIRST (before sourcing logger which might read stdin)
+INPUT=$(cat)
+
+# Get project root from input JSON cwd field, or fall back to pwd
+PROJECT_ROOT=$(echo "$INPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('cwd', ''))" 2>/dev/null)
+if [ -z "$PROJECT_ROOT" ]; then
+    PROJECT_ROOT="$(pwd)"
+fi
+
+# Walk up to find .mcp.json (project root)
+ORIGINAL_ROOT="$PROJECT_ROOT"
+while [ ! -f "$PROJECT_ROOT/.mcp.json" ] && [ "$PROJECT_ROOT" != "/" ]; do
+    PROJECT_ROOT="$(dirname "$PROJECT_ROOT")"
+done
+
+# If no .mcp.json found, use original
+if [ ! -f "$PROJECT_ROOT/.mcp.json" ]; then
+    PROJECT_ROOT="$ORIGINAL_ROOT"
+fi
 
 # Source hook logger for proper logging based on storage_mode
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,37 +43,13 @@ else
     log_hook_skip() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] memory-capture | SKIPPED | $1" >&2; }
 fi
 
-PROJECT_ROOT="$(pwd)"
-
-# Read input from stdin
-INPUT=$(cat)
-
-# Debug: log raw input (truncated)
-log_hook "Raw input: ${INPUT:0:300}"
-
 # Get backend URL (default to localhost)
 BACKEND_URL="${CLAUDETASK_BACKEND_URL:-http://localhost:3333}"
 
 # Get project ID from .mcp.json
-get_project_id() {
-    local mcp_json=""
-    local current_dir="$PROJECT_ROOT"
-
-    # Walk up to find .mcp.json
-    while [ "$current_dir" != "/" ]; do
-        if [ -f "$current_dir/.mcp.json" ]; then
-            mcp_json="$current_dir/.mcp.json"
-            break
-        fi
-        current_dir="$(dirname "$current_dir")"
-    done
-
-    if [ -n "$mcp_json" ]; then
-        python3 -c "import json; data=json.load(open('$mcp_json')); print(data.get('mcpServers', {}).get('claudetask', {}).get('env', {}).get('CLAUDETASK_PROJECT_ID', ''))" 2>/dev/null
-    fi
-}
-
-PROJECT_ID=$(get_project_id)
+if [ -f "$PROJECT_ROOT/.mcp.json" ]; then
+    PROJECT_ID=$(python3 -c "import json; data=json.load(open('$PROJECT_ROOT/.mcp.json')); print(data.get('mcpServers', {}).get('claudetask', {}).get('env', {}).get('CLAUDETASK_PROJECT_ID', ''))" 2>/dev/null)
+fi
 
 # Fallback: try to get from environment
 if [ -z "$PROJECT_ID" ]; then
@@ -79,6 +76,9 @@ else:
     print('unknown')
 " 2>/dev/null)
 
+# ============================================================
+# SAVE MESSAGE FUNCTION
+# ============================================================
 save_message() {
     local msg_type="$1"
     local content="$2"
@@ -109,6 +109,78 @@ save_message() {
     fi
 }
 
+# ============================================================
+# SUMMARIZATION FUNCTION (triggered on Stop if threshold reached)
+# ============================================================
+check_and_trigger_summarization() {
+    # Check if summarization is needed (threshold = 30 messages)
+    SHOULD_SUMMARIZE=$(curl -s "$BACKEND_URL/api/projects/$PROJECT_ID/memory/should-summarize?threshold=30" 2>/dev/null)
+
+    if [ -z "$SHOULD_SUMMARIZE" ]; then
+        log_hook_skip "Summarization check failed - backend not available"
+        return
+    fi
+
+    NEED_SUMMARY=$(echo "$SHOULD_SUMMARIZE" | python3 -c "import json,sys; d=json.load(sys.stdin); print('true' if d.get('should_summarize') else 'false')" 2>/dev/null)
+    MESSAGES_SINCE=$(echo "$SHOULD_SUMMARIZE" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('messages_since_last_summary', 0))" 2>/dev/null)
+
+    if [ "$NEED_SUMMARY" != "true" ]; then
+        log_hook_skip "Summarization not needed ($MESSAGES_SINCE messages, threshold: 30)"
+        return
+    fi
+
+    log_hook "Triggering summarization - $MESSAGES_SINCE messages since last summary"
+
+    # UPDATE last_summarized_message_id BEFORE calling execute-command
+    # This resets the counter to prevent infinite recursion even if summarization fails
+    LATEST_MSG=$(curl -s "$BACKEND_URL/api/projects/$PROJECT_ID/memory/messages?limit=1" 2>/dev/null)
+    LATEST_MSG_ID=$(echo "$LATEST_MSG" | python3 -c "import json,sys; d=json.load(sys.stdin); msgs=d.get('messages',[]); print(msgs[0].get('id','') if msgs else '')" 2>/dev/null)
+
+    if [ -n "$LATEST_MSG_ID" ] && [ "$LATEST_MSG_ID" != "" ]; then
+        # Update last_summarized_message_id to reset counter
+        curl -s -X POST "$BACKEND_URL/api/projects/$PROJECT_ID/memory/summary/update" \
+            -H "Content-Type: application/json" \
+            -d "{\"trigger\": \"hook_reset\", \"new_insights\": \"Counter reset by hook\", \"last_summarized_message_id\": \"$LATEST_MSG_ID\"}" \
+            --connect-timeout 3 \
+            --max-time 5 \
+            2>/dev/null > /dev/null
+        log_hook "Reset message counter to ID: $LATEST_MSG_ID"
+    fi
+
+    # URL encode project directory (handle spaces and special characters)
+    PROJECT_DIR_ENCODED=$(printf '%s' "$PROJECT_ROOT" | jq -sRr @uri)
+
+    # Call execute-command API to trigger /summarize-project
+    API_URL="$BACKEND_URL/api/claude-sessions/execute-command?command=/summarize-project&project_dir=${PROJECT_DIR_ENCODED}"
+
+    log_hook "Calling /summarize-project via Claude Code"
+
+    # Make async API call (don't wait for response - summarization can take time)
+    API_RESPONSE=$(curl -s --max-time 5 -X POST "$API_URL" \
+        -H "Content-Type: application/json" \
+        2>&1)
+
+    API_STATUS=$?
+
+    if [ $API_STATUS -eq 0 ]; then
+        SUCCESS=$(echo "$API_RESPONSE" | python3 -c "import json,sys; d=json.load(sys.stdin); print('true' if d.get('success') else 'false')" 2>/dev/null)
+        SESSION_ID=$(echo "$API_RESPONSE" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('session_id', 'unknown'))" 2>/dev/null)
+
+        if [ "$SUCCESS" = "true" ]; then
+            log_hook_success "Summarization triggered (session: $SESSION_ID)"
+        else
+            log_hook_error "Failed to trigger summarization: $API_RESPONSE"
+        fi
+    elif [ $API_STATUS -eq 28 ]; then
+        log_hook_success "Summarization started (running in background)"
+    else
+        log_hook_error "Summarization API failed with status: $API_STATUS"
+    fi
+}
+
+# ============================================================
+# MAIN LOGIC
+# ============================================================
 case "$HOOK_TYPE" in
     "user")
         # UserPromptSubmit - save user message
@@ -124,7 +196,7 @@ case "$HOOK_TYPE" in
         ;;
 
     "stop")
-        # Stop event - save assistant's last response
+        # Stop event - save assistant's last response + check summarization
         TRANSCRIPT_PATH=$(echo "$INPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('transcript_path', ''))" 2>/dev/null)
         SESSION_ID=$(echo "$INPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('session_id', d.get('sessionId', '')))" 2>/dev/null)
 
@@ -174,6 +246,9 @@ except Exception as e:
         else
             log_hook_skip "Stop hook - no assistant message found in transcript"
         fi
+
+        # After saving message, check if summarization is needed
+        check_and_trigger_summarization
         ;;
 
     *)

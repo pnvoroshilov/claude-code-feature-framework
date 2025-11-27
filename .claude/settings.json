@@ -29,15 +29,6 @@
             "command": "\"/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/.claude/hooks/memory-capture.sh\""
           }
         ]
-      },
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/.claude/hooks/memory-session-summarize.sh\""
-          }
-        ]
       }
     ],
     "UserPromptSubmit": [
@@ -47,15 +38,6 @@
           {
             "type": "command",
             "command": "\"/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/.claude/hooks/memory-capture.sh\""
-          }
-        ]
-      },
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/.claude/hooks/inject-rag-indexing.sh\""
           }
         ]
       }
