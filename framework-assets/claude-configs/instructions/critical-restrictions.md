@@ -34,3 +34,27 @@ User must type EXACT phrases like:
 - ✅ **WAIT** for user's explicit instruction to proceed
 
 **VIOLATIONS OF THESE RULES WILL RESULT IN DATA LOSS**
+
+## 🔴 MANDATORY RAG-FIRST SEARCH POLICY
+**⛔ NEVER search codebase or documentation WITHOUT using RAG first:**
+- ❌ **NEVER** use Grep to find code without RAG search first
+- ❌ **NEVER** use Glob to find files without RAG search first
+- ❌ **NEVER** use Read to explore code without checking RAG first
+- ❌ **NEVER** skip RAG when answering user questions about code
+
+**✅ ALWAYS follow this order:**
+1. **FIRST**: `mcp__claudetask__search_codebase(query)` or `search_documentation(query)`
+2. **THEN**: Read specific files from RAG results
+3. **ONLY IF NEEDED**: Use Grep/Glob for exact patterns RAG missed
+
+**Exceptions (RAG not required):**
+- Reading a specific file user mentioned by name
+- Git operations (status, diff, log)
+- Running commands (build, test, lint)
+- Files already found via RAG in current session
+
+**WHY RAG FIRST?**
+- ✅ Semantic search finds related code, not just keywords
+- ✅ Discovers cross-file patterns automatically
+- ✅ Uses indexed knowledge from entire codebase
+- ✅ More efficient than multiple grep/glob calls

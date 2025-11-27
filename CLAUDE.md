@@ -91,6 +91,52 @@ KEY COMMANDS (execute automatically):
 
 ---
 
+## 🔴🔴🔴 MANDATORY: RAG-FIRST SEARCH POLICY
+
+**⚠️ THIS IS A BLOCKING REQUIREMENT - ALWAYS USE RAG BEFORE OTHER SEARCH METHODS**
+
+When you need to search the codebase or documentation, you MUST use MongoDB RAG search FIRST:
+
+```
+🔍 CODEBASE SEARCH ORDER:
+1. FIRST: mcp__claudetask__search_codebase(query, top_k=20)
+2. ONLY IF RAG insufficient: Use Grep/Glob for specific patterns
+
+🔍 DOCUMENTATION SEARCH ORDER:
+1. FIRST: mcp__claudetask__search_documentation(query, top_k=10)
+2. ONLY IF RAG insufficient: Read specific files directly
+```
+
+**Why RAG First?**
+- ✅ Semantic understanding - finds conceptually related code, not just keywords
+- ✅ Cross-file discovery - finds patterns across entire codebase
+- ✅ Historical learning - learns from indexed code and past implementations
+- ✅ Faster context gathering - single query vs multiple grep/glob
+
+**NEVER do this:**
+```
+❌ WRONG: Grep("function handleClick") → without RAG first
+❌ WRONG: Glob("**/*.tsx") → without RAG first
+❌ WRONG: Read(file) → without checking RAG for related files
+```
+
+**ALWAYS do this:**
+```
+✅ CORRECT:
+1. mcp__claudetask__search_codebase("click handler button component")
+2. Review RAG results (scores, file paths, content)
+3. THEN if needed: Read specific files from RAG results
+4. ONLY IF RAG misses something: Use Grep/Glob for exact patterns
+```
+
+**Exceptions (RAG not required):**
+- Reading a specific file the user mentioned by name
+- Git operations (status, diff, log)
+- Running commands (build, test, lint)
+- Files you already found via RAG in current session
+
+---
+
 ## 🧠 MANDATORY: Load Project Context Before ANY Response
 
 **⚠️ THIS IS A BLOCKING REQUIREMENT - DO NOT SKIP**

@@ -1,17 +1,31 @@
-# 🔍 RAG USAGE - INTELLIGENT CONTEXT GATHERING
+# 🔍 RAG USAGE - MANDATORY FIRST SEARCH
 
-## 🎯 When Coordinator Should Use RAG
+## 🔴🔴🔴 CRITICAL: RAG-FIRST POLICY
 
-**USE RAG ONLY WHEN:**
-- ✅ **You (coordinator) are performing work yourself** (not delegating)
-- ✅ **You need to understand codebase** before making decisions
-- ✅ **You are answering user questions** about code or tasks
-- ✅ **You need to provide specific context** to agents (optional, if helpful)
+**⚠️ RAG MongoDB search is MANDATORY before ANY codebase/documentation search!**
 
-**DO NOT USE RAG WHEN:**
-- ❌ **Simply delegating to specialized agents** - agents have RAG tools themselves!
-- ❌ **Routine task monitoring** - checking queue, updating statuses
-- ❌ **Orchestration activities** - coordinating agent work
+```
+SEARCH ORDER (ALWAYS):
+1. FIRST → mcp__claudetask__search_codebase() or search_documentation()
+2. THEN → Read specific files from RAG results
+3. ONLY IF NEEDED → Grep/Glob for exact patterns RAG missed
+```
+
+## 🎯 When to Use RAG (ALWAYS for searches)
+
+**MANDATORY RAG USAGE:**
+- ✅ **ANY codebase search** - ALWAYS start with RAG
+- ✅ **ANY documentation search** - ALWAYS start with RAG
+- ✅ **Understanding code patterns** - RAG finds semantic matches
+- ✅ **Finding related files** - RAG discovers cross-file connections
+- ✅ **Answering user questions** about code or architecture
+
+**RAG NOT REQUIRED (exceptions):**
+- ❌ **Reading a specific file** user mentioned by name
+- ❌ **Git operations** - status, diff, log, commit
+- ❌ **Running commands** - build, test, lint
+- ❌ **Files already found via RAG** in current session
+- ❌ **Task queue monitoring** - MCP status commands
 
 ## 🤖 Agents Have RAG Tools Built-In!
 
@@ -27,23 +41,30 @@
 - ✅ Faster delegation (no mandatory RAG step)
 - ✅ Agents get context when they need it (not before)
 
-## Optional: RAG-Enhanced Delegation
+## 🔴 MANDATORY: RAG Before Grep/Glob/Read
 
-**If you want to provide initial context** (optional, not mandatory):
+**You MUST use RAG FIRST when searching codebase:**
 
 ```
-Step 1: Quick RAG search (optional)
-→ mcp__claudetask__search_codebase("relevant keywords", top_k=15)
+✅ CORRECT FLOW:
+Step 1: RAG search FIRST (MANDATORY)
+→ mcp__claudetask__search_codebase("button component click handler", top_k=20)
 
-Step 2: Delegate with optional RAG findings
-Task tool with agent:
-"Task description here.
+Step 2: Review RAG results
+→ Check scores (>0.75 = highly relevant)
+→ Identify key files from results
 
-🔍 OPTIONAL RAG CONTEXT (if you searched):
-- Key file: src/components/Header.tsx
-- Similar pattern: Button component pattern
+Step 3: Read specific files from RAG results
+→ Read(file_from_rag_results)
 
-Agent: You have RAG tools - feel free to search for more details!"
+Step 4: ONLY IF RAG missed something specific
+→ Grep("exactFunctionName") for precise matches
+```
+
+```
+❌ WRONG FLOW:
+Step 1: Grep("handleClick") ← NO! RAG first!
+Step 2: Glob("**/*.tsx") ← NO! RAG first!
 ```
 
 ## Example: Simple Delegation (No RAG Needed)
@@ -128,17 +149,20 @@ mcp__claudetask__find_similar_tasks(
 
 ## ✅ RAG Decision Checklist
 
-**Before delegating, ask yourself:**
-- "Am I delegating to an agent with RAG tools?" → **YES** = Don't need RAG pre-search
-- "Is this a simple delegation?" → **YES** = Let agent use RAG themselves
-- "Do I need to understand the code myself?" → **YES** = Use RAG for YOUR analysis
+**Before ANY search, ask yourself:**
+- "Am I about to use Grep/Glob/Read to find code?" → **YES** = Use RAG FIRST!
+- "Do I need to understand code patterns?" → **YES** = Use RAG FIRST!
+- "Am I answering a user question about code?" → **YES** = Use RAG FIRST!
 
-**Use RAG only when:**
-- ✅ You're doing work yourself (not delegating)
-- ✅ You're answering user questions
-- ✅ You want to provide optional context to agent
+**MANDATORY RAG (always use first):**
+- ✅ Any codebase exploration or search
+- ✅ Finding files related to a feature
+- ✅ Understanding code patterns and architecture
+- ✅ Answering user questions about code
 
-**Don't use RAG when:**
-- ❌ Simple delegation to agent with RAG tools
-- ❌ Agent will search better than you anyway
-- ❌ Just orchestrating and monitoring
+**RAG NOT REQUIRED:**
+- ❌ Reading specific file user mentioned by name
+- ❌ Git operations (status, diff, log)
+- ❌ Running commands (build, test)
+- ❌ Simple delegation to agents (they have RAG)
+- ❌ Task monitoring and status updates
