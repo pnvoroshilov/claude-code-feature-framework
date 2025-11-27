@@ -341,11 +341,17 @@ Collections (created automatically):
 - **conversation_memory**: Messages with 1024d voyage-3-large embeddings
 - **project_settings**: Project configuration including storage mode
 - **codebase_chunks**: Semantic code chunks with embeddings (NEW v2.11)
+- **documentation_chunks**: Documentation chunks with embeddings (NEW v2.13)
+- **skills**: Skills configurations (default and custom) (NEW v2.13)
+- **hooks**: Hook configurations (default and custom) (NEW v2.13)
+- **mcp_configs**: MCP server configurations (NEW v2.13)
+- **subagents**: Subagent/agent configurations (NEW v2.13)
 
 **Indexes**:
 - Standard indexes on project_id, status, timestamps
 - **Vector Search Index** on conversation_memory.embedding (1024 dimensions, cosine similarity)
 - **Vector Search Index** on codebase_chunks.embedding (1024 dimensions, cosine similarity)
+- **Vector Search Index** on documentation_chunks.embedding (1024 dimensions, cosine similarity)
 
 ### Storage Mode Selection
 
@@ -1035,6 +1041,243 @@ New API endpoints enable seamless data migration between local (SQLite) and clou
 4. **Testing**: Migrate to test cloud configuration
 
 **See**: [Cloud Storage API Documentation](../api/endpoints/cloud-storage.md) for complete endpoint reference
+
+---
+
+## MongoDB Migration for Configuration Entities (2025-11-27)
+
+Skills, Hooks, MCP Configs, and Subagents have been migrated to use the Repository Pattern, enabling dual storage backend support.
+
+### What Changed
+
+**Before**: Configuration entities stored only in SQLite:
+- Skills, hooks, MCP configs, and subagents in SQLite tables
+- No cloud storage option for these entities
+- Separate from project data storage mode
+
+**After**: Repository Pattern with dual storage:
+- Same unified approach as projects, tasks, and memory
+- MongoDB collections: `skills`, `hooks`, `mcp_configs`, `subagents`
+- Automatic backend selection based on project's `storage_mode`
+- Seamless migration between SQLite and MongoDB
+
+### New MongoDB Collections
+
+**skills**:
+```json
+{
+  "_id": "ObjectId(...)",
+  "name": "api-development",
+  "description": "Comprehensive API design and implementation",
+  "category": "backend",
+  "is_default": true,
+  "content": "...",
+  "created_at": "2025-11-27T...",
+  "updated_at": "2025-11-27T..."
+}
+```
+
+**hooks**:
+```json
+{
+  "_id": "ObjectId(...)",
+  "name": "post-push-docs-rag",
+  "description": "Automatically re-index documentation after push",
+  "event": "post-push",
+  "command": "...",
+  "script_path": "framework-assets/claude-hooks/post-push-docs-rag.sh",
+  "enabled": true,
+  "is_default": true,
+  "required_storage_mode": "mongodb",
+  "conditions": {"branches": ["main", "master"]}
+}
+```
+
+**mcp_configs**:
+```json
+{
+  "_id": "ObjectId(...)",
+  "name": "claudetask",
+  "description": "ClaudeTask MCP server for project management",
+  "command": "node",
+  "args": ["/path/to/mcp_server.js"],
+  "is_default": true,
+  "config": {...}
+}
+```
+
+**subagents**:
+```json
+{
+  "_id": "ObjectId(...)",
+  "name": "requirements-analyst",
+  "description": "Business requirements and use case expert",
+  "category": "analysis",
+  "is_default": true,
+  "config_json": "..."
+}
+```
+
+### Repository Implementations
+
+Each entity now has dual repository implementations:
+
+**SQLite Repositories**:
+- `SQLiteSkillRepository`
+- `SQLiteHookRepository`
+- `SQLiteMCPConfigRepository`
+- `SQLiteSubagentRepository`
+
+**MongoDB Repositories**:
+- `MongoDBSkillRepository`
+- `MongoDBHookRepository`
+- `MongoDBMCPConfigRepository`
+- `MongoDBSubagentRepository`
+
+### Migration Scripts
+
+Four migration scripts for moving data from SQLite to MongoDB:
+```bash
+# Migrate skills
+python -m claudetask.backend.migrations.migrate_skills_to_mongodb
+
+# Migrate hooks
+python -m claudetask.backend.migrations.migrate_hooks_to_mongodb
+
+# Migrate MCP configs
+python -m claudetask.backend.migrations.migrate_mcp_configs_to_mongodb
+
+# Migrate subagents
+python -m claudetask.backend.migrations.migrate_subagents_to_mongodb
+```
+
+Each migration:
+1. Validates MongoDB connectivity
+2. Creates necessary collections and indexes
+3. Copies all default and custom configurations
+4. Preserves relationships (project_skills, project_hooks, etc.)
+5. Maintains backward compatibility (SQLite data unchanged)
+
+### Benefits
+
+1. **Unified Storage Pattern**: All entities follow same repository pattern
+2. **Cloud Sync**: Configuration entities can be stored in cloud
+3. **Better Scalability**: MongoDB scales better for multi-project setups
+4. **Consistent API**: Same API regardless of storage backend
+5. **Easy Migration**: CLI tools for data migration
+
+### API Impact
+
+**No breaking changes** - all endpoints work identically:
+- `GET /api/projects/{id}/skills` - Automatically uses correct backend
+- `POST /api/projects/{id}/hooks/enable/{hook_id}` - Works with SQLite or MongoDB
+- `GET /api/projects/{id}/mcp-configs` - Backend-agnostic
+- `GET /api/projects/{id}/subagents` - Transparent storage selection
+
+---
+
+## Documentation RAG System (2025-11-27)
+
+The framework now includes semantic documentation search using MongoDB Atlas Vector Search with voyage-3-large embeddings.
+
+### Overview
+
+Documentation RAG enables intelligent documentation discovery through natural language queries across all project documentation (markdown files, READMEs, guides, etc.).
+
+### Key Features
+
+- **Smart Markdown Chunking**: Section-based chunking preserving heading hierarchy
+- **Semantic Search**: Natural language queries like "how to configure authentication"
+- **Automatic Indexing**: Post-push git hook re-indexes changed documentation
+- **voyage-3-large Embeddings**: Superior understanding with 1024-dimensional vectors
+- **Fast Search**: Sub-200ms query times with MongoDB Vector Search
+
+### Architecture
+
+```
+Documentation Files (docs/, README.md)
+           ↓
+    DocumentationIndexer (smart chunking)
+           ↓
+    Voyage AI Embeddings (1024d)
+           ↓
+    MongoDB documentation_chunks collection
+           ↓
+    Vector Search via $vectorSearch
+           ↓
+    Relevant Documentation Results
+```
+
+### Collection Structure
+
+**documentation_chunks** collection:
+```json
+{
+  "_id": "ObjectId(...)",
+  "project_id": "proj_123",
+  "file_path": "docs/api/authentication.md",
+  "content": "## JWT Authentication\n\nTo configure...",
+  "embedding": [0.012, -0.045, ...],  // 1024 dimensions
+  "start_line": 42,
+  "end_line": 68,
+  "doc_type": "markdown",
+  "title": "JWT Authentication",
+  "headings": ["API Documentation", "Authentication", "JWT"],
+  "summary": "Configuration guide for JWT tokens...",
+  "file_hash": "sha256:abc123...",
+  "indexed_at": "2025-11-27T14:30:00Z"
+}
+```
+
+### API Endpoints
+
+New `/api/documentation-rag/{project_id}` endpoints:
+- `POST /index` - Index all documentation files
+- `POST /index-files` - Index specific files
+- `POST /search` - Semantic documentation search
+- `GET /stats` - Documentation indexing statistics
+- `POST /reindex` - Full documentation reindexing
+- `DELETE /chunks` - Delete specific documentation chunks
+
+### Automatic Indexing Hook
+
+**post-push-docs-rag** hook (enabled by default for MongoDB projects):
+- Triggers on push to main/master branches
+- Detects changed markdown files in `docs/` directory
+- Incrementally re-indexes only changed files
+- Logs to `.claude/logs/hooks/post-push-docs-rag.log`
+
+### MCP Tools Integration
+
+**search_project_documentation**:
+```python
+await mcp.call_tool("search_project_documentation", {
+    "query": "database migration best practices",
+    "limit": 10,
+    "min_similarity": 0.6
+})
+```
+
+**index_documentation**:
+```python
+await mcp.call_tool("index_documentation", {
+    "full_reindex": false
+})
+```
+
+### Performance
+
+- **Indexing**: ~5-30 seconds for 50-200 docs (full), ~100-500ms per file (incremental)
+- **Search**: ~20-50ms (sub-200ms guaranteed)
+- **Storage**: ~5KB per chunk (1KB content + 4KB embedding)
+
+### Requirements
+
+- **Storage Mode**: MongoDB (cloud storage)
+- **Dependencies**: MongoDB Atlas with Vector Search, Voyage AI API key
+- **Configuration**: `MONGODB_URI` and `VOYAGE_AI_API_KEY` in `.env`
+
+**See**: [Documentation RAG API](../api/endpoints/documentation-rag.md) for complete API reference
 
 ---
 

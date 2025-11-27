@@ -271,7 +271,7 @@ class SkillCreate(SkillBase):
 
 
 class SkillInDB(SkillBase):
-    id: int
+    id: str  # MongoDB ObjectId as string
     skill_type: str  # "default" or "custom"
     category: str  # e.g., "Analysis", "Development", "Testing"
     file_path: Optional[str] = None
@@ -296,7 +296,7 @@ class SkillsResponse(BaseModel):
 
 class AgentSkillRecommendation(BaseModel):
     agent_name: str
-    skill_id: int
+    skill_id: str  # MongoDB ObjectId as string
     priority: int  # 1-5 (1 = highest priority)
     reason: Optional[str] = None
 
@@ -316,7 +316,7 @@ class HookCreate(HookBase):
 
 
 class HookInDB(HookBase):
-    id: int
+    id: str  # MongoDB ObjectId as string
     hook_type: str  # "default" or "custom"
     hook_config: Dict[str, Any]  # Hook configuration JSON
     setup_instructions: Optional[str] = None
@@ -353,7 +353,7 @@ class MCPConfigCreate(MCPConfigBase):
 
 
 class MCPConfigInDB(MCPConfigBase):
-    id: int
+    id: str  # MongoDB ObjectId as string
     mcp_config_type: str  # "default" or "custom"
     config: Dict[str, Any]  # MCP server configuration JSON
     is_enabled: bool = False
@@ -391,7 +391,7 @@ class SubagentCreate(SubagentBase):
 
 class SubagentSkillAssignment(BaseModel):
     """Schema for a skill assigned to a subagent"""
-    skill_id: int
+    skill_id: str  # MongoDB ObjectId as string
     skill_type: str  # "default" or "custom"
     skill_name: str
     skill_description: str
@@ -404,7 +404,7 @@ class SubagentSkillAssignment(BaseModel):
 
 
 class SubagentInDB(SubagentBase):
-    id: int
+    id: str  # MongoDB ObjectId as string
     subagent_type: str  # The actual subagent_type used in Task tool
     subagent_kind: str  # "default" or "custom" - renamed from subagent_type to avoid confusion
     tools_available: Optional[List[str]] = None
@@ -423,7 +423,7 @@ class SubagentInDB(SubagentBase):
 
 class SubagentSkillAssign(BaseModel):
     """Schema for assigning skills to a subagent"""
-    skill_ids: List[int]
+    skill_ids: List[str]  # MongoDB ObjectIds as strings
     skill_types: List[str]  # Parallel array: "default" or "custom" for each skill_id
 
 

@@ -20,8 +20,9 @@ API documentation including OpenAPI specifications and endpoint details.
 - `endpoints/mcp-configs.md` - MCP server configuration management API
 - `endpoints/rag-indexing.md` - RAG codebase indexing API (ChromaDB - local storage)
 - `endpoints/codebase-rag.md` - Codebase RAG API with MongoDB Atlas Vector Search (v1.0)
+- `endpoints/documentation-rag.md` - Documentation RAG API for semantic documentation search (NEW v1.0)
 - `endpoints/cloud-storage.md` - Cloud storage configuration API for MongoDB Atlas and Voyage AI
-- `endpoints/memory.md` - Memory API with automatic storage backend selection (SQLite/MongoDB) (NEW v1.0)
+- `endpoints/memory.md` - Memory API with automatic storage backend selection (SQLite/MongoDB) (v1.0)
 
 ### `/components/`
 React component documentation with props, usage examples, and patterns.
@@ -202,6 +203,7 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 - [Memory API](./api/endpoints/memory.md) - Conversation memory with dual storage (SQLite/MongoDB)
 - [RAG Indexing API](./api/endpoints/rag-indexing.md) - Codebase indexing (ChromaDB)
 - [Codebase RAG API](./api/endpoints/codebase-rag.md) - Semantic code search (MongoDB Atlas)
+- [Documentation RAG API](./api/endpoints/documentation-rag.md) - Semantic documentation search (NEW v1.0)
 - [Cloud Storage API](./api/endpoints/cloud-storage.md) - MongoDB and Voyage AI configuration
 
 ### UI Components
@@ -212,13 +214,33 @@ curl -X POST "http://localhost:3333/api/claude-sessions/execute-command?command=
 
 ---
 
-**Documentation Version**: 2.13.0
+**Documentation Version**: 2.14.0
 **Last Updated**: 2025-11-27
-**Total Documents**: 51
+**Total Documents**: 52
 **Auto-Updated**: Yes (via post-merge hook)
 **Status**: Current
 
-**Latest Changes (v2.13.0)**:
+**Latest Changes (v2.14.0)**:
+- **NEW: Documentation RAG API**: Complete semantic documentation search with MongoDB Atlas (v1.0)
+  - Smart markdown chunking by sections and headings
+  - Natural language documentation search
+  - Automatic indexing via post-push git hook
+  - voyage-3-large embeddings (1024d) for superior understanding
+  - Sub-200ms search performance
+  - 6 API endpoints: index, index-files, search, stats, reindex, delete
+  - Incremental updates based on file hashes
+  - MCP tools integration for Claude Code
+  - Comprehensive usage examples and patterns
+- **UPDATED: Architecture Overview**: MongoDB migration for configuration entities
+  - Skills, Hooks, MCP Configs, and Subagents migrated to Repository Pattern
+  - Dual storage backend support (SQLite and MongoDB)
+  - New MongoDB collections: skills, hooks, mcp_configs, subagents
+  - Migration scripts for data migration
+  - Documentation RAG system architecture documented
+  - Vector Search index for documentation_chunks collection
+  - Automatic indexing hook workflow explained
+
+**Previous Changes (v2.13.0)**:
 - **UPDATED: CloudStorageSettings Component Documentation**: Enhanced with storage mode migration (v2.0)
   - Complete storage mode switcher documentation
   - Migration preview and execution workflows
