@@ -78,8 +78,8 @@ PROJECT_DIR_ENCODED=$(printf '%s' "$PROJECT_ROOT" | jq -sRr @uri)
 
 log_hook "Calling API: $API_URL"
 
-# Make API call
-API_RESPONSE=$(curl -s --max-time 10 -X POST "$API_URL?command=${COMMAND}&project_dir=${PROJECT_DIR_ENCODED}" \
+# Make API call (30s timeout needed - backend waits 15s for Claude MCP initialization)
+API_RESPONSE=$(curl -s --max-time 30 -X POST "$API_URL?command=${COMMAND}&project_dir=${PROJECT_DIR_ENCODED}" \
     -H "Content-Type: application/json" 2>&1)
 
 API_STATUS=$?
