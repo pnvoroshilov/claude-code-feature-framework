@@ -8,9 +8,32 @@ description: Complete a task by merging PR, cleaning worktree, and stopping sess
 
 Complete Task {{TASK_ID}} by merging its branch to main and cleaning up.
 
+## MANDATORY: RAG-First Search Policy
+
+**Before ANY merge operations, ALWAYS use RAG search to understand context:**
+
+```bash
+# 1. Search for git workflow documentation
+mcp__claudetask__search_documentation --query="git workflow merge strategy" --top_k=10
+
+# 2. Search for any merge-related patterns
+mcp__claudetask__search_codebase --query="git merge conflict resolution" --top_k=10
+
+# 3. Search for CI/CD or post-merge hooks
+mcp__claudetask__search_codebase --query="post-merge hook CI deployment" --top_k=10
+```
+
+**Why RAG First for Merge?**
+- Understand project's git workflow
+- Find post-merge procedures
+- Identify CI/CD requirements
+- Discover cleanup patterns
+
+---
+
 ## EXECUTION: Delegate to pr-merge-agent with merge-skill
 
-**⚠️ IMPORTANT: This command delegates work to a specialized agent with merge expertise!**
+**IMPORTANT: This command delegates work to a specialized agent with merge expertise!**
 
 ### Step 1: Get Task Details
 ```bash
@@ -22,7 +45,22 @@ Extract:
 - `worktree_path` - path to cleanup (if exists)
 - `project_id` - for project path lookup
 
-### Step 2: Delegate to PR Merge Agent
+### Step 2: RAG Context Gathering (MANDATORY)
+
+**Before delegating, gather merge context:**
+
+```bash
+# Search for project's git workflow
+mcp__claudetask__search_documentation --query="git branching strategy merge" --top_k=10
+
+# Search for post-merge procedures
+mcp__claudetask__search_documentation --query="deployment release procedures" --top_k=10
+
+# Find any custom merge scripts
+mcp__claudetask__search_codebase --query="merge script hook post-merge" --top_k=10
+```
+
+### Step 3: Delegate to PR Merge Agent
 
 Use the Task tool to spawn `pr-merge-agent`:
 
@@ -38,7 +76,7 @@ Task(
 
   ## FIRST: Load merge-skill for expert guidance
 
-  **⚠️ MANDATORY: Use Skill tool to load merge-skill BEFORE any git operations!**
+  **MANDATORY: Use Skill tool to load merge-skill BEFORE any git operations!**
 
   ```
   Skill("merge-skill")
@@ -49,6 +87,12 @@ Task(
   - Conflict resolution techniques
   - Recovery operations if something goes wrong
   - Best practices for safe merging
+
+  ## MANDATORY: RAG Search Before Merge
+
+  Before any git operations, search for context:
+  - mcp__claudetask__search_documentation --query="git merge workflow" --top_k=10
+  - mcp__claudetask__search_codebase --query="post-merge cleanup script" --top_k=10
 
   ## Then execute tasks (in order):
 
@@ -88,7 +132,7 @@ Task(
 )
 ```
 
-### Step 3: Update Task Status (after agent completes successfully)
+### Step 4: Update Task Status (after agent completes successfully)
 
 ```bash
 # Save stage result
@@ -104,11 +148,23 @@ mcp__claudetask__update_status --task_id={{TASK_ID}} --status="Done" \
 mcp__claudetask__stop_session --task_id={{TASK_ID}}
 ```
 
+### Step 5: Trigger Codebase Reindexing (MANDATORY)
+
+**After merge, update RAG index with new code:**
+
+```bash
+# Reindex codebase to include merged changes
+mcp__claudetask__reindex_codebase
+
+# Reindex documentation if docs were changed
+mcp__claudetask__reindex_documentation
+```
+
 ---
 
 ## Important Notes:
 
-⚠️ **Mode-Dependent Behavior**:
+**Mode-Dependent Behavior**:
 
 **AUTO Mode (manual_mode = false):**
 - This command is executed AUTOMATICALLY after code review passes
@@ -116,6 +172,26 @@ mcp__claudetask__stop_session --task_id={{TASK_ID}}
 
 **Manual Mode (manual_mode = true):**
 - User explicitly triggers this command after manual review
+
+---
+
+## RAG Search Patterns for Merge
+
+```bash
+# Git workflow patterns
+mcp__claudetask__search_documentation --query="git workflow branching strategy" --top_k=10
+mcp__claudetask__search_codebase --query="git hook pre-commit post-merge" --top_k=10
+
+# CI/CD patterns
+mcp__claudetask__search_documentation --query="CI CD deployment pipeline" --top_k=10
+mcp__claudetask__search_codebase --query="deployment script release" --top_k=10
+
+# Cleanup patterns
+mcp__claudetask__search_codebase --query="cleanup worktree branch delete" --top_k=10
+
+# Post-merge procedures
+mcp__claudetask__search_documentation --query="release notes changelog" --top_k=10
+```
 
 ---
 
@@ -154,15 +230,16 @@ The pr-merge-agent uses merge-skill which provides:
 
 After successful completion, report:
 ```
-✅ Task #{{TASK_ID}} Completed Successfully!
+Task #{{TASK_ID}} Completed Successfully!
 
-- Merged to main: ✓
-- Pushed to remote: ✓
-- Feature branch deleted: ✓
-- Remote branch deleted: ✓
-- Worktree cleaned: ✓
-- Task status: Done ✓
-- Session stopped: ✓
+- Merged to main: OK
+- Pushed to remote: OK
+- Feature branch deleted: OK
+- Remote branch deleted: OK
+- Worktree cleaned: OK
+- Task status: Done
+- Session stopped: OK
+- Codebase reindexed: OK
 
 Merge commit: <hash>
 The implementation is now in main and pushed to origin.
@@ -170,10 +247,28 @@ The implementation is now in main and pushed to origin.
 
 ---
 
+## Post-Merge RAG Reindexing
+
+**CRITICAL:** After merging, the RAG index should be updated to include new code:
+
+```bash
+# Incremental reindex (faster, only changes)
+mcp__claudetask__reindex_codebase
+
+# If documentation was updated
+mcp__claudetask__reindex_documentation
+```
+
+This ensures future RAG searches include the newly merged code.
+
+---
+
 ## Why This Architecture?
 
-1. **Skill-based expertise** - merge-skill provides professional git workflows
-2. **Agent isolation** - pr-merge-agent handles git operations independently
-3. **Conflict resolution** - Expert guidance for handling merge conflicts
-4. **Recovery** - Knows how to abort and recover from failed merges
-5. **Reliability** - Agent has full git access and credentials
+1. **RAG-First** - Search for context before merge operations
+2. **Skill-based expertise** - merge-skill provides professional git workflows
+3. **Agent isolation** - pr-merge-agent handles git operations independently
+4. **Conflict resolution** - Expert guidance for handling merge conflicts
+5. **Recovery** - Knows how to abort and recover from failed merges
+6. **Reliability** - Agent has full git access and credentials
+7. **Index Update** - RAG reindexing after merge keeps search current

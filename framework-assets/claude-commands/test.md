@@ -7,6 +7,29 @@ argument-hint: [task-id]
 
 When you run this command, the system will execute the UC-04 testing workflow based on the project's `manual_mode` setting.
 
+## MANDATORY: RAG-First Search Policy
+
+**Before creating ANY tests, ALWAYS use RAG search to understand testing patterns:**
+
+```bash
+# 1. Search for existing test patterns in the project
+mcp__claudetask__search_codebase --query="test pytest unittest mock fixture" --top_k=20
+
+# 2. Search for feature-specific test examples
+mcp__claudetask__search_codebase --query="test <feature area being tested>" --top_k=20
+
+# 3. Search documentation for testing guidelines
+mcp__claudetask__search_documentation --query="testing guidelines test patterns" --top_k=10
+```
+
+**Why RAG First for Testing?**
+- Discover existing test patterns to follow
+- Find mocking strategies used in the project
+- Understand test fixture conventions
+- Match assertion styles and test structure
+
+---
+
 ## Step 1: Check Project Settings
 
 First, determine which testing mode is enabled and get test configuration:
@@ -16,7 +39,7 @@ mcp__claudetask__get_project_settings
 ```
 
 **Look for:**
-- `"Manual Mode": True` or `False`
+- `"manual_mode": true` or `false`
 - `"test_command"`: Command to run existing tests (e.g., "pytest", "npm test")
 - `"test_directory"`: Main test directory (e.g., "tests", "src/__tests__")
 - `"test_framework"`: Test framework (pytest/jest/vitest/mocha/unittest)
@@ -87,7 +110,28 @@ Please perform manual testing and update status when complete.
 
 If Automated Mode is enabled, follow the 5-step integrated test workflow:
 
-### STEP 1: Run EXISTING Project Tests (Regression Check)
+### STEP 1: RAG Search for Test Patterns (MANDATORY)
+
+**Before creating any tests, search for existing patterns:**
+
+```bash
+# Find existing test patterns
+mcp__claudetask__search_codebase --query="pytest test fixture mock" --top_k=20
+
+# Find tests for similar features
+mcp__claudetask__search_codebase --query="test <feature being implemented>" --top_k=20
+
+# Find integration test patterns
+mcp__claudetask__search_codebase --query="integration test API endpoint" --top_k=20
+
+# Find E2E test patterns
+mcp__claudetask__search_codebase --query="playwright E2E test browser" --top_k=20
+
+# Check testing documentation
+mcp__claudetask__search_documentation --query="testing strategy test coverage" --top_k=10
+```
+
+### STEP 2: Run EXISTING Project Tests (Regression Check)
 
 **CRITICAL: Before creating new tests, verify existing tests still pass!**
 
@@ -118,54 +162,83 @@ mcp__claudetask__update_status --task_id={id} --status="In Progress" \
 SlashCommand("/start-develop")
 ```
 
-**If existing tests PASS → Continue to Step 2**
+**If existing tests PASS → Continue to Step 3**
 
-### STEP 2: Create NEW Tests for This Task
+### STEP 3: Create NEW Tests for This Task
 
 **Create staging directory:**
 ```bash
 mkdir -p {test_staging_dir}/task-{id}
 ```
 
-**Delegate test creation to specialized agents:**
+**Delegate test creation to specialized agents WITH RAG instructions:**
 
 **For Backend/Unit Tests (quality-engineer agent):**
 
-Use Task tool with `subagent_type="quality-engineer"`:
 ```
-Instructions:
-1. Read task analysis documents in /Analyze folder
-2. Create unit tests for new functionality
-3. Follow project's test patterns from {test_directory}
-4. Use {test_framework} framework
-5. Save tests to: {test_staging_dir}/task-{id}/
-6. File naming: test_{feature_name}.py (or .test.ts for JS)
+Task(
+  subagent_type="quality-engineer",
+  prompt="""
+  Create unit tests for Task #{task_id}:
 
-Tests should cover:
-- All new functions/methods
-- Edge cases
-- Error handling
-- Integration with existing code
+  **MANDATORY: RAG Search First!**
+  Before writing ANY tests, run:
+  - mcp__claudetask__search_codebase --query="pytest test fixture mock <feature>" --top_k=20
+  - mcp__claudetask__search_codebase --query="test {test_directory} patterns" --top_k=20
+  - mcp__claudetask__search_documentation --query="testing guidelines coverage" --top_k=10
+
+  Instructions:
+  1. Read task analysis documents in worktrees/task-{id}/Analyze/ folder
+  2. Review RAG results for existing test patterns
+  3. Create unit tests following project conventions
+  4. Use {test_framework} framework
+  5. Save tests to: {test_staging_dir}/task-{id}/
+  6. File naming: test_{feature_name}.py (or .test.ts for JS)
+
+  Tests should cover:
+  - All new functions/methods
+  - Edge cases
+  - Error handling
+  - Integration with existing code
+
+  MATCH existing test patterns found via RAG!
+  """
+)
 ```
 
 **For Frontend/E2E Tests (web-tester agent):**
 
-Use Task tool with `subagent_type="web-tester"`:
 ```
-Instructions:
-1. Read task analysis documents in /Analyze folder
-2. Create E2E tests for UI changes
-3. Use Playwright for browser testing
-4. Save tests to: {test_staging_dir}/task-{id}/
-5. File naming: e2e_{feature_name}.spec.ts
+Task(
+  subagent_type="web-tester",
+  prompt="""
+  Create E2E tests for Task #{task_id}:
 
-Tests should cover:
-- User flows
-- UI interactions
-- Visual elements
+  **MANDATORY: RAG Search First!**
+  Before writing ANY tests, run:
+  - mcp__claudetask__search_codebase --query="playwright E2E test spec browser" --top_k=20
+  - mcp__claudetask__search_codebase --query="test UI component interaction" --top_k=20
+  - mcp__claudetask__search_documentation --query="E2E testing guidelines" --top_k=10
+
+  Instructions:
+  1. Read task analysis documents in worktrees/task-{id}/Analyze/ folder
+  2. Review RAG results for existing E2E patterns
+  3. Create E2E tests for UI changes
+  4. Use Playwright for browser testing
+  5. Save tests to: {test_staging_dir}/task-{id}/
+  6. File naming: e2e_{feature_name}.spec.ts
+
+  Tests should cover:
+  - User flows
+  - UI interactions
+  - Visual elements
+
+  MATCH existing E2E patterns found via RAG!
+  """
+)
 ```
 
-### STEP 3: Run NEW Tests in Isolation
+### STEP 4: Run NEW Tests in Isolation
 
 **Run only the new tests to verify they work:**
 
@@ -183,11 +256,11 @@ npx vitest run {test_staging_dir}/task-{id}/
 **If new tests FAIL:**
 - Review and fix tests (may be test bugs, not code bugs)
 - Or return to development if code needs fixes
-- Retry Step 3
+- Retry Step 4
 
-**If new tests PASS → Continue to Step 4**
+**If new tests PASS → Continue to Step 5**
 
-### STEP 4: Run ALL Tests Together
+### STEP 5: Run ALL Tests Together
 
 **Verify new tests don't conflict with existing tests:**
 
@@ -207,9 +280,9 @@ npx vitest run
 - Fix test isolation issues
 - Retry
 
-**If ALL tests PASS → Continue to Step 5**
+**If ALL tests PASS → Continue to Step 6**
 
-### STEP 5: Save Results and Auto-Transition
+### STEP 6: Save Results and Auto-Transition
 
 ```bash
 mcp__claudetask__append_stage_result --task_id={id} --status="Testing" \
@@ -232,6 +305,32 @@ SlashCommand("/PR {task_id}")
 
 ---
 
+## RAG Search Patterns for Testing
+
+```bash
+# Unit test patterns
+mcp__claudetask__search_codebase --query="pytest fixture mock patch" --top_k=20
+mcp__claudetask__search_codebase --query="unittest TestCase setUp tearDown" --top_k=20
+
+# API test patterns
+mcp__claudetask__search_codebase --query="test API client endpoint request" --top_k=20
+mcp__claudetask__search_codebase --query="test FastAPI TestClient httpx" --top_k=20
+
+# Database test patterns
+mcp__claudetask__search_codebase --query="test database MongoDB mock" --top_k=20
+mcp__claudetask__search_codebase --query="test repository fixture seed" --top_k=20
+
+# Frontend test patterns
+mcp__claudetask__search_codebase --query="test React render fireEvent" --top_k=20
+mcp__claudetask__search_codebase --query="jest mock component snapshot" --top_k=20
+
+# E2E test patterns
+mcp__claudetask__search_codebase --query="playwright page locator click" --top_k=20
+mcp__claudetask__search_codebase --query="E2E test user flow form" --top_k=20
+```
+
+---
+
 ## Usage
 
 ```bash
@@ -246,20 +345,25 @@ SlashCommand("/PR {task_id}")
 
 This will:
 1. Check project settings for testing mode and test configuration
-2. If manual mode: Start test servers, save URLs, wait for user
-3. If automated mode:
+2. **RAG Search** - Find existing test patterns
+3. If manual mode: Start test servers, save URLs, wait for user
+4. If automated mode:
    - Run existing tests (regression check)
-   - Create new tests via agents
+   - Create new tests via agents **with RAG context**
    - Stage new tests in `{test_staging_dir}/task-{id}/`
    - Run all tests
    - Auto-transition and execute `/PR`
+
+---
 
 ## Required Preconditions
 
 - Task must be in "Testing" status
 - Implementation must be complete
-- For automated mode: Analysis documents must exist
+- For automated mode: Analysis documents must exist in `worktrees/task-{id}/Analyze/`
 - Test configuration should be set in project settings
+
+---
 
 ## Test Configuration (Project Settings)
 
@@ -270,6 +374,8 @@ This will:
 | `test_framework` | Test framework | `pytest` |
 | `test_staging_dir` | Staging for new tests | `tests/staging` |
 | `auto_merge_tests` | Auto-merge after PR | `true` |
+
+---
 
 ## Test Merge Process
 
@@ -282,13 +388,16 @@ The `/merge` command will automatically:
 
 **This ensures new tests become part of the permanent test suite.**
 
+---
+
 ## Notes
 
 - This implements UC-04 from `Workflow/new_workflow_usecases.md`
+- **RAG search is MANDATORY** before creating tests
 - Supports both manual and automated testing modes
-- **NEW**: Runs existing tests first to catch regressions
-- **NEW**: Creates new tests in staging directory
-- **NEW**: Merges tests to main suite after PR approval
+- Runs existing tests first to catch regressions
+- Creates new tests in staging directory
+- Merges tests to main suite after PR approval
 - Mode is determined by `manual_mode` project setting
 - In manual mode: Testing URLs are **mandatory**
 - In automated mode: Tests run automatically and status auto-transitions
