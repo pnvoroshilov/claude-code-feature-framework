@@ -1,0 +1,32 @@
+{
+  "name": "Post-Push Documentation RAG Indexing",
+  "description": "Automatically reindexes documentation files in MongoDB when pushing commits with 'docs' keyword to main/master branch",
+  "category": "version-control",
+  "version": "1.0.0",
+  "changelog": {
+    "1.0.0": "Initial version with documentation-specific RAG indexing, commit message detection, and skip-hook support"
+  },
+  "hook_config": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/post-push-docs-rag.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "script_file": "post-push-docs-rag.sh",
+  "setup_instructions": "This hook automatically triggers documentation RAG reindexing in MongoDB Atlas when pushing documentation-related commits to main/master.\n\nKEY FEATURES:\n- Triggered by git push/merge/pull on main/master branch\n- Requires 'docs' keyword in commit message (case-insensitive)\n- Respects [skip-hook] tag to bypass indexing\n- Only indexes documentation files (.md, .markdown, .txt, .rst, .adoc)\n- Incremental indexing (only changed documentation files)\n- Lock file mechanism to prevent recursion\n\nSETUP STEPS:\n1. Copy post-push-docs-rag.sh to .claude/hooks/post-push-docs-rag.sh\n2. Make script executable: chmod +x .claude/hooks/post-push-docs-rag.sh\n3. Add hook configuration to .claude/settings.json\n4. Ensure backend API is running on localhost:3333\n5. Ensure documentation RAG service is initialized\n\nREQUIREMENTS:\n- Backend API server running (claudetask backend)\n- jq command-line tool for JSON parsing\n- git command-line tool\n- MongoDB Atlas with documentation_chunks collection\n- Voyage AI API key configured\n\nTRIGGER CONDITIONS:\n- git push to main/master\n- git merge to main/master\n- git pull on main/master\n- Commit message contains 'docs' (case-insensitive)\n- Commit message does NOT contain '[skip-hook]'",
+  "dependencies": ["git", "jq", "curl", "claudetask backend API (localhost:3333)", "MongoDB Atlas", "Voyage AI API"],
+  "troubleshooting": {
+    "not_triggering": "Ensure commit message contains 'docs' keyword and you're on main/master branch. Check logs at .claude/logs/hooks/post-push-docs-rag-YYYYMMDD.log",
+    "api_connection": "Hook requires claudetask backend running on localhost:3333 with documentation-rag API endpoints available.",
+    "recursion_prevention": "Lock file at .claude/logs/hooks/.docs-rag-indexing-running prevents recursive hook invocation. Delete manually if stuck.",
+    "skip_hook": "Add [skip-hook] to commit message to bypass documentation RAG indexing for that commit.",
+    "no_docs_changed": "If no documentation files (.md, .markdown, .txt, .rst, .adoc) were changed in the commit, indexing is skipped."
+  }
+}

@@ -1,33 +1,53 @@
-"""Hooks API router"""
+"""Hooks API router with MongoDB backend"""
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from typing import List
 
-from ..database import get_db
+from ..database_mongodb import get_mongodb
 from ..schemas import HookInDB, HookCreate, HooksResponse
-from ..services.hook_service import HookService
+from ..services.hook_service_mongodb import HookServiceMongoDB
 
 router = APIRouter(prefix="/api/projects/{project_id}/hooks", tags=["hooks"])
 
 
-@router.get("/", response_model=HooksResponse)
-async def get_project_hooks(
-    project_id: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def get_project_path(project_id: str) -> str:
     """
-    Get all hooks for a project
+    Get project path from MongoDB.
+
+    Args:
+        project_id: Project ID
+
+    Returns:
+        Project filesystem path
+
+    Raises:
+        HTTPException 404 if project not found
+    """
+    mongodb = await get_mongodb()
+    project = await mongodb.projects.find_one({"_id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+    return project["path"]
+
+
+@router.get("/", response_model=HooksResponse)
+async def get_project_hooks(project_id: str):
+    """
+    Get all hooks for a project.
 
     Returns:
     - enabled: List of currently enabled hooks
     - available_default: List of default hooks that can be enabled
     - custom: List of user-created custom hooks
-    - favorites: List of favorite hooks (cross-project)
+    - favorites: Favorite hooks across all projects
     """
     try:
-        service = HookService(db)
-        return await service.get_project_hooks(project_id)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = HookServiceMongoDB(mongodb)
+        return await service.get_project_hooks(project_id, project_path)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -37,21 +57,19 @@ async def get_project_hooks(
 @router.post("/enable/{hook_id}", response_model=HookInDB)
 async def enable_hook(
     project_id: str,
-    hook_id: int,
-    db: AsyncSession = Depends(get_db)
+    hook_id: str,
+    hook_type: str = "default"
 ):
     """
-    Enable a hook by merging it into project's .claude/settings.json
-
-    Process:
-    1. Validate hook exists in default_hooks or custom_hooks table
-    2. Merge hook configuration into .claude/settings.json
-    3. Insert record into project_hooks junction table
-    4. Return enabled hook details
+    Enable a hook by merging it into project's .claude/settings.json.
     """
     try:
-        service = HookService(db)
-        return await service.enable_hook(project_id, hook_id)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = HookServiceMongoDB(mongodb)
+        return await service.enable_hook(project_id, project_path, hook_id, hook_type)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
@@ -63,21 +81,20 @@ async def enable_hook(
 @router.post("/disable/{hook_id}")
 async def disable_hook(
     project_id: str,
-    hook_id: int,
-    db: AsyncSession = Depends(get_db)
+    hook_id: str,
+    hook_type: str = "default"
 ):
     """
-    Disable a hook by removing it from project's .claude/settings.json
-
-    Process:
-    1. Remove record from project_hooks junction table
-    2. Remove hook configuration from .claude/settings.json
-    3. Keep record in custom_hooks if it's a custom hook (don't delete)
+    Disable a hook by removing it from project's .claude/settings.json.
     """
     try:
-        service = HookService(db)
-        await service.disable_hook(project_id, hook_id)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = HookServiceMongoDB(mongodb)
+        await service.disable_hook(project_id, project_path, hook_id, hook_type)
         return {"success": True, "message": "Hook disabled successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -85,46 +102,32 @@ async def disable_hook(
 
 
 @router.post("/enable-all")
-async def enable_all_hooks(
-    project_id: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def enable_all_hooks(project_id: str):
     """
-    Enable all available hooks (both default and custom)
-
-    Process:
-    1. Get all available default hooks
-    2. Get all custom hooks
-    3. Enable each hook that isn't already enabled
-    4. Return count of newly enabled hooks
+    Enable all available hooks (both default and custom).
     """
     try:
-        service = HookService(db)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = HookServiceMongoDB(mongodb)
+        project_hooks = await service.get_project_hooks(project_id, project_path)
 
-        # Get current project hooks to avoid duplicates
-        project_hooks = await service.get_project_hooks(project_id)
         enabled_ids = {h.id for h in project_hooks.enabled}
-
-        # Get all available hooks
-        available_default = project_hooks.available_default
-        custom_hooks = project_hooks.custom
-
-        # Enable all hooks that aren't already enabled
         enabled_count = 0
         errors = []
 
-        for hook in available_default:
+        for hook in project_hooks.available_default:
             if hook.id not in enabled_ids:
                 try:
-                    await service.enable_hook(project_id, hook.id)
+                    await service.enable_hook(project_id, project_path, hook.id, "default")
                     enabled_count += 1
                 except Exception as e:
                     errors.append(f"Failed to enable {hook.name}: {str(e)}")
 
-        for hook in custom_hooks:
+        for hook in project_hooks.custom:
             if hook.id not in enabled_ids:
                 try:
-                    await service.enable_hook(project_id, hook.id)
+                    await service.enable_hook(project_id, project_path, hook.id, "custom")
                     enabled_count += 1
                 except Exception as e:
                     errors.append(f"Failed to enable {hook.name}: {str(e)}")
@@ -134,37 +137,29 @@ async def enable_all_hooks(
             result["errors"] = errors
 
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to enable all hooks: {str(e)}")
 
 
 @router.post("/disable-all")
-async def disable_all_hooks(
-    project_id: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def disable_all_hooks(project_id: str):
     """
-    Disable all enabled hooks
-
-    Process:
-    1. Get all enabled hooks
-    2. Disable each enabled hook
-    3. Return count of disabled hooks
+    Disable all enabled hooks.
     """
     try:
-        service = HookService(db)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = HookServiceMongoDB(mongodb)
+        project_hooks = await service.get_project_hooks(project_id, project_path)
 
-        # Get currently enabled hooks
-        project_hooks = await service.get_project_hooks(project_id)
-        enabled_hooks = project_hooks.enabled
-
-        # Disable all enabled hooks
         disabled_count = 0
         errors = []
 
-        for hook in enabled_hooks:
+        for hook in project_hooks.enabled:
             try:
-                await service.disable_hook(project_id, hook.id)
+                await service.disable_hook(project_id, project_path, hook.id, hook.hook_type)
                 disabled_count += 1
             except Exception as e:
                 errors.append(f"Failed to disable {hook.name}: {str(e)}")
@@ -174,6 +169,8 @@ async def disable_all_hooks(
             result["errors"] = errors
 
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to disable all hooks: {str(e)}")
 
@@ -182,89 +179,48 @@ async def disable_all_hooks(
 async def create_custom_hook(
     project_id: str,
     hook_create: HookCreate,
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db)
+    background_tasks: BackgroundTasks
 ):
     """
-    Create a custom hook using Claude Code CLI
-
-    Process:
-    1. Validate hook name uniqueness
-    2. Insert record into custom_hooks (status: "creating")
-    3. Launch background task for Claude Code CLI interaction
-    4. Return hook record (status will update when complete)
-
-    Background task:
-    - Start Claude terminal session
-    - Execute hook creation command
-    - Send hook name and description via terminal
-    - Wait for completion (with timeout)
-    - Update hook status to "active" or "failed"
+    Create a custom hook using Claude Code CLI.
     """
     try:
-        service = HookService(db)
-        hook = await service.create_custom_hook(project_id, hook_create)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = HookServiceMongoDB(mongodb)
+        hook = await service.create_custom_hook(project_id, project_path, hook_create)
 
-        # Execute Claude CLI interaction in background
         background_tasks.add_task(
             service.execute_hook_creation_cli,
             project_id,
+            project_path,
             hook.id,
             hook_create.name,
             hook_create.description
         )
 
         return hook
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create hook: {str(e)}")
 
 
-@router.put("/{hook_id}", response_model=HookInDB)
-async def update_hook(
-    project_id: str,
-    hook_id: int,
-    hook_update: HookCreate,
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Update a hook (custom or default)
-
-    Process:
-    1. Verify hook exists
-    2. Update hook metadata in database
-    3. If hook is enabled, update .claude/settings.json with new config
-    4. Return updated hook details
-    """
-    try:
-        service = HookService(db)
-        return await service.update_hook(project_id, hook_id, hook_update)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to update hook: {str(e)}")
-
-
 @router.delete("/{hook_id}")
-async def delete_custom_hook(
-    project_id: str,
-    hook_id: int,
-    db: AsyncSession = Depends(get_db)
-):
+async def delete_custom_hook(project_id: str, hook_id: str):
     """
-    Delete a custom hook permanently
-
-    Process:
-    1. Verify hook is custom (not default)
-    2. Remove from project_hooks junction table
-    3. Remove hook from .claude/settings.json
-    4. Delete record from custom_hooks table
+    Delete a custom hook permanently.
     """
     try:
-        service = HookService(db)
-        await service.delete_custom_hook(project_id, hook_id)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = HookServiceMongoDB(mongodb)
+        await service.delete_custom_hook(project_id, project_path, hook_id)
         return {"success": True, "message": "Custom hook deleted successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -272,15 +228,17 @@ async def delete_custom_hook(
 
 
 @router.get("/defaults", response_model=List[HookInDB])
-async def get_default_hooks(db: AsyncSession = Depends(get_db)):
+async def get_default_hooks(project_id: str):
     """
-    Get all default hooks catalog
-
-    Returns list of default hooks with metadata
+    Get all default hooks catalog.
     """
     try:
-        service = HookService(db)
+        await get_project_path(project_id)  # Validate project exists
+        mongodb = await get_mongodb()
+        service = HookServiceMongoDB(mongodb)
         return await service.get_default_hooks()
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get default hooks: {str(e)}")
 
@@ -288,23 +246,19 @@ async def get_default_hooks(db: AsyncSession = Depends(get_db)):
 @router.post("/favorites/save", response_model=HookInDB)
 async def save_to_favorites(
     project_id: str,
-    hook_id: int,
-    hook_type: str = "custom",
-    db: AsyncSession = Depends(get_db)
+    hook_id: str,
+    hook_type: str = "custom"
 ):
     """
-    Mark a hook as favorite
-
-    Process:
-    1. Validate hook exists
-    2. Set is_favorite = True
-    3. Hook appears in Favorites tab
-
-    Note: Favorites are cross-project - they show for all projects
+    Mark a hook as favorite.
     """
     try:
-        service = HookService(db)
-        return await service.save_to_favorites(project_id, hook_id, hook_type)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = HookServiceMongoDB(mongodb)
+        return await service.save_to_favorites(project_id, project_path, hook_id, hook_type)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -314,23 +268,50 @@ async def save_to_favorites(
 @router.post("/favorites/remove")
 async def remove_from_favorites(
     project_id: str,
-    hook_id: int,
-    hook_type: str = "custom",
-    db: AsyncSession = Depends(get_db)
+    hook_id: str,
+    hook_type: str = "custom"
 ):
     """
-    Remove a hook from favorites
-
-    Process:
-    1. Validate hook exists
-    2. Set is_favorite = False
-    3. Hook removed from Favorites tab
+    Remove a hook from favorites.
     """
     try:
-        service = HookService(db)
+        await get_project_path(project_id)  # Validate project exists
+        mongodb = await get_mongodb()
+        service = HookServiceMongoDB(mongodb)
         await service.remove_from_favorites(project_id, hook_id, hook_type)
         return {"success": True, "message": "Removed from favorites successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to remove from favorites: {str(e)}")
+
+
+@router.patch("/{hook_id}/status")
+async def update_hook_status(
+    project_id: str,
+    hook_id: str,
+    status_update: dict
+):
+    """
+    Update custom hook status and archive it.
+    """
+    try:
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = HookServiceMongoDB(mongodb)
+        await service.update_custom_hook_status(
+            project_id=project_id,
+            project_path=project_path,
+            hook_id=hook_id,
+            status=status_update.get("status"),
+            error_message=status_update.get("error_message")
+        )
+        return {"success": True, "message": "Hook status updated successfully"}
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update hook status: {str(e)}")

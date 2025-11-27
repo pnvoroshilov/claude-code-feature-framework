@@ -170,8 +170,11 @@ class ProjectSettingsUpdate(ProjectSettingsBase):
 
 
 class ProjectSettingsInDB(ProjectSettingsBase):
-    id: int
-    project_id: str
+    """Schema for project settings response (merged with Project model)"""
+    id: str  # Project ID is string (UUID)
+    name: str
+    path: str
+    project_mode: str = "simple"
     storage_mode: StorageMode = StorageMode.LOCAL
 
     class Config:

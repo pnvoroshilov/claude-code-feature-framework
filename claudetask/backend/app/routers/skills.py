@@ -1,32 +1,53 @@
-"""Skills API router"""
+"""Skills API router with MongoDB backend"""
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from typing import List
 
-from ..database import get_db
+from ..database_mongodb import get_mongodb
 from ..schemas import SkillInDB, SkillCreate, SkillsResponse
-from ..services.skill_service import SkillService
+from ..services.skill_service_mongodb import SkillServiceMongoDB
 
 router = APIRouter(prefix="/api/projects/{project_id}/skills", tags=["skills"])
 
 
-@router.get("/", response_model=SkillsResponse)
-async def get_project_skills(
-    project_id: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def get_project_path(project_id: str) -> str:
     """
-    Get all skills for a project
+    Get project path from MongoDB.
+
+    Args:
+        project_id: Project ID
+
+    Returns:
+        Project filesystem path
+
+    Raises:
+        HTTPException 404 if project not found
+    """
+    mongodb = await get_mongodb()
+    project = await mongodb.projects.find_one({"_id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+    return project["path"]
+
+
+@router.get("/", response_model=SkillsResponse)
+async def get_project_skills(project_id: str):
+    """
+    Get all skills for a project.
 
     Returns:
     - enabled: List of currently enabled skills
     - available_default: List of default skills that can be enabled
     - custom: List of user-created custom skills
+    - favorites: Favorite skills across all projects
     """
     try:
-        service = SkillService(db)
-        return await service.get_project_skills(project_id)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SkillServiceMongoDB(mongodb)
+        return await service.get_project_skills(project_id, project_path)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -36,22 +57,19 @@ async def get_project_skills(
 @router.post("/enable/{skill_id}", response_model=SkillInDB)
 async def enable_skill(
     project_id: str,
-    skill_id: int,
-    skill_type: str = "default",  # Add skill_type parameter with default value
-    db: AsyncSession = Depends(get_db)
+    skill_id: str,
+    skill_type: str = "default"
 ):
     """
-    Enable a skill by copying it to project's .claude/skills/
-
-    Process:
-    1. Validate skill exists (default_skills or custom_skills table)
-    2. Copy skill file to project's .claude/skills/
-    3. Insert record into project_skills junction table
-    4. Return enabled skill details
+    Enable a skill by copying it to project's .claude/skills/.
     """
     try:
-        service = SkillService(db)
-        return await service.enable_skill(project_id, skill_id, skill_type)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SkillServiceMongoDB(mongodb)
+        return await service.enable_skill(project_id, project_path, skill_id, skill_type)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
@@ -63,22 +81,20 @@ async def enable_skill(
 @router.post("/disable/{skill_id}")
 async def disable_skill(
     project_id: str,
-    skill_id: int,
-    skill_type: str = "default",  # Add skill_type parameter with default value
-    db: AsyncSession = Depends(get_db)
+    skill_id: str,
+    skill_type: str = "default"
 ):
     """
-    Disable a skill by removing it from project's .claude/skills/
-
-    Process:
-    1. Remove record from project_skills junction table
-    2. Delete skill file from .claude/skills/ directory
-    3. Keep record in custom_skills if it's a custom skill (don't delete)
+    Disable a skill by removing it from project's .claude/skills/.
     """
     try:
-        service = SkillService(db)
-        await service.disable_skill(project_id, skill_id, skill_type)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SkillServiceMongoDB(mongodb)
+        await service.disable_skill(project_id, project_path, skill_id, skill_type)
         return {"success": True, "message": "Skill disabled successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -86,46 +102,32 @@ async def disable_skill(
 
 
 @router.post("/enable-all")
-async def enable_all_skills(
-    project_id: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def enable_all_skills(project_id: str):
     """
-    Enable all available skills (both default and custom)
-
-    Process:
-    1. Get all available default skills
-    2. Get all custom skills
-    3. Enable each skill that isn't already enabled
-    4. Return count of newly enabled skills
+    Enable all available skills (both default and custom).
     """
     try:
-        service = SkillService(db)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SkillServiceMongoDB(mongodb)
+        project_skills = await service.get_project_skills(project_id, project_path)
 
-        # Get current project skills to avoid duplicates
-        project_skills = await service.get_project_skills(project_id)
         enabled_ids = {s.id for s in project_skills.enabled}
-
-        # Get all available skills
-        available_default = project_skills.available_default
-        custom_skills = project_skills.custom
-
-        # Enable all skills that aren't already enabled
         enabled_count = 0
         errors = []
 
-        for skill in available_default:
+        for skill in project_skills.available_default:
             if skill.id not in enabled_ids:
                 try:
-                    await service.enable_skill(project_id, skill.id, "default")
+                    await service.enable_skill(project_id, project_path, skill.id, "default")
                     enabled_count += 1
                 except Exception as e:
                     errors.append(f"Failed to enable {skill.name}: {str(e)}")
 
-        for skill in custom_skills:
+        for skill in project_skills.custom:
             if skill.id not in enabled_ids:
                 try:
-                    await service.enable_skill(project_id, skill.id, "custom")
+                    await service.enable_skill(project_id, project_path, skill.id, "custom")
                     enabled_count += 1
                 except Exception as e:
                     errors.append(f"Failed to enable {skill.name}: {str(e)}")
@@ -135,38 +137,29 @@ async def enable_all_skills(
             result["errors"] = errors
 
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to enable all skills: {str(e)}")
 
 
 @router.post("/disable-all")
-async def disable_all_skills(
-    project_id: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def disable_all_skills(project_id: str):
     """
-    Disable all enabled skills
-
-    Process:
-    1. Get all enabled skills
-    2. Disable each enabled skill
-    3. Return count of disabled skills
+    Disable all enabled skills.
     """
     try:
-        service = SkillService(db)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SkillServiceMongoDB(mongodb)
+        project_skills = await service.get_project_skills(project_id, project_path)
 
-        # Get currently enabled skills
-        project_skills = await service.get_project_skills(project_id)
-        enabled_skills = project_skills.enabled
-
-        # Disable all enabled skills
         disabled_count = 0
         errors = []
 
-        for skill in enabled_skills:
+        for skill in project_skills.enabled:
             try:
-                # skill.skill_type is already "default" or "custom"
-                await service.disable_skill(project_id, skill.id, skill.skill_type)
+                await service.disable_skill(project_id, project_path, skill.id, skill.skill_type)
                 disabled_count += 1
             except Exception as e:
                 errors.append(f"Failed to disable {skill.name}: {str(e)}")
@@ -176,6 +169,8 @@ async def disable_all_skills(
             result["errors"] = errors
 
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to disable all skills: {str(e)}")
 
@@ -184,39 +179,29 @@ async def disable_all_skills(
 async def create_custom_skill(
     project_id: str,
     skill_create: SkillCreate,
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db)
+    background_tasks: BackgroundTasks
 ):
     """
-    Create a custom skill using Claude Code CLI
-
-    Process:
-    1. Validate skill name uniqueness
-    2. Insert record into custom_skills (status: "creating")
-    3. Launch background task for Claude Code CLI interaction
-    4. Return skill record (status will update when complete)
-
-    Background task:
-    - Start Claude terminal session
-    - Execute /create-skill command
-    - Send skill name and description via terminal
-    - Wait for completion (with timeout)
-    - Update skill status to "active" or "failed"
+    Create a custom skill using Claude Code CLI.
     """
     try:
-        service = SkillService(db)
-        skill = await service.create_custom_skill(project_id, skill_create)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SkillServiceMongoDB(mongodb)
+        skill = await service.create_custom_skill(project_id, project_path, skill_create)
 
-        # Execute Claude CLI interaction in background
         background_tasks.add_task(
             service.execute_skill_creation_cli,
             project_id,
+            project_path,
             skill.id,
             skill_create.name,
             skill_create.description
         )
 
         return skill
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -224,24 +209,18 @@ async def create_custom_skill(
 
 
 @router.delete("/{skill_id}")
-async def delete_custom_skill(
-    project_id: str,
-    skill_id: int,
-    db: AsyncSession = Depends(get_db)
-):
+async def delete_custom_skill(project_id: str, skill_id: str):
     """
-    Delete a custom skill permanently
-
-    Process:
-    1. Verify skill is custom (not default)
-    2. Remove from project_skills junction table
-    3. Delete skill file from .claude/skills/
-    4. Delete record from custom_skills table
+    Delete a custom skill permanently.
     """
     try:
-        service = SkillService(db)
-        await service.delete_custom_skill(project_id, skill_id)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SkillServiceMongoDB(mongodb)
+        await service.delete_custom_skill(project_id, project_path, skill_id)
         return {"success": True, "message": "Custom skill deleted successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -249,36 +228,34 @@ async def delete_custom_skill(
 
 
 @router.get("/defaults", response_model=List[SkillInDB])
-async def get_default_skills(db: AsyncSession = Depends(get_db)):
+async def get_default_skills(project_id: str):
     """
-    Get all default skills catalog
-
-    Returns list of 10 default skills with metadata
+    Get all default skills catalog.
     """
     try:
-        service = SkillService(db)
+        await get_project_path(project_id)  # Validate project exists
+        mongodb = await get_mongodb()
+        service = SkillServiceMongoDB(mongodb)
         return await service.get_default_skills()
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get default skills: {str(e)}")
 
 
 @router.get("/agents/{agent_name}/recommended", response_model=List[SkillInDB])
-async def get_agent_recommended_skills(
-    project_id: str,
-    agent_name: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def get_agent_recommended_skills(project_id: str, agent_name: str):
     """
-    Get recommended skills for a specific agent
+    Get recommended skills for a specific agent.
 
-    Returns skills from agent_skill_recommendations table,
-    ordered by priority (1 = highest priority)
+    TODO: Implement recommendations in MongoDB
     """
     try:
-        service = SkillService(db)
-        return await service.get_agent_recommended_skills(project_id, agent_name)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        await get_project_path(project_id)  # Validate project exists
+        # TODO: Implement agent recommendations in MongoDB
+        return []
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get recommended skills: {str(e)}")
 
@@ -286,23 +263,19 @@ async def get_agent_recommended_skills(
 @router.post("/favorites/save", response_model=SkillInDB)
 async def save_to_favorites(
     project_id: str,
-    skill_id: int,
-    skill_type: str = "custom",
-    db: AsyncSession = Depends(get_db)
+    skill_id: str,
+    skill_type: str = "custom"
 ):
     """
-    Mark a skill as favorite
-
-    Process:
-    1. Validate skill exists
-    2. Set is_favorite = True
-    3. Skill appears in Favorites tab
-
-    Note: Favorites are cross-project - they show for all projects
+    Mark a skill as favorite.
     """
     try:
-        service = SkillService(db)
-        return await service.save_to_favorites(project_id, skill_id, skill_type)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SkillServiceMongoDB(mongodb)
+        return await service.save_to_favorites(project_id, project_path, skill_id, skill_type)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -312,22 +285,20 @@ async def save_to_favorites(
 @router.post("/favorites/remove")
 async def remove_from_favorites(
     project_id: str,
-    skill_id: int,
-    skill_type: str = "custom",
-    db: AsyncSession = Depends(get_db)
+    skill_id: str,
+    skill_type: str = "custom"
 ):
     """
-    Remove a skill from favorites
-
-    Process:
-    1. Validate skill exists
-    2. Set is_favorite = False
-    3. Skill removed from Favorites tab
+    Remove a skill from favorites.
     """
     try:
-        service = SkillService(db)
+        await get_project_path(project_id)  # Validate project exists
+        mongodb = await get_mongodb()
+        service = SkillServiceMongoDB(mongodb)
         await service.remove_from_favorites(project_id, skill_id, skill_type)
         return {"success": True, "message": "Removed from favorites successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -337,29 +308,26 @@ async def remove_from_favorites(
 @router.patch("/{skill_id}/status")
 async def update_skill_status(
     project_id: str,
-    skill_id: int,
-    status_update: dict,
-    db: AsyncSession = Depends(get_db)
+    skill_id: str,
+    status_update: dict
 ):
     """
-    Update custom skill status and archive it
-
-    Process:
-    1. Update skill status in database
-    2. Archive skill to .claudetask/custom-skills/ for persistence
-    3. Enable skill if status is "active"
-
-    This endpoint is called by MCP tools after skill creation is complete.
+    Update custom skill status and archive it.
     """
     try:
-        service = SkillService(db)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SkillServiceMongoDB(mongodb)
         await service.update_custom_skill_status(
             project_id=project_id,
+            project_path=project_path,
             skill_id=skill_id,
             status=status_update.get("status"),
             error_message=status_update.get("error_message")
         )
         return {"success": True, "message": "Skill status updated and archived successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -369,32 +337,29 @@ async def update_skill_status(
 @router.put("/{skill_id}/content")
 async def update_skill_content(
     project_id: str,
-    skill_id: int,
-    content_update: dict,
-    db: AsyncSession = Depends(get_db)
+    skill_id: str,
+    content_update: dict
 ):
     """
-    Update custom skill content through UI
-
-    Process:
-    1. Update skill content in database
-    2. Update archive in .claudetask/custom-skills/
-    3. If skill is enabled, update .claude/skills/ as well
-
-    This endpoint is called when user edits skill content through the UI.
+    Update custom skill content through UI.
     """
     try:
         new_content = content_update.get("content")
         if not new_content:
             raise ValueError("Content is required")
 
-        service = SkillService(db)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SkillServiceMongoDB(mongodb)
         await service.update_custom_skill_content(
             project_id=project_id,
+            project_path=project_path,
             skill_id=skill_id,
             new_content=new_content
         )
         return {"success": True, "message": "Skill content updated successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

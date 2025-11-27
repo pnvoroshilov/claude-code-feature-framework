@@ -180,19 +180,22 @@ if [ -z "$SUMMARY" ]; then
 fi
 
 # Get last message ID for tracking
-LAST_MSG_ID=$(curl -s "$BACKEND_URL/api/projects/$PROJECT_ID/memory/messages?limit=1" 2>/dev/null | python3 -c "import json,sys; msgs=json.load(sys.stdin); print(msgs[0]['id'] if msgs else 0)" 2>/dev/null)
-
-if [ -z "$LAST_MSG_ID" ] || [ "$LAST_MSG_ID" = "0" ]; then
-    LAST_MSG_ID=0
-fi
+LAST_MSG_ID=$(curl -s "$BACKEND_URL/api/projects/$PROJECT_ID/memory/messages?limit=1" 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); msgs=d.get('messages',[]); print(msgs[0]['id'] if msgs else '')" 2>/dev/null)
 
 # Escape summary for JSON
 ESCAPED_SUMMARY=$(echo "$SUMMARY" | python3 -c "import json,sys; print(json.dumps(sys.stdin.read().strip()))" 2>/dev/null)
 
+# Build JSON payload - only include last_summarized_message_id if we have a valid ID
+if [ -n "$LAST_MSG_ID" ] && [ "$LAST_MSG_ID" != "0" ] && [ "$LAST_MSG_ID" != "None" ]; then
+    JSON_PAYLOAD="{\"trigger\": \"session_end\", \"new_insights\": $ESCAPED_SUMMARY, \"last_summarized_message_id\": \"$LAST_MSG_ID\"}"
+else
+    JSON_PAYLOAD="{\"trigger\": \"session_end\", \"new_insights\": $ESCAPED_SUMMARY}"
+fi
+
 # Update project summary
 RESPONSE=$(curl -s -X POST "$BACKEND_URL/api/projects/$PROJECT_ID/memory/summary/update" \
     -H "Content-Type: application/json" \
-    -d "{\"trigger\": \"auto_summarize_30\", \"new_insights\": $ESCAPED_SUMMARY, \"last_summarized_message_id\": $LAST_MSG_ID}" \
+    -d "$JSON_PAYLOAD" \
     --connect-timeout 5 \
     --max-time 10 \
     2>/dev/null)

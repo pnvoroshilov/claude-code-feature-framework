@@ -60,6 +60,8 @@ class VoyageEmbeddingService:
         self.model = "voyage-3-large"
         self.dimensions = 1024
         self.max_batch_size = 100  # Voyage AI API limit
+        self.max_retries = 5  # Max retries for rate limit errors
+        self.base_delay = 20  # Base delay in seconds for rate limit backoff
 
     async def generate_embeddings(
         self,
@@ -97,10 +99,12 @@ class VoyageEmbeddingService:
         batch_size = min(batch_size, self.max_batch_size)
 
         all_embeddings = []
+        total_batches = (len(texts) - 1) // batch_size + 1
 
         # Process in batches
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
+            batch_num = i // batch_size + 1
 
             try:
                 # Voyage AI SDK is sync, run in executor for async compatibility
@@ -114,11 +118,15 @@ class VoyageEmbeddingService:
 
                 logger.debug(
                     f"Generated {len(embeddings)} embeddings "
-                    f"(batch {i // batch_size + 1}/{(len(texts) - 1) // batch_size + 1})"
+                    f"(batch {batch_num}/{total_batches})"
                 )
 
+                # Add delay between batches to avoid rate limits (3 RPM = 20s between requests)
+                if batch_num < total_batches:
+                    await asyncio.sleep(self.base_delay)
+
             except Exception as e:
-                logger.error(f"Failed to generate embeddings for batch {i // batch_size + 1}: {e}")
+                logger.error(f"Failed to generate embeddings for batch {batch_num}: {e}")
                 raise
 
         return all_embeddings
@@ -126,6 +134,8 @@ class VoyageEmbeddingService:
     def _generate_batch(self, texts: List[str], input_type: str) -> List[List[float]]:
         """
         Generate embeddings for a single batch (sync method for executor).
+
+        Includes retry logic with exponential backoff for rate limit errors.
 
         Args:
             texts: Batch of texts to embed
@@ -135,15 +145,41 @@ class VoyageEmbeddingService:
             List of embedding vectors
 
         Raises:
-            Exception: If API call fails
+            Exception: If API call fails after all retries
         """
-        response = self.client.embed(
-            texts,
-            model=self.model,
-            input_type=input_type
-        )
+        import time
 
-        return response.embeddings
+        last_error = None
+
+        for attempt in range(self.max_retries):
+            try:
+                response = self.client.embed(
+                    texts,
+                    model=self.model,
+                    input_type=input_type
+                )
+                return response.embeddings
+
+            except Exception as e:
+                last_error = e
+                error_str = str(e).lower()
+
+                # Check if it's a rate limit error
+                if "rate limit" in error_str or "429" in error_str or "too many requests" in error_str:
+                    # Calculate delay with exponential backoff
+                    delay = self.base_delay * (2 ** attempt)
+                    logger.warning(
+                        f"Rate limit hit, attempt {attempt + 1}/{self.max_retries}. "
+                        f"Waiting {delay}s before retry..."
+                    )
+                    time.sleep(delay)
+                else:
+                    # Non-rate-limit error, raise immediately
+                    raise
+
+        # All retries exhausted
+        logger.error(f"Failed after {self.max_retries} retries: {last_error}")
+        raise last_error
 
     async def generate_single_embedding(
         self,

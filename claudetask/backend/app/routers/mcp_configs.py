@@ -1,34 +1,55 @@
-"""MCP Configs API router"""
+"""MCP Configs API router with MongoDB backend"""
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException
 from typing import List
 
-from ..database import get_db
+from ..database_mongodb import get_mongodb
 from ..schemas import MCPConfigInDB, MCPConfigCreate, MCPConfigsResponse
-from ..services.mcp_config_service import MCPConfigService
+from ..services.mcp_config_service_mongodb import MCPConfigServiceMongoDB
 from ..services.mcp_search_service import MCPSearchService
 
 router = APIRouter(prefix="/api/projects/{project_id}/mcp-configs", tags=["mcp-configs"])
 search_router = APIRouter(prefix="/api/mcp-search", tags=["mcp-search"])
 
 
-@router.get("/", response_model=MCPConfigsResponse)
-async def get_project_mcp_configs(
-    project_id: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def get_project_path(project_id: str) -> str:
     """
-    Get all MCP configs for a project
+    Get project path from MongoDB.
+
+    Args:
+        project_id: Project ID
+
+    Returns:
+        Project filesystem path
+
+    Raises:
+        HTTPException 404 if project not found
+    """
+    mongodb = await get_mongodb()
+    project = await mongodb.projects.find_one({"_id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+    return project["path"]
+
+
+@router.get("/", response_model=MCPConfigsResponse)
+async def get_project_mcp_configs(project_id: str):
+    """
+    Get all MCP configs for a project.
 
     Returns:
     - enabled: List of currently enabled MCP configs
     - available_default: List of default MCP configs that can be enabled
     - custom: List of user-created custom MCP configs
+    - favorites: Favorite MCP configs across all projects
     """
     try:
-        service = MCPConfigService(db)
-        return await service.get_project_mcp_configs(project_id)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = MCPConfigServiceMongoDB(mongodb)
+        return await service.get_project_mcp_configs(project_id, project_path)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -38,25 +59,19 @@ async def get_project_mcp_configs(
 @router.post("/enable/{mcp_config_id}", response_model=MCPConfigInDB)
 async def enable_mcp_config(
     project_id: str,
-    mcp_config_id: int,
-    mcp_config_type: str = "default",
-    db: AsyncSession = Depends(get_db)
+    mcp_config_id: str,
+    mcp_config_type: str = "default"
 ):
     """
-    Enable an MCP config by writing it from DB to project's .mcp.json
-
-    Process:
-    1. Check if imported config exists in DB (use imported if available)
-    2. Otherwise use default/custom MCP config from DB
-    3. Write MCP config from DB to .mcp.json
-    4. Insert record into project_mcp_configs junction table
-    5. Return enabled MCP config details
-
-    DB is the source of truth - .mcp.json is just the output file
+    Enable an MCP config by writing it to project's .mcp.json.
     """
     try:
-        service = MCPConfigService(db)
-        return await service.enable_mcp_config(project_id, mcp_config_id, mcp_config_type)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = MCPConfigServiceMongoDB(mongodb)
+        return await service.enable_mcp_config(project_id, project_path, mcp_config_id, mcp_config_type)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
@@ -68,21 +83,20 @@ async def enable_mcp_config(
 @router.post("/disable/{mcp_config_id}")
 async def disable_mcp_config(
     project_id: str,
-    mcp_config_id: int,
-    db: AsyncSession = Depends(get_db)
+    mcp_config_id: str,
+    mcp_config_type: str = "default"
 ):
     """
-    Disable an MCP config by removing it from project's .mcp.json
-
-    Process:
-    1. Remove record from project_mcp_configs junction table
-    2. Remove MCP config from .mcp.json file
-    3. Keep record in custom_mcp_configs if it's a custom config (don't delete)
+    Disable an MCP config by removing it from project's .mcp.json.
     """
     try:
-        service = MCPConfigService(db)
-        await service.disable_mcp_config(project_id, mcp_config_id)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = MCPConfigServiceMongoDB(mongodb)
+        await service.disable_mcp_config(project_id, project_path, mcp_config_id, mcp_config_type)
         return {"success": True, "message": "MCP config disabled successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -90,46 +104,32 @@ async def disable_mcp_config(
 
 
 @router.post("/enable-all")
-async def enable_all_mcp_configs(
-    project_id: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def enable_all_mcp_configs(project_id: str):
     """
-    Enable all available MCP configs (both default and custom)
-
-    Process:
-    1. Get all available default MCP configs
-    2. Get all custom MCP configs
-    3. Enable each config that isn't already enabled
-    4. Return count of newly enabled configs
+    Enable all available MCP configs (both default and custom).
     """
     try:
-        service = MCPConfigService(db)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = MCPConfigServiceMongoDB(mongodb)
+        project_configs = await service.get_project_mcp_configs(project_id, project_path)
 
-        # Get current project configs to avoid duplicates
-        project_configs = await service.get_project_mcp_configs(project_id)
         enabled_ids = {c.id for c in project_configs.enabled}
-
-        # Get all available configs
-        available_default = project_configs.available_default
-        custom_configs = project_configs.custom
-
-        # Enable all configs that aren't already enabled
         enabled_count = 0
         errors = []
 
-        for config in available_default:
+        for config in project_configs.available_default:
             if config.id not in enabled_ids:
                 try:
-                    await service.enable_mcp_config(project_id, config.id, "default")
+                    await service.enable_mcp_config(project_id, project_path, config.id, "default")
                     enabled_count += 1
                 except Exception as e:
                     errors.append(f"Failed to enable {config.name}: {str(e)}")
 
-        for config in custom_configs:
+        for config in project_configs.custom:
             if config.id not in enabled_ids:
                 try:
-                    await service.enable_mcp_config(project_id, config.id, "custom")
+                    await service.enable_mcp_config(project_id, project_path, config.id, "custom")
                     enabled_count += 1
                 except Exception as e:
                     errors.append(f"Failed to enable {config.name}: {str(e)}")
@@ -139,37 +139,29 @@ async def enable_all_mcp_configs(
             result["errors"] = errors
 
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to enable all MCP configs: {str(e)}")
 
 
 @router.post("/disable-all")
-async def disable_all_mcp_configs(
-    project_id: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def disable_all_mcp_configs(project_id: str):
     """
-    Disable all enabled MCP configs
-
-    Process:
-    1. Get all enabled MCP configs
-    2. Disable each enabled config
-    3. Return count of disabled configs
+    Disable all enabled MCP configs.
     """
     try:
-        service = MCPConfigService(db)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = MCPConfigServiceMongoDB(mongodb)
+        project_configs = await service.get_project_mcp_configs(project_id, project_path)
 
-        # Get currently enabled configs
-        project_configs = await service.get_project_mcp_configs(project_id)
-        enabled_configs = project_configs.enabled
-
-        # Disable all enabled configs
         disabled_count = 0
         errors = []
 
-        for config in enabled_configs:
+        for config in project_configs.enabled:
             try:
-                await service.disable_mcp_config(project_id, config.id)
+                await service.disable_mcp_config(project_id, project_path, config.id, config.mcp_config_type)
                 disabled_count += 1
             except Exception as e:
                 errors.append(f"Failed to disable {config.name}: {str(e)}")
@@ -179,6 +171,8 @@ async def disable_all_mcp_configs(
             result["errors"] = errors
 
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to disable all MCP configs: {str(e)}")
 
@@ -186,21 +180,18 @@ async def disable_all_mcp_configs(
 @router.post("/create", response_model=MCPConfigInDB)
 async def create_custom_mcp_config(
     project_id: str,
-    config_create: MCPConfigCreate,
-    db: AsyncSession = Depends(get_db)
+    config_create: MCPConfigCreate
 ):
     """
-    Create a custom MCP config
-
-    Process:
-    1. Validate config JSON structure
-    2. Validate MCP config name uniqueness
-    3. Insert record into custom_mcp_configs
-    4. Return MCP config record (can be enabled separately)
+    Create a custom MCP config.
     """
     try:
-        service = MCPConfigService(db)
-        return await service.create_custom_mcp_config(project_id, config_create)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = MCPConfigServiceMongoDB(mongodb)
+        return await service.create_custom_mcp_config(project_id, project_path, config_create)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -208,24 +199,18 @@ async def create_custom_mcp_config(
 
 
 @router.delete("/{mcp_config_id}")
-async def delete_custom_mcp_config(
-    project_id: str,
-    mcp_config_id: int,
-    db: AsyncSession = Depends(get_db)
-):
+async def delete_custom_mcp_config(project_id: str, mcp_config_id: str):
     """
-    Delete a custom MCP config permanently
-
-    Process:
-    1. Verify MCP config is custom (not default)
-    2. Remove from project_mcp_configs junction table
-    3. Remove MCP config from .mcp.json
-    4. Delete record from custom_mcp_configs table
+    Delete a custom MCP config permanently.
     """
     try:
-        service = MCPConfigService(db)
-        await service.delete_custom_mcp_config(project_id, mcp_config_id)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = MCPConfigServiceMongoDB(mongodb)
+        await service.delete_custom_mcp_config(project_id, project_path, mcp_config_id)
         return {"success": True, "message": "Custom MCP config deleted successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -233,15 +218,17 @@ async def delete_custom_mcp_config(
 
 
 @router.get("/defaults", response_model=List[MCPConfigInDB])
-async def get_default_mcp_configs(db: AsyncSession = Depends(get_db)):
+async def get_default_mcp_configs(project_id: str):
     """
-    Get all default MCP configs catalog
-
-    Returns list of default MCP server configurations from framework-assets
+    Get all default MCP configs catalog.
     """
     try:
-        service = MCPConfigService(db)
+        await get_project_path(project_id)  # Validate project exists
+        mongodb = await get_mongodb()
+        service = MCPConfigServiceMongoDB(mongodb)
         return await service.get_default_mcp_configs()
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get default MCP configs: {str(e)}")
 
@@ -249,23 +236,19 @@ async def get_default_mcp_configs(db: AsyncSession = Depends(get_db)):
 @router.post("/favorites/{mcp_config_id}", response_model=MCPConfigInDB)
 async def save_to_favorites(
     project_id: str,
-    mcp_config_id: int,
-    mcp_config_type: str = "custom",  # "default" or "custom"
-    db: AsyncSession = Depends(get_db)
+    mcp_config_id: str,
+    mcp_config_type: str = "custom"
 ):
     """
-    Mark an MCP config as favorite
-
-    Process:
-    1. Get MCP config (default or custom)
-    2. Set is_favorite = True
-    3. Return the updated config
-
-    This makes the MCP appear in Favorites tab
+    Mark an MCP config as favorite.
     """
     try:
-        service = MCPConfigService(db)
-        return await service.save_to_favorites(project_id, mcp_config_id, mcp_config_type)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = MCPConfigServiceMongoDB(mongodb)
+        return await service.save_to_favorites(project_id, project_path, mcp_config_id, mcp_config_type)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -274,46 +257,35 @@ async def save_to_favorites(
 
 @router.delete("/favorites/{mcp_config_id}")
 async def remove_from_favorites(
-    mcp_config_id: int,
-    mcp_config_type: str = "custom",  # "default" or "custom"
-    db: AsyncSession = Depends(get_db)
+    project_id: str,
+    mcp_config_id: str,
+    mcp_config_type: str = "custom"
 ):
     """
-    Unmark an MCP config as favorite
-
-    Process:
-    1. Get MCP config (default or custom)
-    2. Set is_favorite = False
-
-    Note: project_id is not needed since favorites are just a flag
+    Remove an MCP config from favorites.
     """
     try:
-        service = MCPConfigService(db)
-        await service.remove_from_favorites(mcp_config_id, mcp_config_type)
+        await get_project_path(project_id)  # Validate project exists
+        mongodb = await get_mongodb()
+        service = MCPConfigServiceMongoDB(mongodb)
+        await service.remove_from_favorites(project_id, mcp_config_id, mcp_config_type)
         return {"success": True, "message": "MCP config removed from favorites successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to remove MCP from favorites: {str(e)}")
 
 
-# MCP Search endpoints
+# MCP Search endpoints (unchanged - no database dependency)
 @search_router.get("/search")
 async def search_mcp_servers(q: str, max_pages: int = 3):
     """
-    Search for MCP servers on mcp.so with pagination support
-
-    Args:
-        q: Search query string
-        max_pages: Maximum number of pages to fetch (default: 3, max: 5)
-
-    Returns:
-        List of MCP server results with name, description, url
+    Search for MCP servers on mcp.so with pagination support.
     """
     try:
-        # Limit max_pages to reasonable value to avoid excessive requests
         max_pages = min(max_pages, 5)
-
         service = MCPSearchService()
         results = await service.search_servers(q, max_pages=max_pages)
         return {"results": results, "count": len(results), "pages_fetched": max_pages}
@@ -324,13 +296,7 @@ async def search_mcp_servers(q: str, max_pages: int = 3):
 @search_router.get("/server-config")
 async def get_server_config(url: str):
     """
-    Get detailed configuration for a specific MCP server
-
-    Args:
-        url: Full URL to the server page on mcp.so
-
-    Returns:
-        Server details and configuration
+    Get detailed configuration for a specific MCP server.
     """
     try:
         service = MCPSearchService()

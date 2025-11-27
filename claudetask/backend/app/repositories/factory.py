@@ -9,6 +9,10 @@ from .project_repository import SQLiteProjectRepository, MongoDBProjectRepositor
 from .task_repository import SQLiteTaskRepository, MongoDBTaskRepository
 from .memory_repository import SQLiteMemoryRepository, MongoDBMemoryRepository
 from .codebase_repository import MongoDBCodebaseRepository
+from .skill_repository import MongoDBSkillRepository
+from .hook_repository import MongoDBHookRepository
+from .mcp_config_repository import MongoDBMCPConfigRepository
+from .subagent_repository import MongoDBSubagentRepository
 from ..models import Project
 
 
@@ -228,3 +232,99 @@ class RepositoryFactory:
 
         # Return None for local mode - caller should use ChromaDB RAG
         return None
+
+    @staticmethod
+    async def get_skill_repository() -> MongoDBSkillRepository:
+        """
+        Get skill repository (always uses MongoDB).
+
+        Skills are stored in MongoDB regardless of project storage mode because:
+        - Default skills are global (shared across all projects)
+        - Custom skills need cross-project favorites support
+        - Only skill FILES are stored locally in .claude/skills/
+
+        Returns:
+            MongoDBSkillRepository instance
+
+        Raises:
+            ValueError: If MongoDB not connected
+        """
+        from ..database_mongodb import mongodb_manager
+
+        if not mongodb_manager.client:
+            raise ValueError("MongoDB not connected. Configure MongoDB Atlas first.")
+
+        mongodb = mongodb_manager.get_database()
+        return MongoDBSkillRepository(mongodb)
+
+    @staticmethod
+    async def get_hook_repository() -> MongoDBHookRepository:
+        """
+        Get hook repository (always uses MongoDB).
+
+        Hooks are stored in MongoDB regardless of project storage mode because:
+        - Default hooks are global (shared across all projects)
+        - Custom hooks need cross-project favorites support
+        - Hook configurations are synced to .claude/settings.json
+
+        Returns:
+            MongoDBHookRepository instance
+
+        Raises:
+            ValueError: If MongoDB not connected
+        """
+        from ..database_mongodb import mongodb_manager
+
+        if not mongodb_manager.client:
+            raise ValueError("MongoDB not connected. Configure MongoDB Atlas first.")
+
+        mongodb = mongodb_manager.get_database()
+        return MongoDBHookRepository(mongodb)
+
+    @staticmethod
+    async def get_mcp_config_repository() -> MongoDBMCPConfigRepository:
+        """
+        Get MCP config repository (always uses MongoDB).
+
+        MCP configs are stored in MongoDB regardless of project storage mode because:
+        - Default configs are global (shared across all projects)
+        - Custom configs need cross-project favorites support
+        - Config data is synced to .mcp.json file
+
+        Returns:
+            MongoDBMCPConfigRepository instance
+
+        Raises:
+            ValueError: If MongoDB not connected
+        """
+        from ..database_mongodb import mongodb_manager
+
+        if not mongodb_manager.client:
+            raise ValueError("MongoDB not connected. Configure MongoDB Atlas first.")
+
+        mongodb = mongodb_manager.get_database()
+        return MongoDBMCPConfigRepository(mongodb)
+
+    @staticmethod
+    async def get_subagent_repository() -> MongoDBSubagentRepository:
+        """
+        Get subagent repository (always uses MongoDB).
+
+        Subagents are stored in MongoDB regardless of project storage mode because:
+        - Default subagents are global (shared across all projects)
+        - Custom subagents need cross-project favorites support
+        - Subagent files are stored locally in .claude/commands/
+
+        Returns:
+            MongoDBSubagentRepository instance
+
+        Raises:
+            ValueError: If MongoDB not connected
+        """
+        from ..database_mongodb import mongodb_manager
+
+        if not mongodb_manager.client:
+            raise ValueError("MongoDB not connected. Configure MongoDB Atlas first.")
+
+        mongodb = mongodb_manager.get_database()
+        return MongoDBSubagentRepository(mongodb)

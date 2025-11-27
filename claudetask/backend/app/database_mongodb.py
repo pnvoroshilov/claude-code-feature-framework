@@ -189,6 +189,173 @@ class MongoDBManager:
         # Create Vector Search index for RAG
         await self.create_vector_search_index()
 
+        # Create skill indexes
+        await self.create_skill_indexes()
+
+    async def create_skill_indexes(self):
+        """
+        Create MongoDB indexes for skills collections.
+
+        Collections:
+        - default_skills: Global framework skills
+        - custom_skills: User-created skills per project
+        - project_skills: Junction table for enabled skills
+        """
+        if not self.client:
+            raise RuntimeError("MongoDB not connected")
+
+        db = self.get_database()
+
+        # Default skills indexes
+        await db.default_skills.create_index("name", unique=True)
+        await db.default_skills.create_index("is_active")
+        await db.default_skills.create_index("is_favorite")
+        await db.default_skills.create_index("category")
+
+        # Custom skills indexes
+        await db.custom_skills.create_index("project_id")
+        await db.custom_skills.create_index([("project_id", 1), ("name", 1)], unique=True)
+        await db.custom_skills.create_index("is_favorite")
+        await db.custom_skills.create_index("status")
+
+        # Project skills (junction) indexes
+        await db.project_skills.create_index("project_id")
+        await db.project_skills.create_index([
+            ("project_id", 1),
+            ("skill_id", 1),
+            ("skill_type", 1)
+        ], unique=True)
+
+        logger.info("Skill indexes created successfully")
+
+        # Create hook indexes
+        await self.create_hook_indexes()
+
+    async def create_hook_indexes(self):
+        """
+        Create MongoDB indexes for hooks collections.
+
+        Collections:
+        - default_hooks: Global framework hooks
+        - custom_hooks: User-created hooks per project
+        - project_hooks: Junction table for enabled hooks
+        """
+        if not self.client:
+            raise RuntimeError("MongoDB not connected")
+
+        db = self.get_database()
+
+        # Default hooks indexes
+        await db.default_hooks.create_index("name", unique=True)
+        await db.default_hooks.create_index("is_active")
+        await db.default_hooks.create_index("is_favorite")
+        await db.default_hooks.create_index("category")
+
+        # Custom hooks indexes
+        await db.custom_hooks.create_index("project_id")
+        await db.custom_hooks.create_index([("project_id", 1), ("name", 1)], unique=True)
+        await db.custom_hooks.create_index("is_favorite")
+        await db.custom_hooks.create_index("status")
+
+        # Project hooks (junction) indexes
+        await db.project_hooks.create_index("project_id")
+        await db.project_hooks.create_index([
+            ("project_id", 1),
+            ("hook_id", 1),
+            ("hook_type", 1)
+        ], unique=True)
+
+        logger.info("Hook indexes created successfully")
+
+        # Create MCP config indexes
+        await self.create_mcp_config_indexes()
+
+    async def create_mcp_config_indexes(self):
+        """
+        Create MongoDB indexes for MCP config collections.
+
+        Collections:
+        - default_mcp_configs: Global framework MCP configs
+        - custom_mcp_configs: User-created MCP configs per project
+        - project_mcp_configs: Junction table for enabled configs
+        """
+        if not self.client:
+            raise RuntimeError("MongoDB not connected")
+
+        db = self.get_database()
+
+        # Default MCP configs indexes
+        await db.default_mcp_configs.create_index("name", unique=True)
+        await db.default_mcp_configs.create_index("is_active")
+        await db.default_mcp_configs.create_index("is_favorite")
+        await db.default_mcp_configs.create_index("category")
+
+        # Custom MCP configs indexes
+        await db.custom_mcp_configs.create_index("project_id")
+        await db.custom_mcp_configs.create_index([("project_id", 1), ("name", 1)], unique=True)
+        await db.custom_mcp_configs.create_index("is_favorite")
+        await db.custom_mcp_configs.create_index("status")
+        await db.custom_mcp_configs.create_index("category")
+
+        # Project MCP configs (junction) indexes
+        await db.project_mcp_configs.create_index("project_id")
+        await db.project_mcp_configs.create_index([
+            ("project_id", 1),
+            ("mcp_config_id", 1),
+            ("mcp_config_type", 1)
+        ], unique=True)
+
+        logger.info("MCP config indexes created successfully")
+
+        # Create subagent indexes
+        await self.create_subagent_indexes()
+
+    async def create_subagent_indexes(self):
+        """
+        Create MongoDB indexes for subagents collections.
+
+        Collections:
+        - default_subagents: Global framework subagents
+        - custom_subagents: User-created subagents per project
+        - project_subagents: Junction table for enabled subagents
+        - subagent_skills: Junction table for skill assignments
+        """
+        if not self.client:
+            raise RuntimeError("MongoDB not connected")
+
+        db = self.get_database()
+
+        # Default subagents indexes
+        await db.default_subagents.create_index("name", unique=True)
+        await db.default_subagents.create_index("is_active")
+        await db.default_subagents.create_index("is_favorite")
+        await db.default_subagents.create_index("category")
+
+        # Custom subagents indexes
+        await db.custom_subagents.create_index("project_id")
+        await db.custom_subagents.create_index([("project_id", 1), ("name", 1)], unique=True)
+        await db.custom_subagents.create_index("is_favorite")
+        await db.custom_subagents.create_index("status")
+
+        # Project subagents (junction) indexes
+        await db.project_subagents.create_index("project_id")
+        await db.project_subagents.create_index([
+            ("project_id", 1),
+            ("subagent_id", 1),
+            ("subagent_type", 1)
+        ], unique=True)
+
+        # Subagent skills (junction) indexes
+        await db.subagent_skills.create_index("subagent_id")
+        await db.subagent_skills.create_index([
+            ("subagent_id", 1),
+            ("subagent_type", 1),
+            ("skill_id", 1),
+            ("skill_type", 1)
+        ], unique=True)
+
+        logger.info("Subagent indexes created successfully")
+
     async def create_vector_search_indexes(self):
         """
         Create all MongoDB Atlas Vector Search indexes for RAG.

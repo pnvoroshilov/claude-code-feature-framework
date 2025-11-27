@@ -49,7 +49,7 @@ class DocumentationIndexer:
         embedding_service: VoyageEmbeddingService,
         chunk_size: int = 1000,
         chunk_overlap: int = 100,
-        batch_size: int = 50
+        batch_size: int = 100  # Voyage AI batch limit (rate limit: 2000 RPS)
     ):
         """
         Initialize documentation indexer.

@@ -58,6 +58,15 @@
             "command": "\"/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/.claude/hooks/post-push-docs.sh\""
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/Users/pavelvorosilov/Desktop/Work/Start Up/Claude Code Feature Framework/.claude/hooks/post-push-docs-rag.sh\""
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [

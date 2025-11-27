@@ -1,35 +1,56 @@
-"""Subagents API router"""
+"""Subagents API router with MongoDB backend"""
 
 import logging
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, BackgroundTasks
 from typing import List
 
-from ..database import get_db
+from ..database_mongodb import get_mongodb
 from ..schemas import SubagentInDB, SubagentCreate, SubagentsResponse, SubagentSkillAssignment, SubagentSkillAssign
-from ..services.subagent_service import SubagentService
+from ..services.subagent_service_mongodb import SubagentServiceMongoDB
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/projects/{project_id}/subagents", tags=["subagents"])
 
 
-@router.get("/", response_model=SubagentsResponse)
-async def get_project_subagents(
-    project_id: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def get_project_path(project_id: str) -> str:
     """
-    Get all subagents for a project
+    Get project path from MongoDB.
+
+    Args:
+        project_id: Project ID
+
+    Returns:
+        Project filesystem path
+
+    Raises:
+        HTTPException 404 if project not found
+    """
+    mongodb = await get_mongodb()
+    project = await mongodb.projects.find_one({"_id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+    return project["path"]
+
+
+@router.get("/", response_model=SubagentsResponse)
+async def get_project_subagents(project_id: str):
+    """
+    Get all subagents for a project.
 
     Returns:
     - enabled: List of currently enabled subagents
     - available_default: List of default subagents that can be enabled
     - custom: List of user-created custom subagents
+    - favorites: Favorite subagents across all projects
     """
     try:
-        service = SubagentService(db)
-        return await service.get_project_subagents(project_id)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SubagentServiceMongoDB(mongodb)
+        return await service.get_project_subagents(project_id, project_path)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -39,21 +60,19 @@ async def get_project_subagents(
 @router.post("/enable/{subagent_id}", response_model=SubagentInDB)
 async def enable_subagent(
     project_id: str,
-    subagent_id: int,
-    subagent_kind: str = "default",
-    db: AsyncSession = Depends(get_db)
+    subagent_id: str,
+    subagent_kind: str = "default"
 ):
     """
-    Enable a subagent for a project
-
-    Process:
-    1. Validate subagent exists
-    2. Insert record into project_subagents junction table
-    3. Return enabled subagent details
+    Enable a subagent for a project.
     """
     try:
-        service = SubagentService(db)
-        return await service.enable_subagent(project_id, subagent_id, subagent_kind)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SubagentServiceMongoDB(mongodb)
+        return await service.enable_subagent(project_id, project_path, subagent_id, subagent_kind)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
@@ -65,20 +84,20 @@ async def enable_subagent(
 @router.post("/disable/{subagent_id}")
 async def disable_subagent(
     project_id: str,
-    subagent_id: int,
-    db: AsyncSession = Depends(get_db)
+    subagent_id: str,
+    subagent_kind: str = "default"
 ):
     """
-    Disable a subagent for a project
-
-    Process:
-    1. Remove record from project_subagents junction table
-    2. Keep record in custom_subagents if it's a custom subagent (don't delete)
+    Disable a subagent for a project.
     """
     try:
-        service = SubagentService(db)
-        await service.disable_subagent(project_id, subagent_id)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SubagentServiceMongoDB(mongodb)
+        await service.disable_subagent(project_id, project_path, subagent_id, subagent_kind)
         return {"success": True, "message": "Subagent disabled successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -86,46 +105,32 @@ async def disable_subagent(
 
 
 @router.post("/enable-all")
-async def enable_all_subagents(
-    project_id: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def enable_all_subagents(project_id: str):
     """
-    Enable all available subagents (both default and custom)
-
-    Process:
-    1. Get all available default subagents
-    2. Get all custom subagents
-    3. Enable each subagent that isn't already enabled
-    4. Return count of newly enabled subagents
+    Enable all available subagents (both default and custom).
     """
     try:
-        service = SubagentService(db)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SubagentServiceMongoDB(mongodb)
+        project_subagents = await service.get_project_subagents(project_id, project_path)
 
-        # Get current project subagents to avoid duplicates
-        project_subagents = await service.get_project_subagents(project_id)
         enabled_ids = {s.id for s in project_subagents.enabled}
-
-        # Get all available subagents
-        available_default = project_subagents.available_default
-        custom_subagents = project_subagents.custom
-
-        # Enable all subagents that aren't already enabled
         enabled_count = 0
         errors = []
 
-        for subagent in available_default:
+        for subagent in project_subagents.available_default:
             if subagent.id not in enabled_ids:
                 try:
-                    await service.enable_subagent(project_id, subagent.id, "default")
+                    await service.enable_subagent(project_id, project_path, subagent.id, "default")
                     enabled_count += 1
                 except Exception as e:
                     errors.append(f"Failed to enable {subagent.name}: {str(e)}")
 
-        for subagent in custom_subagents:
+        for subagent in project_subagents.custom:
             if subagent.id not in enabled_ids:
                 try:
-                    await service.enable_subagent(project_id, subagent.id, "custom")
+                    await service.enable_subagent(project_id, project_path, subagent.id, "custom")
                     enabled_count += 1
                 except Exception as e:
                     errors.append(f"Failed to enable {subagent.name}: {str(e)}")
@@ -135,37 +140,29 @@ async def enable_all_subagents(
             result["errors"] = errors
 
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to enable all subagents: {str(e)}")
 
 
 @router.post("/disable-all")
-async def disable_all_subagents(
-    project_id: str,
-    db: AsyncSession = Depends(get_db)
-):
+async def disable_all_subagents(project_id: str):
     """
-    Disable all enabled subagents
-
-    Process:
-    1. Get all enabled subagents
-    2. Disable each enabled subagent
-    3. Return count of disabled subagents
+    Disable all enabled subagents.
     """
     try:
-        service = SubagentService(db)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SubagentServiceMongoDB(mongodb)
+        project_subagents = await service.get_project_subagents(project_id, project_path)
 
-        # Get currently enabled subagents
-        project_subagents = await service.get_project_subagents(project_id)
-        enabled_subagents = project_subagents.enabled
-
-        # Disable all enabled subagents
         disabled_count = 0
         errors = []
 
-        for subagent in enabled_subagents:
+        for subagent in project_subagents.enabled:
             try:
-                await service.disable_subagent(project_id, subagent.id)
+                await service.disable_subagent(project_id, project_path, subagent.id, subagent.subagent_kind)
                 disabled_count += 1
             except Exception as e:
                 errors.append(f"Failed to disable {subagent.name}: {str(e)}")
@@ -175,6 +172,8 @@ async def disable_all_subagents(
             result["errors"] = errors
 
         return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to disable all subagents: {str(e)}")
 
@@ -183,39 +182,29 @@ async def disable_all_subagents(
 async def create_custom_subagent(
     project_id: str,
     subagent_create: SubagentCreate,
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db)
+    background_tasks: BackgroundTasks
 ):
     """
-    Create a custom subagent using Claude Code CLI
-
-    Process:
-    1. Validate subagent name uniqueness
-    2. Insert record into custom_subagents (status: "creating")
-    3. Launch background task for Claude Code CLI interaction
-    4. Return subagent record (status will update when complete)
-
-    Background task:
-    - Start Claude terminal session
-    - Execute /create-agent command
-    - Send agent name and description via terminal
-    - Wait for completion (with timeout)
-    - Update subagent status to "active" or "failed"
+    Create a custom subagent using Claude Code CLI.
     """
     try:
-        service = SubagentService(db)
-        subagent = await service.create_custom_subagent(project_id, subagent_create)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SubagentServiceMongoDB(mongodb)
+        subagent = await service.create_custom_subagent(project_id, project_path, subagent_create)
 
-        # Execute Claude CLI interaction in background
         background_tasks.add_task(
             service.execute_subagent_creation_cli,
             project_id,
+            project_path,
             subagent.id,
             subagent_create.name,
             subagent_create.description
         )
 
         return subagent
+    except HTTPException:
+        raise
     except ValueError as e:
         logger.error(f"ValueError creating custom subagent: {e}")
         raise HTTPException(status_code=400, detail=str(e))
@@ -225,49 +214,56 @@ async def create_custom_subagent(
 
 
 @router.delete("/{subagent_id}")
-async def delete_custom_subagent(
-    project_id: str,
-    subagent_id: int,
-    db: AsyncSession = Depends(get_db)
-):
+async def delete_custom_subagent(project_id: str, subagent_id: str):
     """
-    Delete a custom subagent
-
-    Process:
-    1. Verify it's a custom subagent for this project
-    2. Remove from project_subagents if enabled
-    3. Delete from custom_subagents
+    Delete a custom subagent permanently.
     """
     try:
-        service = SubagentService(db)
-        await service.delete_custom_subagent(project_id, subagent_id)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SubagentServiceMongoDB(mongodb)
+        await service.delete_custom_subagent(project_id, project_path, subagent_id)
         return {"success": True, "message": "Custom subagent deleted successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete custom subagent: {str(e)}")
 
 
+@router.get("/defaults", response_model=List[SubagentInDB])
+async def get_default_subagents(project_id: str):
+    """
+    Get all default subagents catalog.
+    """
+    try:
+        await get_project_path(project_id)  # Validate project exists
+        mongodb = await get_mongodb()
+        service = SubagentServiceMongoDB(mongodb)
+        return await service.get_default_subagents()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get default subagents: {str(e)}")
+
+
 @router.post("/favorites/{subagent_id}", response_model=SubagentInDB)
 async def save_to_favorites(
     project_id: str,
-    subagent_id: int,
-    subagent_kind: str = "custom",  # "default" or "custom"
-    db: AsyncSession = Depends(get_db)
+    subagent_id: str,
+    subagent_kind: str = "custom"
 ):
     """
-    Mark a subagent as favorite
-
-    Process:
-    1. Verify subagent exists
-    2. Set is_favorite = True
-    3. Return updated subagent
-
-    Note: Favorites are global (not project-specific)
+    Mark a subagent as favorite.
     """
     try:
-        service = SubagentService(db)
-        return await service.save_to_favorites(subagent_id, subagent_kind)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SubagentServiceMongoDB(mongodb)
+        return await service.save_to_favorites(project_id, project_path, subagent_id, subagent_kind)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -276,23 +272,21 @@ async def save_to_favorites(
 
 @router.delete("/favorites/{subagent_id}")
 async def remove_from_favorites(
-    subagent_id: int,
-    subagent_kind: str = "custom",  # "default" or "custom"
-    db: AsyncSession = Depends(get_db)
+    project_id: str,
+    subagent_id: str,
+    subagent_kind: str = "custom"
 ):
     """
-    Unmark a subagent as favorite
-
-    Process:
-    1. Verify subagent exists and is marked as favorite
-    2. Set is_favorite = False
-
-    Note: project_id is not needed since favorites are just a flag
+    Remove a subagent from favorites.
     """
     try:
-        service = SubagentService(db)
-        await service.remove_from_favorites(subagent_id, subagent_kind)
+        await get_project_path(project_id)  # Validate project exists
+        mongodb = await get_mongodb()
+        service = SubagentServiceMongoDB(mongodb)
+        await service.remove_from_favorites(project_id, subagent_id, subagent_kind)
         return {"success": True, "message": "Subagent removed from favorites successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -302,29 +296,26 @@ async def remove_from_favorites(
 @router.patch("/{subagent_id}/status")
 async def update_subagent_status(
     project_id: str,
-    subagent_id: int,
-    status_update: dict,
-    db: AsyncSession = Depends(get_db)
+    subagent_id: str,
+    status_update: dict
 ):
     """
-    Update custom subagent status and archive it
-
-    Process:
-    1. Update subagent status in database
-    2. Archive subagent to .claudetask/agents/ for persistence
-    3. Enable subagent if status is "active"
-
-    This endpoint is called by MCP tools after subagent creation is complete.
+    Update custom subagent status and archive it.
     """
     try:
-        service = SubagentService(db)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SubagentServiceMongoDB(mongodb)
         await service.update_custom_subagent_status(
             project_id=project_id,
+            project_path=project_path,
             subagent_id=subagent_id,
             status=status_update.get("status"),
             error_message=status_update.get("error_message")
         )
         return {"success": True, "message": "Subagent status updated and archived successfully"}
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
@@ -337,118 +328,83 @@ async def update_subagent_status(
 @router.get("/{subagent_id}/skills", response_model=List[SubagentSkillAssignment])
 async def get_subagent_skills(
     project_id: str,
-    subagent_id: int,
-    subagent_kind: str = "default",
-    db: AsyncSession = Depends(get_db)
+    subagent_id: str,
+    subagent_kind: str = "default"
 ):
     """
-    Get all skills assigned to a subagent
-
-    Returns list of skills with their details (name, description, category)
+    Get all skills assigned to a subagent.
     """
     try:
-        service = SubagentService(db)
-        return await service.get_subagent_skills(subagent_id, subagent_kind)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SubagentServiceMongoDB(mongodb)
+
+        # Get subagent
+        if subagent_kind == "default":
+            subagent = await service.repo.get_default_subagent(subagent_id)
+        else:
+            subagent = await service.repo.get_custom_subagent(subagent_id)
+
+        if not subagent:
+            raise ValueError(f"Subagent {subagent_id} not found")
+
+        # Get skills
+        skills = await service.repo.get_subagent_skills(subagent_id, subagent_kind)
+
+        result = []
+        for skill_assignment in skills:
+            skill_id = skill_assignment["skill_id"]
+            skill_type = skill_assignment["skill_type"]
+
+            if skill_type == "default":
+                skill = await service.skill_repo.get_default_skill(skill_id)
+            else:
+                skill = await service.skill_repo.get_custom_skill(skill_id)
+
+            if skill:
+                result.append(SubagentSkillAssignment(
+                    skill_id=skill_id,
+                    skill_type=skill_type,
+                    skill_name=skill["name"],
+                    skill_description=skill["description"],
+                    skill_category=skill.get("category", "General"),
+                    skill_file_name=skill.get("file_name", ""),
+                    assigned_at=skill_assignment.get("assigned_at")
+                ))
+
+        return result
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get subagent skills: {str(e)}")
 
 
-@router.post("/{subagent_id}/skills/assign", response_model=SubagentSkillAssignment)
-async def assign_skill_to_subagent(
-    project_id: str,
-    subagent_id: int,
-    skill_id: int,
-    skill_type: str = "default",
-    subagent_kind: str = "default",
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Assign a single skill to a subagent
-
-    Args:
-        subagent_id: ID of the subagent
-        skill_id: ID of the skill to assign
-        skill_type: Type of skill ("default" or "custom")
-        subagent_kind: Type of subagent ("default" or "custom")
-    """
-    try:
-        service = SubagentService(db)
-        return await service.assign_skill_to_subagent(
-            subagent_id=subagent_id,
-            subagent_kind=subagent_kind,
-            skill_id=skill_id,
-            skill_type=skill_type
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to assign skill: {str(e)}")
-
-
-@router.post("/{subagent_id}/skills/unassign")
-async def unassign_skill_from_subagent(
-    project_id: str,
-    subagent_id: int,
-    skill_id: int,
-    skill_type: str = "default",
-    subagent_kind: str = "default",
-    db: AsyncSession = Depends(get_db)
-):
-    """
-    Remove a skill assignment from a subagent
-
-    Args:
-        subagent_id: ID of the subagent
-        skill_id: ID of the skill to remove
-        skill_type: Type of skill ("default" or "custom")
-        subagent_kind: Type of subagent ("default" or "custom")
-    """
-    try:
-        service = SubagentService(db)
-        await service.unassign_skill_from_subagent(
-            subagent_id=subagent_id,
-            subagent_kind=subagent_kind,
-            skill_id=skill_id,
-            skill_type=skill_type
-        )
-        return {"success": True, "message": "Skill unassigned successfully"}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to unassign skill: {str(e)}")
-
-
 @router.put("/{subagent_id}/skills", response_model=List[SubagentSkillAssignment])
 async def set_subagent_skills(
     project_id: str,
-    subagent_id: int,
+    subagent_id: str,
     skills: SubagentSkillAssign,
-    subagent_kind: str = "default",
-    db: AsyncSession = Depends(get_db)
+    subagent_kind: str = "default"
 ):
     """
-    Set all skills for a subagent (replaces existing assignments)
-
-    Also updates the agent's markdown file with skill instructions.
-
-    Args:
-        subagent_id: ID of the subagent
-        skills: Object with skill_ids and skill_types arrays
-        subagent_kind: Type of subagent ("default" or "custom")
-
-    Returns list of new skill assignments
+    Set all skills for a subagent (replaces existing assignments).
     """
     try:
-        service = SubagentService(db)
+        project_path = await get_project_path(project_id)
+        mongodb = await get_mongodb()
+        service = SubagentServiceMongoDB(mongodb)
         return await service.set_subagent_skills(
             project_id=project_id,
+            project_path=project_path,
             subagent_id=subagent_id,
             subagent_kind=subagent_kind,
             skill_ids=skills.skill_ids,
             skill_types=skills.skill_types
         )
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

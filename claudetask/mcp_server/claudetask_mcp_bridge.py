@@ -3508,7 +3508,9 @@ Apply SIMPLE mode instructions as fallback.
                 messages_response = await client.get(
                     f"{self.server_url}/api/projects/{project_id}/memory/messages?limit=30"
                 )
-                messages_data = messages_response.json() if messages_response.status_code == 200 else []
+                messages_json = messages_response.json() if messages_response.status_code == 200 else {}
+                # API returns {"messages": [...], "total": N, "storage_mode": "..."}
+                messages_data = messages_json.get("messages", []) if isinstance(messages_json, dict) else []
 
                 # Perform RAG search if current task exists
                 task_response = await client.get(f"{self.server_url}/api/mcp/current-task")
@@ -3534,8 +3536,11 @@ Apply SIMPLE mode instructions as fallback.
 """
 
                 for msg in messages_data:  # Show all 30 messages for full context
-                    content_preview = msg['content'][:150] if len(msg['content']) > 150 else msg['content']
-                    context += f"\n[{msg['timestamp']}] {msg['message_type'].upper()}: {content_preview}..."
+                    content = msg.get('content', '')
+                    content_preview = content[:150] if len(content) > 150 else content
+                    timestamp = msg.get('timestamp', 'unknown')
+                    msg_type = msg.get('message_type', 'unknown').upper()
+                    context += f"\n[{timestamp}] {msg_type}: {content_preview}..."
 
                 if relevant_memories:
                     context += f"\n\n### 🔍 Relevant Memories (RAG Search)\n"

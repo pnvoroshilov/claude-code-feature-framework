@@ -58,7 +58,7 @@ class CodebaseIndexer:
         embedding_service: VoyageEmbeddingService,
         chunk_size: int = 500,
         chunk_overlap: int = 50,
-        batch_size: int = 50
+        batch_size: int = 100  # Voyage AI batch limit (rate limit: 2000 RPS)
     ):
         """
         Initialize codebase indexer.
@@ -68,7 +68,7 @@ class CodebaseIndexer:
             embedding_service: VoyageEmbeddingService instance
             chunk_size: Target chunk size in tokens
             chunk_overlap: Overlap between chunks
-            batch_size: Number of chunks to embed in one batch
+            batch_size: Number of chunks to embed in one batch (max 100)
         """
         self.repository = repository
         self.embedding_service = embedding_service
