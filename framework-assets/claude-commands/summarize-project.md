@@ -1,5 +1,5 @@
 ---
-allowed-tools: [Bash, Read, Write]
+allowed-tools: [Bash, Read, Write, mcp__claudetask__complete_hook_session]
 description: Intelligent project summarization - analyze session and update project memory with structured insights
 ---
 
@@ -136,6 +136,29 @@ Gotchas:
 - Use [skip-hook] tag to prevent infinite loops
 - Check storage_mode before logging
 ```
+
+---
+
+## Session Cleanup (IMPORTANT)
+
+**When this command is triggered by a hook (automatically), you MUST call `mcp__claudetask__complete_hook_session` at the very end to cleanup the session.**
+
+This is critical because:
+- Hook-triggered commands run in an embedded Claude session
+- Without cleanup, the session process remains running indefinitely
+- The MCP tool will gracefully terminate the session
+
+### Final Step (MANDATORY for hook-triggered execution):
+
+After completing all summarization work, call:
+```
+mcp__claudetask__complete_hook_session
+```
+
+This will:
+1. Find any active hook sessions
+2. Gracefully stop them
+3. Free up system resources
 
 ---
 

@@ -131,21 +131,23 @@ check_and_trigger_summarization() {
 
     log_hook "Triggering summarization - $MESSAGES_SINCE messages since last summary"
 
-    # UPDATE last_summarized_message_id BEFORE calling execute-command
-    # This resets the counter to prevent infinite recursion even if summarization fails
+    # Check throttle file to prevent too frequent summarization attempts
+    THROTTLE_FILE="/tmp/claudetask_summarize_throttle_$PROJECT_ID"
+    if [ -f "$THROTTLE_FILE" ]; then
+        LAST_ATTEMPT=$(cat "$THROTTLE_FILE" 2>/dev/null)
+        NOW=$(date +%s)
+        # Throttle: at least 5 minutes between attempts
+        if [ -n "$LAST_ATTEMPT" ] && [ $((NOW - LAST_ATTEMPT)) -lt 300 ]; then
+            log_hook_skip "Summarization throttled - last attempt was $((NOW - LAST_ATTEMPT))s ago (min: 300s)"
+            return
+        fi
+    fi
+    # Update throttle timestamp
+    date +%s > "$THROTTLE_FILE"
+
+    # Get latest message ID for potential counter reset
     LATEST_MSG=$(curl -s "$BACKEND_URL/api/projects/$PROJECT_ID/memory/messages?limit=1" 2>/dev/null)
     LATEST_MSG_ID=$(echo "$LATEST_MSG" | python3 -c "import json,sys; d=json.load(sys.stdin); msgs=d.get('messages',[]); print(msgs[0].get('id','') if msgs else '')" 2>/dev/null)
-
-    if [ -n "$LATEST_MSG_ID" ] && [ "$LATEST_MSG_ID" != "" ]; then
-        # Update last_summarized_message_id to reset counter
-        curl -s -X POST "$BACKEND_URL/api/projects/$PROJECT_ID/memory/summary/update" \
-            -H "Content-Type: application/json" \
-            -d "{\"trigger\": \"hook_reset\", \"new_insights\": \"Counter reset by hook\", \"last_summarized_message_id\": \"$LATEST_MSG_ID\"}" \
-            --connect-timeout 3 \
-            --max-time 5 \
-            2>/dev/null > /dev/null
-        log_hook "Reset message counter to ID: $LATEST_MSG_ID"
-    fi
 
     # URL encode project directory (handle spaces and special characters)
     PROJECT_DIR_ENCODED=$(printf '%s' "$PROJECT_ROOT" | jq -sRr @uri)
@@ -155,8 +157,8 @@ check_and_trigger_summarization() {
 
     log_hook "Calling /summarize-project via Claude Code"
 
-    # Make async API call (don't wait for response - summarization can take time)
-    API_RESPONSE=$(curl -s --max-time 5 -X POST "$API_URL" \
+    # Make API call with longer timeout (20s for MCP initialization + processing)
+    API_RESPONSE=$(curl -s --max-time 25 -X POST "$API_URL" \
         -H "Content-Type: application/json" \
         2>&1)
 
@@ -168,13 +170,31 @@ check_and_trigger_summarization() {
 
         if [ "$SUCCESS" = "true" ]; then
             log_hook_success "Summarization triggered (session: $SESSION_ID)"
+            # Reset counter ONLY on success
+            if [ -n "$LATEST_MSG_ID" ] && [ "$LATEST_MSG_ID" != "" ]; then
+                curl -s -X POST "$BACKEND_URL/api/projects/$PROJECT_ID/memory/summary/reset-counter?last_summarized_message_id=$LATEST_MSG_ID" \
+                    --connect-timeout 3 \
+                    --max-time 5 \
+                    2>/dev/null > /dev/null
+                log_hook "Reset message counter to ID: $LATEST_MSG_ID"
+            fi
         else
             log_hook_error "Failed to trigger summarization: $API_RESPONSE"
         fi
     elif [ $API_STATUS -eq 28 ]; then
+        # Timeout - assume it started in background
         log_hook_success "Summarization started (running in background)"
+        # Reset counter on timeout too (command was sent)
+        if [ -n "$LATEST_MSG_ID" ] && [ "$LATEST_MSG_ID" != "" ]; then
+            curl -s -X POST "$BACKEND_URL/api/projects/$PROJECT_ID/memory/summary/reset-counter?last_summarized_message_id=$LATEST_MSG_ID" \
+                --connect-timeout 3 \
+                --max-time 5 \
+                2>/dev/null > /dev/null
+            log_hook "Reset message counter to ID: $LATEST_MSG_ID"
+        fi
     else
         log_hook_error "Summarization API failed with status: $API_STATUS"
+        # Do NOT reset counter on failure - will retry on next Stop event
     fi
 }
 

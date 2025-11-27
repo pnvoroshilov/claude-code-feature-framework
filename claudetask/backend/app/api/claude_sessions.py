@@ -616,6 +616,71 @@ async def kill_session(pid: int):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/embedded/list")
+async def list_embedded_sessions():
+    """
+    List all active embedded Claude sessions (from real_claude_service).
+
+    These are sessions created by execute-command, task sessions, etc.
+    Used by MCP tools to find and cleanup hook sessions.
+
+    Returns:
+        List of active embedded sessions with their IDs and status
+    """
+    try:
+        from app.services.real_claude_service import real_claude_service
+
+        sessions = []
+        for session_id, session in real_claude_service.sessions.items():
+            sessions.append({
+                "session_id": session_id,
+                "task_id": session.task_id,
+                "working_dir": session.working_dir,
+                "root_project_dir": session.root_project_dir,
+                "is_running": session.is_running,
+                "child_alive": session.child.isalive() if session.child else False
+            })
+
+        return sessions
+
+    except Exception as e:
+        logger.error(f"Error listing embedded sessions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/embedded/{session_id}/stop")
+async def stop_embedded_session(session_id: str):
+    """
+    Stop an embedded Claude session.
+
+    Args:
+        session_id: Session ID to stop
+
+    Returns:
+        Success status
+    """
+    try:
+        from app.services.real_claude_service import real_claude_service
+
+        session = real_claude_service.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+
+        success = await real_claude_service.stop_session(session_id)
+
+        if success:
+            logger.info(f"Stopped embedded session: {session_id}")
+            return {"success": True, "message": f"Session {session_id} stopped"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to stop session")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error stopping embedded session {session_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/execute-command")
 async def execute_claude_command(
     command: str = Query(..., description="Claude Code slash command (e.g., /update-documentation)"),
@@ -692,20 +757,29 @@ async def execute_claude_command(
             if active_session:
                 logger.info(f"Session child alive: {active_session.child.isalive() if active_session.child else 'no child'}")
 
-            # Wait a moment for Claude to initialize
+            # Wait for Claude to initialize (15s needed for MCP servers)
+            # Claude needs time to load all MCP servers before accepting commands
             import asyncio
-            await asyncio.sleep(2)
+            await asyncio.sleep(15)
 
             # Debug: check again after sleep
             if active_session and active_session.child:
-                logger.info(f"After sleep - child alive: {active_session.child.isalive()}")
+                is_alive = active_session.child.isalive()
+                logger.info(f"After 5s sleep - child alive: {is_alive}")
+                if not is_alive:
+                    logger.error("Claude process died during initialization")
+                    raise HTTPException(
+                        status_code=500,
+                        detail="Claude process died during initialization"
+                    )
         else:
             session_id = active_session.session_id
 
-        # Send the command to the active Claude session
-        # This uses pexpect to write to Claude's stdin
-        logger.info(f"Sending input to session {session_id}")
-        success = await real_claude_service.send_input(session_id, command)
+        # Send the command with Enter in a single operation to avoid double execution
+        # Using \r (carriage return) to submit the command
+        command_with_enter = f"{command}\r"
+        logger.info(f"Sending command to session {session_id}: {command}")
+        success = await real_claude_service.send_input(session_id, command_with_enter)
         logger.info(f"Send input result: {success}")
 
         if not success:
@@ -720,11 +794,6 @@ async def execute_claude_command(
                 detail="Failed to send command to Claude session"
             )
 
-        # Send Enter key to execute the command
-        import asyncio
-        await asyncio.sleep(0.2)
-        await real_claude_service.send_input(session_id, "\r")
-
         logger.info(f"Successfully sent command '{command}' to Claude session {session_id}")
 
         return {
@@ -733,7 +802,7 @@ async def execute_claude_command(
             "command": command,
             "session_id": session_id,
             "pid": active_session.child.pid if active_session.child else None,
-            "note": "Command is being executed in embedded Claude session"
+            "note": "Command is executing. The slash command should call mcp__claudetask__complete_hook_session at the end to cleanup."
         }
 
     except HTTPException:

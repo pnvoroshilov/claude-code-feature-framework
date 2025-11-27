@@ -763,6 +763,15 @@ class ClaudeTaskMCPServer:
                     }
                 ),
                 types.Tool(
+                    name="complete_hook_session",
+                    description="Complete a hook-triggered Claude session and stop the process. Call this at the END of any slash command executed via hook (like /summarize-project) to clean up the session. The session will be gracefully terminated.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {},
+                        "required": []
+                    }
+                ),
+                types.Tool(
                     name="update_custom_skill_status",
                     description="Update custom skill status and archive it after creation. Call this AFTER skill files are created and BEFORE completing the session. This ensures the skill is properly tracked and can be enabled/disabled.",
                     inputSchema={
@@ -1025,6 +1034,8 @@ class ClaudeTaskMCPServer:
                     result = await self._complete_skill_creation_session(
                         arguments["session_id"]
                     )
+                elif name == "complete_hook_session":
+                    result = await self._complete_hook_session()
                 elif name == "update_custom_skill_status":
                     result = await self._update_custom_skill_status(
                         arguments["skill_name"],
@@ -3300,6 +3311,69 @@ Task is now ready for final status updates or closure."""
                 return [types.TextContent(
                     type="text",
                     text=f"❌ Error completing session: {str(e)}"
+                )]
+
+    async def _complete_hook_session(self) -> list[types.TextContent]:
+        """Complete a hook-triggered Claude session by stopping all hook sessions.
+
+        This finds any active hook session (session_id starting with 'hook-')
+        and gracefully terminates it. Called at the end of slash commands
+        executed via hooks (like /summarize-project).
+        """
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                self.logger.info("Completing hook session - finding active hook sessions")
+
+                # Get list of active sessions from real_claude_service
+                sessions_response = await client.get(
+                    f"{self.server_url}/api/claude-sessions/embedded/list"
+                )
+
+                if sessions_response.status_code != 200:
+                    return [types.TextContent(
+                        type="text",
+                        text=f"⚠️ Could not list sessions: {sessions_response.status_code}"
+                    )]
+
+                sessions = sessions_response.json()
+                hook_sessions = [s for s in sessions if s.get("session_id", "").startswith("hook-")]
+
+                if not hook_sessions:
+                    return [types.TextContent(
+                        type="text",
+                        text="ℹ️ No active hook sessions found to clean up"
+                    )]
+
+                # Stop each hook session
+                stopped = []
+                for session in hook_sessions:
+                    session_id = session.get("session_id")
+                    try:
+                        stop_response = await client.post(
+                            f"{self.server_url}/api/claude-sessions/embedded/{session_id}/stop"
+                        )
+                        if stop_response.status_code == 200:
+                            stopped.append(session_id)
+                            self.logger.info(f"Stopped hook session: {session_id}")
+                    except Exception as e:
+                        self.logger.warning(f"Failed to stop session {session_id}: {e}")
+
+                if stopped:
+                    return [types.TextContent(
+                        type="text",
+                        text=f"✅ Hook session completed successfully\n\nStopped {len(stopped)} session(s): {', '.join(stopped)}"
+                    )]
+                else:
+                    return [types.TextContent(
+                        type="text",
+                        text="⚠️ Found hook sessions but failed to stop them"
+                    )]
+
+            except Exception as e:
+                self.logger.error(f"Error completing hook session: {e}")
+                return [types.TextContent(
+                    type="text",
+                    text=f"❌ Error completing hook session: {str(e)}"
                 )]
 
     async def _update_custom_skill_status(

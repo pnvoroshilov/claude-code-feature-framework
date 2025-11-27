@@ -34,16 +34,29 @@ class VoyageEmbeddingService:
         embeddings = await service.generate_embeddings(["text1", "text2"])
     """
 
-    def __init__(self, api_key: str):
+    def __init__(
+        self,
+        api_key: str,
+        batch_delay: float = 0.0,
+        retry_base_delay: float = 1.0,
+        max_retries: int = 5
+    ):
         """
         Initialize Voyage AI embedding service.
 
         Args:
             api_key: Voyage AI API key (format: vo-...)
+            batch_delay: Delay in seconds between batches (default: 0 for high RPS tiers)
+            retry_base_delay: Base delay for exponential backoff on rate limits (default: 1s)
+            max_retries: Max retries for rate limit errors (default: 5)
 
         Raises:
             ValueError: If API key is invalid or missing
             RuntimeError: If voyageai module is not installed
+
+        Rate limit tiers:
+            - Free tier (3 RPM): batch_delay=20, retry_base_delay=20
+            - Paid tier (2000 RPS): batch_delay=0, retry_base_delay=1
         """
         if not VOYAGEAI_AVAILABLE:
             raise RuntimeError(
@@ -60,8 +73,9 @@ class VoyageEmbeddingService:
         self.model = "voyage-3-large"
         self.dimensions = 1024
         self.max_batch_size = 100  # Voyage AI API limit
-        self.max_retries = 5  # Max retries for rate limit errors
-        self.base_delay = 20  # Base delay in seconds for rate limit backoff
+        self.max_retries = max_retries
+        self.batch_delay = batch_delay  # Delay between batches (0 for high RPS)
+        self.retry_base_delay = retry_base_delay  # Base delay for rate limit retries
 
     async def generate_embeddings(
         self,
@@ -121,9 +135,9 @@ class VoyageEmbeddingService:
                     f"(batch {batch_num}/{total_batches})"
                 )
 
-                # Add delay between batches to avoid rate limits (3 RPM = 20s between requests)
-                if batch_num < total_batches:
-                    await asyncio.sleep(self.base_delay)
+                # Add delay between batches (0 for high RPS tiers like 2000 RPS)
+                if batch_num < total_batches and self.batch_delay > 0:
+                    await asyncio.sleep(self.batch_delay)
 
             except Exception as e:
                 logger.error(f"Failed to generate embeddings for batch {batch_num}: {e}")
@@ -167,10 +181,10 @@ class VoyageEmbeddingService:
                 # Check if it's a rate limit error
                 if "rate limit" in error_str or "429" in error_str or "too many requests" in error_str:
                     # Calculate delay with exponential backoff
-                    delay = self.base_delay * (2 ** attempt)
+                    delay = self.retry_base_delay * (2 ** attempt)
                     logger.warning(
                         f"Rate limit hit, attempt {attempt + 1}/{self.max_retries}. "
-                        f"Waiting {delay}s before retry..."
+                        f"Waiting {delay:.1f}s before retry..."
                     )
                     time.sleep(delay)
                 else:

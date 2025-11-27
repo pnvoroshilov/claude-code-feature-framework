@@ -374,6 +374,145 @@ async def intelligent_update_project_summary(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/summary/reset-counter")
+async def reset_summary_counter(
+    project_id: str,
+    last_summarized_message_id: str = Query(..., description="Last message ID to mark as summarized"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Reset the summarization counter WITHOUT modifying the summary text.
+
+    This endpoint only updates the last_summarized_message_id to reset
+    the message counter for the next summarization check.
+    Used by hooks to prevent infinite summarization loops.
+    """
+    try:
+        repo = await RepositoryFactory.get_memory_repository(project_id, db)
+        storage_mode = await RepositoryFactory.get_storage_mode_for_project(project_id, db)
+
+        if storage_mode == "mongodb":
+            # Direct MongoDB update - only update the counter field
+            summaries = repo._db["project_summaries"]
+            result = await summaries.update_one(
+                {"project_id": project_id},
+                {"$set": {"last_summarized_message_id": last_summarized_message_id}},
+                upsert=True
+            )
+            logger.info(f"Reset summary counter for project {project_id[:8]} to message {last_summarized_message_id[:8]}")
+            return {
+                "success": True,
+                "last_summarized_message_id": last_summarized_message_id,
+                "storage_mode": storage_mode
+            }
+        else:
+            # SQLite fallback
+            from sqlalchemy import text
+            query = text("""
+                UPDATE project_summaries
+                SET last_summarized_message_id = :last_message_id
+                WHERE project_id = :project_id
+            """)
+            await db.execute(query, {
+                "project_id": project_id,
+                "last_message_id": last_summarized_message_id
+            })
+            await db.commit()
+            return {
+                "success": True,
+                "last_summarized_message_id": last_summarized_message_id,
+                "storage_mode": storage_mode
+            }
+
+    except Exception as e:
+        logger.error(f"Failed to reset summary counter: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/summary/cleanup")
+async def cleanup_summary(
+    project_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Clean up summary text by removing hook_reset entries.
+
+    Removes lines like:
+    [timestamp] hook_reset:
+    Counter reset by hook
+    """
+    try:
+        repo = await RepositoryFactory.get_memory_repository(project_id, db)
+        storage_mode = await RepositoryFactory.get_storage_mode_for_project(project_id, db)
+
+        # Get current summary
+        summary_data = await repo.get_summary(project_id)
+        if not summary_data:
+            return {"success": True, "message": "No summary to clean"}
+
+        original_summary = summary_data.get("summary", "")
+
+        # Clean the summary
+        lines = original_summary.split('\n')
+        clean_lines = []
+        skip_next = 0
+
+        for i, line in enumerate(lines):
+            if skip_next > 0:
+                skip_next -= 1
+                continue
+            # Skip hook_reset entries
+            if '] hook_reset:' in line:
+                skip_next = 1  # Skip the next line too (Counter reset by hook)
+                continue
+            if line.strip() == 'Counter reset by hook':
+                continue
+            clean_lines.append(line)
+
+        # Remove trailing empty lines
+        while clean_lines and not clean_lines[-1].strip():
+            clean_lines.pop()
+
+        clean_summary = '\n'.join(clean_lines)
+
+        # Update if changed
+        if clean_summary != original_summary:
+            if storage_mode == "mongodb":
+                summaries = repo._db["project_summaries"]
+                await summaries.update_one(
+                    {"project_id": project_id},
+                    {"$set": {"summary": clean_summary}}
+                )
+            else:
+                from sqlalchemy import text
+                query = text("""
+                    UPDATE project_summaries
+                    SET summary = :summary
+                    WHERE project_id = :project_id
+                """)
+                await db.execute(query, {"project_id": project_id, "summary": clean_summary})
+                await db.commit()
+
+            removed_count = original_summary.count('hook_reset:')
+            logger.info(f"Cleaned {removed_count} hook_reset entries from project {project_id[:8]} summary")
+
+            return {
+                "success": True,
+                "message": f"Cleaned {removed_count} hook_reset entries from summary",
+                "original_length": len(original_summary),
+                "clean_length": len(clean_summary)
+            }
+        else:
+            return {
+                "success": True,
+                "message": "Summary already clean"
+            }
+
+    except Exception as e:
+        logger.error(f"Failed to cleanup summary: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/stats")
 async def get_memory_stats(
     project_id: str,
