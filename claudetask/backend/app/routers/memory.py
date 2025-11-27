@@ -41,6 +41,15 @@ class UpdateSummaryRequest(BaseModel):
     last_summarized_message_id: Optional[str] = None
 
 
+class IntelligentSummaryRequest(BaseModel):
+    """Request for intelligent project summary update with structured data"""
+    summary: str = Field(..., description="New comprehensive project summary narrative")
+    key_decisions: Optional[List[str]] = Field(default=[], description="List of key architectural/implementation decisions")
+    tech_stack: Optional[List[str]] = Field(default=[], description="List of technologies used in the project")
+    patterns: Optional[List[str]] = Field(default=[], description="List of coding/architectural patterns")
+    gotchas: Optional[List[str]] = Field(default=[], description="List of warnings and pitfalls to remember")
+
+
 class SearchRequest(BaseModel):
     """Request to search memory"""
     query: str
@@ -299,6 +308,69 @@ async def update_project_summary(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Failed to update project summary: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/summary/intelligent-update")
+async def intelligent_update_project_summary(
+    project_id: str,
+    request: IntelligentSummaryRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Intelligent project summary update with structured data.
+
+    Completely replaces the project summary with new comprehensive data
+    including key decisions, tech stack, patterns, and gotchas.
+    Generates embedding for the summary text.
+    """
+    try:
+        repo = await RepositoryFactory.get_memory_repository(project_id, db)
+        storage_mode = await RepositoryFactory.get_storage_mode_for_project(project_id, db)
+
+        # Generate embedding for summary if MongoDB mode
+        embedding = None
+        if storage_mode == "mongodb":
+            embedding_service = await get_embedding_service()
+            if embedding_service:
+                try:
+                    embeddings = await embedding_service.generate_embeddings([request.summary])
+                    if embeddings:
+                        embedding = embeddings[0]
+                except Exception as e:
+                    logger.warning(f"Failed to generate summary embedding: {e}")
+
+        # Call intelligent update method
+        if hasattr(repo, 'intelligent_update_summary'):
+            result = await repo.intelligent_update_summary(
+                project_id=project_id,
+                summary=request.summary,
+                key_decisions=request.key_decisions or [],
+                tech_stack=request.tech_stack or [],
+                patterns=request.patterns or [],
+                gotchas=request.gotchas or [],
+                embedding=embedding
+            )
+        else:
+            # Fallback to regular update for SQLite
+            result = await repo.update_summary(
+                project_id=project_id,
+                summary=request.summary,
+                trigger="intelligent_update"
+            )
+
+        logger.info(f"Intelligent summary update for project {project_id[:8]}")
+
+        return {
+            "success": True,
+            **result,
+            "storage_mode": storage_mode
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to intelligent update project summary: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

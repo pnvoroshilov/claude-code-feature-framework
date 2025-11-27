@@ -1,11 +1,16 @@
 #!/bin/bash
 
 # Memory Session Summarizer Hook
-# Checks if summarization is needed (every 30 messages) and updates project summary
+# Triggers intelligent summarization via Claude Code when threshold reached
 #
 # Hook event: Stop
 #
 # Input (via stdin): JSON with Stop event data including transcript
+#
+# When 30+ messages accumulated since last summary, this hook:
+# 1. Calls /execute-command API to trigger /summarize-project
+# 2. Claude Code analyzes recent conversations
+# 3. Generates structured summary with key_decisions, tech_stack, patterns, gotchas
 
 # Read input from stdin first (before sourcing logger which might read stdin)
 INPUT=$(cat)
@@ -78,15 +83,61 @@ if [ "$NEED_SUMMARY" != "true" ]; then
     exit 0
 fi
 
-log_hook "Starting summarization - $MESSAGES_SINCE messages since last summary"
+log_hook "Starting intelligent summarization - $MESSAGES_SINCE messages since last summary"
 
-# Get transcript_path from input JSON
-TRANSCRIPT_PATH=$(echo "$INPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('transcript_path', ''))" 2>/dev/null)
+# URL encode project directory (handle spaces and special characters)
+PROJECT_DIR_ENCODED=$(printf '%s' "$PROJECT_ROOT" | jq -sRr @uri)
 
-log_hook "Transcript path: $TRANSCRIPT_PATH"
+# Call execute-command API to trigger /summarize-project
+# This will launch an embedded Claude session to perform intelligent summarization
+API_URL="$BACKEND_URL/api/claude-sessions/execute-command?command=/summarize-project&project_dir=${PROJECT_DIR_ENCODED}"
 
-# Extract summary from transcript file (JSONL format - one JSON per line)
-SUMMARY=$(python3 -c "
+log_hook "Triggering intelligent summarization via Claude Code"
+
+# Make async API call (don't wait for response - summarization can take time)
+# Use timeout to prevent blocking the hook
+API_RESPONSE=$(curl -s --max-time 5 -X POST "$API_URL" \
+    -H "Content-Type: application/json" \
+    2>&1)
+
+API_STATUS=$?
+
+if [ $API_STATUS -eq 0 ]; then
+    # Check if response indicates success
+    SUCCESS=$(echo "$API_RESPONSE" | python3 -c "import json,sys; d=json.load(sys.stdin); print('true' if d.get('success') else 'false')" 2>/dev/null)
+    SESSION_ID=$(echo "$API_RESPONSE" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('session_id', 'unknown'))" 2>/dev/null)
+
+    if [ "$SUCCESS" = "true" ]; then
+        log_hook_success "Intelligent summarization triggered (session: $SESSION_ID)"
+
+        # Output notification to stderr
+        cat << EOF >&2
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧠 INTELLIGENT SUMMARIZATION TRIGGERED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 $MESSAGES_SINCE messages accumulated
+🤖 Claude Code analyzing session...
+📝 Updating: summary, key_decisions, tech_stack, patterns, gotchas
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EOF
+    else
+        log_hook_error "Failed to trigger summarization: $API_RESPONSE"
+    fi
+elif [ $API_STATUS -eq 28 ]; then
+    # Timeout - this is OK, summarization is running in background
+    log_hook_success "Intelligent summarization started (running in background)"
+else
+    log_hook_error "API call failed with status: $API_STATUS - $API_RESPONSE"
+
+    # Fallback: save basic summary directly
+    log_hook "Falling back to basic summary"
+
+    # Get transcript_path from input JSON
+    TRANSCRIPT_PATH=$(echo "$INPUT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('transcript_path', ''))" 2>/dev/null)
+
+    # Extract basic summary from transcript
+    SUMMARY=$(python3 -c "
 import json
 import sys
 
@@ -98,10 +149,8 @@ if not transcript_path:
 
 try:
     files_modified = set()
-    key_activities = []
     user_requests = []
 
-    # Parse JSONL file (one JSON object per line)
     with open(transcript_path, 'r') as f:
         for line in f:
             line = line.strip()
@@ -114,16 +163,13 @@ try:
 
             msg_type = entry.get('type', '')
 
-            # Get user requests for context
             if msg_type == 'user':
                 content = entry.get('message', {}).get('content', '')
                 if isinstance(content, str) and len(content) > 10 and len(content) < 200:
                     text = content.strip()
-                    # Skip system messages and hooks
                     if not text.startswith('[') and not text.startswith('<') and not text.startswith('/'):
                         user_requests.append(text[:80])
 
-            # Get assistant tool uses
             elif msg_type == 'assistant':
                 content = entry.get('message', {}).get('content', [])
                 if isinstance(content, list):
@@ -131,44 +177,18 @@ try:
                         if isinstance(block, dict) and block.get('type') == 'tool_use':
                             tool = block.get('name', '')
                             tool_input = block.get('input', {})
-
                             if tool in ['Edit', 'Write', 'MultiEdit']:
                                 file_path = tool_input.get('file_path', '')
                                 if file_path:
                                     fname = file_path.split('/')[-1]
                                     files_modified.add(fname)
-                            elif tool == 'Bash':
-                                cmd = tool_input.get('command', '')
-                                if 'git commit' in cmd:
-                                    key_activities.append('Git commit')
-                                elif 'git push' in cmd:
-                                    key_activities.append('Git push')
-                                elif 'npm' in cmd or 'pip' in cmd:
-                                    key_activities.append('Pkg install')
-                                elif 'pytest' in cmd or 'npm test' in cmd:
-                                    key_activities.append('Tests')
-                            elif tool == 'Task':
-                                desc = tool_input.get('description', '')
-                                if desc:
-                                    key_activities.append(f'Agent:{desc[:20]}')
 
-    # Build meaningful summary
     summary_parts = []
-
-    # Add last user request
     if user_requests:
-        last_req = user_requests[-1]
-        summary_parts.append(f'Task: {last_req}')
-
-    # Add modified files count
+        summary_parts.append(f'Task: {user_requests[-1]}')
     if files_modified:
         flist = list(files_modified)[:5]
         summary_parts.append(f'Files({len(files_modified)}): {chr(44).join(flist)}')
-
-    # Add key activities
-    if key_activities:
-        unique = list(dict.fromkeys(key_activities))[:3]
-        summary_parts.append(f'Actions: {chr(44).join(unique)}')
 
     if summary_parts:
         print(' | '.join(summary_parts))
@@ -179,35 +199,32 @@ except Exception as e:
     print(f'Error: {str(e)[:40]}')
 " 2>/dev/null)
 
-if [ -z "$SUMMARY" ]; then
-    SUMMARY="Session work completed"
-fi
+    if [ -z "$SUMMARY" ]; then
+        SUMMARY="Session work completed"
+    fi
 
-# Get last message ID for tracking
-LAST_MSG_ID=$(curl -s "$BACKEND_URL/api/projects/$PROJECT_ID/memory/messages?limit=1" 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); msgs=d.get('messages',[]); print(msgs[0]['id'] if msgs else '')" 2>/dev/null)
+    # Get last message ID for tracking
+    LAST_MSG_ID=$(curl -s "$BACKEND_URL/api/projects/$PROJECT_ID/memory/messages?limit=1" 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); msgs=d.get('messages',[]); print(msgs[0]['id'] if msgs else '')" 2>/dev/null)
 
-# Escape summary for JSON
-ESCAPED_SUMMARY=$(echo "$SUMMARY" | python3 -c "import json,sys; print(json.dumps(sys.stdin.read().strip()))" 2>/dev/null)
+    # Escape summary for JSON
+    ESCAPED_SUMMARY=$(echo "$SUMMARY" | python3 -c "import json,sys; print(json.dumps(sys.stdin.read().strip()))" 2>/dev/null)
 
-# Build JSON payload - only include last_summarized_message_id if we have a valid ID
-if [ -n "$LAST_MSG_ID" ] && [ "$LAST_MSG_ID" != "0" ] && [ "$LAST_MSG_ID" != "None" ]; then
-    JSON_PAYLOAD="{\"trigger\": \"session_end\", \"new_insights\": $ESCAPED_SUMMARY, \"last_summarized_message_id\": \"$LAST_MSG_ID\"}"
-else
-    JSON_PAYLOAD="{\"trigger\": \"session_end\", \"new_insights\": $ESCAPED_SUMMARY}"
-fi
+    # Build JSON payload
+    if [ -n "$LAST_MSG_ID" ] && [ "$LAST_MSG_ID" != "0" ] && [ "$LAST_MSG_ID" != "None" ]; then
+        JSON_PAYLOAD="{\"trigger\": \"session_end\", \"new_insights\": $ESCAPED_SUMMARY, \"last_summarized_message_id\": \"$LAST_MSG_ID\"}"
+    else
+        JSON_PAYLOAD="{\"trigger\": \"session_end\", \"new_insights\": $ESCAPED_SUMMARY}"
+    fi
 
-# Update project summary
-RESPONSE=$(curl -s -X POST "$BACKEND_URL/api/projects/$PROJECT_ID/memory/summary/update" \
-    -H "Content-Type: application/json" \
-    -d "$JSON_PAYLOAD" \
-    --connect-timeout 5 \
-    --max-time 10 \
-    2>/dev/null)
+    # Update project summary (basic fallback)
+    curl -s -X POST "$BACKEND_URL/api/projects/$PROJECT_ID/memory/summary/update" \
+        -H "Content-Type: application/json" \
+        -d "$JSON_PAYLOAD" \
+        --connect-timeout 5 \
+        --max-time 10 \
+        2>/dev/null
 
-if [ $? -eq 0 ]; then
-    log_hook_success "Summary updated ($MESSAGES_SINCE messages): $SUMMARY"
-else
-    log_hook_error "Failed to update summary: $RESPONSE"
+    log_hook_success "Basic summary saved (fallback)"
 fi
 
 # Return empty JSON to approve without modification
