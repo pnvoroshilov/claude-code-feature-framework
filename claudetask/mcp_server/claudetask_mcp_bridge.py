@@ -626,6 +626,60 @@ class ClaudeTaskMCPServer:
                         "required": ["file_paths"]
                     }
                 ),
+                # Documentation RAG tools
+                types.Tool(
+                    name="search_documentation",
+                    description="Semantic search across project documentation (docs/, README, etc.) using MongoDB Atlas Vector Search. Find relevant documentation sections.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Natural language query describing what documentation you're looking for"
+                            },
+                            "top_k": {
+                                "type": "integer",
+                                "description": "Number of results to return (default: 20)",
+                                "default": 20
+                            },
+                            "doc_type": {
+                                "type": "string",
+                                "description": "Optional: filter by doc type (readme, guide, api-doc, markdown, etc.)"
+                            },
+                            "min_similarity": {
+                                "type": "number",
+                                "description": "Minimum similarity threshold (0.0-1.0)",
+                                "minimum": 0,
+                                "maximum": 1
+                            }
+                        },
+                        "required": ["query"]
+                    }
+                ),
+                types.Tool(
+                    name="index_documentation",
+                    description="Index all documentation files (docs/, README, CONTRIBUTING, etc.) for semantic search. Use for initial indexing.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "full_reindex": {
+                                "type": "boolean",
+                                "description": "If true, delete existing index and rebuild (default: false)",
+                                "default": False
+                            }
+                        },
+                        "required": []
+                    }
+                ),
+                types.Tool(
+                    name="reindex_documentation",
+                    description="Incrementally reindex changed documentation files. Faster than full reindex.",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {},
+                        "required": []
+                    }
+                ),
                 types.Tool(
                     name="complete_skill_creation_session",
                     description="Complete skill creation session by sending /exit to Claude terminal and stopping the process. MUST be called after skill files are created to clean up the session.",
@@ -883,6 +937,20 @@ class ClaudeTaskMCPServer:
                     result = await self._index_files(
                         arguments["file_paths"]
                     )
+                # Documentation RAG handlers
+                elif name == "search_documentation":
+                    result = await self._search_documentation(
+                        arguments["query"],
+                        arguments.get("top_k", 20),
+                        arguments.get("doc_type"),
+                        arguments.get("min_similarity")
+                    )
+                elif name == "index_documentation":
+                    result = await self._index_documentation(
+                        arguments.get("full_reindex", False)
+                    )
+                elif name == "reindex_documentation":
+                    result = await self._reindex_documentation()
                 elif name == "complete_skill_creation_session":
                     result = await self._complete_skill_creation_session(
                         arguments["session_id"]
@@ -2138,17 +2206,29 @@ Here are all the agents available for task delegation:
                 if result.get("success"):
                     status_emoji = "✅" if result.get("merged") else "📝"
 
-                    # If merged to main, trigger RAG reindexing of changed files only
+                    # If merged to main, trigger RAG reindexing via MongoDB Atlas API
                     reindex_status = ""
-                    if result.get("merged") and self.rag_initialized:
+                    if result.get("merged"):
                         try:
-                            self.logger.info(f"Task #{task_id} merged to main. Triggering RAG reindexing of changed files...")
-                            # Reindex only files changed in the merge commit (HEAD is the merge commit)
-                            await self.rag_service.reindex_merge_commit(self.project_path)
-                            reindex_status = "- RAG Index Updated: ✅ Yes (changed files only)\n"
-                            self.logger.info("RAG reindexing completed successfully")
+                            self.logger.info(f"Task #{task_id} merged to main. Triggering MongoDB Atlas RAG reindexing...")
+                            project_id = await self._get_active_project_id()
+
+                            async with httpx.AsyncClient(timeout=300.0) as reindex_client:
+                                reindex_response = await reindex_client.post(
+                                    f"{self.server_url}/api/codebase-rag/{project_id}/reindex",
+                                    json={"repo_path": self.project_path}
+                                )
+
+                                if reindex_response.status_code == 200:
+                                    reindex_result = reindex_response.json()
+                                    chunks = reindex_result.get('total_chunks', 0)
+                                    reindex_status = f"- RAG Index Updated: ✅ Yes (MongoDB Atlas, {chunks} chunks)\n"
+                                    self.logger.info(f"RAG reindexing completed: {chunks} chunks indexed")
+                                else:
+                                    reindex_status = f"- RAG Index Updated: ⚠️ Failed ({reindex_response.status_code})\n"
+                                    self.logger.warning(f"RAG reindexing returned {reindex_response.status_code}")
                         except Exception as e:
-                            reindex_status = f"- RAG Index Updated: ⚠️  Failed ({str(e)})\n"
+                            reindex_status = f"- RAG Index Updated: ⚠️ Failed ({str(e)})\n"
                             self.logger.error(f"RAG reindexing failed: {e}")
 
                     response_text = f"""{status_emoji} TASK COMPLETION - Task #{task_id}
@@ -2708,60 +2788,70 @@ Task is now ready for final status updates or closure."""
         language: Optional[str] = None,
         min_similarity: Optional[float] = None
     ) -> list[types.TextContent]:
-        """Search codebase using RAG with optional similarity filtering"""
-        if not self.rag_initialized:
-            return [types.TextContent(
-                type="text",
-                text="⚠️  RAG service not initialized. Cannot search codebase."
-            )]
-
+        """Search codebase using MongoDB Atlas Vector Search API"""
         try:
-            # Build filters
-            filters = {}
+            project_id = await self._get_active_project_id()
+
+            # Build request body
+            request_body = {
+                "query": query,
+                "limit": top_k
+            }
             if language:
-                filters['language'] = language
-
-            # Search with higher limit to allow filtering
-            search_limit = min(top_k * 2, 100) if min_similarity else top_k
-
-            results = await self.rag_service.search_codebase(
-                query=query,
-                top_k=search_limit,
-                filters=filters if filters else None
-            )
-
-            # Apply similarity threshold if specified
-            if min_similarity and results:
-                # Note: ChromaDB returns results sorted by similarity (distance)
-                # We would need to modify search_codebase to return distances
-                # For now, just take top_k results
-                results = results[:top_k]
-
-            if not results:
-                return [types.TextContent(
-                    type="text",
-                    text=f"No relevant code found for query: '{query}'"
-                )]
-
-            # Format results with statistics
-            total_chunks = self.rag_service.codebase_collection.count()
-            response = f"🔍 **Code Search Results for: '{query}'**\n\n"
-            response += f"Found {len(results)} relevant code chunks (out of {total_chunks} total):\n"
-
+                request_body["language"] = language
             if min_similarity:
-                response += f"Similarity threshold: {min_similarity}\n"
+                request_body["min_similarity"] = min_similarity
 
-            response += "\n"
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    f"{self.server_url}/api/codebase-rag/{project_id}/search",
+                    json=request_body
+                )
 
-            for i, chunk in enumerate(results, 1):
-                response += f"**{i}. {chunk.file_path}** (lines {chunk.start_line}-{chunk.end_line})\n"
-                response += f"   Type: {chunk.chunk_type} | Language: {chunk.language}\n"
-                response += f"   Summary: {chunk.summary}\n"
-                response += f"   Code:\n```{chunk.language}\n{chunk.content}\n```\n\n"
+                if response.status_code != 200:
+                    error_detail = response.json().get("detail", response.text)
+                    return [types.TextContent(
+                        type="text",
+                        text=f"❌ Search failed: {error_detail}"
+                    )]
 
-            return [types.TextContent(type="text", text=response)]
+                data = response.json()
+                results = data.get("results", [])
+
+                if not results:
+                    return [types.TextContent(
+                        type="text",
+                        text=f"No relevant code found for query: '{query}'"
+                    )]
+
+                # Format results
+                response_text = f"🔍 **Code Search Results for: '{query}'** (MongoDB Atlas)\n\n"
+                response_text += f"Found {len(results)} relevant code chunks:\n"
+
+                if min_similarity:
+                    response_text += f"Similarity threshold: {min_similarity}\n"
+
+                response_text += "\n"
+
+                for i, chunk in enumerate(results, 1):
+                    file_path = chunk.get('file_path', 'unknown')
+                    start_line = chunk.get('start_line', '?')
+                    end_line = chunk.get('end_line', '?')
+                    chunk_type = chunk.get('chunk_type', 'unknown')
+                    lang = chunk.get('language', 'unknown')
+                    summary = chunk.get('summary', 'No summary')
+                    content = chunk.get('content', '')
+                    similarity = chunk.get('similarity_score', 0)
+
+                    response_text += f"**{i}. {file_path}** (lines {start_line}-{end_line}) [score: {similarity:.3f}]\n"
+                    response_text += f"   Type: {chunk_type} | Language: {lang}\n"
+                    response_text += f"   Summary: {summary}\n"
+                    response_text += f"   Code:\n```{lang}\n{content}\n```\n\n"
+
+                return [types.TextContent(type="text", text=response_text)]
 
         except Exception as e:
+            self.logger.error(f"Error searching codebase: {e}")
             return [types.TextContent(
                 type="text",
                 text=f"Error searching codebase: {str(e)}"
@@ -2812,54 +2902,72 @@ Task is now ready for final status updates or closure."""
         self,
         full_reindex: bool = False
     ) -> list[types.TextContent]:
-        """Reindex codebase (incremental or full)"""
-        if not self.rag_initialized:
-            return [types.TextContent(
-                type="text",
-                text="⚠️  RAG service not initialized. Cannot reindex."
-            )]
-
+        """Reindex codebase via MongoDB Atlas API (incremental or full)"""
         try:
-            if full_reindex:
-                self.logger.info("Starting full codebase reindex...")
-                await self.rag_service.index_codebase(self.project_path)
-                return [types.TextContent(
-                    type="text",
-                    text="✅ Full codebase reindexing completed successfully"
-                )]
-            else:
-                self.logger.info("Starting incremental codebase reindex...")
-                await self.rag_service.update_index_incremental(self.project_path)
-                return [types.TextContent(
-                    type="text",
-                    text="✅ Incremental codebase reindexing completed successfully"
-                )]
+            project_id = await self._get_active_project_id()
+
+            async with httpx.AsyncClient(timeout=300.0) as client:
+                if full_reindex:
+                    self.logger.info("Starting full codebase reindex via MongoDB Atlas...")
+                    response = await client.post(
+                        f"{self.server_url}/api/codebase-rag/{project_id}/index",
+                        json={"repo_path": self.project_path, "full_reindex": True}
+                    )
+                else:
+                    self.logger.info("Starting incremental codebase reindex via MongoDB Atlas...")
+                    response = await client.post(
+                        f"{self.server_url}/api/codebase-rag/{project_id}/reindex",
+                        json={"repo_path": self.project_path}
+                    )
+
+                if response.status_code == 200:
+                    result = response.json()
+                    stats = f"Files: {result.get('indexed_files', 'N/A')}, Chunks: {result.get('total_chunks', 'N/A')}"
+                    return [types.TextContent(
+                        type="text",
+                        text=f"✅ {'Full' if full_reindex else 'Incremental'} codebase reindexing completed (MongoDB Atlas)\n\n{stats}"
+                    )]
+                else:
+                    error_detail = response.json().get("detail", response.text)
+                    return [types.TextContent(
+                        type="text",
+                        text=f"❌ Reindex failed: {error_detail}"
+                    )]
 
         except Exception as e:
+            self.logger.error(f"Error reindexing codebase: {e}")
             return [types.TextContent(
                 type="text",
                 text=f"Error reindexing codebase: {str(e)}"
             )]
 
     async def _index_codebase(self) -> list[types.TextContent]:
-        """Index entire codebase from scratch"""
-        if not self.rag_initialized:
-            return [types.TextContent(
-                type="text",
-                text="⚠️  RAG service not initialized. Cannot index codebase."
-            )]
-
+        """Index entire codebase from scratch via MongoDB Atlas API"""
         try:
-            self.logger.info("Starting full codebase indexing...")
-            await self.rag_service.index_codebase(self.project_path)
+            project_id = await self._get_active_project_id()
 
-            # Get collection stats
-            count = self.rag_service.codebase_collection.count()
+            self.logger.info("Starting full codebase indexing via MongoDB Atlas...")
+            async with httpx.AsyncClient(timeout=600.0) as client:
+                response = await client.post(
+                    f"{self.server_url}/api/codebase-rag/{project_id}/index",
+                    json={"repo_path": self.project_path, "full_reindex": True}
+                )
 
-            return [types.TextContent(
-                type="text",
-                text=f"✅ Codebase indexing completed successfully\n\nTotal chunks indexed: {count}"
-            )]
+                if response.status_code == 200:
+                    result = response.json()
+                    return [types.TextContent(
+                        type="text",
+                        text=f"✅ Codebase indexing completed (MongoDB Atlas)\n\n"
+                             f"Files indexed: {result.get('indexed_files', 'N/A')}\n"
+                             f"Total chunks: {result.get('total_chunks', 'N/A')}\n"
+                             f"Skipped: {result.get('skipped_files', 0)}"
+                    )]
+                else:
+                    error_detail = response.json().get("detail", response.text)
+                    return [types.TextContent(
+                        type="text",
+                        text=f"❌ Indexing failed: {error_detail}"
+                    )]
 
         except Exception as e:
             self.logger.error(f"Error indexing codebase: {e}")
@@ -2869,33 +2977,191 @@ Task is now ready for final status updates or closure."""
             )]
 
     async def _index_files(self, file_paths: list[str]) -> list[types.TextContent]:
-        """Index specific files"""
-        if not self.rag_initialized:
-            return [types.TextContent(
-                type="text",
-                text="⚠️  RAG service not initialized. Cannot index files."
-            )]
-
+        """Index specific files via MongoDB Atlas API"""
         try:
-            self.logger.info(f"Starting indexing of {len(file_paths)} files...")
-            result = await self.rag_service.index_files(file_paths, self.project_path)
+            project_id = await self._get_active_project_id()
 
-            response_text = f"""✅ File indexing completed successfully
+            self.logger.info(f"Starting indexing of {len(file_paths)} files via MongoDB Atlas...")
+            async with httpx.AsyncClient(timeout=300.0) as client:
+                response = await client.post(
+                    f"{self.server_url}/api/codebase-rag/{project_id}/index-files",
+                    json={"file_paths": file_paths, "repo_path": self.project_path}
+                )
 
-Files indexed: {result['indexed_files']}
-Files skipped: {result['skipped_files']}
-Total chunks: {result['total_chunks']}"""
-
-            return [types.TextContent(
-                type="text",
-                text=response_text
-            )]
+                if response.status_code == 200:
+                    result = response.json()
+                    return [types.TextContent(
+                        type="text",
+                        text=f"✅ File indexing completed (MongoDB Atlas)\n\n"
+                             f"Files indexed: {result.get('indexed_files', 'N/A')}\n"
+                             f"Files skipped: {result.get('skipped_files', 0)}\n"
+                             f"Total chunks: {result.get('total_chunks', 'N/A')}"
+                    )]
+                else:
+                    error_detail = response.json().get("detail", response.text)
+                    return [types.TextContent(
+                        type="text",
+                        text=f"❌ File indexing failed: {error_detail}"
+                    )]
 
         except Exception as e:
             self.logger.error(f"Error indexing files: {e}")
             return [types.TextContent(
                 type="text",
                 text=f"❌ Error indexing files: {str(e)}"
+            )]
+
+    # Documentation RAG methods
+
+    async def _search_documentation(
+        self,
+        query: str,
+        top_k: int = 20,
+        doc_type: Optional[str] = None,
+        min_similarity: Optional[float] = None
+    ) -> list[types.TextContent]:
+        """Search documentation using MongoDB Atlas Vector Search API"""
+        try:
+            project_id = await self._get_active_project_id()
+
+            # Build request body
+            request_body = {
+                "query": query,
+                "limit": top_k
+            }
+            if doc_type:
+                request_body["doc_type"] = doc_type
+            if min_similarity:
+                request_body["min_similarity"] = min_similarity
+
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    f"{self.server_url}/api/documentation-rag/{project_id}/search",
+                    json=request_body
+                )
+
+                if response.status_code != 200:
+                    error_detail = response.json().get("detail", response.text)
+                    return [types.TextContent(
+                        type="text",
+                        text=f"❌ Documentation search failed: {error_detail}"
+                    )]
+
+                data = response.json()
+                results = data.get("results", [])
+
+                if not results:
+                    return [types.TextContent(
+                        type="text",
+                        text=f"No relevant documentation found for query: '{query}'"
+                    )]
+
+                # Format results
+                response_text = f"📚 **Documentation Search Results for: '{query}'** (MongoDB Atlas)\n\n"
+                response_text += f"Found {len(results)} relevant documentation sections:\n"
+
+                if doc_type:
+                    response_text += f"Doc type filter: {doc_type}\n"
+                if min_similarity:
+                    response_text += f"Similarity threshold: {min_similarity}\n"
+
+                response_text += "\n"
+
+                for i, chunk in enumerate(results, 1):
+                    file_path = chunk.get('file_path', 'unknown')
+                    start_line = chunk.get('start_line', '?')
+                    end_line = chunk.get('end_line', '?')
+                    chunk_doc_type = chunk.get('doc_type', 'unknown')
+                    title = chunk.get('title', '')
+                    summary = chunk.get('summary', 'No summary')
+                    content = chunk.get('content', '')
+                    similarity = chunk.get('similarity_score', 0)
+
+                    response_text += f"**{i}. {file_path}** (lines {start_line}-{end_line}) [score: {similarity:.3f}]\n"
+                    if title:
+                        response_text += f"   Title: {title}\n"
+                    response_text += f"   Type: {chunk_doc_type}\n"
+                    response_text += f"   Summary: {summary}\n"
+                    response_text += f"   Content:\n```markdown\n{content[:500]}{'...' if len(content) > 500 else ''}\n```\n\n"
+
+                return [types.TextContent(type="text", text=response_text)]
+
+        except Exception as e:
+            self.logger.error(f"Error searching documentation: {e}")
+            return [types.TextContent(
+                type="text",
+                text=f"Error searching documentation: {str(e)}"
+            )]
+
+    async def _index_documentation(self, full_reindex: bool = False) -> list[types.TextContent]:
+        """Index documentation files via MongoDB Atlas API"""
+        try:
+            project_id = await self._get_active_project_id()
+
+            self.logger.info(f"Starting {'full' if full_reindex else 'incremental'} documentation indexing via MongoDB Atlas...")
+            async with httpx.AsyncClient(timeout=600.0) as client:
+                response = await client.post(
+                    f"{self.server_url}/api/documentation-rag/{project_id}/index",
+                    json={"repo_path": self.project_path, "full_reindex": full_reindex}
+                )
+
+                if response.status_code == 200:
+                    result = response.json()
+                    return [types.TextContent(
+                        type="text",
+                        text=f"✅ Documentation indexing completed (MongoDB Atlas)\n\n"
+                             f"Files indexed: {result.get('indexed_files', 'N/A')}\n"
+                             f"Total chunks: {result.get('total_chunks', 'N/A')}\n"
+                             f"Skipped: {result.get('skipped_files', 0)}"
+                    )]
+                else:
+                    error_detail = response.json().get("detail", response.text)
+                    return [types.TextContent(
+                        type="text",
+                        text=f"❌ Documentation indexing failed: {error_detail}"
+                    )]
+
+        except Exception as e:
+            self.logger.error(f"Error indexing documentation: {e}")
+            return [types.TextContent(
+                type="text",
+                text=f"❌ Error indexing documentation: {str(e)}"
+            )]
+
+    async def _reindex_documentation(self) -> list[types.TextContent]:
+        """Incrementally reindex documentation via MongoDB Atlas API"""
+        try:
+            project_id = await self._get_active_project_id()
+
+            self.logger.info("Starting incremental documentation reindex via MongoDB Atlas...")
+            async with httpx.AsyncClient(timeout=300.0) as client:
+                response = await client.post(
+                    f"{self.server_url}/api/documentation-rag/{project_id}/reindex",
+                    json={"repo_path": self.project_path}
+                )
+
+                if response.status_code == 200:
+                    result = response.json()
+                    return [types.TextContent(
+                        type="text",
+                        text=f"✅ Documentation reindex completed (MongoDB Atlas)\n\n"
+                             f"New files: {result.get('new_files', 0)}\n"
+                             f"Updated files: {result.get('updated_files', 0)}\n"
+                             f"Deleted files: {result.get('deleted_files', 0)}\n"
+                             f"Total chunks: {result.get('total_chunks', 'N/A')}"
+                    )]
+                else:
+                    error_detail = response.json().get("detail", response.text)
+                    return [types.TextContent(
+                        type="text",
+                        text=f"❌ Documentation reindex failed: {error_detail}"
+                    )]
+
+        except Exception as e:
+            self.logger.error(f"Error reindexing documentation: {e}")
+            return [types.TextContent(
+                type="text",
+                text=f"Error reindexing documentation: {str(e)}"
             )]
 
     async def _complete_skill_creation_session(self, session_id: str) -> list[types.TextContent]:

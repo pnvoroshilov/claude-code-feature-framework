@@ -236,6 +236,15 @@ class MongoDBManager:
                         {"type": "vector", "path": "embedding", "numDimensions": 1024, "similarity": "cosine"},
                         {"type": "filter", "path": "project_id"}
                     ]
+                },
+                {
+                    "collection": "documentation_chunks",
+                    "index_name": "documentation_vector_idx",
+                    "fields": [
+                        {"type": "vector", "path": "embedding", "numDimensions": 1024, "similarity": "cosine"},
+                        {"type": "filter", "path": "project_id"},
+                        {"type": "filter", "path": "doc_type"}
+                    ]
                 }
             ]
 
