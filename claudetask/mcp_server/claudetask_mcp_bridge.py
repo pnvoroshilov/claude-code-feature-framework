@@ -2311,7 +2311,7 @@ Here are all the agents available for task delegation:
 
                             async with httpx.AsyncClient(timeout=300.0) as reindex_client:
                                 reindex_response = await reindex_client.post(
-                                    f"{self.server_url}/api/codebase-rag/{project_id}/reindex",
+                                    f"{self.server_url}/api/codebase/{project_id}/reindex",
                                     json={"repo_path": self.project_path}
                                 )
 
@@ -2900,7 +2900,7 @@ Task is now ready for final status updates or closure."""
 
             async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(
-                    f"{self.server_url}/api/codebase-rag/{project_id}/search",
+                    f"{self.server_url}/api/codebase/{project_id}/search",
                     json=request_body
                 )
 
@@ -2912,7 +2912,8 @@ Task is now ready for final status updates or closure."""
                     )]
 
                 data = response.json()
-                results = data.get("results", [])
+                # API returns list directly, not {"results": [...]}
+                results = data if isinstance(data, list) else data.get("results", [])
 
                 if not results:
                     return [types.TextContent(
@@ -2937,7 +2938,7 @@ Task is now ready for final status updates or closure."""
                     lang = chunk.get('language', 'unknown')
                     summary = chunk.get('summary', 'No summary')
                     content = chunk.get('content', '')
-                    similarity = chunk.get('similarity_score', 0)
+                    similarity = chunk.get('score', chunk.get('similarity_score', 0))
 
                     response_text += f"**{i}. {file_path}** (lines {start_line}-{end_line}) [score: {similarity:.3f}]\n"
                     response_text += f"   Type: {chunk_type} | Language: {lang}\n"
@@ -3006,13 +3007,13 @@ Task is now ready for final status updates or closure."""
                 if full_reindex:
                     self.logger.info("Starting full codebase reindex via MongoDB Atlas...")
                     response = await client.post(
-                        f"{self.server_url}/api/codebase-rag/{project_id}/index",
+                        f"{self.server_url}/api/codebase/{project_id}/index",
                         json={"repo_path": self.project_path, "full_reindex": True}
                     )
                 else:
                     self.logger.info("Starting incremental codebase reindex via MongoDB Atlas...")
                     response = await client.post(
-                        f"{self.server_url}/api/codebase-rag/{project_id}/reindex",
+                        f"{self.server_url}/api/codebase/{project_id}/reindex",
                         json={"repo_path": self.project_path}
                     )
 
@@ -3045,7 +3046,7 @@ Task is now ready for final status updates or closure."""
             self.logger.info("Starting full codebase indexing via MongoDB Atlas...")
             async with httpx.AsyncClient(timeout=600.0) as client:
                 response = await client.post(
-                    f"{self.server_url}/api/codebase-rag/{project_id}/index",
+                    f"{self.server_url}/api/codebase/{project_id}/index",
                     json={"repo_path": self.project_path, "full_reindex": True}
                 )
 
@@ -3080,7 +3081,7 @@ Task is now ready for final status updates or closure."""
             self.logger.info(f"Starting indexing of {len(file_paths)} files via MongoDB Atlas...")
             async with httpx.AsyncClient(timeout=300.0) as client:
                 response = await client.post(
-                    f"{self.server_url}/api/codebase-rag/{project_id}/index-files",
+                    f"{self.server_url}/api/codebase/{project_id}/index-files",
                     json={"file_paths": file_paths, "repo_path": self.project_path}
                 )
 
@@ -3171,7 +3172,7 @@ Task is now ready for final status updates or closure."""
                     title = chunk.get('title', '')
                     summary = chunk.get('summary', 'No summary')
                     content = chunk.get('content', '')
-                    similarity = chunk.get('similarity_score', 0)
+                    similarity = chunk.get('score', chunk.get('similarity_score', 0))
 
                     response_text += f"**{i}. {file_path}** (lines {start_line}-{end_line}) [score: {similarity:.3f}]\n"
                     if title:
