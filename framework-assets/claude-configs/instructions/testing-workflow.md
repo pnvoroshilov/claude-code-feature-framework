@@ -37,6 +37,70 @@ Look for:
 
 ---
 
+# 🔴🔴🔴 CRITICAL: PORT ISOLATION RULES
+
+**⚠️ MANDATORY PORT ISOLATION POLICY - NEVER VIOLATE THESE RULES!**
+
+## Golden Rules for Test Environment Ports
+
+### 1. **ALWAYS USE NEW PORTS**
+Every test environment MUST start on NEW, UNUSED ports.
+```
+✅ CORRECT: Find free ports → Start servers on those ports
+❌ WRONG: Kill existing process → Reuse port
+❌ WRONG: Stop other task's servers to free ports
+```
+
+### 2. **NEVER KILL OTHER PROCESSES**
+Do NOT terminate processes on occupied ports unless they belong to the SAME task.
+```
+✅ CORRECT: Port 3333 occupied → Find port 3334 or higher
+❌ WRONG: Port 3333 occupied → Kill process → Use 3333
+❌ WRONG: Stop backend on 3333 to start new backend
+```
+
+### 3. **NEVER REUSE PORTS FROM OTHER TASKS**
+Each task has its own isolated test environment.
+```
+✅ CORRECT: Task-42 on 3333/3000, Task-43 on 3334/3001
+❌ WRONG: Stop Task-42's servers to run Task-43's tests
+```
+
+### 4. **ONLY STOP YOUR OWN SERVERS**
+Only when cleaning up the SAME task's environment.
+```
+✅ CORRECT: /merge task-42 → Stop task-42's servers
+❌ WRONG: Starting task-43 → Stop task-42's servers
+```
+
+## Port Allocation Strategy
+
+**Recommended port ranges:**
+- Backend: 3333, 3334, 3335, ... (3333-5000)
+- Frontend: 3000, 3001, 3002, ... (3000-4000)
+
+**Finding free ports:**
+```bash
+# Check multiple ports at once
+for port in 3333 3334 3335 3336; do
+  lsof -i :$port > /dev/null 2>&1 || echo "Port $port is FREE"
+done
+
+# Find first free port in range
+for port in $(seq 3333 3400); do
+  lsof -i :$port > /dev/null 2>&1 || { echo $port; break; }
+done
+```
+
+## Why Port Isolation Matters
+
+1. **Parallel Development** - Multiple tasks can be tested simultaneously
+2. **No Conflicts** - Task-42's tests don't affect Task-43's environment
+3. **Safe Cleanup** - Stopping one task doesn't break another
+4. **Predictability** - Each task has stable, dedicated URLs
+
+---
+
 # MANUAL TESTING MODE (`manual_mode = true`)
 
 ## CRITICAL TESTING URL REQUIREMENT
@@ -48,27 +112,40 @@ Look for:
 
 When task moves to "Testing" status in MANUAL mode:
 
-### Step 1: Find Available Ports
-```bash
-# Check if default ports are occupied
-lsof -i :3333  # Backend default
-lsof -i :3000  # Frontend default
+### Step 1: Find Available Ports (WITHOUT KILLING ANYTHING)
 
-# If occupied, find free ports in ranges:
-# Backend: 3333-5000
-# Frontend: 3000-4000
+```bash
+# Check which ports are occupied - DO NOT KILL THESE!
+echo "=== Currently occupied ports (DO NOT TOUCH) ==="
+lsof -i :3333 2>/dev/null && echo "3333: OCCUPIED - skip"
+lsof -i :3334 2>/dev/null && echo "3334: OCCUPIED - skip"
+lsof -i :3335 2>/dev/null && echo "3335: OCCUPIED - skip"
+
+# Find first FREE backend port
+for port in 3333 3334 3335 3336 3337 3338 3339 3340; do
+  lsof -i :$port > /dev/null 2>&1 || { BACKEND_PORT=$port; break; }
+done
+echo "FREE backend port: $BACKEND_PORT"
+
+# Find first FREE frontend port
+for port in 3000 3001 3002 3003 3004 3005; do
+  lsof -i :$port > /dev/null 2>&1 || { FRONTEND_PORT=$port; break; }
+done
+echo "FREE frontend port: $FRONTEND_PORT"
 ```
 
-### Step 2: Start Backend Server
+**⚠️ NEVER run `kill`, `pkill`, or `lsof -t ... | xargs kill` on ports!**
+
+### Step 2: Start Backend Server (ON FREE PORT)
 ```bash
 cd worktrees/task-{id}
-python -m uvicorn app.main:app --port FREE_BACKEND_PORT --reload &
+python -m uvicorn app.main:app --port $BACKEND_PORT --reload &
 ```
 
-### Step 3: Start Frontend Server
+### Step 3: Start Frontend Server (ON FREE PORT)
 ```bash
 cd worktrees/task-{id}
-PORT=FREE_FRONTEND_PORT npm start &
+PORT=$FRONTEND_PORT npm start &
 ```
 
 ### Step 4: SAVE TESTING URLs (MANDATORY - DO NOT SKIP)

@@ -1,7 +1,7 @@
 ---
 name: system-architect
 description: Designing comprehensive system architectures, integration patterns, and technical strategy
-tools: Read, Write, Edit, Grep, mcp__claudetask__search_codebase, mcp__claudetask__find_similar_tasks, Skill
+tools: Read, Write, Edit, Grep, mcp__claudetask__search_codebase, mcp__claudetask__search_documentation, mcp__claudetask__find_similar_tasks, Skill
 skills: technical-design, architecture-patterns, documentation-writer, api-development
 ---
 

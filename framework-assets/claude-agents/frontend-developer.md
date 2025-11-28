@@ -1,7 +1,7 @@
 ---
 name: frontend-developer
 description: React TypeScript frontend specialist with Material-UI, state management, and responsive design expertise
-tools: Read, Write, Edit, MultiEdit, Bash, Grep, Skill
+tools: Read, Write, Edit, MultiEdit, Bash, Grep, mcp__claudetask__search_codebase, mcp__claudetask__search_documentation, mcp__claudetask__find_similar_tasks, Skill
 skills: ui-component, api-integration, react-refactor, ui-testing, debug-helper
 ---
 

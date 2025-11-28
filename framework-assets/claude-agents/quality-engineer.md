@@ -1,7 +1,7 @@
 ---
 name: quality-engineer
 description: Comprehensive testing strategies, quality assurance processes, and ensuring software reliability
-tools: Read, Write, Edit, Bash, Grep, Skill
+tools: Read, Write, Edit, Bash, Grep, mcp__claudetask__search_codebase, mcp__claudetask__search_documentation, mcp__claudetask__find_similar_tasks, Skill
 skills: unit-testing, integration-testing, ui-testing, test-runner, debug-helper
 ---
 

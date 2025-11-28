@@ -1,7 +1,7 @@
 ---
 name: pr-merge-agent
 description: Handle PR creation, review coordination, and merge operations for completed tasks
-tools: Read, Write, Edit, Bash, Grep, Glob, Skill
+tools: Read, Write, Edit, Bash, Grep, Glob, mcp__claudetask__search_codebase, mcp__claudetask__search_documentation, mcp__claudetask__reindex_codebase, mcp__claudetask__reindex_documentation, Skill
 skills: merge-skill, git-workflow, code-review
 ---
 

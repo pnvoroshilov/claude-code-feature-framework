@@ -226,12 +226,39 @@ case "$HOOK_TYPE" in
             exit 0
         fi
 
-        # Extract last assistant message from transcript file (JSONL format)
+        # Extract meaningful assistant text messages from transcript file (JSONL format)
+        # Filters out tool summaries and collects substantive responses
         LAST_ASSISTANT=$(python3 -c "
 import json
+import re
+
+# Patterns to filter out (tool summaries, not real conversation)
+SKIP_PATTERNS = [
+    r'^Edited\s+/',           # Edit tool summaries
+    r'^Wrote\s+(file\s+)?/',  # Write tool summaries
+    r'^Read\s+/',             # Read tool summaries (rarely useful)
+    r'^Created\s+/',          # Create summaries
+    r'^Deleted\s+/',          # Delete summaries
+    r'^Ran\s+command',        # Bash summaries
+    r'^Found\s+\d+\s+files',  # Glob summaries
+    r'^Grep\s+results',       # Grep summaries
+    r'^<system-',             # System messages
+]
+
+def is_meaningful(text):
+    '''Check if text is meaningful conversation vs tool output'''
+    if not text or len(text) < 20:
+        return False
+    for pattern in SKIP_PATTERNS:
+        if re.match(pattern, text, re.IGNORECASE):
+            return False
+    # Skip if it's just a file path
+    if text.startswith('/') and '\n' not in text and len(text) < 200:
+        return False
+    return True
 
 try:
-    messages = []
+    all_texts = []
     with open('$TRANSCRIPT_PATH', 'r') as f:
         for line in f:
             line = line.strip()
@@ -242,20 +269,24 @@ try:
                 if obj.get('type') == 'assistant':
                     msg = obj.get('message', {})
                     if msg.get('role') == 'assistant':
-                        messages.append(msg)
+                        content = msg.get('content', '')
+                        if isinstance(content, list):
+                            for c in content:
+                                if c.get('type') == 'text':
+                                    text = c.get('text', '').strip()
+                                    if is_meaningful(text):
+                                        all_texts.append(text)
+                        elif isinstance(content, str):
+                            text = content.strip()
+                            if is_meaningful(text):
+                                all_texts.append(text)
             except:
                 continue
 
-    if messages:
-        msg = messages[-1]
-        content = msg.get('content', '')
-        if isinstance(content, list):
-            texts = [c.get('text', '') for c in content if c.get('type') == 'text']
-            result = ' '.join(texts)[:2000]
-            if result:
-                print(result)
-        elif isinstance(content, str):
-            print(content[:2000])
+    if all_texts:
+        # Join meaningful texts, limit to 4000 chars
+        result = '\n---\n'.join(all_texts)
+        print(result[:4000])
 except Exception as e:
     pass
 " 2>/dev/null)

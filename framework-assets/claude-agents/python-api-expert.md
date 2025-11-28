@@ -1,7 +1,7 @@
 ---
 name: python-api-expert
 description: Python FastAPI Backend Development Expert specializing in production-ready API development
-tools: Read, Write, Edit, MultiEdit, Bash, Grep, Skill
+tools: Read, Write, Edit, MultiEdit, Bash, Grep, mcp__claudetask__search_codebase, mcp__claudetask__search_documentation, mcp__claudetask__find_similar_tasks, Skill
 skills: api-development, database-migration, python-refactor, security-best-practices, unit-testing
 ---
 

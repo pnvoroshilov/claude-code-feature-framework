@@ -52,26 +52,59 @@ mcp__claudetask__get_project_settings
 
 If Manual Mode is enabled, follow the manual testing workflow:
 
-### Find Available Ports
-```bash
-lsof -i :3333  # Backend default
-lsof -i :3000  # Frontend default
+---
 
-# If occupied, find free ports in ranges:
-# Backend: 3333-5000
-# Frontend: 3000-4000
+### 🔴🔴🔴 CRITICAL: PORT ISOLATION RULES
+
+**⚠️ MANDATORY - NEVER VIOLATE THESE RULES!**
+
+1. **ALWAYS USE NEW PORTS** - Find free ports, don't kill processes
+2. **NEVER KILL OTHER PROCESSES** - Don't terminate processes on occupied ports
+3. **NEVER REUSE PORTS FROM OTHER TASKS** - Each task has isolated environment
+4. **ONLY STOP YOUR OWN SERVERS** - Only during cleanup of the SAME task
+
+```
+✅ CORRECT: Port 3333 occupied → Find port 3334 → Use 3334
+❌ WRONG: Port 3333 occupied → Kill process → Use 3333
+❌ WRONG: Stop other task's servers to free ports
 ```
 
-### Start Backend Server
+---
+
+### Find Available Ports (WITHOUT KILLING ANYTHING!)
+
 ```bash
-cd worktrees/task-{id}
-python -m uvicorn app.main:app --port FREE_BACKEND_PORT --reload &
+# Check which ports are occupied - DO NOT KILL THESE!
+echo "=== Currently occupied ports (DO NOT TOUCH) ==="
+lsof -i :3333 2>/dev/null && echo "3333: OCCUPIED - skip"
+lsof -i :3334 2>/dev/null && echo "3334: OCCUPIED - skip"
+lsof -i :3335 2>/dev/null && echo "3335: OCCUPIED - skip"
+
+# Find first FREE backend port
+for port in 3333 3334 3335 3336 3337 3338 3339 3340; do
+  lsof -i :$port > /dev/null 2>&1 || { BACKEND_PORT=$port; break; }
+done
+echo "FREE backend port: $BACKEND_PORT"
+
+# Find first FREE frontend port
+for port in 3000 3001 3002 3003 3004 3005; do
+  lsof -i :$port > /dev/null 2>&1 || { FRONTEND_PORT=$port; break; }
+done
+echo "FREE frontend port: $FRONTEND_PORT"
 ```
 
-### Start Frontend Server
+**⚠️ NEVER run `kill`, `pkill`, or `lsof -t ... | xargs kill` on ports!**
+
+### Start Backend Server (ON FREE PORT)
 ```bash
 cd worktrees/task-{id}
-PORT=FREE_FRONTEND_PORT npm start &
+python -m uvicorn app.main:app --port $BACKEND_PORT --reload &
+```
+
+### Start Frontend Server (ON FREE PORT)
+```bash
+cd worktrees/task-{id}
+PORT=$FRONTEND_PORT npm start &
 ```
 
 ### MANDATORY: Save Testing URLs
