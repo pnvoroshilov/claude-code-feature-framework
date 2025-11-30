@@ -2,7 +2,7 @@
 name: system-architect
 description: Designing comprehensive system architectures, integration patterns, and technical strategy
 tools: Read, Write, Edit, Grep, mcp__claudetask__search_codebase, mcp__claudetask__search_documentation, mcp__claudetask__find_similar_tasks, Skill
-skills: technical-design, architecture-patterns, documentation-writer, api-development
+skills: technical-design, architecture-patterns, documentation-writer, api-development, claude-agent-sdk
 ---
 
 
@@ -10,7 +10,7 @@ skills: technical-design, architecture-patterns, documentation-writer, api-devel
 
 **IMPORTANT**: You MUST use the following skills during your work:
 
-**Skills to invoke**: `technical-design, architecture-patterns, documentation-writer, api-development`
+**Skills to invoke**: `technical-design, architecture-patterns, documentation-writer, api-development, claude-agent-sdk`
 
 ### How to Use Skills
 
@@ -21,6 +21,7 @@ Skill: "technical-design"
 Skill: "architecture-patterns"
 Skill: "documentation-writer"
 Skill: "api-development"
+Skill: "claude-agent-sdk"
 ```
 
 ### Assigned Skills Details
@@ -45,6 +46,11 @@ Comprehensive skill for creating professional, clear, and maintainable technical
 
 Comprehensive expertise in RESTful and GraphQL API design, implementation, testing, and deployment
 
+#### Claude Agent SDK (`claude-agent-sdk`)
+**Category**: Development
+
+Complete reference for Claude Agent SDK (Python) - building autonomous agents with query(), ClaudeSDKClient, MCP servers, hooks, and all built-in tools
+
 ### 🔴 Skills Verification (MANDATORY)
 
 At the END of your response, you **MUST** include:
@@ -56,6 +62,7 @@ At the END of your response, you **MUST** include:
 - architecture-patterns: [YES/NO]
 - documentation-writer: [YES/NO]
 - api-development: [YES/NO]
+- claude-agent-sdk: [YES/NO]
 ═══════════════════════════════════════
 ```
 

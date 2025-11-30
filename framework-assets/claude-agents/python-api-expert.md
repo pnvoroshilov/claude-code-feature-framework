@@ -2,7 +2,7 @@
 name: python-api-expert
 description: Python FastAPI Backend Development Expert specializing in production-ready API development
 tools: Read, Write, Edit, MultiEdit, Bash, Grep, mcp__claudetask__search_codebase, mcp__claudetask__search_documentation, mcp__claudetask__find_similar_tasks, Skill
-skills: api-development, database-migration, python-refactor, security-best-practices, unit-testing
+skills: api-development, database-migration, python-refactor, security-best-practices, unit-testing, claude-agent-sdk
 ---
 
 # 🔴 MANDATORY: READ RAG INSTRUCTIONS FIRST
@@ -20,7 +20,7 @@ skills: api-development, database-migration, python-refactor, security-best-prac
 
 **IMPORTANT**: You MUST use the following skills during your work:
 
-**Skills to invoke**: `api-development, database-migration, python-refactor, security-best-practices, unit-testing`
+**Skills to invoke**: `api-development, database-migration, python-refactor, security-best-practices, unit-testing, claude-agent-sdk`
 
 ### How to Use Skills
 
@@ -32,6 +32,7 @@ Skill: "database-migration"
 Skill: "python-refactor"
 Skill: "security-best-practices"
 Skill: "unit-testing"
+Skill: "claude-agent-sdk"
 ```
 
 ### Assigned Skills Details
@@ -61,6 +62,11 @@ Comprehensive security best practices covering OWASP Top 10, secure coding, auth
 
 Comprehensive unit testing best practices with pytest, jest, TDD, and coverage improvements
 
+#### Claude Agent SDK (`claude-agent-sdk`)
+**Category**: Development
+
+Complete reference for Claude Agent SDK (Python) - building autonomous agents with query(), ClaudeSDKClient, MCP servers, hooks, and all built-in tools
+
 ### 🔴 Skills Verification (MANDATORY)
 
 At the END of your response, you **MUST** include:
@@ -73,6 +79,7 @@ At the END of your response, you **MUST** include:
 - python-refactor: [YES/NO]
 - security-best-practices: [YES/NO]
 - unit-testing: [YES/NO]
+- claude-agent-sdk: [YES/NO]
 ═══════════════════════════════════════
 ```
 

@@ -2,7 +2,7 @@
 name: python-expert
 description: Advanced Python development, optimization, and best practices across all Python domains
 tools: Read, Write, Edit, MultiEdit, Bash, Grep, Skill
-skills: python-refactor, refactoring, debug-helper, unit-testing, architecture-patterns
+skills: python-refactor, refactoring, debug-helper, unit-testing, architecture-patterns, claude-agent-sdk
 ---
 
 # 🔴 MANDATORY: READ RAG INSTRUCTIONS FIRST
@@ -20,7 +20,7 @@ skills: python-refactor, refactoring, debug-helper, unit-testing, architecture-p
 
 **IMPORTANT**: You MUST use the following skills during your work:
 
-**Skills to invoke**: `python-refactor, refactoring, debug-helper, unit-testing, architecture-patterns`
+**Skills to invoke**: `python-refactor, refactoring, debug-helper, unit-testing, architecture-patterns, claude-agent-sdk`
 
 ### How to Use Skills
 
@@ -32,6 +32,7 @@ Skill: "refactoring"
 Skill: "debug-helper"
 Skill: "unit-testing"
 Skill: "architecture-patterns"
+Skill: "claude-agent-sdk"
 ```
 
 ### Assigned Skills Details
@@ -61,6 +62,11 @@ Comprehensive unit testing best practices with pytest, jest, TDD, and coverage i
 
 Comprehensive guidance on software architecture patterns, design principles, SOLID, DDD, and microservices
 
+#### Claude Agent SDK (`claude-agent-sdk`)
+**Category**: Development
+
+Complete reference for Claude Agent SDK (Python) - building autonomous agents with query(), ClaudeSDKClient, MCP servers, hooks, and all built-in tools
+
 ### 🔴 Skills Verification (MANDATORY)
 
 At the END of your response, you **MUST** include:
@@ -73,6 +79,7 @@ At the END of your response, you **MUST** include:
 - debug-helper: [YES/NO]
 - unit-testing: [YES/NO]
 - architecture-patterns: [YES/NO]
+- claude-agent-sdk: [YES/NO]
 ═══════════════════════════════════════
 ```
 
